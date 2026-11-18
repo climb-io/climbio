@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="zh-Hant" data-ak-phone="app" data-climbio-theme="outdoor">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="../host-redirect.js"></script>
+<script src="../site.js"></script>   <!-- 站台設定：接不接後端（studio/backend.js 照 SITE.backend） -->
+<title>Climbio Studio</title>
+<meta name="description" content="Climbio Studio：整理室內人工岩場與天然岩場的 2D 照片、地圖與攀岩路線資料，將 3D 與岩點辨識研究留給 Climbio Lab。">
+<link rel="canonical" href="https://climbio.app/studio/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Climbio">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:url" content="https://climbio.app/studio/">
+<meta property="og:title" content="Climbio Studio">
+<meta property="og:description" content="整理戶外岩場的工作台：丟進一批照片，自動整理，輸出 Climbio 公開格式。">
+<meta property="og:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Climbio Studio">
+<meta name="twitter:description" content="整理戶外岩場的工作台：丟進一批照片，自動整理，輸出 Climbio 公開格式。">
+<meta name="twitter:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#F7F9FB">
+<link rel="icon" href="../icons/brand/favicon-64.png">
+<link rel="apple-touch-icon" href="../icons/brand/apple-touch-icon-180.png">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self' blob: https:; img-src 'self' data: blob: https://*.googleusercontent.com; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; frame-src 'self' https://*.web.app; object-src 'none'; base-uri 'self'; form-action 'self'">
+<script src="../appkit/recover.js"></script>
+<script src="../appkit/errors.js"></script>   <!-- 測試版的錯誤回報（正式版不送），越早載入越好 -->
+<link rel="stylesheet" href="../css/brand-tokens.css">
+<link rel="stylesheet" href="../appkit/ui.css">
+<link rel="stylesheet" href="shell.css">
+<script src="../appkit/landing.js"></script>   <!-- 手機照常打開，html 加 ak-handset：只匯入岩場站、接著編 Crag -->
+<style>
+  :root { --radius: 20px; --radius-sm: 14px; --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang TC", "Noto Sans TC", "Segoe UI", sans-serif; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.5 var(--font); }
+  button, input { font: inherit; color: inherit; }
+  [hidden] { display: none !important; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 40px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--surface-2); color: var(--text); font-weight: 600; text-decoration: none; cursor: pointer; white-space: nowrap; }
+  .btn:hover:not(:disabled) { background: var(--hover); }
+  .btn.primary { background: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover:not(:disabled) { background: var(--accent-hover); }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .btn.danger-fill { background: var(--danger); color: var(--on-danger); }
+  .field { background: var(--surface); border: 1px solid var(--control); border-radius: 12px; padding: 9px 12px; min-width: 0; font-size: 16px; }
+  .field:focus { border-color: var(--accent); outline: none; }
+  #top { display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
+  main { width: min(1120px, 100%); margin: 0 auto; padding: 28px 20px 56px; display: flex; flex-direction: column; gap: 26px; }
+  h2 { margin: 0 0 12px; font-size: 13px; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
+  #scan { display: flex; align-items: center; gap: 12px; }
+  #result { display: flex; flex-direction: column; gap: 18px; }
+  .name { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 13px; }
+  .name .field { color: var(--text); font-size: 15px; max-width: 420px; }
+  .btn.small { height: 30px; padding: 0 12px; font-size: 12.5px; }
+  #groupBox { display: flex; flex-direction: column; gap: 10px; }
+  .group-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .group-bar h2 { margin: 0 auto 0 0; }
+  .sel-count { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  #groupMap { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+  #groupMap .gm-head { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; color: var(--muted); }
+  #groupMap svg { width: 100%; height: 220px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); display: block; }
+  #groupMap .gm-wall { cursor: pointer; }
+  #groupMap .gm-wall:hover line.wall-seg { stroke-width: 5.5; }
+  .gcard.flash { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+  #groups { display: flex; flex-direction: column; gap: 10px; max-height: 560px; overflow: auto; padding: 2px; }
+  .gcard { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .ghead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .ghead input { font-weight: 700; font-size: 14.5px; padding: 4px 8px; border-radius: 8px; border: 1px solid transparent; background: transparent; min-width: 120px; max-width: 240px; }
+  .ghead input:hover, .ghead input:focus { border-color: var(--line-strong); background: var(--surface); outline: none; }
+  .ghead .gnote { font-size: 12.5px; color: var(--muted); margin-right: auto; }
+  .ggrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+  .pcard { position: relative; border-radius: 10px; border: 2px solid var(--line); background: var(--surface); overflow: hidden; display: flex; flex-direction: column; transition: opacity .15s, border-color .15s; }
+  .pcard.on { border-color: var(--accent); }
+  .pcard.off { opacity: .52; }
+  .pcard .thumb { position: relative; aspect-ratio: 4 / 3; background: var(--surface-2) center / cover no-repeat; cursor: zoom-in; }
+  .pcard .pcheck { position: absolute; left: 6px; top: 6px; width: 20px; height: 20px; accent-color: var(--accent); margin: 0; cursor: pointer; z-index: 1; }
+  .pcard .pbadge { position: absolute; right: 6px; top: 6px; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: rgba(16, 24, 32, .72); color: #fff; }
+  .pcard .pbadge.clean, #lbBadge.clean { background: rgba(20, 120, 70, .88); }
+  .pcard .pbadge.warn, #lbBadge.warn { background: rgba(196, 68, 28, .92); }
+  .pcard .pmeta { padding: 5px 6px; display: flex; align-items: center; gap: 4px; font-size: 12px; }
+  .pcard .pname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: zoom-in; }
+  .pcard select { font-size: 11.5px; padding: 1px 4px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface-2); max-width: 72px; }
+  #lightbox { position: fixed; inset: 0; z-index: 200; background: rgba(10, 16, 24, .88); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; user-select: none; }
+  #lbBar { width: min(960px, 100%); display: flex; align-items: center; gap: 10px; background: rgba(24, 32, 44, .92); color: #fff; padding: 8px 14px; border-radius: 999px; font-size: 13.5px; }
+  #lbBar label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 600; }
+  #lbBar input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; cursor: pointer; }
+  #lbBadge { font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; color: #fff; }
+  #lbTitle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(255,255,255,.85); }
+  #lbClose { border: 0; background: rgba(255,255,255,.14); color: #fff; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-weight: 700; }
+  #lbClose:hover { background: rgba(255,255,255,.26); }
+  #lbStage { position: relative; flex: 1; width: 100%; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: auto; }
+  #lbImg { max-width: min(92vw, 1280px); max-height: calc(100vh - 100px); object-fit: contain; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.5); cursor: zoom-in; transition: transform .15s ease; }
+  #lbImg.zoomed { max-width: none; max-height: none; width: min(180vw, 2200px); cursor: zoom-out; }
+  .lb-nav { position: fixed; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 50%; border: 0; background: rgba(24, 32, 44, .82); color: #fff; font-size: 24px; line-height: 1; cursor: pointer; display: grid; place-items: center; z-index: 201; }
+  .lb-nav:hover { background: rgba(40, 52, 70, .95); }
+  #lbPrev { left: 18px; }
+  #lbNext { right: 18px; }
+  #opts { display: flex; flex-direction: column; gap: 2px; }
+  .opt { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-radius: 10px; cursor: pointer; }
+  .opt:hover { background: var(--surface-2); }
+  .opt input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; margin: 0; }
+  .opt small { color: var(--muted); font-size: 12.5px; }
+  .row { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+  #manual { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  #manual button { text-align: left; padding: 14px 16px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--surface); cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+  #manual button:hover { border-color: var(--line-strong); background: var(--hover); }
+  #manual b { display: flex; align-items: center; gap: 8px; }
+  #manual span { color: var(--muted); font-size: 13px; }
+  .tag { flex: none; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--ws-soft); border: 1px solid var(--ws); color: var(--text); }
+  #recentBox .head { display: flex; align-items: center; gap: 8px; }
+  #recentBox .head h2 { margin-right: auto; }
+  #recent .warn { color: var(--danger); }
+  #recent { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+  #recent li { display: flex; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+  #recent .open { flex: 1; min-width: 0; display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: center; text-align: left; padding: 12px 14px; border: 0; background: none; cursor: pointer; }
+  #recent .open b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #recent .open small { grid-column: 2; color: var(--muted); }
+  #recent .del { border: 0; background: none; color: var(--muted); padding: 8px 12px; cursor: pointer; font-size: 13px; }
+  #recent .del:hover { color: var(--danger); }
+  /* Studio 起點：以工作區及使用者目標分類，格式判斷交給匯入器。 */
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); margin: 0; }
+  .workspace-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
+  .workspace { border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; background: var(--surface); min-width: 0; display: grid; gap: 14px; }
+  .workspace h2 { font-size: 23px; letter-spacing: -.02em; color: var(--text); margin: 0; }
+  .workspace p { margin: 0; color: var(--muted); line-height: 1.6; }
+  .workspace .ws-label { font-size: 12px; font-weight: 750; letter-spacing: .06em; color: var(--muted); }
+  .workspace.wall .ws-label { color: var(--climbio-brand-green-depth); }
+  .workspace.crag .ws-label { color: var(--brand-action); }
+  .workspace .panel { padding: 22px 18px; border-radius: 15px; }
+  .entry-drop { min-height: 168px; border: 2px dashed var(--line-strong); border-radius: 15px; background: var(--surface-2); display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px; padding: 22px 18px; text-align: center; }
+  .entry-drop.over, .entry-drop:focus-within { border-color: var(--accent); background: var(--accent-soft); }
+  .entry-drop b { font-size: 17px; }
+  .entry-drop span { color: var(--muted); font-size: 13px; }
+  .entry-drop .acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .entry-url { display: flex; gap: 8px; }
+  .entry-url .field { width: 100%; flex: 1; }
+  .entry-url button { flex: none; }
+  .entry-tip { font-size: 12px; margin: 0; }
+  .entry-tip:empty { display: none; }
+  .workspace details { border-top: 1px solid var(--line); padding-top: 14px; }
+  .workspace summary { cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 650; }
+  .workspace .secondary-actions { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+  #flowStage { scroll-margin-top: 20px; }
+  #flowStage[hidden] { display: none; }
+  #flowStage #scan, #flowStage #result { width: 100%; }
+  #recentBox { margin-bottom: 4px; }
+  @media (max-width: 800px) { .workspace-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 760px) { .workspace { padding: 20px; } main { padding: 20px 16px 42px; } }
+  @media (max-width: 410px) { .entry-url { flex-direction: column; } .entry-url button { width: 100%; } }
+  html.ak-handset #newCrag { display: none !important; }
+</style>
+</head>
+<body>
+<header id="top">
+  <a class="st-brand" href="../"><img src="../icons/brand/climbio-mark.svg" alt="Climbio">Studio</a>
+</header>
+<main>
+  <h1 class="sr">Studio</h1>
+  <section id="recentBox" hidden>
+    <div class="head"><h2 data-i18n="stRecentTitle">繼續編輯</h2></div>
+    <ul id="recent"></ul>
+  </section>
+  <section class="workspace-grid" aria-label="建立新專案" data-i18n-aria="stNewProject">
+    <article class="workspace wall" aria-labelledby="wallEntryTitle">
+      <h2 id="wallEntryTitle" data-i18n="stWallTitle">室內牆面</h2>
+      <div class="entry-drop">
+        <b data-i18n="stWallDrop">修好牆面的岩點</b>
+        <span data-i18n="stWallFormats">手機拍的牆 · 岩點貓公開的牆</span>
+        <div class="acts"><a id="wallStart" class="btn primary" href="wall/" data-i18n="stWallStart">開始</a></div>
+      </div>
+    </article>
+    <article class="workspace crag" aria-labelledby="cragEntryTitle">
+      <h2 id="cragEntryTitle" data-i18n="stCragTitle">天然岩場</h2>
+      <div id="cragDrop" class="entry-drop">
+        <b data-i18n="stDropGuidebook">把路線書放進來</b>
+        <span data-i18n="stDropFormats">Word · ZIP · 照片 · 網址</span>
+        <div class="acts">
+          <button id="cragFiles" type="button" class="btn primary" data-i18n="stChooseFiles">選擇檔案</button>
+          <button id="cragDir" type="button" class="btn" data-i18n="stChooseFolder">選資料夾</button>
+        </div>
+      </div>
+      <form id="cragUrlForm" class="entry-url" aria-label="從網址匯入岩場" data-i18n-aria="stImportFromUrl">
+        <input id="cragUrl" class="field" type="url" inputmode="url" autocomplete="url" placeholder="或貼上網址" data-i18n-ph="stPasteUrl" aria-label="岩場資料網址" data-i18n-aria="stCragUrl" required>
+        <button type="submit" class="btn" data-i18n="importData">匯入</button>
+      </form>
+      <p id="cragStatus" class="entry-tip" role="status" aria-live="polite"></p>
+      <details>
+        <summary data-i18n="stStartBlank">從空白開始</summary>
+        <div class="secondary-actions">
+          <button id="newCrag" type="button" class="btn small" data-i18n="stNewBlankCrag">建立空白岩場</button>
+        </div>
+      </details>
+    </article>
+  </section>
+  <section id="flowStage" hidden aria-label="匯入資料確認" data-i18n-aria="stReviewImport">
+    <div id="scan" class="panel" hidden><span class="ak-spin"></span><span id="scanMsg" data-i18n="stScanning">掃描中…</span></div>
+    <div id="result" class="panel" hidden>
+      <label class="name"><span data-i18n="stProjectName">專案名稱</span><input id="pjName" class="field" maxlength="60"></label>
+      <div id="groupBox">
+        <div class="group-bar">
+          <h2 data-i18n="stGroups">分組</h2>
+          <span id="selCount" class="sel-count"></span>
+          <button id="selectClean" type="button" class="btn small" data-i18n="stSelectClean">只選乾淨岩壁</button>
+          <button id="selectAll" type="button" class="btn small" data-i18n="stSelectAll">全選</button>
+          <button id="addGroup" type="button" class="btn small" data-i18n="stAddGroup">新增分組</button>
+        </div>
+        <div id="groupMap" hidden></div>
+        <div id="groups"></div>
+      </div>
+      <div><h2 data-i18n="stAutoProcess">自動處理</h2><div id="opts"></div></div>
+      <div class="row"><button id="cancel" class="btn" data-i18n="cancel">取消</button><button id="create" class="btn primary" data-i18n="stCreate">建立</button></div>
+    </div>
+  </section>
+</main>
+<div id="lightbox" role="dialog" aria-modal="true" aria-label="照片放大預覽" data-i18n-aria="stPhotoZoom" hidden>
+  <div id="lbBar">
+    <label><input id="lbCheck" type="checkbox"><span data-i18n="stInclude">納入處理</span></label>
+    <span id="lbBadge"></span>
+    <span id="lbTitle"></span>
+    <button id="lbClose" type="button" aria-label="關閉預覽" data-i18n-aria="stClosePreview"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <button id="lbPrev" type="button" class="lb-nav" aria-label="上一張" data-i18n-aria="stPrev"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+  <div id="lbStage"><img id="lbImg" alt="照片預覽" data-i18n-aria="stPhotoPreview"></div>
+  <button id="lbNext" type="button" class="lb-nav" aria-label="下一張" data-i18n-aria="stNext"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+</div>
+<input id="cragInput" type="file" accept="image/*,.heic,.heif,.zip,.docx,.html,.htm,.md,.txt,.geojson,.json,.csv,.tsv,.pdf" multiple hidden>
+<input id="cragFolderInput" type="file" webkitdirectory hidden>
+<script src="../appkit/i18n.js"></script>
+<script src="i18n-boot.js" data-packs="studio studio-crag studio-crag-data"></script>
+<script src="../appkit/photo.js"></script>
+<script src="../appkit/files.js"></script>
+<script src="../appkit/idb.js"></script>
+<script src="../appkit/ui.js"></script>
+<script src="../version.js"></script>
+<script src="shell.js"></script>
+<script src="store.js"></script>
+<script type="module" src="home.js"></script>
+</body>
+</html>

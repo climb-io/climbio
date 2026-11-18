@@ -1,0 +1,24 @@
+{
+ "climbio": 2,
+ "kind": "view",
+ "surface": "photo",
+ "id": "lisp3mi8clzxhqmo",
+ "name": "門簷",
+ "t": 1792903436019,
+ "license": "CC-BY-SA-4.0",
+ "attribution": "KK",
+ "origin": "self",
+ "href": "lisp3mi8clzxhqmo.webp",
+ "w": 2560,
+ "h": 1711,
+ "mime": "image/webp",
+ "sha256": "0e791275de9b7cbbc7a6ae11c9a1f21b70c98e4e9acac7b915578df6c92d44f4",
+ "props": {
+  "crop": {
+   "x": 273.152,
+   "y": 0.8555,
+   "w": 1614.08,
+   "h": 1479.3306
+  }
+ }
+}

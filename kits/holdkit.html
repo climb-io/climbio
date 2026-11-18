@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-Hant" data-climbio-theme="outdoor">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#F7F9FB">
+<meta name="description" content="偵測框變成岩點外框與顏色">
+<link rel="canonical" href="https://climbio.app/kits/holdkit.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Climbio">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:url" content="https://climbio.app/kits/holdkit.html">
+<meta property="og:title" content="HoldKit｜Climbio 元件">
+<meta property="og:description" content="偵測框變成岩點外框與顏色">
+<meta property="og:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="HoldKit｜Climbio 元件">
+<meta name="twitter:description" content="偵測框變成岩點外框與顏色">
+<meta name="twitter:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<title>HoldKit｜Climbio 元件</title>
+<link rel="icon" href="../icons/brand/favicon-brand.svg" type="image/svg+xml">
+<link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/kits/holdkit.html">
+<link rel="alternate" hreflang="en" href="https://climbio.app/kits/en/holdkit.html">
+<link rel="stylesheet" href="../css/brand-tokens.css">
+<link rel="stylesheet" href="../css/pages.css">
+</head>
+<body>
+<header class="pg-top"><a class="pg-brand" href="../"><img src="../icons/brand/climbio-mark.svg" alt=""><span>Climbio</span></a><span class="grow"></span><nav class="pg-nav" aria-label="所有元件"><a href="../">首頁</a><a href="../kits/">所有元件</a><a href="../kits/en/holdkit.html" hreflang="en" lang="en">English</a></nav></header>
+<main class="pg">
+  <div class="pg-hero">
+    <span class="pg-eyebrow">@climbio/holdkit · AGPL-3.0</span>
+    <h1>HoldKit</h1>
+    <p class="pg-lead">偵測框變成岩點外框與顏色</p>
+    <div class="pg-actions"><a class="pg-btn primary" href="https://github.com/climb-io/climbio/tree/main/holdkit">在 GitHub 看原始碼</a></div>
+  </div>
+  <section class="pg-section" aria-labelledby="what">
+    <h2 id="what">這是什麼</h2>
+    <p>拿到岩點的偵測框之後，HoldKit 幫你描出每顆岩點的真實外框、判斷它是什麼顏色、建議整面牆該裁哪一塊。外框還可以用 MobileSAM 再描得更貼，全部在你的程式裡完成，不綁任何 App。</p>
+  </section>
+  <section class="pg-section" aria-labelledby="points">
+    <h2 id="points">能做什麼</h2>
+    <div class="pg-grid">
+      <article class="pg-card"><span class="pg-num">1</span><h3>外框貼著岩點</h3><p>每個框各自分辨岩點和牆，抓不到時退回內切橢圓，結果一定有外框可用。</p></article>
+      <article class="pg-card"><span class="pg-num">2</span><h3>顏色名稱與同色判斷</h3><p>把岩點的代表色換成「紅、藍、蒂芬妮」這類名稱，也能判斷兩顆是不是同色。</p></article>
+      <article class="pg-card"><span class="pg-num">3</span><h3>可選的高精度重描</h3><p>用 MobileSAM 把外框描得更貼，在瀏覽器或服務上都能跑；基本分析完全不需要它。</p></article>
+    </div>
+  </section>
+  <section class="pg-section" aria-labelledby="install">
+    <h2 id="install">安裝</h2>
+    <pre><code>npm install @climbio/holdkit</code></pre>
+    <h2 id="example">最小範例</h2>
+    <pre><code>import HoldKit from &#39;@climbio/holdkit&#39;;
+
+const ana = HoldKit.analysis(photoCanvas, W, H);
+const ctx = HoldKit.outlineContext(ana, boxes);
+const poly = HoldKit.simplifyPoly(HoldKit.boxToPoly(...boxes[0], ctx));
+const crop = HoldKit.cropSuggest(boxes, W, H);</code></pre>
+  </section>
+  <section class="pg-section" aria-labelledby="notes">
+    <h2 id="notes">授權與限制</h2>
+    <p class="pg-note">AGPL-3.0，岩館與開源專案可以免費使用；打包進自己的前端時，那部分要照 AGPL 開放原始碼。照片到偵測框要另外做（Climbio 的 HoldScan 是 AGPL-3.0）；MobileSAM 重描可以在瀏覽器裡跑（第一次下載約 44 MB 模型），也可以自己架服務或使用 Climbio 的雲端加速。</p>
+    <p class="pg-muted"><a href="../kits/">所有元件</a> · <a href="https://github.com/climb-io/climbio/tree/main/holdkit">GitHub</a> · 給 AI 讀的說明在 GitHub 的 README.md</p>
+  </section>
+  <footer class="pg-foot"><span>Climbio · 所有元件</span><a href="../">首頁</a></footer>
+</main>
+</body>
+</html>

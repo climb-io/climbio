@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TopoKit 範例</title>
+<!-- 用靜態伺服器從 repo 根目錄打開：python3 -m http.server，再開 /topokit/demo.html（不能用 file://，瀏覽器不讓它讀 JSON）。
+     載入 format/examples 的騙人的牆（topo.json 照片畫面、topo-routes.json 路線圖層、set.json 裡的路線名稱與難度）；不需要 npm、建置工具或任何套件。 -->
+<style>
+  :root { --bg: #111214; --ink: #eee; --line: #2a2b2f; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 12px; background: var(--bg); color: var(--ink); font: 14px/1.5 system-ui, -apple-system, 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif; }
+  h1 { font-size: 16px; margin: 0 0 8px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; align-items: center; }
+  button { padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: none; color: inherit; font: inherit; cursor: pointer; }
+  button[aria-pressed="true"] { background: #fff; color: #000; }
+  button:disabled { opacity: 0.35; cursor: default; }
+  .main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  @media (min-width: 900px) { .main { grid-template-columns: minmax(0, 1fr) 280px; } }
+  climbio-topo { height: 70vh; background: #000; border-radius: 8px; overflow: hidden; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li button { width: 100%; text-align: left; margin-bottom: 4px; }
+  pre { white-space: pre-wrap; word-break: break-all; background: #000; padding: 8px; border-radius: 8px; font-size: 12px; max-height: 24vh; overflow: auto; }
+  #err { color: #f87171; }
+</style>
+</head>
+<body>
+<h1>TopoKit：看圖、畫線、編輯、復原</h1>
+<p id="err" hidden></p>
+<div class="bar" id="modes" role="group" aria-label="模式">
+  <button data-mode="view" aria-pressed="true">看圖</button>
+  <button data-mode="edit" aria-pressed="false">編輯</button>
+</div>
+<div class="bar" id="tools" role="toolbar" aria-label="編輯工具" hidden>
+  <button id="undo" disabled>復原</button>
+  <button id="redo" disabled>重做</button>
+  <button data-tool="select" aria-pressed="false">選取</button>
+  <button data-tool="line" aria-pressed="true">畫線</button>
+  <button data-tool="bolt" aria-pressed="false">Bolt</button>
+  <button data-tool="number" aria-pressed="false">號碼</button>
+  <button id="fork" disabled>分岔</button>
+  <button id="del" disabled>刪除點</button>
+  <button id="add">新路線</button>
+</div>
+<div class="main">
+  <climbio-topo id="topo" bolts></climbio-topo>
+  <div>
+    <ul id="routes"></ul>
+  </div>
+</div>
+<pre id="out">編輯後的圖層（change 事件）會出現在這裡</pre>
+<script type="module">
+  import './element.js';
+
+  const $ = (s) => document.querySelector(s);
+  const el = $('#topo');
+  const err = $('#err');
+  const base = '../format/examples/';
+  const get = async (f) => {
+    const res = await fetch(base + f);
+    if (!res.ok) throw new Error(`HTTP ${res.status}：${f}`);
+    return res.json();
+  };
+
+  let tool = 'line';
+  let count = 0;
+
+  function refreshRoutes() {
+    const v = el.viewer;
+    $('#routes').replaceChildren(...(v?.routes ?? []).map((r) => {
+      const li = document.createElement('li');
+      const b = document.createElement('button');
+      b.textContent = `${r.label ?? '·'}　${r.name ?? r.id}　${r.grade ?? ''}`;
+      b.setAttribute('aria-pressed', String(r.id === v.options.highlight));
+      b.addEventListener('click', () => (el.editor ? el.editor.select(r.id) : v.select(r.id)));
+      li.append(b);
+      return li;
+    }));
+  }
+
+  function refreshTools() {
+    const e = el.editor;
+    $('#undo').disabled = !e?.canUndo;
+    $('#redo').disabled = !e?.canRedo;
+    $('#fork').disabled = !e?.canFork;
+    $('#del').disabled = !e?.picked;
+    for (const b of document.querySelectorAll('[data-tool]')) b.setAttribute('aria-pressed', String(b.dataset.tool === (e?.tool ?? tool)));
+    refreshRoutes();
+  }
+
+  // 範例的線段沒有編號牌的文字：依順序補上（標註的 props.label）
+  function numbered(layer) {
+    let n = 0;
+    return { ...layer, marks: layer.marks.map((m) => (m.geometry.type === 'LineString' ? { ...m, props: { ...m.props, label: String(++n) } } : m)) };
+  }
+
+  function bind() {
+    for (const type of ['ready', 'select', 'history', 'selectpoint', 'tool', 'pick']) el.addEventListener(type, refreshTools);
+    el.addEventListener('change', (e) => {
+      $('#out').textContent = JSON.stringify(e.detail.layer, null, 1);
+      refreshTools();
+    });
+  }
+
+  try {
+    const [view, layer, set] = await Promise.all([get('topo.json'), get('topo-routes.json'), get('set.json')]);
+    el.data = { view, layers: [numbered(layer)], nodes: set.nodes };
+    bind();
+    el.setAttribute('lang', 'zh-Hant');
+    refreshTools();
+  } catch (e) {
+    err.hidden = false;
+    err.textContent = String(e.message ?? e);
+  }
+
+  $('#modes').addEventListener('click', (e) => {
+    const mode = e.target.closest('[data-mode]')?.dataset.mode;
+    if (!mode) return;
+    el.setAttribute('mode', mode);
+    if (mode === 'edit') el.setAttribute('tool', tool);
+    for (const b of document.querySelectorAll('[data-mode]')) b.setAttribute('aria-pressed', String(b.dataset.mode === mode));
+    $('#tools').hidden = mode !== 'edit';
+    refreshTools();
+  });
+  $('#tools').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-tool]')?.dataset.tool;
+    if (t) (tool = t), el.editor.setTool(t);
+  });
+  $('#undo').addEventListener('click', () => el.editor.undo());
+  $('#redo').addEventListener('click', () => el.editor.redo());
+  $('#fork').addEventListener('click', () => el.editor.fork());
+  $('#del').addEventListener('click', () => el.editor.deletePicked());
+  $('#add').addEventListener('click', () => {
+    el.editor.addRoute({ label: String(100 + ++count), name: `新路線 ${count}`, kind: 'sport' });
+    el.editor.setTool('line');
+  });
+</script>
+</body>
+</html>

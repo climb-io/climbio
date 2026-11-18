@@ -1,0 +1,98 @@
+{
+ "climbio": 2,
+ "kind": "set",
+ "type": "crag",
+ "id": "4on8pm04b9psonxr",
+ "name": {
+  "zh-Hant": "龍洞",
+  "en": "Long Dong"
+ },
+ "t": 1793236138552,
+ "license": "CC-BY-SA-4.0",
+ "attribution": "臺灣戶外攀岩協會（TOCC）固定點更新計畫",
+ "source": {
+  "url": "https://longdong.web.app/data/longdong.json",
+  "version": "f8e35c2a05d5"
+ },
+ "items": [
+  {
+   "href": "4kz5qisexkhlur3k.json",
+   "id": "4kz5qisexkhlur3k",
+   "name": {
+    "zh-Hant": "後門",
+    "en": "Back Door"
+   }
+  },
+  {
+   "href": "8fvwwwwu33h0ou39.json",
+   "id": "8fvwwwwu33h0ou39",
+   "name": {
+    "zh-Hant": "校門口",
+    "en": "School Gate"
+   }
+  }
+ ],
+ "nodes": [
+  {
+   "id": "uxurq29xdlaqhy7c",
+   "type": "crag",
+   "name": {
+    "zh-Hant": "龍洞",
+    "en": "Long Dong"
+   },
+   "props": {
+    "code": "longdong",
+    "longdong:hardware": [
+     {
+      "code": "304-FX",
+      "description": "304 - Fixe"
+     },
+     {
+      "code": "304-PC",
+      "description": "304 - Petzl - Collinox"
+     },
+     {
+      "code": "304-PB",
+      "description": "304 - Petzl - Batinox"
+     },
+     {
+      "code": "304-P38",
+      "description": "304 - Petzl - Long Life"
+     },
+     {
+      "code": "304-AA",
+      "description": "304 - AustriAlpin"
+     },
+     {
+      "code": "304-EXP",
+      "description": "304 - Expansion Bolt"
+     },
+     {
+      "code": "316-TW",
+      "description": "316 - 臺製"
+     },
+     {
+      "code": "316-FX",
+      "description": "316 - Fixe"
+     },
+     {
+      "code": "Ti-TW",
+      "description": "Ti - 臺製"
+     },
+     {
+      "code": "Ti-ETN",
+      "description": "Ti - Titan Climbing - Eterna"
+     },
+     {
+      "code": "Ti-U",
+      "description": "Ti - Titan Climbing - U形"
+     },
+     {
+      "code": "Ti-TTG",
+      "description": "Ti - Ushba - Tortuga"
+     }
+    ]
+   }
+  }
+ ]
+}

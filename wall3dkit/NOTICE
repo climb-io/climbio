@@ -1,0 +1,7 @@
+Wall3DKit（室內 3D 牆的載入、繪製、沿牆鏡頭與烘焙）
+Copyright (c) 2026 Climbio 貢獻者（Climbio contributors）
+
+本資料夾以 GNU AGPL-3.0 授權（見 LICENSE）。
+它是 Climbio（AGPL-3.0）的一部分，可以單獨拿去用，使用時須遵守 AGPL-3.0。
+
+vendor/three.js 是 three.js r180（MIT，含 GLTFLoader）與 three-mesh-bvh 0.9.18（MIT）用 esbuild 打包成的單一模組，兩份 MIT 授權全文在 vendor/three-LICENSE.txt。

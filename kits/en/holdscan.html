@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en" data-climbio-theme="outdoor">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#F7F9FB">
+<meta name="description" content="Find every hold in a wall photo">
+<link rel="canonical" href="https://climbio.app/kits/en/holdscan.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Climbio">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="https://climbio.app/kits/en/holdscan.html">
+<meta property="og:title" content="HoldScan | Climbio kits">
+<meta property="og:description" content="Find every hold in a wall photo">
+<meta property="og:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="HoldScan | Climbio kits">
+<meta name="twitter:description" content="Find every hold in a wall photo">
+<meta name="twitter:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<title>HoldScan | Climbio kits</title>
+<link rel="icon" href="../../icons/brand/favicon-brand.svg" type="image/svg+xml">
+<link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/kits/holdscan.html">
+<link rel="alternate" hreflang="en" href="https://climbio.app/kits/en/holdscan.html">
+<link rel="stylesheet" href="../../css/brand-tokens.css">
+<link rel="stylesheet" href="../../css/pages.css">
+</head>
+<body>
+<header class="pg-top"><a class="pg-brand" href="../../en/"><img src="../../icons/brand/climbio-mark.svg" alt=""><span>Climbio</span></a><span class="grow"></span><nav class="pg-nav" aria-label="All kits"><a href="../../en/">Home</a><a href="../../kits/en/">All kits</a><a href="../../kits/holdscan.html" hreflang="zh-Hant" lang="zh-Hant">繁體中文</a></nav></header>
+<main class="pg">
+  <div class="pg-hero">
+    <span class="pg-eyebrow">Not published to npm yet · AGPL-3.0</span>
+    <h1>HoldScan</h1>
+    <p class="pg-lead">Find every hold in a wall photo</p>
+    <div class="pg-actions"><a class="pg-btn primary" href="https://github.com/climb-io/climbio/tree/main/holdscan">View source on GitHub</a></div>
+  </div>
+  <section class="pg-section" aria-labelledby="what">
+    <h2 id="what">What it is</h2>
+    <p>Give HoldScan a climbing-wall photo and it returns where each hold is. It can run right in a phone browser so the photo never leaves the phone, be hosted as your own service, or analyze fixed wall photos offline on a computer into hold data.</p>
+  </section>
+  <section class="pg-section" aria-labelledby="points">
+    <h2 id="points">What it does</h2>
+    <div class="pg-grid">
+      <article class="pg-card"><span class="pg-num">1</span><h3>Detect on the phone</h3><p>The model runs in the browser: no server and no photo upload.</p></article>
+      <article class="pg-card"><span class="pg-num">2</span><h3>Host it yourself</h3><p>One container is enough, no Firebase needed, and a larger input size catches small holds in busy photos.</p></article>
+      <article class="pg-card"><span class="pg-num">3</span><h3>Offline whole-wall analysis</h3><p>One command turns a photo into hold outlines and route data, ideal for walls a gym manages itself.</p></article>
+    </div>
+  </section>
+  <section class="pg-section" aria-labelledby="install">
+    <h2 id="install">Install</h2>
+    <pre><code>No npm package: copy the holdscan/ folder (the browser build also needs holdkit/ort.js)</code></pre>
+    <h2 id="example">Minimal example</h2>
+    <pre><code>&lt;script src=&quot;holdscan/browser/holdscan.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+  HoldScan.warm();
+  const { boxes } = await HoldScan.detect(canvas);
+  // boxes: [[x0, y0, x1, y1, score], ...]
+&lt;/script&gt;</code></pre>
+  </section>
+  <section class="pg-section" aria-labelledby="notes">
+    <h2 id="notes">License and limits</h2>
+    <p class="pg-note">AGPL-3.0, as the detection model requires: if you run a modified version as a network service you must publish your source. Hold data it produces is not covered by the AGPL; use HoldKit when you only need outline analysis.</p>
+    <p class="pg-muted"><a href="../../kits/en/">All kits</a> · <a href="https://github.com/climb-io/climbio/tree/main/holdscan">GitHub</a> · Machine-readable docs are the README.md files on GitHub</p>
+  </section>
+  <footer class="pg-foot"><span>Climbio · All kits</span><a href="../../en/">Home</a></footer>
+</main>
+</body>
+</html>

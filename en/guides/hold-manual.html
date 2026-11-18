@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en" data-climbio-theme="outdoor">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#F7F9FB">
+<meta name="description" content="Hold Cat guide: install, add a wall, detect and correct holds, set routes, view routes, log sends, share, back up.">
+<link rel="canonical" href="https://climbio.app/en/guides/hold-manual.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Climbio">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="https://climbio.app/en/guides/hold-manual.html">
+<meta property="og:title" content="Hold Cat guide">
+<meta property="og:description" content="From photographing a wall to sharing a route.">
+<meta property="og:image" content="https://climbio.app/icons/cats/hold-cat-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Hold Cat guide">
+<meta name="twitter:description" content="From photographing a wall to sharing a route.">
+<meta name="twitter:image" content="https://climbio.app/icons/cats/hold-cat-512.png">
+<title>Hold Cat guide | Climbio</title>
+<link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/guides/hold-manual.html">
+<link rel="alternate" hreflang="en" href="https://climbio.app/en/guides/hold-manual.html">
+<link rel="icon" href="../../icons/cats/hold-cat.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../css/brand-tokens.css">
+<link rel="stylesheet" href="../../css/pages.css">
+<style>
+.pg.doc .pg-steps { padding-left: 0; }
+.pg-hero { padding-bottom: 8px; }
+.toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; }
+.toc a { padding: 6px 14px; border-radius: 999px; background: var(--pg-surface); border: 1px solid var(--pg-line); color: var(--pg-text); text-decoration: none; font-size: 14px; font-weight: 600; }
+.toc a:hover { border-color: var(--pg-accent); }
+.pg-scroll { border: 1px solid var(--pg-line); border-radius: var(--pg-radius-sm); }
+.pg-scroll table { margin: 0; }
+</style>
+</head>
+<body>
+<header class="pg-top"><a class="pg-brand" href="../../en/"><img src="../../icons/brand/climbio-mark.svg" alt=""><span>Climbio</span></a><span class="grow"></span><nav class="pg-nav" aria-label="Related pages"><a href="../../hold/">Open Hold Cat</a><a href="hold.html">How it works</a><a href="../../studio/">Studio</a><a href="../../guides/hold-manual.html" hreflang="zh-Hant" lang="zh-Hant">繁體中文</a></nav></header>
+<main class="pg doc" id="main">
+<header class="pg-hero">
+<h1>Hold Cat guide</h1>
+<p class="pg-lead">Photograph the wall, set your own routes.</p>
+<div class="pg-actions"><a class="pg-btn primary" href="../../hold/">Open Hold Cat</a></div>
+</header>
+
+<section class="pg-section" id="quick-start" aria-labelledby="quick-title">
+<h2 id="quick-title">First time</h2>
+<ol class="pg-steps">
+<li><strong>Photograph</strong>: tap +, take a photo or pick one from your library, and crop to the wall.</li>
+<li><strong>Detect</strong>: wait for the holds to be found; long-press to add any that were missed while setting a route.</li>
+<li><strong>Set a route</strong>: pick a grade, a start and a finish. Then you can view and share it.</li>
+</ol>
+<nav class="toc" aria-label="Guide contents">
+<a href="#install">Install</a><a href="#wall">Add a wall</a><a href="#detect">Auto-detection</a><a href="#adjust">Fix holds</a><a href="#route">Set a route</a><a href="#view">View a route</a><a href="#logs">Sends</a><a href="#share">Share</a><a href="#nearby">Nearby transfer</a><a href="#devices">My devices</a><a href="#discover">Find walls</a><a href="#backup">Backup</a><a href="#offline">Offline</a><a href="#lab">3D</a><a href="#faq">FAQ</a>
+</nav>
+</section>
+
+<section class="pg-section" id="install" aria-labelledby="install-title">
+<h2 id="install-title">Install</h2>
+<p>Hold Cat is a web app (PWA) that opens on phones, tablets and computers. No sign-in and no prior install are needed.</p>
+<div class="pg-grid two">
+<div class="pg-card"><h3>iPhone / iPad</h3><p>Open <a href="../../hold/">Hold Cat</a> in Safari, tap Share, then Add to Home Screen.</p></div>
+<div class="pg-card"><h3>Android</h3><p>Open Hold Cat in Chrome and choose Install or Add to Home screen.</p></div>
+</div>
+<p class="pg-muted">In-app browsers such as LINE may restrict file picking, storage and installing. Use Safari or Chrome instead.</p>
+<p class="pg-note">Data is stored mainly in the app or browser on the current device. A different browser or another phone does not see the same data.</p>
+</section>
+
+<section class="pg-section" id="wall" aria-labelledby="wall-title">
+<h2 id="wall-title">Add a wall</h2>
+<ol class="pg-steps">
+<li>Tap + on the home screen, then take a photo or pick one from your library.</li>
+<li>Crop so the wall you want to climb stays in frame.</li>
+<li>Tap Done and wait for detection to finish.</li>
+<li>Confirm the gym and wall name. You can change them later.</li>
+</ol>
+<p>The phone uses the location in the photo to suggest nearby gyms. If there is no location, no permission, or no gym nearby, just pick one yourself.</p>
+<p class="pg-muted">Photos with clear holds, decent light and little glare detect best. For a very wide wall, use Studio to handle several photos.</p>
+</section>
+
+<section class="pg-section" id="detect" aria-labelledby="detect-title">
+<h2 id="detect-title">Auto-detection</h2>
+<p>Hold Cat analyzes the cropped photo and outlines each hold, then goes straight to route setting.</p>
+<ul>
+<li>Large volumes, shadows and occluded areas may be missed or misread; you can fix them by hand.</li>
+<li>A first result appears quickly; refined outlines may need to load a model or go online.</li>
+<li>If it fails, follow the prompt and retry. There is no need to retake the photo.</li>
+</ul>
+<p class="pg-note">Loading the model for the first time, refined outlines and sharing need a connection.</p>
+</section>
+
+<section class="pg-section" id="adjust" aria-labelledby="adjust-title">
+<h2 id="adjust-title">Fix holds</h2>
+<p>In the route screen, long-press a hold: on a detected hold it opens editing, and on a missed spot it adds a hold.</p>
+<ol class="pg-steps">
+<li>Long-press the hold to fix; the view zooms in nearby.</li>
+<li>Let the app re-trace the outline, or drag the control points of the outline yourself.</li>
+<li>Confirm, undo or delete with the floating tools.</li>
+</ol>
+<p class="pg-muted">When holds are close or overlapping, zoom in before selecting. Editing is limited while outlines are still processing in the background.</p>
+</section>
+
+<section class="pg-section" id="route" aria-labelledby="route-title">
+<h2 id="route-title">Set a route</h2>
+<ol class="pg-steps">
+<li>On the wall page, tap + or tap the wall photo.</li>
+<li>Pick a grade, then switch the type below: <strong>Start, Hand, Finish, Foot</strong>.</li>
+<li>Tap holds on the photo to add them to the route; tap again to change the type or remove.</li>
+<li>A start and a finish are required to complete the route. The name can come later.</li>
+</ol>
+<p>A route can have at most two start holds. To note the move order, switch to Sequence and tap holds in order of movement; the same hold can be reused at different steps.</p>
+<p class="pg-muted">To change your own route, open it from the wall card or the route view. For a shared route you cannot edit directly, create your own version.</p>
+</section>
+
+<section class="pg-section" id="view" aria-labelledby="view-title">
+<h2 id="view-title">View a route</h2>
+<p>On the wall page, tap a route to open the full-screen route view.</p>
+<div class="pg-scroll"><table><thead><tr><th>Gesture</th><th>Effect</th></tr></thead><tbody>
+<tr><td>Swipe left or right</td><td>Previous or next route (when the photo is zoomed in, it moves the photo first)</td></tr>
+<tr><td>Pinch</td><td>Zoom in on dense holds; pan once zoomed</td></tr>
+<tr><td>Double-tap the photo</td><td>Zoom in at that spot; double-tap again to reset</td></tr>
+<tr><td>Grayscale / Dim color</td><td>Reduce background distraction</td></tr>
+<tr><td>Swipe down or top-left back</td><td>Return to the wall and route list</td></tr>
+<tr><td>Pencil icon</td><td>Edit the route</td></tr>
+</tbody></table></div>
+<p class="pg-muted">Switching across photos appears only when the data links them.</p>
+</section>
+
+<section class="pg-section" id="logs" aria-labelledby="logs-title">
+<h2 id="logs-title">Send log</h2>
+<p>In the route view, tap the check at the bottom right to mark a send; tap again to undo. It is only sent or not sent: no attempt count, date or flash.</p>
+<p>The wall list can be filtered by sent or not sent, and sorted by grade or time. Logs are stored on this device; signing in does not sync them automatically.</p>
+</section>
+
+<section class="pg-section" id="share" aria-labelledby="share-title">
+<h2 id="share-title">Share</h2>
+<p>Once a route is done, you can share the route image or a link. Images suit group chats; to give someone a wall and routes they can work with, use the app's share or publish options.</p>
+<ul>
+<li><strong>Received a friend's link:</strong> check the source and contents first, then add it to your device.</li>
+<li><strong>Public links:</strong> share a supported route link with others; for a private handoff in person, use Nearby transfer instead.</li>
+</ul>
+<p class="pg-note">Sharing a wall does not expose the whole phone's data. Before going public, check photo credit, the gym's consent and privacy.</p>
+</section>
+
+<section class="pg-section" id="nearby" aria-labelledby="nearby-title">
+<h2 id="nearby-title">Send to others (Nearby transfer)</h2>
+<ol class="pg-steps">
+<li>Connect both devices to the same Wi-Fi that permits device-to-device connections. Open Hold Cat and tap the nearby-transfer icon at the top right of Find walls.</li>
+<li>Select one or more nearby people and the walls to send, then tap Send to N people.</li>
+<li>Recipients tap Accept to receive the wall photo, holds and routes directly on their devices, or decline the request.</li>
+</ol>
+<p>No pairing is required. A received wall stays local and is not automatically published. Your send history, settings and device keys are not shared with other climbers.</p>
+<p class="pg-note">Guest Wi-Fi may block direct connections. QR-code connection is a fallback only when the discovery service is not configured or cannot be reached; it does not appear simply because nobody is nearby.</p>
+</section>
+
+<section class="pg-section" id="devices" aria-labelledby="devices-title">
+<h2 id="devices-title">My devices (two-way sync)</h2>
+<ol class="pg-steps">
+<li>On both devices, open Avatar → Sync to other devices → Add new device.</li>
+<li>Choose the other device, compare the four-digit codes shown on both screens, and tap Confirm on each.</li>
+<li>After pairing, missing or newer walls, routes and send records sync automatically. Watch the Syncing and Synced statuses; there is no manual Send button.</li>
+</ol>
+<p>Pair once, then reopen <strong>My devices on both devices while they can connect directly on the same network</strong> whenever you want to sync. Signing in or leaving the app in the background does not sync data.</p>
+<p class="pg-note">Your own devices also exchange route-editing credentials. For 3D walls only the routes are synchronized; download models separately. Deletions do not sync and send records only accumulate. Use a local backup when direct connection is unavailable. Pair Hold Cat and Red Dot Cat separately.</p>
+</section>
+
+<section class="pg-section" id="discover" aria-labelledby="discover-title">
+<h2 id="discover-title">Find walls</h2>
+<p>If the + menu on the home screen has Find walls, you can browse public gyms and walls; download a wall and it appears on the home screen. The list includes only walls with public data, and downloading needs a connection.</p>
+</section>
+
+<section class="pg-section" id="backup" aria-labelledby="backup-title">
+<h2 id="backup-title">Backup and switching phones</h2>
+<p>Walls, routes, hold edits and send logs are stored mainly on the device. Back up your data as a local <code>.climbio</code> file or use My devices on the same network.</p>
+<ol class="pg-steps">
+<li>On the old device, choose Back up data and save the <code>.climbio</code> file locally.</li>
+<li>On the new device, choose Restore data and select that <code>.climbio</code> backup file.</li>
+<li>Check that photos, routes and sends are correct before clearing the old device.</li>
+</ol>
+<p class="pg-muted">A regular browser tab and the home-screen install may use different storage. Do not clear site data before you have a backup.</p>
+</section>
+
+<section class="pg-section" id="offline" aria-labelledby="offline-title">
+<h2 id="offline-title">Offline and updates</h2>
+<ul>
+<li><strong>Works offline:</strong> saved photos and routes.</li>
+<li><strong>Needs a connection:</strong> loading the detection model the first time, some refined outlines, public sharing and receiving public walls.</li>
+<li><strong>Updates:</strong> the new version is fetched when online; back up before updating.</li>
+</ul>
+<p class="pg-muted">If a download or save fails, check the connection, permissions and device storage first.</p>
+</section>
+
+<section class="pg-section" id="lab" aria-labelledby="lab-title">
+<h2 id="lab-title">3D and experimental features</h2>
+<p>The main flow is based on 2D photos; you do not need to wait for 3D. 3D reconstruction and detection research lives in <a href="../../lab/">Climbio Lab</a>; bulk photo organizing and formal publishing use <a href="../../studio/">Studio</a>. To shoot photos for 3D, see <a href="shoot-3d.html">How to shoot 3D photos</a>.</p>
+</section>
+
+<section class="pg-section" id="faq" aria-labelledby="faq-title">
+<h2 id="faq-title">FAQ</h2>
+<details class="pg-more"><summary>Not all holds were found</summary><p>Check the crop and sharpness first. Then, in the route screen, long-press a missed spot to add a hold, or long-press a misdetected hold to fix its outline.</p></details>
+<details class="pg-more"><summary>Why does it download a model?</summary><p>Detection and outline refinement may use different models, loaded on first use or when a model updates. Some refined features also need a connection.</p></details>
+<details class="pg-more"><summary>Can I save a photo with no routes?</summary><p>Yes. The wall is saved on the device first and you can set routes later. If detection fails, you do not need to retake the photo.</p></details>
+<details class="pg-more"><summary>How do I edit my own route?</summary><p>Open it from the route card on the wall page or the pencil icon in the route view. To adjust holds, long-press in the route screen.</p></details>
+<details class="pg-more"><summary>My old walls are missing after switching phones</summary><p>Data is stored locally. Pair and sync while both devices have My devices open on the same direct-connect network; otherwise restore a local <code>.climbio</code> backup. Check the new device before erasing the old one.</p></details>
+<details class="pg-more"><summary>Can't find nearby gyms or public walls</summary><p>Gym suggestions depend on location and permission, and the public list does not cover every gym. Pick a gym manually, or just photograph a wall to create your own.</p></details>
+<details class="pg-more"><summary>Want to organize many photos, stitch walls or build 3D</summary><p>Use <a href="../../studio/">Studio</a> for bulk editing; see <a href="../../lab/">Lab</a> for 3D and detection research.</p></details>
+</section>
+
+<footer class="pg-foot"><span>Climbio · Hold Cat guide</span><span><a href="#main">Back to top</a> · <a href="hold.html">How it works</a> · <a href="../../kits/">Advanced interaction spec</a> · <a href="../../en/">Home</a></span></footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-Hant" data-climbio-theme="outdoor">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https://climbio-redpoint-demo.web.app; base-uri 'self'; form-action 'none'">
+<meta name="theme-color" content="#0E1722">
+<link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/">
+<link rel="alternate" hreflang="en" href="https://climbio.app/en/">
+<meta name="description" content="Climbio 的岩點貓與紅點貓：室內拍岩牆自己定線，戶外收藏岩場、離線看 Topo。路線、照片和 Topo 用同一份開放格式，人看得懂，AI 也讀得懂。">
+<link rel="canonical" href="https://climbio.app/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Climbio">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:url" content="https://climbio.app/">
+<meta property="og:title" content="Climbio｜室內定線，戶外找線">
+<meta property="og:description" content="岩點貓幫你定室內路線，紅點貓幫你把戶外岩場帶進手機。">
+<meta property="og:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Climbio｜室內定線，戶外找線">
+<meta name="twitter:description" content="岩點貓幫你定室內路線，紅點貓幫你把戶外岩場帶進手機。">
+<meta name="twitter:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<title>Climbio｜室內定線，戶外找線</title>
+<link rel="icon" href="icons/brand/favicon-brand.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/brand/apple-touch-icon-180.png">
+<script src="host-redirect.js"></script>
+<script src="entry.js"></script>
+<link rel="stylesheet" href="css/brand-tokens.css">
+<link rel="stylesheet" href="css/pages.css">
+<link rel="stylesheet" href="css/home.css">
+<script src="home.js" defer></script>
+</head>
+<body class="home">
+<header class="pg-top site-header home-top on-dark">
+  <a class="pg-brand" href="#apps" aria-label="Climbio 首頁"><span class="mark-live"><img src="icons/brand/climbio-mark.svg" alt=""><svg viewBox="0 0 320 300" aria-hidden="true"><path d="M157 75 C 222 92, 150 190, 215 207"/></svg></span><span>Climbio</span></a>
+  <span class="grow"></span>
+  <nav class="pg-nav navigation" aria-label="頁面導覽">
+    <a href="#apps">兩款 App</a>
+    <a href="#redpoint-data">岩場資料</a>
+    <a href="#studio">Studio</a>
+    <a class="nav-developer" href="#developer">開發者</a>
+    <a href="en/" hreflang="en" lang="en">English</a>
+  </nav>
+</header>
+<main class="pg home">
+  <section class="pg-section section apps hero" id="apps" aria-labelledby="apps-heading">
+    <svg class="flow-field" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs><linearGradient id="fieldGrad" x1="0" x2="1"><stop offset="0" stop-color="#B6F000"/><stop offset="1" stop-color="#0FADEA"/></linearGradient></defs>
+      <path d="M-40 120 C 240 40, 420 260, 720 170 S 1180 40, 1480 150"/>
+      <path d="M-40 210 C 300 150, 520 330, 820 250 S 1220 150, 1480 240"/>
+      <path d="M-40 300 C 200 260, 460 420, 760 340 S 1160 260, 1480 330"/>
+      <path d="M-40 390 C 280 330, 540 520, 840 430 S 1240 360, 1480 420"/>
+      <path d="M-40 480 C 220 450, 480 600, 780 520 S 1200 450, 1480 510"/>
+      <path d="M-40 570 C 300 520, 560 700, 860 610 S 1260 540, 1480 600"/>
+      <path d="M-40 660 C 240 630, 500 780, 800 700 S 1220 640, 1480 690"/>
+      <path d="M-40 750 C 320 700, 580 880, 880 790 S 1280 730, 1480 780"/>
+      <path d="M-40 840 C 260 820, 520 960, 820 880 S 1240 830, 1480 870"/>
+    </svg>
+    <div class="pg-hero" data-flow-node>
+      <span class="pg-eyebrow">Climbio · 開放的攀岩平台</span>
+      <h1 id="apps-heading">室內定線，<span class="flowing">戶外找線</span></h1>
+      <p class="pg-lead">岩點貓把室內岩牆變成你的路線，紅點貓把天然岩場帶進手機。照片、路線和 Topo 用同一份開放格式：人看得懂，AI 也讀得懂。</p>
+    </div>
+    <nav class="app-shortcuts" aria-label="選擇攀岩 App">
+      <a href="#hold" aria-label="查看岩點貓介紹"><img src="icons/cats/hold-cat.svg" alt="" width="28" height="28"><span>岩點貓</span><span class="app-shortcut-type">室內</span></a>
+      <a href="#redpoint" aria-label="查看紅點貓介紹"><img src="icons/cats/redpoint-cat.svg" alt="" width="28" height="28"><span>紅點貓</span><span class="app-shortcut-type">戶外</span></a>
+    </nav>
+    <div class="app-grid" aria-label="兩款 App">
+      <article class="app-card indoor" id="hold" aria-labelledby="hold-heading">
+        <div class="stage" data-wall-stage><img src="demo/wanhua-wall.jpg" alt="岩點貓上的真實岩牆（原岩萬華 2F）：找出岩點，畫出一條路線" width="1600" height="1282" fetchpriority="high"><a class="stage-credit" href="https://huggingface.co/datasets/climbio/walls" target="_blank" rel="noopener noreferrer">原岩萬華 2F · 公開牆 · CC BY-SA 4.0</a></div>
+        <div class="head">
+          <img class="app-cat-logo pg-cat" src="icons/cats/hold-cat.svg" alt="" width="48" height="48">
+          <div><div class="app-name">岩點貓</div><div class="app-type">室內</div></div>
+        </div>
+        <h2 id="hold-heading">這條線，換你來定。</h2>
+        <p>拍下岩牆，自動找岩點、點選定線；也能開啟已建立的 3D 岩牆看線與定線。手機、電腦都能操作，完成後分享給岩友挑戰。</p>
+        <div class="pg-actions">
+          <a class="pg-btn primary button" href="hold/">岩點貓 ↗</a>
+          <a class="pg-link" href="guides/hold-manual.html">使用說明</a>
+        </div>
+      </article>
+      <svg class="bridge" viewBox="0 0 80 100" preserveAspectRatio="none" aria-hidden="true">
+        <defs><linearGradient id="bridgeGrad" x1="0" x2="1"><stop offset="0" stop-color="#B6F000"/><stop offset="1" stop-color="#0FADEA"/></linearGradient></defs>
+        <path d="M0 10 C 46 10, 34 90, 80 90" vector-effect="non-scaling-stroke"/>
+      </svg>
+      <article class="app-card outdoor" id="redpoint" aria-labelledby="redpoint-heading">
+        <div class="stage"><img src="demo/redpoint-dapao.jpg" alt="紅點貓的 3D 岩場畫面：大砲岩的岩壁上標著路線與難度" width="800" height="500" loading="eager"></div>
+        <div class="head">
+          <img class="app-cat-logo pg-cat" src="icons/cats/redpoint-cat.svg" alt="" width="48" height="48">
+          <div><div class="app-name">紅點貓</div><div class="app-type">戶外</div></div>
+        </div>
+        <h2 id="redpoint-heading">想爬哪裡，就帶哪裡。</h2>
+        <p>從世界收下岩場，離線查看照片 Topo、難度與路線；部分岩場也能沿著 3D 岩壁看線，並記錄爬過的路線。</p>
+        <div class="pg-actions">
+          <a class="pg-btn primary button" href="redpoint/">紅點貓 ↗</a>
+          <a class="pg-link" href="guides/redpoint-manual.html">使用說明</a>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="pg-section section data-story" id="redpoint-data" aria-labelledby="redpoint-data-title">
+    <h2 id="redpoint-data-title" data-flow-node>岩場資料，從哪裡來？</h2>
+    <p class="pg-sub">紅點貓的岩場資料，來自岩友與作者整理的成果。已經有人整理好的，直接從世界收下；還沒有的，有三種方式帶進來。</p>
+    <div class="pg-note"><span>最簡單：在紅點貓的世界選一個岩場，下載，就能離線看 Topo。</span><a class="pg-btn primary" href="redpoint/?world=1">世界</a></div>
+    <div class="pg-grid three">
+      <a class="pg-card data-story-card" href="redpoint-collect/" aria-label="收藏外站岩場"><h3>收藏岩場</h3><p>在電腦上收藏支援網站的岩場，再從紅點貓「同步到其他裝置」與手機配對；兩台在同一網路時交換個人收藏。</p></a>
+      <a class="pg-card data-story-card" href="studio/convert/" aria-label="把現有路線書轉成 Guidebook"><h3>轉換路線書</h3><p>已經有 Google 文件或 Word 的路線書？不用重做，轉成手機上點得到路線的 Guidebook。</p></a>
+      <a class="pg-card data-story-card" href="redpoint-sites/" aria-label="讓自己的岩場網站支援紅點貓"><h3>串接岩場網站</h3><p>岩場資料放在自己的網站？提供開放格式的入口，紅點貓就讀得到，也能離線使用。</p></a>
+    </div>
+  </section>
+
+  <section class="pg-section section studio" id="studio" aria-labelledby="studio-heading">
+    <h2 id="studio-heading" data-flow-node>Studio：整理資料的工具</h2>
+    <p class="pg-sub">給路線書作者與岩場維護者：舊的路線書不用重做，工具先整理，你只確認有疑問的地方。</p>
+    <ol class="flowline" aria-label="路線書變成 Guidebook 的過程">
+      <li>路線書、照片<span>Word、網頁、PDF、作者的原圖</span></li>
+      <li>大綱<span>讀出區、岩壁、路線與照片</span></li>
+      <li>Topo<span>照片上的紅線自動描好</span></li>
+      <li>紅點貓<span>岩友下載後離線就能看</span></li>
+    </ol>
+    <div class="pg-grid">
+      <a class="pg-card studio-card" href="studio/" aria-label="Studio 的天然岩場工作區"><h3>天然岩場</h3><p>整理岩壁、路線與 Topo，做成紅點貓能離線看的 Guidebook；現有的路線書也能直接轉換。</p></a>
+      <a class="pg-card lab-card" href="lab/" aria-label="室內岩牆精修與 3D 研究工具"><h3>室內岩牆 · Lab</h3><p>精修岩點外框、探索 3D 岩牆；目前是研究工具，不是正式的 Studio 發佈流程。</p></a>
+    </div>
+    <div class="pg-actions"><a class="pg-btn primary" href="studio/">Studio ↗</a></div>
+  </section>
+
+  <section class="pg-section section developer" id="developer" aria-labelledby="developer-heading">
+    <span class="pg-eyebrow">開發者</span>
+    <h2 id="developer-heading" data-flow-node>同一份資料，人看得懂，AI 也讀得懂</h2>
+    <p class="pg-sub">岩點貓畫出來的路線，就是一份公開的格式。網站、App、AI 代理都讀得到，也能用同一套工具檢查、轉換、改進。</p>
+    <div class="dual">
+      <figure class="wall-pane" data-wall-dual><figcaption>給人看</figcaption><img src="demo/wanhua-wall.jpg" alt="岩牆上的一條路線" width="1600" height="1282" loading="lazy"></figure>
+      <figure class="code-pane"><figcaption>給 AI 讀 · wall-routes.json</figcaption><pre data-route-json aria-label="這條路線的開放格式資料"></pre></figure>
+    </div>
+    <ul class="dual-points">
+      <li><h3><a href="kits/format.html">開放格式</a></h3><p>規格、Schema 與驗證器採 Apache-2.0，任何 App 都能照著實作。</p></li>
+      <li><h3><a href="kits/">獨立元件</a></h3><p>看線、Topo、地圖、岩點偵測可以單獨用在你的網站或 App，採 AGPL-3.0。</p></li>
+      <li><h3><a href="studio/convert/">AI 代理的命令列</a></h3><p>不開畫面就能讀路線書、檢查、建立 Guidebook、局部修正，每一步產生同一份問題清單。</p></li>
+    </ul>
+    <div class="pg-actions"><a class="pg-btn primary" href="kits/">元件說明</a><a class="pg-btn" href="https://github.com/climb-io" target="_blank" rel="noopener noreferrer">GitHub ↗</a></div>
+    <aside class="pg-lab lab-invite" aria-labelledby="lab-invite-title">
+      <div><h3 id="lab-invite-title">Climbio Lab</h3><p>修正岩點辨識、研究 3D 岩壁。有權公開的牆可自願將照片與修正結果貢獻到開放資料集；私人牆不會自動公開。</p></div>
+      <div class="pg-actions"><a class="pg-btn" href="lab/">Lab</a><a class="pg-btn" href="stats/">資料量</a></div>
+    </aside>
+    <div class="pg-kits" aria-label="Climbio 獨立元件">
+      <a class="pg-card kit developer-kit" id="kit-format" href="kits/format.html"><h3>Format</h3><p>資料格式與驗證器</p><code>@climbio/format</code></a>
+      <a class="pg-card kit developer-kit" id="kit-routekit" href="kits/routekit.html"><h3>RouteKit</h3><p>室內路線的檢視與編輯</p><code>@climbio/routekit</code></a>
+      <a class="pg-card kit developer-kit" id="kit-topokit" href="kits/topokit.html"><h3>TopoKit</h3><p>戶外 Topo 的檢視與編輯</p><code>@climbio/topokit</code></a>
+      <a class="pg-card kit developer-kit" id="kit-mapkit" href="kits/mapkit.html"><h3>MapKit</h3><p>岩場向量地圖</p><code>@climbio/mapkit</code></a>
+      <a class="pg-card kit developer-kit" id="kit-holdscan" href="kits/holdscan.html"><h3>HoldScan</h3><p>照片自動偵測岩點</p><code>holdscan/ · AGPL-3.0</code></a>
+      <a class="pg-card kit developer-kit" id="kit-holdkit" href="kits/holdkit.html"><h3>HoldKit</h3><p>岩點外框與顏色</p><code>@climbio/holdkit</code></a>
+      <a class="pg-card kit developer-kit" id="kit-sourcekit" href="kits/sourcekit.html"><h3>SourceKit</h3><p>外站岩場資料與 Topo 匯入工具</p><code>@climbio/sourcekit</code></a>
+      <a class="pg-card kit developer-kit" id="kit-appkit" href="kits/appkit.html"><h3>AppKit</h3><p>照片、語系、分享等共用功能</p><code>@climbio/appkit</code></a>
+    </div>
+    <footer class="pg-foot"><span>© 2026 Climbio</span><span><a href="about.html">關於</a>　<a href="privacy.html">隱私</a>　<a href="terms.html">條款</a></span></footer>
+  </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,34 @@
+{
+ "climbio": 2,
+ "t": 1761620000000,
+ "license": "CC-BY-SA-4.0",
+ "attribution": "Climbio sample",
+ "kind": "view",
+ "surface": "photo",
+ "id": "crag3dover000001",
+ "name": "Sample crag",
+ "origin": "self",
+ "href": "overview.jpg",
+ "w": 1600,
+ "h": 1200,
+ "mime": "image/jpeg",
+ "props": {
+  "node": "sample3dcrag",
+  "model": {
+   "id": "crag3dmodel00001",
+   "camera": {
+    "position": [
+     0.7,
+     6.0,
+     26.0
+    ],
+    "target": [
+     0.7,
+     4.5,
+     0.0
+    ],
+    "fov": 45
+   }
+  }
+ }
+}

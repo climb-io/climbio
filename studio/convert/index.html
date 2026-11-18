@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="zh-Hant" data-climbio-theme="outdoor">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F7F9FB">
+<script src="../../host-redirect.js"></script>
+<title data-i18n="cvPageTitle">轉換路線書｜紅點貓資料藍圖 · Climbio Studio</title>
+<meta name="description" data-i18n-content="cvPageDesc" content="多年整理的岩場、路線與照片，不必重做。用 Climbio Studio 轉換成可編輯、可發佈的數位 Guidebook。">
+<meta property="og:site_name" content="Climbio">
+<meta property="og:title" data-i18n-content="cvOgTitle" content="做過的路線書，不用再做一次｜Climbio Studio">
+<meta property="og:description" data-i18n-content="cvOgDesc" content="既有路線書交給 Studio 整理成可編輯的數位 Guidebook，保留作者、照片與路線內容。">
+<meta property="og:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:url" content="https://climbio.app/studio/convert/">
+<link rel="canonical" href="https://climbio.app/studio/convert/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="做過的路線書，不用再做一次｜Climbio Studio">
+<meta name="twitter:description" content="既有路線書交給 Studio 整理成可編輯的數位 Guidebook，保留作者、照片與路線內容。">
+<meta name="twitter:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<link rel="icon" href="../../icons/cats/redpoint-cat-192.png">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data: https://climbio-redpoint-demo.web.app; style-src 'self' 'unsafe-inline'; base-uri 'self'; form-action 'none'">
+<link rel="stylesheet" href="../../css/brand-tokens.css">
+<link rel="stylesheet" href="../../css/pages.css">
+<style>
+  .pg-card.step { margin: 18px 0; }
+  .pg-card.step h3 { margin: 6px 0 8px; }
+  .pg-card.step ul { margin: 8px 0 0; padding-left: 20px; }
+  .auto, .check, .you { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+  .auto { background: #0B4A6B1a; color: #0B4A6B; }
+  .check { background: #e7a01e2e; color: #8a5a00; }
+  .you { background: #c83c3c1f; color: #a82e2e; }
+  .problems { margin: 14px 0 0; border-top: 1px dashed var(--pg-line-strong); padding-top: 12px; font-size: 15px; }
+  .problems b { font-size: 14px; color: var(--pg-muted); }
+  .problems ul { margin-top: 6px; }
+  .copyrow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0; }
+  .pg-btn.sm { min-height: 40px; padding: 0 18px; font-size: 14px; }
+  .pg-btn.copy { background: var(--pg-accent); color: var(--pg-on-accent); }
+  .pg-btn.copy:hover { background: var(--pg-accent-hover); }
+  details.pg-more .pg-btn { width: auto; }
+  .pg ul.tight { margin: 8px 0; padding-left: 20px; }
+</style>
+</head>
+<body>
+<header class="pg-top"><a class="pg-brand" href="../../"><img src="../../icons/brand/climbio-mark.svg" alt=""><span>Climbio</span></a><span class="grow"></span><nav class="pg-nav" aria-label="紅點貓資料藍圖" data-i18n-aria="cvNavLabel"><a href="../../redpoint/" data-i18n="cvTop1">紅點貓</a><a href="../../redpoint-collect/" data-i18n="cvTop2">收藏岩場</a><a href="./" aria-current="page" data-i18n="cvTop3">轉換路線書</a><a href="../../redpoint-sites/" data-i18n="cvTop4">串接網站</a></nav></header>
+<main class="pg">
+  <div class="pg-hero">
+    <h1 id="page-title" data-i18n="cvTop5">做過的路線書，不用再做一次</h1>
+    <p class="pg-lead" data-i18n="cvTop6">保留原本的岩場、路線、照片與交通，轉成岩友在手機上點得到路線的 Guidebook。你確認、修改，也決定何時發佈。</p>
+    <div class="pg-actions">
+      <a class="pg-btn primary" href="../crag/#book" data-i18n="cvTop7">開始轉換路線書</a>
+      <a class="pg-btn" href="#ai" data-i18n="cvTop8">請 AI 幫忙</a>
+    </div>
+  </div>
+
+  <section class="pg-section" id="goal" aria-labelledby="goal-title">
+    <h2 id="goal-title" data-i18n="cvGoal1">轉完會有什麼</h2>
+    <div class="pg-grid three">
+      <article class="pg-card"><span class="pg-num" data-i18n="cvGoal2">1 · 照片上的路線</span><h3 data-i18n="cvGoal3">點路線，看線在哪</h3><p data-i18n="cvGoal4">照片上畫好的線會自動描成可點、帶編號的路線。紅、藍、綠、橘都認得，每條路線一種顏色也行。</p></article>
+      <article class="pg-card"><span class="pg-num" data-i18n="cvGoal5">2 · 你的內容</span><h3 data-i18n="cvGoal6">文字、難度、交通都在</h3><p data-i18n="cvGoal7">區域、岩壁、路線表、首攀、說明、交通與警示，照書的順序整理，不翻譯、不刪減。</p></article>
+      <article class="pg-card"><span class="pg-num" data-i18n="cvGoal8">3 · 世界</span><h3 data-i18n="cvGoal9">岩場出現在世界</h3><p data-i18n="cvGoal10">書裡的入口座標會變成岩場位置，放進紅點貓的世界，公開放進 Climbio 的開放資料集。</p></article>
+    </div>
+    <div class="pg-note">
+      <ul class="tight">
+        <li data-i18n="cvGoal11">每張 Topo 上的每條路線，在紅點貓裡都有東西可點。描得出線的描線；描不出的先放記號，你再拖到位置或自己畫。</li>
+        <li data-i18n="cvGoal12">不用先重新排版，也不用先學資料格式。</li>
+        <li data-i18n="cvGoal13">編號配錯、路線漏掉，在 Studio 改。轉完不代表免校對，發佈前請確認關鍵資訊。</li>
+        <li data-i18n="cvGoal14">天然岩場一定要有位置；工具會從文字抓座標，抓不到才請你貼上。</li>
+        <li data-i18n="cvGoal15">沒畫線的原始照片是之後的選用優化，沒有也能發佈。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="pg-section" id="ai" aria-labelledby="ai-title">
+    <h2 id="ai-title" data-i18n="cvAi1">最簡單：請 AI 幫你做</h2>
+    <p class="pg-sub" data-i18n="cvAi2">有能讀檔案、能上網的 AI（Claude、ChatGPT 之類）最省時間。它讀你的路線書，整理成 Studio 讀得懂的 ZIP；建立前仍要看預覽裡的岩場、岩壁、路線與照片數量。</p>
+    <div class="pg-grid three">
+      <article class="pg-card"><span class="pg-num" data-i18n="cvAi3">1 · 交給 AI</span><h3 data-i18n="cvAi4">附上你的路線書</h3><p data-i18n-html="cvAi5">Google 文件下載成 <strong>Word（.docx）</strong>，PDF、照片也行。沒有檔案就貼文字、附照片。</p></article>
+      <article class="pg-card"><span class="pg-num" data-i18n="cvAi6">2 · 貼這段話</span><h3 data-i18n="cvAi7">讓 AI 讀工作文件</h3><p data-i18n-html="cvAi8">把下面那段話貼給 AI。<strong>AI 讀完工作文件</strong>就知道要整理成什麼、什麼不能亂改，做完會告訴你哪裡不確定。</p></article>
+      <article class="pg-card"><span class="pg-num" data-i18n="cvAi9">3 · 丟進 Studio</span><h3 data-i18n="cvAi10">選 ZIP，按建立</h3><p data-i18n-html="cvAi11">在 Studio 選「轉換路線書」，選 AI 給你的 ZIP，確認預覽後按<strong>建立</strong>。沒描出的線可以再補。</p></article>
+    </div>
+    <pre id="promptAgent">請先讀這份工作文件，並照著做：
+https://climbio.app/studio/convert/ai-work.txt
+
+我的路線書在附件（或下面的文字）。
+做完請把整個資料夾打包成 ZIP 給我，並告訴我數量（幾區、幾面岩壁、幾條路線、幾張照片）和你不確定的地方。</pre>
+    <div class="copyrow"><button class="pg-btn sm copy" data-copy="promptAgent" type="button" data-i18n="cvAi12">複製這段話</button><a class="pg-btn sm" href="ai-work.txt" rel="noopener" data-i18n="cvAi13">看給 AI 的工作文件</a></div>
+    <p class="pg-muted" data-i18n="cvAi14">只能聊天、不能讀檔案或網址的 AI，改用下面「聊天型 AI」。路線書排版很規則（標題分層、表格列路線）的話，直接用下一節自己轉通常更快。</p>
+    <details class="pg-more"><summary data-i18n="cvAi15">聊天型 AI：複製提示，貼回大綱</summary>
+      <p data-i18n="cvAi16">Studio 的轉換頁有「複製給 AI」，會把提示、規則讀到的問題和目前的大綱一起複製。貼給 AI 後，把回來的大綱貼回文字框。提示也在這裡：</p>
+      <pre id="promptOutline"></pre><button class="pg-btn sm copy" data-copy="promptOutline" type="button" data-i18n="cvAi17">複製</button>
+    </details>
+    <details class="pg-more"><summary data-i18n="cvAi18">手繪區域圖 → 地圖（GeoJSON）的提示</summary>
+      <p data-i18n-html="cvAi19">書裡有手繪區域圖，想讓岩壁位置、步道、入口畫在地圖上：把圖和這段提示貼給 AI，回來的 JSON 存成 <code>.geojson</code>，和路線書一起選進轉換。不做也行，圖會留著當區域圖。</p>
+      <pre id="promptMap"></pre><button class="pg-btn sm copy" data-copy="promptMap" type="button" data-i18n="cvAi20">複製</button>
+    </details>
+    <details class="pg-more"><summary data-i18n="cvAi21">能執行程式的 AI 代理：命令列</summary>
+      <p data-i18n-html="cvAi22">Claude Code、Codex 這類能執行程式的 AI，可以下載 Climbio 原始碼（待公開），用 <code>tools/guidebook.mjs</code> 不開畫面完成整個轉換：讀路線書、檢查、建立（換原圖、描紅線）、局部修正、驗證。每一步都會產生同一份問題清單（<code>report.json</code>），列出要你確認的路線和它在原文的位置。做好的資料夾在 Studio 首頁匯入，就能接著編輯與發佈。</p>
+      <pre id="promptCli">node tools/guidebook.mjs read 路線書.docx --out book
+node tools/guidebook.mjs check book/outline.md
+node tools/guidebook.mjs build book/outline.md --out pack
+node tools/guidebook.mjs validate pack</pre><button class="pg-btn sm copy" data-copy="promptCli" type="button" data-i18n="cvAi20">複製</button>
+    </details>
+  </section>
+
+  <section class="pg-section" id="steps" aria-labelledby="steps-title">
+    <h2 id="steps-title" data-i18n="cvSteps1">自己來：完整流程</h2>
+    <p class="pg-sub" data-i18n="cvSteps2">照書的順序走。每步先說工具做什麼，再列可能遇到的狀況，看到問題才處理。</p>
+
+    <article class="pg-card step"><span class="pg-num" data-i18n="cvSteps3">步驟 1 · 準備檔案</span>
+      <h3 data-i18n="cvSteps4">把書匯出成檔案</h3>
+      <div class="pg-scroll"><table>
+      <tr><th data-i18n="cvSteps5">你的路線書</th><th data-i18n="cvSteps6">怎麼準備</th></tr>
+      <tr><td data-i18n="cvSteps7">Google 文件</td><td data-i18n="cvSteps8">「檔案 → 下載」成 Microsoft Word（.docx），或「網頁（.html，已壓縮）」ZIP</td></tr>
+      <tr><td>Word</td><td data-i18n="cvSteps9">直接用 .docx</td></tr>
+      <tr><td data-i18n="cvSteps10">網頁</td><td data-i18n="cvSteps11">儲存完整網頁，連同圖片資料夾一起選，或包成 ZIP</td></tr>
+      <tr><td data-i18n="cvSteps12">文字型 PDF、掃描文件／紙本</td><td data-i18n="cvSteps13">有文字的 PDF 可直接選 .pdf（內嵌照片需另存），請核對預覽；掃描文件、紙本需先取得文字，另存照片或由 AI 協助整理</td></tr>
+      </table></div>
+      <p data-i18n="cvSteps14">不用先重新排版。用標題分區域和岩壁、用表格列路線，最容易辨認。</p>
+      <div class="problems"><b data-i18n="cvSteps15">可能遇到</b><ul>
+        <li data-i18n-html="cvSteps16"><strong>圖沒跟著來：</strong>Word 的圖在檔案裡；網頁要連圖片資料夾一起，或包成 ZIP。</li>
+      </ul></div>
+    </article>
+
+    <article class="pg-card step"><span class="pg-num" data-i18n="cvSteps17">步驟 2 · 選檔轉換</span>
+      <h3 data-i18n="cvSteps18">在 Studio 選「轉換路線書」</h3>
+      <p data-i18n-html="cvSteps19">打開 <a href="../">Climbio Studio</a>，選「轉換路線書」，按「選路線書的檔案」。<code>.docx</code>、文字型 <code>.pdf</code>、<code>.zip</code>、網頁、大綱文字、照片、<code>.geojson</code> 可以一起選。預覽會顯示幾區、幾面岩壁、幾條路線、幾張照片。</p>
+      <div class="problems"><b data-i18n="cvSteps20">可能遇到</b><ul>
+        <li data-i18n-html="cvSteps21"><strong>預覽有紅字：</strong>是工具讀不懂的地方。下面「大綱」文字框就是它讀到的內容，直接改，預覽馬上更新。</li>
+        <li data-i18n-html="cvSteps22"><strong>路線沒分到岩壁：</strong>路線表格加一欄「岩壁」寫岩壁名稱；或先建立，之後在路線清單拖到岩壁。</li>
+        <li data-i18n-html="cvSteps23"><strong>找不到圖檔：</strong>文件引用的圖要一起選進來（ZIP 或整個資料夾），檔名要一樣。</li>
+        <li data-i18n-html="cvSteps24"><strong>路線編號順序反了：</strong>在岩場標題底下寫「排列：由右至左」（或由左至右）。</li>
+      </ul></div>
+    </article>
+
+    <article class="pg-card step"><span class="pg-num" data-i18n="cvSteps25">步驟 3 · 岩場位置</span>
+      <h3 data-i18n="cvSteps26">確認位置（發佈前一定要有）</h3>
+      <p data-i18n-html="cvSteps27"><span class="auto">自動</span> 工具會從文字找座標（交通寫「入口 緯度, 經度」最準）。<span class="you">要有</span> 找不到的話，在轉換畫面的「岩場位置」欄貼上 Google 地圖複製的座標，例如 <code>25.13473, 121.51491</code>。</p>
+      <div class="problems"><b data-i18n="cvSteps28">可能遇到</b><ul>
+        <li data-i18n-html="cvSteps29"><strong>貼了沒反應：</strong>格式是「緯度, 經度」，逗號分開、緯度在前，小數至少 3 位。</li>
+      </ul></div>
+    </article>
+
+    <article class="pg-card step"><span class="pg-num" data-i18n="cvSteps30">步驟 4 · 建立，每條路線都有東西可點</span>
+      <h3 data-i18n="cvSteps31">按「建立」</h3>
+      <p data-i18n-html="cvSteps32"><span class="auto">自動</span> 層級、路線表、照片放到對應岩壁、圖說保留、照片上的線描成路線。建立後可繼續編輯；發佈前建議抽看重要 Topo、編號、交通與署名。每條路線會是三種結果之一：</p>
+      <div class="pg-scroll"><table>
+      <tr><th data-i18n="cvSteps33">結果</th><th data-i18n="cvSteps34">意思</th><th data-i18n="cvSteps35">你要做的</th></tr>
+      <tr><td data-i18n="cvSteps36">描好了</td><td data-i18n="cvSteps37">紅線變成可點的路線，帶編號牌</td><td data-i18n-html="cvSteps38"><span class="check">看一眼</span> 編號對不對</td></tr>
+      <tr><td data-i18n="cvSteps39">編號不對或少了</td><td data-i18n="cvSteps40">線配到別條路線</td><td data-i18n="cvSteps41">在 Topo 編輯器改那條線屬於哪條路線，或拖端點調位置</td></tr>
+      <tr><td data-i18n="cvSteps42">沒描出線</td><td data-i18n="cvSteps43">線太淡、被擋住、圖上沒畫，或是黑色、白色的線（只認有顏色的線）：先放一小段短線加編號當記號</td><td data-i18n="cvSteps44">把記號拖到路線上，或自己重畫；只想留記號也行，放在起點旁</td></tr>
+      </table></div>
+    </article>
+
+    <article class="pg-card step"><span class="pg-num" data-i18n="cvSteps45">步驟 5 · 區域圖</span>
+      <h3 data-i18n="cvSteps46">書裡有手繪區域圖的話</h3>
+      <p data-i18n="cvSteps47">地圖上的岩壁位置、步道、入口來自手繪區域圖。能轉就轉，轉不了就用原圖：</p>
+      <ul>
+        <li data-i18n-html="cvSteps48"><strong>轉成地圖：</strong>把圖和提示貼給 AI（見上面的提示），回來的 JSON 存成 <code>.geojson</code>，和路線書一起選。沒座標的岩壁 AI 會依相對位置估算，建立後到「區域圖」步驟對準地圖、調牆線。</li>
+        <li data-i18n-html="cvSteps49"><strong>用原圖：</strong>圖放在區或岩場標題底下（<code>![配置圖](檔名)</code>），轉換時自動收成「區域圖」照片，沒有路線，顯示在紅點貓的岩場頁。</li>
+      </ul>
+    </article>
+
+    <article class="pg-card step"><span class="pg-num" data-i18n="cvSteps50">步驟 6 · 發佈</span>
+      <h3 data-i18n="cvSteps51">看一遍，發佈</h3>
+      <p data-i18n="cvSteps52">看路線編號、署名、交通與原始資料欄位（可直接編輯）。署名預設是原作者，可以改成英文名或其他名字。發佈會公開放進 Climbio 的開放資料集，得到公開網址。</p>
+      <div class="problems"><b data-i18n="cvSteps53">可能遇到</b><ul>
+        <li data-i18n-html="cvSteps54"><strong>別人幫你轉好了：</strong>他會給你一個連結，點開就匯入 Studio，署名預設是你；你確認後自己做第一次公開發佈。</li>
+        <li data-i18n-html="cvSteps55"><strong>想換成沒畫線的原圖（選用）：</strong>路線書裡的照片多半裁過、縮小過。有原圖的話，在 Studio 加進這本的照片，Studio 會找出每張是哪一張原圖拍的，換成原圖，Topo 跟著搬過去；配不上的（太小、裁太多）留著不動。沒有原圖也不影響發佈。</li>
+      </ul></div>
+    </article>
+  </section>
+
+  <section class="pg-section" id="cases" aria-labelledby="cases-title">
+    <h2 id="cases-title" data-i18n="cvCases1">三個真實例子</h2>
+    <p class="pg-sub" data-i18n="cvCases2">既有轉換流程的實測，自動比例與要校對的地方會因資料品質而異。</p>
+    <div class="pg-scroll"><table>
+    <tr><th data-i18n="cvCases3">岩場</th><th data-i18n="cvCases4">內容</th><th data-i18n="cvCases5">自動的部分</th><th data-i18n="cvCases6">人工的部分</th></tr>
+    <tr><td data-i18n="cvCases7">熱海岩場</td><td data-i18n="cvCases8">6 面岩壁、27 條路線、8 張照片</td><td data-i18n="cvCases9">層級、路線表、照片、紅線</td><td data-i18n="cvCases10">22 條描出線，另 5 條先放記號；位置要補（文字沒有座標）</td></tr>
+    <tr><td data-i18n="cvCases11">內湖大邱田</td><td data-i18n="cvCases12">21 面岩壁、49 條路線、30 張照片</td><td data-i18n="cvCases13">49 條路線都有線；22 張照片有拍攝位置</td><td data-i18n="cvCases14">一張表列了 14 條路線要分到 6 面岩壁；手繪區域圖對準地圖</td></tr>
+    <tr><td data-i18n="cvCases15">墾丁岩場</td><td data-i18n="cvCases16">9 面岩壁、123 條路線、36 張照片</td><td data-i18n="cvCases17">文字裡有入口與各岩壁座標，岩場位置自動；122 條路線有線</td><td data-i18n="cvCases18">區域圖轉成 GeoJSON（AI 協助）；「由右至左」的排列</td></tr>
+    </table></div>
+    <p class="pg-muted" data-i18n="cvCases19">文件排版越規則（標題分層、表格列路線、圖放在岩壁底下），自動的比例越高。</p>
+  </section>
+
+  <section class="pg-section" id="faq" aria-labelledby="faq-title">
+    <h2 id="faq-title" data-i18n="cvFaq1">常見問題</h2>
+    <details class="pg-more"><summary data-i18n="cvFaq2">一張照片有很多線，配錯了</summary><p data-i18n="cvFaq3">一面岩壁有好幾張表時，每張表是它前面那張照片拍到的路線。照片和表格交錯排列最容易配對。配錯的用 Topo 編輯器改編號。</p></details>
+    <details class="pg-more"><summary data-i18n="cvFaq4">我只想留路線記號，不想畫線</summary><p data-i18n="cvFaq5">可以。把記號放在路線起點旁，紅點貓上一樣點得到。</p></details>
+  </section>
+
+  <section class="pg-section" id="outline" aria-labelledby="outline-title">
+    <h2 id="outline-title" data-i18n="cvOutline1">大綱格式速查</h2>
+    <p class="pg-sub" data-i18n="cvOutline2">文字框裡的大綱是 Markdown。要手改、或請 AI 整理時看這張。</p>
+    <div class="pg-scroll"><table>
+    <tr><th data-i18n="cvOutline3">寫法</th><th data-i18n="cvOutline4">意思</th></tr>
+    <tr><td data-i18n-html="cvOutline5"><code># 岩場</code>、<code>## 區</code>、<code>### 岩壁</code></td><td data-i18n="cvOutline6">層級（層數不限；底下還有標題的是區，其他是岩壁）</td></tr>
+    <tr><td data-i18n-html="cvOutline7"><code>來源：https://…</code>、<code>署名：…</code>、<code>授權：CC-BY-SA-4.0</code>、<code>難度系統：yds</code></td><td data-i18n="cvOutline8">寫在岩場標題底下</td></tr>
+    <tr><td data-i18n-html="cvOutline9"><code>交通：…</code>、<code>說明：…</code></td><td data-i18n="cvOutline10">岩場、區、岩壁都可以寫；交通可以多行</td></tr>
+    <tr><td data-i18n-html="cvOutline11"><code>朝向：南</code>（或度數）、<code>類型：抱石</code></td><td data-i18n="cvOutline12">岩壁的朝向；底下路線的預設類型</td></tr>
+    <tr><td data-i18n-html="cvOutline13"><code>排列：由右至左</code></td><td data-i18n="cvOutline14">路線表照照片由右至左（或由左至右）列</td></tr>
+    <tr><td data-i18n="cvOutline15">表格：編號、名稱、難度、類型、bolt、長度、首攀、說明、岩壁</td><td data-i18n="cvOutline16">路線；有「岩壁」欄的放進同名岩壁</td></tr>
+    <tr><td data-i18n-html="cvOutline17"><code>入口 緯度, 經度</code>（寫在交通或說明裡）</td><td data-i18n="cvOutline18">自動成為岩場位置</td></tr>
+    <tr><td data-i18n="cvOutline19">區或岩場底下的圖片</td><td data-i18n="cvOutline20">區域圖（配置圖、全景）</td></tr>
+    </table></div>
+    <p data-i18n-html="cvOutline21">完整規則見 <a href="https://climbio.app/studio/convert/ai-work.txt" rel="noopener">大綱格式說明</a>。</p>
+  </section>
+
+  <section class="pg-section" aria-labelledby="next-title">
+    <h2 id="next-title" data-i18n="cvNext1">轉完之後</h2>
+    <div class="pg-grid two">
+      <a class="pg-card" href="../../redpoint-collect/"><h3 data-i18n="cvNext2">岩友可以收藏既有網站的岩場</h3><p data-i18n="cvNext3">把路線與 Topo 存入個人收藏，出發前帶進紅點貓。</p><span class="pg-go" data-i18n="cvNext4">看收藏工具 →</span></a>
+      <a class="pg-card" href="../../redpoint-sites/"><h3 data-i18n="cvNext5">你也有岩場網站？</h3><p data-i18n="cvNext6">提供可讀的資料入口，網站不必為了紅點貓重做。</p><span class="pg-go" data-i18n="cvNext7">看怎麼做 →</span></a>
+    </div>
+  </section>
+
+  <footer class="pg-foot"><span data-i18n="cvFoot1">Climbio Studio · 轉換路線書</span><a href="../crag/#book" data-i18n="cvFoot2">開始轉換</a></footer>
+</main>
+<script src="../../appkit/i18n.js"></script>
+<script src="../i18n-boot.js" data-packs="studio studio-convert"></script>
+<script type="module" src="convert.js"></script>
+</body>
+</html>

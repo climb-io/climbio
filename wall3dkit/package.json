@@ -1,0 +1,18 @@
+{
+  "name": "@climbio/wall3dkit",
+  "version": "0.1.0",
+  "description": "Indoor 3D climbing wall: load a photo-reconstructed wall model with per-hold labels, render it under a 2D route editor, pick holds by raycast, walk along the wall with a camera that keeps every hold reachable, and bake the finished pack. No framework, no build step.",
+  "license": "AGPL-3.0-or-later",
+  "repository": { "type": "git", "url": "git+https://github.com/climb-io/climbio.git", "directory": "wall3dkit" },
+  "keywords": ["climbing", "spraywall", "3d", "gltf", "webgl", "three.js"],
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": { "types": "./index.d.ts", "default": "./index.js" },
+    "./*.js": "./*.js",
+    "./vendor/three.js": "./vendor/three.js",
+    "./package.json": "./package.json"
+  },
+  "files": ["*.js", "*.d.ts", "vendor/", "README.md", "README.en.md", "LICENSE", "NOTICE"]
+}

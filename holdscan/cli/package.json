@@ -1,0 +1,12 @@
+{
+  "name": "holdscan-cli",
+  "private": true,
+  "license": "AGPL-3.0",
+  "description": "Offline wall analysis: photo -> hold pack (detection, outlines, MobileSAM retrace, tidy)",
+  "bin": { "holdscan-analyze": "analyze.js" },
+  "engines": { "node": ">=22" },
+  "dependencies": {
+    "onnxruntime-node": "1.30.0",
+    "sharp": "0.35.5"
+  }
+}

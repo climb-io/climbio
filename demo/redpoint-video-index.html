@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>紅點貓｜真實 App 操作 Demo</title>
+<meta name="description" content="使用真正紅點貓介面錄製的手機與電腦操作示範。">
+<style>
+:root { font-family: system-ui, -apple-system, "PingFang TC", "Noto Sans TC", sans-serif; color:#f1f5f8; background:#081d2b; }
+* { box-sizing:border-box; }
+body { margin:0; padding:clamp(20px,3vw,48px); }
+main { max-width:1480px; margin:auto; }
+header { margin:0 0 24px; }
+h1 { font-size:clamp(27px,4vw,52px); margin:0 0 8px; }
+p { color:#b8cbd8; line-height:1.6; margin:0; }
+.grid { display:grid; grid-template-columns:minmax(260px,.55fr) minmax(0,1.4fr); gap:clamp(18px,3vw,44px); align-items:start; }
+section { min-width:0; }
+h2 { margin:0 0 12px; font-size:18px; }
+video { display:block; width:100%; max-height:78vh; object-fit:contain; background:#07121b; border-radius:10px; border:1px solid #315063; }
+a { color:#9cd7ff; }
+footer { margin-top:24px; font-size:13px; line-height:1.8; color:#b8cbd8; }
+@media (max-width:760px) { .grid { grid-template-columns:1fr; } video { max-height:none; } }
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>紅點貓｜真實操作 Demo</h1>
+<p>波蘭 Sukiennice 岩場。畫面由紅點貓 App 自動操作錄製，非模擬介面。</p>
+</header>
+<div class="grid">
+<section aria-label="手機版">
+<h2>手機版</h2>
+<video src="mobile.mp4" poster="mobile-topo.png" controls autoplay muted loop playsinline preload="metadata">瀏覽器不支援影片，請直接開啟 <a href="mobile.mp4">手機影片</a>。</video>
+</section>
+<section aria-label="電腦版">
+<h2>電腦版</h2>
+<video src="desktop.mp4" poster="desktop-topo.png" controls autoplay muted loop playsinline preload="metadata">瀏覽器不支援影片，請直接開啟 <a href="desktop.mp4">電腦影片</a>。</video>
+</section>
+</div>
+<footer>資料：<a href="https://openclimbing.org/relation/19250765" rel="noopener noreferrer">OpenClimbing / OpenStreetMap</a> · © OpenStreetMap contributors。照片與個別作者授權請依來源逐張確認；正式廣告發布前需再次檢查。</footer>
+</main>
+</body>
+</html>

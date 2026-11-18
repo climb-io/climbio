@@ -1,0 +1,30 @@
+Climbio
+Copyright (c) 2026 Climbio 貢獻者（Climbio contributors）
+
+整個 repo 以 GNU AGPL-3.0 授權（見 LICENSE）。以下部分另有授權：
+
+- 各 Kit（holdkit/、routekit/、topokit/、mapkit/、appkit/、drivekit/、sourcekit/）：AGPL-3.0（各自的 LICENSE、NOTICE）。holdkit 含 MobileSAM 權重（Chaoning Zhang 等，Apache-2.0）
+  與 ONNX 匯出（Acly/MobileSAM，MIT），見 holdkit/NOTICE、holdkit/models/LICENSE-MobileSAM。
+- format/（格式規格、JSON Schema、驗證器）、docs/route-format.md（路線格式規格）：Apache-2.0，任何 App 都可以照著實作。
+- 品牌美術：母品牌 Logo、四隻貓與岩點貓家族（design/brand/ 與它派生的圖示、動畫）：CC BY 4.0，見 design/brand/LICENSE。
+  字標的字母依 Comfortaa（SIL OFL 1.1）的字形轉成向量輪廓，不附字型檔。
+- holdscan/models/freeclimbs.onnx：由 jwlarocque/yolov8n-freeclimbs-detect-2 的權重匯出（John LaRocque，AGPL-3.0）。
+  權重從 Ultralytics YOLOv8（AGPL-3.0）微調而來，所以只能是 AGPL-3.0；訓練資料集 freeclimbs v2 作者尚未公開。
+  見 holdscan/NOTICE、holdscan/models/README.md。
+- fonts/：SIL Open Font License 1.1。Barlow Condensed（fonts/OFL.txt）、M PLUS 1（fonts/OFL-MPLUS1.txt）；都是只留用到的字的子集。
+- gyms/、tools/gyms/（岩館清單）：不適用 AGPL-3.0，以 ODbL 1.0 提供，見 gyms/LICENSE。© OpenStreetMap 貢獻者（ODbL）；
+  台灣岩館座標來自各縣市政府門牌開放資料（政府資料開放授權條款第 1 版），見 docs/gyms.md。
+- redpoint/vendor/opencv-4.10.0.js：OpenCV.js 4.10.0（OpenCV 團隊，Apache-2.0；@techstark/opencv-js 4.10.0-release.1 的建置），
+  紅點貓在手機上辨識岩壁用，見 redpoint/vendor/LICENSE-opencv.txt。
+- studio/vendor/sortable-1.15.6.min.js：SortableJS 1.15.6（SortableJS 貢獻者，MIT，npm sortablejs 的原檔），見 studio/vendor/LICENSE-sortablejs.txt，
+  Climbio Studio 路線清單拖曳換位置用。
+
+由 CDN 載入、依各自授權：onnxruntime-web（Microsoft，MIT）、Firebase JavaScript SDK（Apache-2.0）、qrcode-generator（MIT）、jsQR（Apache-2.0）。
+
+「Climbio」這個名稱的使用請求見 TRADEMARKS.md。
+
+- functions/data/longdong.json：龍洞區域、分區與路線目錄來自臺灣戶外攀岩協會（TOCC）龍洞攀岩資料庫（https://github.com/tocc-climbing/longdong、https://longdong.web.app/climbio/longdong.json），CC BY-SA 4.0。岩壁線與大區域範圍參考 TOCC 救援資訊圖、內政部國土測繪中心；合併底圖包含 © OpenStreetMap contributors，以 ODbL 1.0 提供。各檔記錄來源，更新工具為 tools/sync-longdong.mjs。
+
+- 開放資料集 climbio/crags 的 openclimbing/（OpenClimbing 岩場的索引、Topo、預覽圖；由 tools/openclimbing-pack.mjs、openclimbing-previews.py 產生，不在這個 repo 裡）：路線與岩場來自 OpenClimbing（https://openclimbing.org）匯出的 OpenStreetMap 資料，© OpenStreetMap contributors，ODbL 1.0；照片在 Wikimedia Commons，只收 CC 與公眾領域，作者與授權逐張記在各岩場的 credits.json。
+
+- functions/data/taiwan-crags.json：台灣岩場名稱與位置事實彙整；各筆標示 Mountain Project 岩友、ClimbingAway、TOB 公開指南樣張與實地紀錄等來源。只收錄定位事實，不複製原站照片、路線圖或文章。大邱田參考點來自使用者同意並確認岩場的分享 GPS 彙整；龍洞的圖資另依上列授權。

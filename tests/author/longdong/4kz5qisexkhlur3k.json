@@ -1,0 +1,581 @@
+{
+ "climbio": 2,
+ "kind": "set",
+ "type": "area",
+ "id": "4kz5qisexkhlur3k",
+ "name": {
+  "zh-Hant": "後門",
+  "en": "Back Door"
+ },
+ "t": 1793236138552,
+ "license": "CC-BY-SA-4.0",
+ "attribution": "臺灣戶外攀岩協會（TOCC）固定點更新計畫",
+ "source": {
+  "url": "https://longdong.web.app/data/longdong.json",
+  "version": "f8e35c2a05d5"
+ },
+ "items": [
+  {
+   "href": "nffc2kag3yvw9v9k.json",
+   "id": "nffc2kag3yvw9v9k",
+   "t": 1793236138552
+  }
+ ],
+ "nodes": [
+  {
+   "id": "3nz6ii8woxc5creq",
+   "type": "area",
+   "parent": "uxurq29xdlaqhy7c",
+   "name": {
+    "zh-Hant": "後門",
+    "en": "Back Door"
+   },
+   "props": {
+    "code": "longdong/back-door"
+   }
+  },
+  {
+   "id": "68ugvjddryq89k4s",
+   "type": "sector",
+   "parent": "3nz6ii8woxc5creq",
+   "name": {
+    "zh-Hant": "地下一樓",
+    "en": "B1"
+   },
+   "props": {
+    "code": "longdong/back-door-92kxxd"
+   }
+  },
+  {
+   "id": "3p6eem7ugtywbk0g",
+   "type": "route",
+   "parent": "68ugvjddryq89k4s",
+   "name": {
+    "zh-Hant": "ㄅ Bo"
+   },
+   "props": {
+    "code": "longdong/328ac2",
+    "grade": {
+     "yds": "5.7"
+    },
+    "style": "boulder",
+    "length": 5,
+    "longdong:number": "1",
+    "longdong:safety": "green"
+   }
+  },
+  {
+   "id": "1ktb1960nwb4xin2",
+   "type": "route",
+   "parent": "68ugvjddryq89k4s",
+   "name": {
+    "zh-Hant": "ㄆ Po"
+   },
+   "props": {
+    "code": "longdong/q3ek73",
+    "grade": {
+     "yds": "5.5"
+    },
+    "style": "boulder",
+    "length": 5,
+    "longdong:number": "2",
+    "longdong:safety": "green"
+   }
+  },
+  {
+   "id": "4z0er6b7129vte0s",
+   "type": "sector",
+   "parent": "3nz6ii8woxc5creq",
+   "name": {
+    "zh-Hant": "地下室台階",
+    "en": "Basement Steps"
+   },
+   "props": {
+    "code": "longdong/back-door-ikx7n4"
+   }
+  },
+  {
+   "id": "vhvo20jmghrkgmrw",
+   "type": "route",
+   "parent": "4z0er6b7129vte0s",
+   "name": {
+    "zh-Hant": "V字倒影",
+    "en": "Mirrored Vee"
+   },
+   "props": {
+    "code": "longdong/2mkga6",
+    "grade": {
+     "yds": "5.9"
+    },
+    "style": "boulder",
+    "length": 7,
+    "longdong:number": "28",
+    "longdong:safety": "green"
+   }
+  },
+  {
+   "id": "2mvdu5q5jsadbhdf",
+   "type": "route",
+   "parent": "4z0er6b7129vte0s",
+   "name": {
+    "zh-Hant": "裂隙面",
+    "en": "Crackface"
+   },
+   "props": {
+    "code": "longdong/325xvg",
+    "grade": {
+     "yds": "5.9"
+    },
+    "style": "boulder",
+    "length": 7,
+    "longdong:number": "29",
+    "longdong:safety": "green"
+   }
+  },
+  {
+   "id": "3gv57tq1nsric390",
+   "type": "sector",
+   "parent": "3nz6ii8woxc5creq",
+   "name": {
+    "zh-Hant": "地下二樓",
+    "en": "Basement"
+   },
+   "props": {
+    "code": "longdong/back-door-mo3970"
+   }
+  },
+  {
+   "id": "n18od7i0vvygzfap",
+   "type": "route",
+   "parent": "3gv57tq1nsric390",
+   "name": {
+    "zh-Hant": "龍柱",
+    "en": "Dragon Pole"
+   },
+   "props": {
+    "code": "longdong/t4q2wy",
+    "grade": {
+     "yds": "5.9"
+    },
+    "style": "trad",
+    "length": 29,
+    "fa": "王世鼎\nJeff Wang",
+    "description": "無 Anchor,可步行返回起攀處",
+    "longdong:number": "41",
+    "longdong:faDate": "1991-08-01",
+    "longdong:safety": "green",
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "無 Anchor",
+      "tests": []
+     },
+     {
+      "position": "A02",
+      "material": "無 Anchor",
+      "tests": []
+     }
+    ]
+   }
+  },
+  {
+   "id": "4vkaadvv2dv4tbrl",
+   "type": "route",
+   "parent": "3gv57tq1nsric390",
+   "name": {
+    "zh-Hant": "地下居民",
+    "en": "Cellar Dweller"
+   },
+   "props": {
+    "code": "longdong/u4jmbh",
+    "grade": {
+     "yds": "5.10b"
+    },
+    "style": "trad",
+    "length": 25,
+    "status": "open",
+    "description": "與 <地下室角落> 共用 Anchor",
+    "longdong:number": "42",
+    "longdong:safety": "green",
+    "longdong:status": "rebolted",
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "共用",
+      "tests": []
+     },
+     {
+      "position": "A02",
+      "material": "共用",
+      "tests": []
+     }
+    ]
+   }
+  },
+  {
+   "id": "66074i44wpdummy8",
+   "type": "sector",
+   "parent": "3nz6ii8woxc5creq",
+   "name": {
+    "zh-Hant": "老人牆",
+    "en": "Old Man Wall"
+   },
+   "props": {
+    "code": "longdong/back-door-0ct5y1"
+   }
+  },
+  {
+   "id": "1l040mpxkjpo7u5m",
+   "type": "route",
+   "parent": "66074i44wpdummy8",
+   "name": {
+    "zh-Hant": "寄居蟹",
+    "en": "Hermit Crab"
+   },
+   "props": {
+    "code": "longdong/k3mzp6",
+    "grade": {
+     "yds": "5.9"
+    },
+    "style": "sport",
+    "length": 20,
+    "fa": "李居曄\nJiu-Ye Li",
+    "status": "open",
+    "description": "路線左側於2016/06/04發生大規模落石,建議不要攀登",
+    "longdong:number": "73",
+    "longdong:faDate": "2007-05-06",
+    "longdong:safety": "red",
+    "longdong:status": "tested",
+    "longdong:statusDate": "2021-04-24",
+    "longdong:bolts": [
+     {
+      "position": "B01",
+      "material": "316-TW",
+      "installed": "2007",
+      "tests": [
+       "2018-04-14"
+      ]
+     },
+     {
+      "position": "B02",
+      "material": "316-TW",
+      "installed": "2007",
+      "tests": []
+     },
+     {
+      "position": "B03",
+      "material": "316-TW",
+      "installed": "2007",
+      "tests": []
+     },
+     {
+      "position": "B04",
+      "material": "316-TW",
+      "installed": "2007",
+      "tests": []
+     },
+     {
+      "position": "B05",
+      "material": "316-TW",
+      "installed": "2007",
+      "tests": []
+     },
+     {
+      "position": "B06",
+      "material": "316-TW",
+      "installed": "2007",
+      "tests": []
+     },
+     {
+      "position": "B07",
+      "material": "316-TW",
+      "installed": "2007",
+      "tests": []
+     }
+    ],
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "316-TW",
+      "installed": "2007",
+      "tests": [
+       "2021-04-24"
+      ]
+     },
+     {
+      "position": "A02",
+      "material": "316-TW",
+      "installed": "2007",
+      "tests": [
+       "2021-04-24"
+      ]
+     }
+    ],
+    "longdong:anchorHardware": [
+     {
+      "item": "梅隆鎖-316",
+      "quantity": 4,
+      "installed": "2020-02"
+     }
+    ],
+    "longdong:lastTested": "2021-04-24",
+    "longdong:notes": "[Pulltest]20210424 top測試(Ivy 廷瑞 Michael),bolt已清點\n所有 Bolt 安裝日期均待查 (預設為1月1日)\n–\nB01 合格 - 8 kN / 1 min / ×5次 (老爹、金龍)"
+   }
+  },
+  {
+   "id": "413svfcyi0rrw9hw",
+   "type": "route",
+   "parent": "66074i44wpdummy8",
+   "name": {
+    "zh-Hant": "寄居蟹二",
+    "en": "Hermit Crab P2"
+   },
+   "props": {
+    "code": "longdong/pv3wsz",
+    "grade": {
+     "yds": "5.9"
+    },
+    "style": "trad",
+    "length": 20,
+    "status": "open",
+    "description": "岩質非常不穩;",
+    "longdong:number": "74",
+    "longdong:safety": "red",
+    "longdong:status": "tested",
+    "longdong:statusDate": "2021-04-24",
+    "longdong:bolts": [
+     {
+      "position": "B01",
+      "material": "316-TW",
+      "installed": "2007",
+      "tests": [
+       "2021-04-24"
+      ]
+     },
+     {
+      "position": "B02",
+      "material": "316-TW",
+      "installed": "2007",
+      "tests": [
+       "2021-04-24"
+      ]
+     },
+     {
+      "position": "B03",
+      "material": "316-TW",
+      "installed": "2007",
+      "tests": [
+       "2021-04-24"
+      ]
+     },
+     {
+      "position": "B04",
+      "material": "316-TW",
+      "installed": "2007",
+      "tests": [
+       "2021-04-24"
+      ]
+     },
+     {
+      "position": "B05",
+      "material": "316-TW",
+      "installed": "2007",
+      "tests": [
+       "2021-04-24"
+      ]
+     },
+     {
+      "position": "B06",
+      "material": "316-TW",
+      "installed": "2007",
+      "tests": [
+       "2021-04-24"
+      ]
+     },
+     {
+      "position": "B07",
+      "material": "316-TW",
+      "installed": "2007",
+      "tests": [
+       "2021-04-24"
+      ]
+     }
+    ],
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "Ti-TW",
+      "installed": "2019-04-29",
+      "tests": []
+     },
+     {
+      "position": "A02",
+      "material": "Ti-TW",
+      "installed": "2019-04-29",
+      "tests": []
+     }
+    ],
+    "longdong:lastTested": "2021-04-24",
+    "longdong:notes": "[Pulltest]20210424 全線測試(Ivy 廷瑞 Michael),bolt已清點\nLead Bolt 狀態待查\n-\nAnchor 更新為 Ti-TW (阿郎、阿寶)\nAnchor Bolt 2019 疑似遭人切除,故暫時改為傳攀路線"
+   }
+  },
+  {
+   "id": "5a1q2rd4gb5jrm0y",
+   "type": "sector",
+   "parent": "3nz6ii8woxc5creq",
+   "name": {
+    "zh-Hant": "鱷魚岬",
+    "en": "Crocodile Cape"
+   },
+   "props": {
+    "code": "longdong/back-door-mwrxk3"
+   }
+  },
+  {
+   "id": "4kgcch2uv9is2efp",
+   "type": "route",
+   "parent": "5a1q2rd4gb5jrm0y",
+   "name": {
+    "zh-Hant": "無名",
+    "en": "Unknown"
+   },
+   "props": {
+    "code": "longdong/t8u75z",
+    "grade": {
+     "yds": "5.10d"
+    },
+    "style": "trad",
+    "description": "與 <三腳狗> 共用 Anchor",
+    "longdong:number": "92",
+    "longdong:safety": "green",
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "共用",
+      "tests": []
+     },
+     {
+      "position": "A02",
+      "material": "共用",
+      "tests": []
+     }
+    ]
+   }
+  },
+  {
+   "id": "4l47j6rpdj6hlvau",
+   "type": "route",
+   "parent": "5a1q2rd4gb5jrm0y",
+   "name": {
+    "zh-Hant": "三腳狗",
+    "en": "Three-Legged Dog"
+   },
+   "props": {
+    "code": "longdong/sdwxyt",
+    "grade": {
+     "yds": "5.7"
+    },
+    "style": "trad",
+    "length": 13,
+    "status": "open",
+    "description": "更新後路線往上延伸約一段繩距",
+    "longdong:number": "93",
+    "longdong:safety": "green",
+    "longdong:status": "rebolted",
+    "longdong:statusDate": "2017-06-25",
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "Ti-TW",
+      "installed": "2017-06-25",
+      "tests": []
+     },
+     {
+      "position": "A02",
+      "material": "Ti-TW",
+      "installed": "2017-06-25",
+      "tests": []
+     }
+    ]
+   }
+  },
+  {
+   "id": "289tr3m3o5e4wz77",
+   "type": "sector",
+   "parent": "3nz6ii8woxc5creq",
+   "name": {
+    "zh-Hant": "美好的懸岩",
+    "en": "P.O. Wall"
+   },
+   "props": {
+    "code": "longdong/back-door-nwmxps"
+   }
+  },
+  {
+   "id": "1pb4hj7nrz6ihumd",
+   "type": "route",
+   "parent": "289tr3m3o5e4wz77",
+   "name": {
+    "zh-Hant": "美好的懸岩",
+    "en": "Perfectly Overhung"
+   },
+   "props": {
+    "code": "longdong/7s6kjs",
+    "grade": {
+     "yds": "5.10d"
+    },
+    "style": "trad",
+    "length": 10,
+    "description": "無 Anchor,可步行返回起攀處",
+    "longdong:number": "99",
+    "longdong:safety": "green",
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "無 Anchor",
+      "tests": []
+     },
+     {
+      "position": "A02",
+      "material": "無 Anchor",
+      "tests": []
+     }
+    ]
+   }
+  },
+  {
+   "id": "1dt2k4dthbi9f5gx",
+   "type": "route",
+   "parent": "289tr3m3o5e4wz77",
+   "name": {
+    "zh-Hant": "龍潭",
+    "en": "Dragon Pool"
+   },
+   "props": {
+    "code": "longdong/umafdq",
+    "grade": {
+     "yds": "5.7"
+    },
+    "style": "trad",
+    "length": 12,
+    "fa": "禤志剛 / Laurence Huen\n王世鼎 / Jeff Wang",
+    "description": "無 Anchor,可步行返回起攀處",
+    "longdong:number": "100",
+    "longdong:faDate": "1991-05-25",
+    "longdong:safety": "green",
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "無 Anchor",
+      "tests": []
+     },
+     {
+      "position": "A02",
+      "material": "無 Anchor",
+      "tests": []
+     }
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,963 @@
+{
+ "climbio": 2,
+ "kind": "set",
+ "type": "area",
+ "id": "8fvwwwwu33h0ou39",
+ "name": {
+  "zh-Hant": "校門口",
+  "en": "School Gate"
+ },
+ "t": 1793236138552,
+ "license": "CC-BY-SA-4.0",
+ "attribution": "臺灣戶外攀岩協會（TOCC）固定點更新計畫",
+ "source": {
+  "url": "https://longdong.web.app/data/longdong.json",
+  "version": "f8e35c2a05d5"
+ },
+ "items": [
+  {
+   "href": "zl3nmz0eybfdjye5.json",
+   "id": "zl3nmz0eybfdjye5",
+   "t": 1793556016210
+  },
+  {
+   "href": "lisp3mi8clzxhqmo.json",
+   "id": "lisp3mi8clzxhqmo",
+   "t": 1792903436019
+  },
+  {
+   "href": "5jm32u7rwub1me46.json",
+   "id": "5jm32u7rwub1me46",
+   "t": 1793361675420
+  },
+  {
+   "href": "2e26idbcphon06ov.json",
+   "id": "2e26idbcphon06ov",
+   "t": 1793104618291
+  },
+  {
+   "href": "wi8csu5srq8qmox4.json",
+   "id": "wi8csu5srq8qmox4",
+   "t": 1793537132625
+  }
+ ],
+ "nodes": [
+  {
+   "id": "3iorb7wklpgwrmph",
+   "type": "area",
+   "parent": "uxurq29xdlaqhy7c",
+   "name": {
+    "zh-Hant": "校門口",
+    "en": "School Gate"
+   },
+   "props": {
+    "code": "longdong/school-gate"
+   }
+  },
+  {
+   "id": "38hxmpax4oykpdmn",
+   "type": "sector",
+   "parent": "3iorb7wklpgwrmph",
+   "name": {
+    "zh-Hant": "人面岩",
+    "en": "Disco Buttress"
+   },
+   "props": {
+    "code": "longdong/school-gate-ppyc81"
+   }
+  },
+  {
+   "id": "16lc9a67qck2ql84",
+   "type": "route",
+   "parent": "38hxmpax4oykpdmn",
+   "name": {
+    "zh-Hant": "電視人",
+    "en": "Television Man"
+   },
+   "props": {
+    "code": "longdong/96dzds",
+    "grade": {
+     "yds": "5.9"
+    },
+    "style": "trad",
+    "description": "需自行架設確保站\n再以 <V槽> 的 Anchor 垂降",
+    "longdong:number": "521",
+    "longdong:safety": "green",
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "共用",
+      "tests": []
+     },
+     {
+      "position": "A02",
+      "material": "共用",
+      "tests": []
+     }
+    ]
+   }
+  },
+  {
+   "id": "5evu4rzk9ypmvd15",
+   "type": "route",
+   "parent": "38hxmpax4oykpdmn",
+   "name": {
+    "zh-Hant": "小生物煙囪",
+    "en": "Little Creature Chimney"
+   },
+   "props": {
+    "code": "longdong/7dxvj8",
+    "grade": {
+     "yds": "5.7"
+    },
+    "style": "trad",
+    "description": "需自行架設確保站\n再以 <V槽> 的 Anchor 垂降",
+    "longdong:number": "522",
+    "longdong:safety": "green",
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "共用",
+      "tests": []
+     },
+     {
+      "position": "A02",
+      "material": "共用",
+      "tests": []
+     }
+    ]
+   }
+  },
+  {
+   "id": "54ezu9ou6x65vhso",
+   "type": "sector",
+   "parent": "3iorb7wklpgwrmph",
+   "name": {
+    "zh-Hant": "校門口南面",
+    "en": "School Gate Crag South Face"
+   },
+   "props": {
+    "code": "longdong/school-gate-g6qhy9"
+   }
+  },
+  {
+   "id": "40377uvobiavpszz",
+   "type": "route",
+   "parent": "54ezu9ou6x65vhso",
+   "name": {
+    "zh-Hant": "雙裂隙",
+    "en": "Twin Cracks"
+   },
+   "props": {
+    "code": "longdong/u8uk44",
+    "grade": {
+     "yds": "5.8"
+    },
+    "style": "trad",
+    "description": "沒有 Anchor",
+    "longdong:number": "539",
+    "longdong:safety": "green",
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "無 Anchor",
+      "tests": []
+     },
+     {
+      "position": "A02",
+      "material": "無 Anchor",
+      "tests": []
+     }
+    ]
+   }
+  },
+  {
+   "id": "2hsfmzh0wzu6pplz",
+   "type": "route",
+   "parent": "54ezu9ou6x65vhso",
+   "name": {
+    "zh-Hant": "出頭",
+    "en": "Emerging"
+   },
+   "props": {
+    "code": "longdong/dd3mnh",
+    "grade": {
+     "yds": "5.10a"
+    },
+    "style": "trad",
+    "description": "《RCT》書中路線圖繪製錯誤,應為更左側的內角與懸岩\n需自行架設確保站,再以 <阿彌陀佛> 的 Anchor 垂降",
+    "longdong:number": "540",
+    "longdong:safety": "green",
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "共用",
+      "tests": []
+     },
+     {
+      "position": "A02",
+      "material": "共用",
+      "tests": []
+     }
+    ]
+   }
+  },
+  {
+   "id": "601z75spt6esofks",
+   "type": "sector",
+   "parent": "3iorb7wklpgwrmph",
+   "name": {
+    "zh-Hant": "校門口東面",
+    "en": "School Gate Crag East Face"
+   },
+   "props": {
+    "code": "longdong/school-gate-mi6ob7"
+   }
+  },
+  {
+   "id": "4hqli7e5lh5665u3",
+   "type": "route",
+   "parent": "601z75spt6esofks",
+   "name": {
+    "zh-Hant": "虎牙",
+    "en": "Tiger’s Tooth"
+   },
+   "props": {
+    "code": "longdong/xwexcv",
+    "grade": {
+     "yds": "5.11b"
+    },
+    "style": "sport",
+    "length": 11,
+    "fa": "朴來慶\nYum Yum",
+    "status": "open",
+    "description": "《RCT》書中路線圖起攀位置有誤",
+    "longdong:number": "551",
+    "longdong:safety": "green",
+    "longdong:status": "tested",
+    "longdong:bolts": [
+     {
+      "position": "B01",
+      "material": "Ti-TW",
+      "installed": "2017-04-25",
+      "tests": []
+     },
+     {
+      "position": "B02",
+      "material": "Ti-TW",
+      "installed": "2017-04-25",
+      "tests": [
+       "2021-03-14"
+      ]
+     },
+     {
+      "position": "B03",
+      "material": "316-TW",
+      "installed": "2006",
+      "tests": [
+       "2025-09-05",
+       "2021-03-14"
+      ]
+     },
+     {
+      "position": "B04",
+      "material": "Ti-TW",
+      "installed": "2017-04-25",
+      "tests": [
+       "2021-03-14"
+      ]
+     },
+     {
+      "position": "B05",
+      "material": "Ti-TW",
+      "installed": "2017-04-25",
+      "tests": [
+       "2021-03-14"
+      ]
+     },
+     {
+      "position": "B06",
+      "material": "Ti-TW",
+      "installed": "2017-04-25",
+      "tests": [
+       "2021-03-14"
+      ]
+     }
+    ],
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "Ti-U",
+      "installed": "2016",
+      "tests": [
+       "2021-03-14"
+      ]
+     },
+     {
+      "position": "A02",
+      "material": "Ti-U",
+      "installed": "2016",
+      "tests": [
+       "2021-03-14"
+      ]
+     }
+    ],
+    "longdong:anchorHardware": [
+     {
+      "item": "羊角-Ti",
+      "quantity": 2,
+      "installed": "2016-01-01"
+     }
+    ],
+    "longdong:lastTested": "2025-09-05",
+    "longdong:notes": "[Pulltest]20210314全線測試,bolt已清點(小嵐)\n2006 Bolt安裝日期待查 (預設為1月1日)\n2016 Anchor的Ti-TW Bolt安裝日期待查 (預設為1月1日)\n[Pulltest]20250905全線拉測唯一顆316完成 (Nancy、小虎)"
+   }
+  },
+  {
+   "id": "445ahbw5ue1a7wz9",
+   "type": "route",
+   "parent": "601z75spt6esofks",
+   "name": {
+    "zh-Hant": "出乎意料",
+    "en": "Surprise Crack"
+   },
+   "props": {
+    "code": "longdong/3nm7rb",
+    "grade": {
+     "yds": "5.10b"
+    },
+    "style": "trad",
+    "length": 21,
+    "fa": "美國岩友\nUnknown U.S. Climber",
+    "status": "open",
+    "description": "首攀者在得知此路線尚無人完攀時感到意外,因而將其命名為 <出乎意料>",
+    "longdong:number": "552",
+    "longdong:faDate": "1990年代",
+    "longdong:safety": "green",
+    "longdong:status": "rebolted",
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "Ti-U",
+      "installed": "2016",
+      "tests": []
+     },
+     {
+      "position": "A02",
+      "material": "Ti-U",
+      "installed": "2016",
+      "tests": []
+     }
+    ],
+    "longdong:notes": "Anchor的U形鈦Bolt安裝日期待查 (預設為1月1日)"
+   }
+  },
+  {
+   "id": "2ms749i6672a772x",
+   "type": "sector",
+   "parent": "3iorb7wklpgwrmph",
+   "name": {
+    "zh-Hant": "門簷",
+    "en": "Apprentice Rock"
+   },
+   "props": {
+    "code": "longdong/school-gate-56427g"
+   }
+  },
+  {
+   "id": "1tdjbynisofens7y",
+   "type": "route",
+   "parent": "2ms749i6672a772x",
+   "name": {
+    "zh-Hant": "痛痛",
+    "en": "Tong Tong"
+   },
+   "props": {
+    "code": "longdong/xhfv9z",
+    "grade": {
+     "yds": "5.8"
+    },
+    "style": "toprope",
+    "length": 7,
+    "fa": "Jean-Marc Troussier",
+    "description": "可步行至頂端架設 Anchor",
+    "longdong:number": "558",
+    "longdong:safety": "green",
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "無 Anchor",
+      "tests": []
+     },
+     {
+      "position": "A02",
+      "material": "無 Anchor",
+      "tests": []
+     }
+    ]
+   }
+  },
+  {
+   "id": "32fuo4pb6qijn3iq",
+   "type": "route",
+   "parent": "2ms749i6672a772x",
+   "name": {
+    "zh-Hant": "走壁",
+    "en": "Tzuo Bi"
+   },
+   "props": {
+    "code": "longdong/gu9egk",
+    "grade": {
+     "yds": "5.11b"
+    },
+    "style": "toprope",
+    "length": 8,
+    "fa": "Jean-Marc Troussier",
+    "description": "可步行至頂端架設 Anchor\n書中路線圖繪製有誤",
+    "longdong:number": "559",
+    "longdong:safety": "green",
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "無 Anchor",
+      "tests": []
+     },
+     {
+      "position": "A02",
+      "material": "無 Anchor",
+      "tests": []
+     }
+    ]
+   }
+  },
+  {
+   "id": "279hpto7vm4h13x6",
+   "type": "route",
+   "parent": "2ms749i6672a772x",
+   "name": {
+    "zh-Hant": "飛簷",
+    "en": "Fei Yan"
+   },
+   "props": {
+    "code": "longdong/6ns9n4",
+    "grade": {
+     "yds": "5.11b"
+    },
+    "style": "toprope",
+    "length": 8,
+    "description": "可步行至頂端架設 Anchor\n書中路線圖繪製有誤",
+    "longdong:number": "560",
+    "longdong:safety": "green",
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "無 Anchor",
+      "tests": []
+     },
+     {
+      "position": "A02",
+      "material": "無 Anchor",
+      "tests": []
+     }
+    ]
+   }
+  },
+  {
+   "id": "33tq4fugkgc9g1by",
+   "type": "route",
+   "parent": "2ms749i6672a772x",
+   "name": {
+    "zh-Hant": "擠不擠由你",
+    "en": "Choose Your Size"
+   },
+   "props": {
+    "code": "longdong/nrkn3m",
+    "grade": {
+     "yds": "5.8"
+    },
+    "style": "trad",
+    "length": 9,
+    "description": "可步行至頂端架設 Anchor",
+    "longdong:number": "561",
+    "longdong:safety": "green",
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "無 Anchor",
+      "tests": []
+     },
+     {
+      "position": "A02",
+      "material": "無 Anchor",
+      "tests": []
+     }
+    ]
+   }
+  },
+  {
+   "id": "1nosmdhmomck2j9q",
+   "type": "route",
+   "parent": "2ms749i6672a772x",
+   "name": {
+    "zh-Hant": "小洞洞",
+    "en": "Baby Crack"
+   },
+   "props": {
+    "code": "longdong/yydn2f",
+    "grade": {
+     "yds": "5.6"
+    },
+    "style": "trad",
+    "length": 9,
+    "description": "可步行至頂端架設 Anchor",
+    "longdong:number": "562",
+    "longdong:safety": "green",
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "無 Anchor",
+      "tests": []
+     },
+     {
+      "position": "A02",
+      "material": "無 Anchor",
+      "tests": []
+     }
+    ]
+   }
+  },
+  {
+   "id": "1osfnr3tn61u30gs",
+   "type": "route",
+   "parent": "2ms749i6672a772x",
+   "name": {
+    "zh-Hant": "小小洞洞",
+    "en": "Small Baby Crack"
+   },
+   "props": {
+    "code": "longdong/xjbzhz",
+    "grade": {
+     "yds": "5.4"
+    },
+    "style": "trad",
+    "length": 9,
+    "description": "可步行至頂端架設 Anchor",
+    "longdong:number": "563",
+    "longdong:safety": "green",
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "無 Anchor",
+      "tests": []
+     },
+     {
+      "position": "A02",
+      "material": "無 Anchor",
+      "tests": []
+     }
+    ]
+   }
+  },
+  {
+   "id": "18c3okc0sdp788vl",
+   "type": "sector",
+   "parent": "3iorb7wklpgwrmph",
+   "name": {
+    "zh-Hant": "騙人的牆",
+    "en": "Illusion Wall"
+   },
+   "props": {
+    "code": "longdong/school-gate-4wnzar"
+   }
+  },
+  {
+   "id": "7tjep372jw0adjeq",
+   "type": "route",
+   "parent": "18c3okc0sdp788vl",
+   "name": {
+    "zh-Hant": "第一外角",
+    "en": "First Corner"
+   },
+   "props": {
+    "code": "longdong/cy8qbf",
+    "grade": {
+     "yds": "5.12a"
+    },
+    "style": "sport",
+    "length": 24,
+    "fa": "張登榮\nDeng-Jung Chang",
+    "description": "建議佩戴岩盔,確保者提高警覺",
+    "longdong:number": "565",
+    "longdong:safety": "green",
+    "longdong:status": "needs-test",
+    "longdong:bolts": [
+     {
+      "position": "B01",
+      "material": "Ti-TW",
+      "installed": "2017-04-15",
+      "tests": []
+     },
+     {
+      "position": "B02",
+      "material": "316-TW",
+      "installed": "2006",
+      "tests": []
+     },
+     {
+      "position": "B03",
+      "material": "316-TW",
+      "installed": "2006",
+      "tests": []
+     },
+     {
+      "position": "B04",
+      "material": "Ti-TW",
+      "installed": "2017-04-15",
+      "tests": []
+     },
+     {
+      "position": "B05",
+      "material": "Ti-TW",
+      "installed": "2017-04-15",
+      "tests": []
+     },
+     {
+      "position": "B06",
+      "material": "Ti-TW",
+      "installed": "2017-04-15",
+      "tests": []
+     },
+     {
+      "position": "B07",
+      "material": "Ti-TW",
+      "installed": "2017-04-15",
+      "tests": []
+     },
+     {
+      "position": "B08",
+      "material": "Ti-TW",
+      "installed": "2017-04-15",
+      "tests": []
+     },
+     {
+      "position": "B09",
+      "material": "Ti-TW",
+      "installed": "2017-04-15",
+      "tests": []
+     },
+     {
+      "position": "B10",
+      "material": "Ti-TW",
+      "installed": "2017-04-15",
+      "tests": []
+     },
+     {
+      "position": "B11",
+      "material": "Ti-TW",
+      "installed": "2017-04-15",
+      "tests": []
+     }
+    ],
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "Ti-U",
+      "installed": "2016",
+      "tests": []
+     },
+     {
+      "position": "A02",
+      "material": "Ti-U",
+      "installed": "2016",
+      "tests": []
+     }
+    ],
+    "longdong:notes": "2006 Bolt安裝日期待查;Anchor 安裝日期待查 (預設皆為1月1日)"
+   }
+  },
+  {
+   "id": "1fp0uj59tcvt00f4",
+   "type": "route",
+   "parent": "18c3okc0sdp788vl",
+   "name": {
+    "zh-Hant": "代溝",
+    "en": "Above the Groove"
+   },
+   "props": {
+    "code": "longdong/xfb2fj",
+    "grade": {
+     "yds": "5.11a"
+    },
+    "style": "sport",
+    "status": "open",
+    "description": "與 <第一外角> 共用Top Anchor",
+    "longdong:number": "566",
+    "longdong:safety": "green",
+    "longdong:status": "tested",
+    "longdong:statusDate": "2018-10-27",
+    "longdong:bolts": [
+     {
+      "position": "B01",
+      "material": "316-TW",
+      "installed": "2006",
+      "tests": [
+       "2016-05-07"
+      ]
+     },
+     {
+      "position": "B02",
+      "material": "316-TW",
+      "installed": "2006",
+      "tests": [
+       "2016-05-07"
+      ]
+     },
+     {
+      "position": "B03",
+      "material": "共用",
+      "tests": []
+     },
+     {
+      "position": "B04",
+      "material": "共用",
+      "tests": []
+     },
+     {
+      "position": "B05",
+      "material": "共用",
+      "tests": []
+     }
+    ],
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "共用",
+      "tests": []
+     },
+     {
+      "position": "A02",
+      "material": "共用",
+      "tests": []
+     }
+    ],
+    "longdong:lastTested": "2016-05-07",
+    "longdong:notes": "Bolt安裝日期待查 (預設為1月1日)\n–\nB01、B02 合格 - 8 kN / 1 min / ×5次 (測試人員待查)"
+   }
+  },
+  {
+   "id": "3fm34ofv6q2smh01",
+   "type": "route",
+   "parent": "18c3okc0sdp788vl",
+   "name": {
+    "zh-Hant": "最後難關",
+    "en": "Final Crux"
+   },
+   "props": {
+    "code": "longdong/kj45bv",
+    "grade": {
+     "yds": "5.12a"
+    },
+    "style": "sport",
+    "fa": "周俊明\nJun-Min Jou",
+    "status": "open",
+    "longdong:number": "567",
+    "longdong:safety": "green",
+    "longdong:status": "tested",
+    "longdong:statusDate": "2019-12-12",
+    "longdong:bolts": [
+     {
+      "position": "B01",
+      "material": "316-TW",
+      "installed": "2006",
+      "tests": [
+       "2018-10-27"
+      ]
+     },
+     {
+      "position": "B02",
+      "material": "316-TW",
+      "installed": "2006",
+      "tests": []
+     },
+     {
+      "position": "B03",
+      "material": "316-TW",
+      "installed": "2006",
+      "tests": []
+     },
+     {
+      "position": "B04",
+      "material": "316-TW",
+      "installed": "2006",
+      "tests": [
+       "2019-12-12"
+      ]
+     },
+     {
+      "position": "B05",
+      "material": "316-TW",
+      "installed": "2006",
+      "tests": [
+       "2019-12-12"
+      ]
+     }
+    ],
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "316-TW",
+      "installed": "2006",
+      "tests": [
+       "2019-12-12"
+      ]
+     },
+     {
+      "position": "A02",
+      "material": "316-TW",
+      "installed": "2006",
+      "tests": [
+       "2019-12-12"
+      ]
+     }
+    ],
+    "longdong:anchorHardware": [
+     {
+      "item": "梅隆鎖-316",
+      "quantity": 2,
+      "installed": "2020-12-27"
+     },
+     {
+      "item": "垂降環-316",
+      "quantity": 2,
+      "installed": "2020-12-27"
+     }
+    ],
+    "longdong:lastTested": "2019-12-12",
+    "longdong:notes": "Bolt安裝日期待查 (預設為1月1日)\n–\n2018/10/27 - B01 合格 - 8 kN / 1 min / ×5次 (老爹、小嵐、小魏)\n2019/12/12 - A01、A02、B05、B04 合格 - / 8kN / 1 min / ×5次 (Maurice、Jam)"
+   }
+  },
+  {
+   "id": "5obbc3lx22z7fzg3",
+   "type": "route",
+   "parent": "18c3okc0sdp788vl",
+   "name": {
+    "zh-Hant": "細縫",
+    "en": "Thinset"
+   },
+   "props": {
+    "code": "longdong/udy37z",
+    "grade": {
+     "yds": "5.11b"
+    },
+    "style": "trad",
+    "description": "與 <Z字> 共用Top Anchor",
+    "longdong:number": "568",
+    "longdong:safety": "green",
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "共用",
+      "tests": []
+     },
+     {
+      "position": "A02",
+      "material": "共用",
+      "tests": []
+     }
+    ]
+   }
+  },
+  {
+   "id": "lb3r8j7z6tcbf1ir",
+   "type": "route",
+   "parent": "18c3okc0sdp788vl",
+   "name": {
+    "zh-Hant": "Z字",
+    "en": "Stone Z"
+   },
+   "props": {
+    "code": "longdong/jag38d",
+    "grade": {
+     "yds": "5.11a"
+    },
+    "style": "sport",
+    "fa": "王大濟\nTa-Chi Wang",
+    "status": "open",
+    "longdong:number": "569",
+    "longdong:safety": "green",
+    "longdong:status": "tested",
+    "longdong:statusDate": "2019-12-12",
+    "longdong:bolts": [
+     {
+      "position": "B01",
+      "material": "316-TW",
+      "installed": "2006",
+      "tests": [
+       "2019-12-12",
+       "2017-06-10"
+      ]
+     },
+     {
+      "position": "B02",
+      "material": "316-TW",
+      "installed": "2006",
+      "tests": [
+       "2019-12-12",
+       "2017-06-10"
+      ]
+     },
+     {
+      "position": "B03",
+      "material": "316-TW",
+      "installed": "2006",
+      "tests": [
+       "2019-12-12",
+       "2017-06-10"
+      ]
+     },
+     {
+      "position": "B04",
+      "material": "316-TW",
+      "installed": "2006",
+      "tests": [
+       "2019-12-12",
+       "2017-06-10"
+      ]
+     }
+    ],
+    "longdong:anchors": [
+     {
+      "position": "A01",
+      "material": "316-TW",
+      "installed": "2006",
+      "tests": [
+       "2019-12-12"
+      ]
+     },
+     {
+      "position": "A02",
+      "material": "316-TW",
+      "installed": "2006",
+      "tests": [
+       "2019-12-12"
+      ]
+     }
+    ],
+    "longdong:anchorHardware": [
+     {
+      "item": "梅隆鎖-316",
+      "spec": "待新增鋼環",
+      "installed": "1900-01"
+     },
+     {
+      "item": "垂降環-316",
+      "spec": "0處",
+      "installed": "1900-01"
+     }
+    ],
+    "longdong:lastTested": "2019-12-12",
+    "longdong:notes": "Bolt安裝日期待查 (預設為1月1日)\n–\n2017/06/10 - B01 合格 - / 8kN / 1 min / ×5次 (測試者待確認)\n2019/12/12 - 全線合格 - / 8kN / 1 min / ×5次 (Maurice、Jam)"
+   }
+  }
+ ]
+}

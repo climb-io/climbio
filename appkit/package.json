@@ -1,0 +1,19 @@
+{
+  "name": "@climbio/appkit",
+  "version": "1.0.0",
+  "description": "Shared app layer for Climbio PWAs: one-language-at-a-time i18n loading, add-to-home-screen state, photo import (EXIF to camera, resize, re-encode), dialogs and toast, short share links with long-URL fallback. No framework, no build step.",
+  "license": "AGPL-3.0-or-later",
+  "repository": { "type": "git", "url": "git+https://github.com/climb-io/climbio.git", "directory": "appkit" },
+  "keywords": ["pwa", "i18n", "add-to-home-screen", "exif", "dialog", "toast"],
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": { "types": "./index.d.ts", "import": "./index.mjs", "require": "./index.js" },
+    "./ui.css": "./ui.css",
+    "./components.css": "./components.css",
+    "./*.js": "./*.js",
+    "./package.json": "./package.json"
+  },
+  "sideEffects": ["./ui.css", "./components.css"],
+  "files": ["*.js", "*.mjs", "*.d.ts", "*.css", "README.md", "README.en.md", "LICENSE", "NOTICE"]
+}

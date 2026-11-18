@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en" data-climbio-theme="outdoor">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#F7F9FB">
+<meta name="description" content="Vector crag maps you can view and edit">
+<link rel="canonical" href="https://climbio.app/kits/en/mapkit.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Climbio">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="https://climbio.app/kits/en/mapkit.html">
+<meta property="og:title" content="MapKit | Climbio kits">
+<meta property="og:description" content="Vector crag maps you can view and edit">
+<meta property="og:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="MapKit | Climbio kits">
+<meta name="twitter:description" content="Vector crag maps you can view and edit">
+<meta name="twitter:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<title>MapKit | Climbio kits</title>
+<link rel="icon" href="../../icons/brand/favicon-brand.svg" type="image/svg+xml">
+<link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/kits/mapkit.html">
+<link rel="alternate" hreflang="en" href="https://climbio.app/kits/en/mapkit.html">
+<link rel="stylesheet" href="../../css/brand-tokens.css">
+<link rel="stylesheet" href="../../css/pages.css">
+</head>
+<body>
+<header class="pg-top"><a class="pg-brand" href="../../en/"><img src="../../icons/brand/climbio-mark.svg" alt=""><span>Climbio</span></a><span class="grow"></span><nav class="pg-nav" aria-label="All kits"><a href="../../en/">Home</a><a href="../../kits/en/">All kits</a><a href="../../kits/mapkit.html" hreflang="zh-Hant" lang="zh-Hant">繁體中文</a></nav></header>
+<main class="pg">
+  <div class="pg-hero">
+    <span class="pg-eyebrow">@climbio/mapkit · AGPL-3.0</span>
+    <h1>MapKit</h1>
+    <p class="pg-lead">Vector crag maps you can view and edit</p>
+    <div class="pg-actions"><a class="pg-btn primary" href="#demo">See the live demo</a><a class="pg-btn" href="https://github.com/climb-io/climbio/tree/main/mapkit">View source on GitHub</a></div>
+  </div>
+  <section class="pg-section" aria-labelledby="what">
+    <h2 id="what">What it is</h2>
+    <p>Draws walls, trails, roads, areas, place names and rescue points as a clean vector map with automatic label avoidance, a scale bar and a compass. Toggle orthophoto and contour base maps, and let users edit wall lines and area outlines.</p>
+  </section>
+  <section class="pg-section" aria-labelledby="points">
+    <h2 id="points">What it does</h2>
+    <div class="pg-grid">
+      <article class="pg-card"><span class="pg-num">1</span><h3>Clear, readable maps</h3><p>Labels avoid each other, sector names appear as you zoom in, and pan, zoom and rotate feel natural on a phone.</p></article>
+      <article class="pg-card"><span class="pg-num">2</span><h3>Base maps on demand</h3><p>OpenStreetMap, orthophoto and contours toggle independently; your own data still shows without a base map or network.</p></article>
+      <article class="pg-card"><span class="pg-num">3</span><h3>Editing that knows walls</h3><p>Drag vertices, draw lines, flip which way a wall faces, undo/redo, and get a standard layer out.</p></article>
+    </div>
+  </section>
+  <section class="pg-section" aria-labelledby="demo">
+    <h2 id="demo">Live demo</h2>
+    <iframe class="pg-demo" src="../../mapkit/demo.html" title="MapKit · Live demo" loading="lazy"></iframe>
+  </section>
+  <section class="pg-section" aria-labelledby="install">
+    <h2 id="install">Install</h2>
+    <pre><code>npm install @climbio/mapkit @climbio/format</code></pre>
+    <h2 id="example">Minimal example</h2>
+    <pre><code>import &#39;@climbio/mapkit/element&#39;;
+// &lt;climbio-map view=&quot;map.json&quot; lang=&quot;en&quot;
+//   basemap=&quot;ortho&quot; style=&quot;height:70vh&quot;&gt;&lt;/climbio-map&gt;
+// Editing: add mode=&quot;edit&quot;, then el.viewer.edit({ node })</code></pre>
+  </section>
+  <section class="pg-section" aria-labelledby="notes">
+    <h2 id="notes">License and limits</h2>
+    <p class="pg-note">AGPL-3.0. Base-map tiles come from external services, need network and credit; positioning and uploads are your app&#39;s job.</p>
+    <p class="pg-muted"><a href="../../kits/en/">All kits</a> · <a href="https://github.com/climb-io/climbio/tree/main/mapkit">GitHub</a> · Machine-readable docs are the README.md files on GitHub</p>
+  </section>
+  <footer class="pg-foot"><span>Climbio · All kits</span><a href="../../en/">Home</a></footer>
+</main>
+</body>
+</html>

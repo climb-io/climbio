@@ -1,0 +1,23 @@
+岩館清單（gyms/ 與產生它的 tools/gyms/）不適用 repo 的 AGPL-3.0，以下面的條款提供。
+
+這份資料庫以 Open Database License（ODbL）1.0 提供：https://opendatacommons.org/licenses/odbl/1-0/
+資料庫裡的個別內容以 Database Contents License（DbCL）1.0 提供：https://opendatacommons.org/licenses/dbcl/1-0/
+
+出處：
+- 台灣以外的岩館，以及宜蘭縣岩館的座標：© OpenStreetMap 貢獻者，ODbL 1.0（https://www.openstreetmap.org/copyright）。
+- 台灣其他縣市岩館的座標：各縣市政府的門牌位置開放資料，依政府資料開放授權條款第 1 版（https://data.gov.tw/license）使用。
+
+使用、改作或散布這份資料庫（包含改作後的版本）時，要標示上面的出處，並以 ODbL 1.0 提供；做法與資料來源見 docs/gyms.md。
+
+---
+
+The gym list (gyms/ and the tools/gyms/ sources it is generated from) is not covered by the repository's AGPL-3.0. It is provided under these terms:
+
+This database is made available under the Open Database License (ODbL) 1.0: https://opendatacommons.org/licenses/odbl/1-0/
+Any rights in individual contents of the database are licensed under the Database Contents License (DbCL) 1.0: https://opendatacommons.org/licenses/dbcl/1-0/
+
+Sources:
+- Gyms outside Taiwan, and coordinates for gyms in Yilan County: © OpenStreetMap contributors, ODbL 1.0 (https://www.openstreetmap.org/copyright).
+- Coordinates for other gyms in Taiwan: address-point open data from Taiwan's city and county governments, used under the Open Government Data License, version 1.0 (https://data.gov.tw/license).
+
+If you use, adapt or distribute this database (including adapted versions), keep the attribution above and offer it under ODbL 1.0. See docs/gyms.md for how it is built.

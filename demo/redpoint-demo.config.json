@@ -1,0 +1,29 @@
+{
+  "source": "https://openclimbing.org/relation/19250765",
+  "targets": {
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "preferredOrientation": "portrait"
+    },
+    "desktop": {
+      "width": 1440,
+      "height": 900,
+      "preferredOrientation": "landscape"
+    }
+  },
+  "scenes": [
+    {
+      "action": "home",
+      "holdMs": 1200
+    },
+    {
+      "action": "openCrag",
+      "holdMs": 1200
+    },
+    {
+      "action": "openTopo",
+      "holdMs": 2200
+    }
+  ]
+}

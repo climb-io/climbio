@@ -1,0 +1,29 @@
+<!doctype html>
+<!-- 瀏覽器版偵測的最小範例：選一張岩牆照片，在瀏覽器裡偵測並畫出框。從 repo 根目錄起靜態伺服器，打開 /holdscan/browser/example.html -->
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HoldScan</title>
+<style>body { font: 14px system-ui, sans-serif; margin: 16px; } canvas { max-width: 100%; display: block; margin-top: 12px; }</style>
+</head>
+<body>
+<input id="file" type="file" accept="image/*"> <span id="status"></span>
+<canvas id="canvas"></canvas>
+<script src="holdscan.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  HoldScan.warm();
+  $('file').onchange = async () => {
+    const img = await createImageBitmap($('file').files[0]), c = $('canvas'), g = c.getContext('2d');
+    c.width = img.width; c.height = img.height; g.drawImage(img, 0, 0);
+    try {
+      const { boxes } = await HoldScan.detect(c, (key) => { $('status').textContent = key; });
+      g.strokeStyle = '#39ff14'; g.lineWidth = Math.max(2, c.width / 400);
+      for (const [x0, y0, x1, y1] of boxes) g.strokeRect(x0, y0, x1 - x0, y1 - y0);
+      $('status').textContent = `${boxes.length} holds`;
+    } catch (e) { $('status').textContent = e.message; }
+  };
+</script>
+</body>
+</html>

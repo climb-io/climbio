@@ -1,0 +1,44 @@
+{
+ "climbio": 2,
+ "t": 1790000000000,
+ "license": "CC-BY-SA-4.0",
+ "attribution": "Climbio",
+ "author": "Climbio",
+ "kind": "set",
+ "type": "photos",
+ "id": "wallphotosgroup1",
+ "name": "示範牆（兩張照片）",
+ "items": [
+  {
+   "href": "route.json",
+   "id": "wallphotosleft01",
+   "name": "示範牆（左）"
+  },
+  {
+   "href": "right.json",
+   "id": "wallphotosright1",
+   "name": "示範牆（右）"
+  }
+ ],
+ "props": {
+  "links": [
+   {
+    "a": "wallphotosleft01",
+    "b": "wallphotosright1",
+    "H": [
+     1,
+     0,
+     -480,
+     0,
+     1,
+     0,
+     0,
+     0,
+     1
+    ],
+    "dx": 480,
+    "dy": 0
+   }
+  ]
+ }
+}

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-Hant" data-climbio-theme="outdoor">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#F7F9FB">
+<meta name="description" content="照片裡的岩點，自動框出來">
+<link rel="canonical" href="https://climbio.app/kits/holdscan.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Climbio">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:url" content="https://climbio.app/kits/holdscan.html">
+<meta property="og:title" content="HoldScan｜Climbio 元件">
+<meta property="og:description" content="照片裡的岩點，自動框出來">
+<meta property="og:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="HoldScan｜Climbio 元件">
+<meta name="twitter:description" content="照片裡的岩點，自動框出來">
+<meta name="twitter:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<title>HoldScan｜Climbio 元件</title>
+<link rel="icon" href="../icons/brand/favicon-brand.svg" type="image/svg+xml">
+<link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/kits/holdscan.html">
+<link rel="alternate" hreflang="en" href="https://climbio.app/kits/en/holdscan.html">
+<link rel="stylesheet" href="../css/brand-tokens.css">
+<link rel="stylesheet" href="../css/pages.css">
+</head>
+<body>
+<header class="pg-top"><a class="pg-brand" href="../"><img src="../icons/brand/climbio-mark.svg" alt=""><span>Climbio</span></a><span class="grow"></span><nav class="pg-nav" aria-label="所有元件"><a href="../">首頁</a><a href="../kits/">所有元件</a><a href="../kits/en/holdscan.html" hreflang="en" lang="en">English</a></nav></header>
+<main class="pg">
+  <div class="pg-hero">
+    <span class="pg-eyebrow">尚未發佈到 npm · AGPL-3.0</span>
+    <h1>HoldScan</h1>
+    <p class="pg-lead">照片裡的岩點，自動框出來</p>
+    <div class="pg-actions"><a class="pg-btn primary" href="https://github.com/climb-io/climbio/tree/main/holdscan">在 GitHub 看原始碼</a></div>
+  </div>
+  <section class="pg-section" aria-labelledby="what">
+    <h2 id="what">這是什麼</h2>
+    <p>丟一張岩牆照片，HoldScan 回傳每顆岩點的位置。可以直接在手機瀏覽器裡跑，照片不離開手機；也能自己架成服務，或在電腦上離線把固定的牆面照片分析成岩點資料。</p>
+  </section>
+  <section class="pg-section" aria-labelledby="points">
+    <h2 id="points">能做什麼</h2>
+    <div class="pg-grid">
+      <article class="pg-card"><span class="pg-num">1</span><h3>手機上就能偵測</h3><p>模型在瀏覽器裡執行，不需要伺服器，也不用上傳照片。</p></article>
+      <article class="pg-card"><span class="pg-num">2</span><h3>自己架服務</h3><p>一個容器就能跑起來，不需要 Firebase，輸入大小可選，小岩點多的照片也抓得到。</p></article>
+      <article class="pg-card"><span class="pg-num">3</span><h3>離線整面牆分析</h3><p>一行指令從照片得到岩點外框與路線資料，適合岩館自己管的固定牆面。</p></article>
+    </div>
+  </section>
+  <section class="pg-section" aria-labelledby="install">
+    <h2 id="install">安裝</h2>
+    <pre><code>沒有 npm 套件：複製 holdscan/ 資料夾（瀏覽器版另需 holdkit/ort.js）</code></pre>
+    <h2 id="example">最小範例</h2>
+    <pre><code>&lt;script src=&quot;holdscan/browser/holdscan.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+  HoldScan.warm();
+  const { boxes } = await HoldScan.detect(canvas);
+  // boxes: [[x0, y0, x1, y1, score], ...]
+&lt;/script&gt;</code></pre>
+  </section>
+  <section class="pg-section" aria-labelledby="notes">
+    <h2 id="notes">授權與限制</h2>
+    <p class="pg-note">採 AGPL-3.0（偵測模型的授權要求）：透過網路提供改過的服務時，要公開你的原始碼。產生的岩點資料不受 AGPL 影響；只需要外框分析請用 HoldKit。</p>
+    <p class="pg-muted"><a href="../kits/">所有元件</a> · <a href="https://github.com/climb-io/climbio/tree/main/holdscan">GitHub</a> · 給 AI 讀的說明在 GitHub 的 README.md</p>
+  </section>
+  <footer class="pg-foot"><span>Climbio · 所有元件</span><a href="../">首頁</a></footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,92 @@
+{
+ "climbio": 2,
+ "t": 1761620000000,
+ "license": "CC-BY-SA-4.0",
+ "attribution": "Climbio sample",
+ "kind": "layer",
+ "id": "crag3dlayer00001",
+ "on": "crag3dmodel00001",
+ "href": "crag3d-model.json",
+ "props": {
+  "sight": {
+   "step": 0.5,
+   "az": 8,
+   "el": [
+    0,
+    30,
+    3
+   ],
+   "dist": [
+    2,
+    5,
+    10
+   ]
+  }
+ },
+ "marks": [
+  {
+   "node": "sample3dr1",
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      0.0,
+      0.5,
+      0.0
+     ],
+     [
+      0.05,
+      3.0,
+      0.0
+     ],
+     [
+      0.0,
+      6.0,
+      0.0
+     ],
+     [
+      0.0,
+      9.0,
+      0.0
+     ]
+    ]
+   },
+   "props": {
+    "label": "1",
+    "sight": "Y2AgDQAA"
+   }
+  },
+  {
+   "node": "sample3dr2",
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      1.4,
+      0.5,
+      0.0
+     ],
+     [
+      1.4,
+      3.5,
+      0.0
+     ],
+     [
+      1.5,
+      6.5,
+      0.0
+     ],
+     [
+      1.5,
+      9.5,
+      0.0
+     ]
+    ]
+   },
+   "props": {
+    "label": "2",
+    "sight": "Y2DADhTR+IxQGgA="
+   }
+  }
+ ]
+}

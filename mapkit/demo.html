@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mapkit</title>
+<!-- mapkit 的試用頁：載入 baseline/longdong-map.json（龍洞的地圖畫面），看圖、開關底圖、改岩壁的形狀；不用建置，從 repo 根目錄開靜態伺服器打開 /mapkit/demo.html -->
+<style>
+  body { margin: 0; font-family: system-ui, -apple-system, 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif; display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: minmax(0, 1fr); height: 100vh; }
+  header, footer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 12px; font-size: 14px; }
+  #map { height: auto; min-height: 0; }
+  pre { margin: 0; max-height: 20vh; overflow: auto; font-size: 11px; width: 100%; white-space: pre-wrap; word-break: break-all; }
+  button, select { font: inherit; }
+</style>
+</head>
+<body>
+<header>
+  <label><input type="checkbox" data-base="osm"> OSM</label>
+  <label><input type="checkbox" data-base="ortho"> 航照</label>
+  <label><input type="checkbox" data-base="contours"> 等高線</label>
+  <select id="lang"><option value="zh">中文</option><option value="en">English</option><option value="ja">日本語</option></select>
+  <select id="sector"><option value="">（看圖）</option></select>
+  <button id="draw" disabled>畫線</button>
+  <button id="finish" disabled>完成</button>
+  <button id="flip" disabled>反過來</button>
+  <button id="remove" disabled>刪除這條</button>
+  <button id="undo" disabled>復原</button>
+  <button id="redo" disabled>重做</button>
+  <span id="status"></span>
+</header>
+<climbio-map id="map" mode="edit" locate></climbio-map>
+<footer><pre id="out"></pre></footer>
+<script type="module">
+  import './element.js';
+  import { pickName } from './index.js';
+
+  const view = await (await fetch('baseline/longdong-map.json')).json();
+  const $ = (s) => document.querySelector(s);
+  $('#map').data = { view };
+  const map = $('#map').viewer;
+  for (const n of view.nodes.filter((n) => n.type === 'sector')) $('#sector').add(new Option(pickName(n.name, 'zh'), n.id));
+
+  const sync = () => {
+    const editing = !!$('#sector').value;
+    for (const id of ['draw', 'finish', 'flip', 'remove']) $(`#${id}`).disabled = !editing;
+    $('#undo').disabled = !map.canUndo;
+    $('#redo').disabled = !map.canRedo;
+  };
+  for (const box of document.querySelectorAll('[data-base]'))
+    box.addEventListener('change', () => map.set({ basemap: Object.fromEntries([...document.querySelectorAll('[data-base]')].map((b) => [b.dataset.base, b.checked])) }));
+  $('#lang').addEventListener('change', () => map.set({ lang: $('#lang').value }));
+  $('#sector').addEventListener('change', () => {
+    const node = $('#sector').value;
+    if (node) {
+      map.edit({ node });
+      map.focus({ node, tight: true });
+    }
+    sync();
+  });
+  $('#draw').addEventListener('click', () => map.draw());
+  $('#finish').addEventListener('click', () => {
+    try {
+      map.finish();
+    } catch (err) {
+      $('#status').textContent = err.message;
+    }
+  });
+  $('#flip').addEventListener('click', () => map.flip());
+  $('#remove').addEventListener('click', () => map.removeRing());
+  $('#undo').addEventListener('click', () => map.undo());
+  $('#redo').addEventListener('click', () => map.redo());
+  map.addEventListener('history', sync);
+  map.addEventListener('change', (e) => ($('#out').textContent = JSON.stringify(e.detail.layer)));
+  map.addEventListener('pick', (e) => ($('#status').textContent = `岩壁 ${pickName(map.model.nodes.get(e.detail.node).name, 'zh')}`));
+  map.addEventListener('areapress', (e) => ($('#status').textContent = `區域 ${pickName(map.model.nodes.get(e.detail.node).name, 'zh')}`));
+  map.addEventListener('locate', () => map.set({ here: { at: [121.9214, 25.1127], accuracy: 12 } }));
+  sync();
+  document.body.dataset.ready = '1';
+</script>
+</body>
+</html>

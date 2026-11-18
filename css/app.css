@@ -1,0 +1,1068 @@
+/* 輕盈深色：深灰黑底、細一點的字、少框線，螢光萊姆綠只當點綴；難度和數字用窄體斜字（Barlow Condensed，放在 fonts/）。
+   好玩的手感：按下縮一下、放開彈回來；點岩點有波紋、記錄完攀有「Sent」特效。單手操作：首頁牆面卡片，牆面頁上照片下面板
+   元件只有幾種，所有頁面共用：
+   - .icon-btn：圖示按鈕（平常只有圖示、沒有底；按下去的瞬間才出現灰色圓形；aria-pressed 時螢光綠圓形）
+   - .text-btn：頂列的文字按鈕（取消、完成）；.text-btn.primary 螢光綠
+   - .btn：一般按鈕（灰底膠囊）；.btn.primary 螢光綠
+   - .field：輸入框、下拉選單 */
+:root {
+  /* 介面色來自 css/brand-tokens.css 的室內主題（html 的 data-climbio-theme="indoor"，appkit/ui.css 對到 --bg、--surface、--text、--accent…） */
+  --accent-text: var(--accent); --shadow-c: var(--shadow);
+  --ak-toast-bottom: calc(150px + var(--safe-b));
+  --start: #22c55e; --hand: #3b82f6; --foot: #facc15; --top: #ef4444;
+  --radius: 20px; --radius-sm: 14px;
+  --display: "Climbio Display", "Barlow Condensed", -apple-system, sans-serif;
+  --spring: cubic-bezier(.34, 1.56, .64, 1);
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang TC", "Noto Sans TC", "Segoe UI", sans-serif;
+  --safe-t: env(safe-area-inset-top, 0px); --safe-b: env(safe-area-inset-bottom, 0px);
+}
+/* iPhone、iPad 從主畫面打開：系統在狀態列下方約 35pt 疊一段越往下越淡的模糊（關不掉），貼頂端的按鈕、標題一起往下移開；照片照樣滿版 */
+html.ios-app { --safe-t: calc(env(safe-area-inset-top, 0px) + 28px); }
+
+@font-face { font-family: "Climbio Display"; src: url(../fonts/barlow-condensed-700i.woff2) format("woff2"); font-weight: 700; font-style: italic; font-display: swap; }
+/* 段級（日本的難度）：M PLUS 1 Black，只留數字和「級段初二三四五六」（約 2.5 KB，fonts/OFL-MPLUS1.txt）；正體、比 V 級的窄體斜字小一點 */
+@font-face { font-family: "Climbio Dan"; src: url(../fonts/mplus1-900-dan.woff2) format("woff2"); font-weight: 900; font-style: normal; font-display: swap; }
+.dan { font-family: "Climbio Dan", var(--font) !important; font-style: normal !important; font-weight: 900 !important; font-size: .82em; letter-spacing: 0; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+/* 關掉瀏覽器內建的下拉重新整理（會重新載入整頁）：首頁的下拉由 App 自己處理（見 js/home.js 的 pullToRefresh） */
+html, body { overscroll-behavior-y: none; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 var(--font); }
+/* 長按文字、按鈕不出現系統選取與選單；輸入框要能選字、貼上，除外 */
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, [contenteditable] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; border: 0; background: none; padding: 0; transition: background-color .15s, transform .35s var(--spring), scale .35s var(--spring), opacity .15s; }
+button:active:not(:disabled) { scale: .94; transition-duration: .08s; }   /* 按下縮一下用 scale 屬性，不用 transform：元素自己用 transform 定位（置中、圖釘）時才不會被蓋掉而跳位 */
+/* 整列的選單項目不縮（寬的列按下縮小很怪，尤其電腦版） */
+.menu button:active:not(:disabled), .menu a:active { scale: none; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+/* ---------- 共用元件 ---------- */
+.bar h1.brand { font-size: 23px; font-weight: 600; letter-spacing: -.03em; }   /* 不轉大寫：要跟 Google 同意畫面的 App 名稱「Climbio」一樣 */
+.bar h1.brand::after { content: ''; display: inline-block; width: 8px; height: 8px; margin-left: 4px; border-radius: 50%; background: var(--accent-text); vertical-align: baseline; }
+/* 次要按鈕一律灰底（圓形／膠囊），主要動作螢光綠 */
+.text-btn { height: 36px; padding: 0 14px; border-radius: 999px; font-weight: 500; color: var(--muted); flex: none; display: inline-flex; align-items: center; gap: 6px; background: transparent; }
+.text-btn:hover { color: var(--text); }
+.text-btn.primary { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.field { background: var(--surface-2); border: 1px solid transparent; border-radius: var(--radius-sm); padding: 10px 14px; min-width: 0; }
+.field:focus { border-color: var(--accent-text); outline: none; }
+select.field { padding-right: 26px; font-weight: 600; }
+.hint { color: var(--muted); font-size: 12.5px; margin: 0; }
+.file-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.menu { position: absolute; right: 12px; top: calc(58px + var(--safe-t)); z-index: 10; background: var(--surface-2); border: 1px solid var(--line); border-radius: 18px; padding: 6px;
+  min-width: 190px; box-shadow: 0 16px 40px var(--shadow-c); display: flex; flex-direction: column; }
+.menu button { text-align: left; padding: 12px 14px; border-radius: 12px; font-weight: 600; }
+.menu button:hover { background: var(--line); }
+.menu button:disabled { opacity: .35; }
+.menu .danger { color: var(--danger); }
+/* 背景重描的進度：浮在上方工具列下面，不擋操作 */
+.sam-prog { position: fixed; left: 50%; transform: translateX(-50%); top: calc(64px + var(--safe-t)); z-index: 39; width: min(320px, calc(100% - 32px));
+  padding: 9px 14px 11px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line); color: var(--text);
+  font-size: 12.5px; font-weight: 600; box-shadow: 0 10px 30px var(--shadow-c); pointer-events: none; display: flex; flex-direction: column; gap: 7px; }
+.sam-prog i { display: block; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.sam-prog b { display: block; height: 100%; width: 0; border-radius: 2px; background: var(--accent); transition: width .3s; }
+.sam-prog.indet b { width: 30%; transition: none; animation: samIndet 1.2s ease-in-out infinite; }
+@keyframes samIndet { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+.spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } button:active:not(:disabled) { scale: none; } }
+
+/* ---------- 首頁 ---------- */
+#home { min-height: 100%; padding-bottom: calc(96px + var(--safe-b)); display: flex; flex-direction: column; }
+/* 同步：首頁上方細進度條；還沒下載的牆是閃光骨架，下載好照片淡入 */
+.wall-card .skel { display: block; width: 100%; aspect-ratio: 1; border-radius: 18px;
+  background: linear-gradient(100deg, var(--surface-2) 30%, var(--line) 50%, var(--surface-2) 70%) 0 0 / 300% 100%; animation: skel 1.4s linear infinite; }
+.wall-card.pending .meta { color: var(--muted); }
+.wall-card.loading::after { content: ''; position: absolute; left: 50%; top: 40%; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%;
+  border: 3px solid var(--line-strong); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+.wall-card.arrive img { animation: arrive-in .45s ease-out both; }
+@keyframes arrive-in { from { opacity: 0; } }
+.empty-home { text-align: center; color: var(--muted); padding: 18vh 32px 0; display: grid; gap: 10px; justify-items: center; }
+.empty-art { width: 200px; height: auto; margin-bottom: 6px; }
+.eh-hold { transform-box: fill-box; transform-origin: center; animation: bob 2.6s var(--spring) infinite alternate; }
+@keyframes bob { from { transform: translateY(0) scale(1); } to { transform: translateY(-5px) scale(1.08); } }
+@media (prefers-reduced-motion: reduce) { .eh-hold { animation: none; } }
+.empty-home strong { color: var(--text); font-size: 20px; font-weight: 600; }
+/* 增加照片的位置選單：現在的照片縮小放中間，上下左右是可以加的位置 */
+.side-pick { display: grid; grid-template: auto auto auto / 44px 1fr 44px; grid-template-areas: ". up ." "left walls right" ". down ."; gap: 8px; align-items: center; justify-items: center; padding: 12px 18px 18px; }
+.side-walls { grid-area: walls; display: flex; gap: 3px; max-width: 100%; max-height: 38vh; overflow: hidden; border-radius: 8px; }
+.side-walls[data-axis="v"] { flex-direction: column; }
+.side-walls img { display: block; min-width: 0; min-height: 0; object-fit: cover; border-radius: 4px; }
+.side-walls[data-axis="h"] img { height: 120px; }
+.side-walls[data-axis="v"] img { width: 120px; max-height: 120px; }
+.side-btn[hidden] { display: none; }
+.side-btn { width: 44px; height: 44px; padding: 0; border: 0; border-radius: 22px; background: var(--surface-2); color: var(--text); display: grid; place-items: center; }
+.side-btn svg { width: 22px; height: 22px; }
+.side-btn.up { grid-area: up; }
+.side-btn.left { grid-area: left; }
+.side-btn.right { grid-area: right; }
+.side-btn.down { grid-area: down; }
+.side-btn.up svg { transform: rotate(90deg); }
+.side-btn.down svg { transform: rotate(-90deg); }
+.side-btn.right svg { transform: scaleX(-1); }
+.sheet-title { padding: 14px 18px 4px; color: var(--muted); font-size: 13px; font-weight: 600; text-align: center; }
+.sheet-title + .sheet-btn { border-top: 0; }
+
+/* 開場畫面、安裝說明：左上小 logo，一張微微傾斜的示範畫面，一句話；開場下面是開始拍，安裝說明下面是加到主畫面的步驟 */
+.landing { position: fixed; inset: 0; z-index: 19; overflow-y: auto; background: var(--bg); padding: calc(14px + var(--safe-t)) 20px calc(28px + var(--safe-b));
+  display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+.landing[hidden] { display: none; }
+html.lite-boot #home { display: none !important; }
+html.lite-boot #landing[hidden] { display: flex; }
+.ld-x { position: absolute; right: 12px; top: calc(12px + var(--safe-t)); width: 40px; height: 40px; }
+.ld-x svg { transform: rotate(45deg); }
+.landing:not(.over) .ld-x { display: none; }
+.ld-bar { align-self: flex-start; display: flex; align-items: center; font-size: 26px; }
+.ld-shot { position: relative; width: min(72vw, 300px); aspect-ratio: 1; margin: 18px 0 8px; border-radius: 26px; overflow: hidden; transform: rotate(-3deg);
+  box-shadow: 0 24px 60px rgba(0,0,0,.6); background: var(--surface); }
+.ld-shot img { width: 100%; height: 100%; display: block; object-fit: contain; padding: 18%; box-sizing: border-box; background: radial-gradient(circle at 50% 42%, #354628, #12171a 72%); }
+.ld-tape { position: absolute; left: 12px; bottom: 14px; padding: 5px 12px; background: #f3eee2; color: #1f1c18; font-size: 16px; transform: rotate(-2deg);
+  box-shadow: 0 4px 10px rgba(0,0,0,.35); opacity: 0; transition: opacity .3s; }
+.ld-tape.on { opacity: 1; }
+.ld-title { margin: 6px 0 0; font-size: 26px; font-weight: 800; line-height: 1.3; text-wrap: balance; word-break: keep-all; }   /* 中日文只在換行、空格斷行 */
+.ld-feats { display: none; }
+.ld-sub { margin: 0; color: var(--muted); font-size: 15px; }
+.ld-title, .ld-sub { transition: opacity .3s; text-wrap: balance; white-space: pre-line; }   /* 文案不用標點，用換行、空格分段 */
+.ld-sub { word-break: keep-all; }
+.landing.welcome .ld-title { min-height: 2.6em; display: grid; align-items: end; }   /* 輪播的主標有一行有兩行：留兩行高，換組時下面不跳 */
+.landing.pitch-out :is(.ld-title, .ld-sub, .ld-shot) { opacity: 0; }
+.ld-shot { transition: opacity .3s; }
+.ld-fx { position: absolute; left: 0; top: 0; width: 100%; height: auto; pointer-events: none; }
+.ld-finger { z-index: 2; transition: left .38s cubic-bezier(.4,0,.2,1), top .38s cubic-bezier(.4,0,.2,1); }
+.ld-install { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: auto; padding-top: 10px; }
+.ld-install [hidden] { display: none !important; }
+.ld-go { width: 100%; max-width: 360px; padding: 15px; font-size: 17px; border-radius: 999px; }
+.ld-menu { margin: 0; padding: 14px 16px; border-radius: 16px; background: var(--surface); font-size: 15px; font-weight: 600; line-height: 1.5; }
+.ld-ios { list-style: none; margin: 0; padding: 0; display: flex; align-items: flex-start; justify-content: center; gap: 6px; width: 100%; }
+.ld-ios li { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.ld-ios li + li::before { content: '›'; position: relative; left: -50%; top: 14px; color: var(--muted); font-size: 22px; height: 0; }
+.ld-ios svg { width: 44px; height: 44px; padding: 10px; border-radius: 14px; background: var(--surface); color: var(--text); box-sizing: border-box; }
+.ld-ios b { height: 44px; display: grid; place-items: center; padding: 0 12px; border-radius: 14px; background: var(--surface); color: #0a84ff; font-size: 15px; }
+.ld-done { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.ld-done img { width: 64px; height: 64px; border-radius: 16px; box-shadow: 0 0 0 4px var(--accent); }
+.ld-done b { font-size: 22px; }
+.ld-done span { color: var(--muted); }
+.ld-done[hidden] { display: none; }
+/* 電腦：像雜誌的全版廣告，只有這一頁。四欄同樣大小：三欄是手機開場的三組（示範畫面、編號、主標、副標），第四欄是連結卡和「用手機打開描」；
+   點朋友的連結、有預覽圖時是上面一條刊頭（字標）、下面預覽圖 */
+.ld-link { display: none; }
+html.pcland .landing { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto 1fr; grid-template-areas: "bar link" "feats feats";
+  align-items: center; column-gap: 24px; row-gap: clamp(20px, 4vh, 48px); text-align: left;
+  --pw: min(100vw - 2 * clamp(28px, 4vw, 72px), 4 * (100dvh - 300px), 1680px);   /* 版面寬：矮的螢幕縮小四張圖，一頁放得下 */
+  padding: clamp(24px, 5vh, 56px) calc((100vw - var(--pw)) / 2); }
+html.pcland .landing { grid-template: "feats" 1fr / 1fr; }
+html.pcland .landing :is(.ld-bar, .ld-link) { display: none !important; }
+html.pcland :is(.ld-shot, .ld-title, .ld-sub) { display: none; }
+html.pcland .ld-bar { grid-area: bar; font-size: clamp(48px, 6.5vh, 72px); }
+html.pcland .ld-feats { grid-area: feats; align-self: center; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: clamp(18px, 2.2vw, 40px);
+  container-type: inline-size; }   /* 字跟著三欄的寬度 */
+.ld-feat { min-width: 0; display: flex; flex-direction: column; }
+.ld-pic { position: relative; aspect-ratio: 1; border-radius: 22px; overflow: hidden; background: var(--surface); }
+.ld-pic > img:first-child { display: block; width: 100%; height: 100%; object-fit: contain; padding: 24%; box-sizing: border-box; background: radial-gradient(circle at 50% 42%, #354628, #12171a 72%); }
+.ld-pic .ld-tape { top: 16px; bottom: auto; z-index: 1; }   /* 下緣壓著大編號 */
+
+.ld-num { position: relative; margin: -.5em 0 0 12px; color: var(--text); font-family: var(--display); font-style: italic; font-size: clamp(44px, 4.8cqi, 80px); font-weight: 700; line-height: 1;
+  text-shadow: 0 4px 20px rgba(0,0,0,.55); transition: color .3s; }   /* 大編號壓在圖的下緣 */
+.ld-feat.on .ld-num { color: var(--accent); }   /* 正在演的那一欄 */
+.ld-feat h2 { margin: 8px 0 12px; font-size: clamp(18px, 2.45cqi, 42px); font-weight: 900; line-height: 1.12; letter-spacing: -.01em; }
+.ld-feat p { margin: 0; color: var(--muted); font-size: clamp(13px, 1.05cqi, 17px); line-height: 1.5; }
+.ld-linkcard .ld-pic { display: grid; place-items: center; background: var(--surface); }
+.ld-linkcard .ld-num { visibility: hidden; }   /* 佔編號的位置，主標跟其他欄對齊 */
+.ld-feat :is(h2, p) { white-space: pre-line; word-break: keep-all; text-wrap: balance; }   /* 文案不用標點，用換行、空格分段 */
+/* 點朋友的連結進來：三欄換成那條線的預覽圖 */
+html.pcland .ld-install, html.pcland .ld-done, html.pcland .ld-x, html.pcland .inst-bar { display: none !important; }
+html.pcland .ld-link:not([hidden]) { grid-area: link; display: flex; flex-direction: row-reverse; align-items: center; gap: 18px; text-align: right; }
+.ld-link b { max-width: 9em; font-size: clamp(16px, 2.2vh, 20px); line-height: 1.35; text-wrap: balance; }
+
+.ld-shared { display: none; }
+html.pcland .landing.is-shared { grid-template: "shared" auto "feats" 1fr / minmax(0, 1fr); }
+html.pcland .landing.is-shared .ld-shared { display: block; grid-area: shared; }
+.ld-shared b { color: var(--muted); font-size: 15px; }
+.ld-shared p { margin: 8px 0 0; font-size: 22px; font-weight: 700; overflow-wrap: anywhere; }
+.ld-linkcard .ld-link-content { width: 100%; height: 100%; box-sizing: border-box; padding: 12px; display: flex; flex-direction: column; justify-content: center; gap: 12px; min-width: 0; }
+.ld-link-content input { width: 100%; min-width: 0; box-sizing: border-box; font-size: 12px; }
+.ld-link-content .btn { font-size: 14px; padding: 10px 12px; }
+@media (max-width: 767px) {
+  html.pcland .landing { --pw: calc(100vw - 32px); padding: 24px 16px; }
+  html.pcland .ld-feats { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 24px; }
+  html.pcland .ld-feat :is(h2, p) { word-break: normal; overflow-wrap: anywhere; }
+  html.pcland .ld-link:not([hidden]) { justify-content: flex-end; text-align: left; }
+}
+
+.ld-start { display: none; }
+:is(.landing.welcome, html.welcome-boot .landing) .ld-start { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: auto; padding-top: 10px; }
+:is(.landing.welcome, html.welcome-boot .landing) :is(.ld-install, .ld-done, .ld-link, .ld-x) { display: none !important; }
+html.welcome-boot #home { display: none !important; }
+html.welcome-boot #landing[hidden] { display: flex; }
+.ld-start .text-btn { padding: 12px 16px; color: var(--muted); }
+/* 手機的開場像一頁雜誌廣告：示範畫面滿版出血、下緣淡進底色，字標疊在畫面左上，大標靠左、壓在畫面下緣 */
+@media (max-width: 767px) {
+  html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing) { align-items: stretch; text-align: left; gap: 10px; }
+  html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing) .ld-bar { position: absolute; left: 20px; top: calc(14px + var(--safe-t)); z-index: 2; }
+  html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing) .ld-shot { flex-shrink: 0; width: auto; height: 64dvh; aspect-ratio: auto; margin: calc(-14px - var(--safe-t)) -20px 0;
+    border-radius: 0; transform: none; box-shadow: none; }
+  html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing) .ld-shot::after { content: ''; position: absolute; inset: 45% 0 0; background: linear-gradient(transparent, var(--bg)); pointer-events: none; }
+  html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing) .ld-shot::before { content: ''; position: absolute; inset: 0 0 auto; height: calc(110px + var(--safe-t)); background: linear-gradient(rgba(14,14,15,.7), transparent); pointer-events: none; z-index: 1; }   /* 字標壓在照片上也看得清楚 */
+  html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing) .ld-tape { left: 20px; bottom: auto; top: calc(72px + var(--safe-t)); z-index: 2; }
+  html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing) .ld-title { position: relative; margin-top: -72px; font-size: min(10.5vw, 42px); font-weight: 900; line-height: 1.12; letter-spacing: -.01em; min-height: 2.24em; }
+  html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing) .ld-sub { font-size: 15px; line-height: 1.5; }
+  /* 第二組（掃描）：大標置頂，下面整面牆，下緣淡掉 */
+  html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing)[data-pitch="1"] .ld-title { order: 1; margin-top: calc(56px + var(--safe-t)); min-height: 0; }
+  html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing)[data-pitch="1"] .ld-sub { order: 2; }
+  html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing)[data-pitch="1"] .ld-shot { order: 3; flex: 1 1 0; min-height: 0; height: auto; margin: 6px -20px 0; }
+  html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing)[data-pitch="1"] .ld-shot img { height: 100%; }
+  html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing)[data-pitch="1"] .ld-shot::before { display: none; }
+  html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing)[data-pitch="1"] .ld-shot::after { inset: 70% 0 0; }
+  html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing)[data-pitch="1"] .ld-start { order: 4; }
+  /* 第三組（挑戰）：中間一張微斜的路線分享卡，大標在卡片下面 */
+  html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing)[data-pitch="2"] .ld-shot { align-self: center; width: min(76vw, 330px); height: auto; aspect-ratio: 1; margin: calc(64px + var(--safe-t)) 0 0;
+    border-radius: 24px; transform: rotate(-3deg); box-shadow: 0 24px 60px rgba(0,0,0,.6); }
+  html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing)[data-pitch="2"] .ld-shot::before, html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing)[data-pitch="2"] .ld-shot::after { display: none; }
+  html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing)[data-pitch="2"] .ld-tape { top: auto; bottom: 16px; left: 14px; }
+  html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing)[data-pitch="2"] .ld-title { margin-top: 26px; }
+}
+.inst-bar { position: fixed; left: 12px; right: 84px; bottom: calc(18px + var(--safe-b)); z-index: 18; animation: item-in .3s var(--ease-out) both; }
+.inst-bar[hidden], #home[hidden] ~ .inst-bar, body.ld-open .inst-bar, #home:has(#addBtn[aria-expanded="true"]) ~ .inst-bar { display: none; }
+.inst-x { width: 40px; height: 40px; }
+.inst-x svg { transform: rotate(45deg); }
+
+/* 新增牆面：拍照／相簿 */
+.sheet-backdrop { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.6); display: flex; align-items: flex-end; justify-content: center; }
+.sheet { width: min(100%, 480px); margin: 0 12px calc(12px + var(--safe-b)); display: flex; flex-direction: column; gap: 8px; }
+.sheet-group { background: var(--surface-2); border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column; }
+.sheet-btn { padding: 17px; text-align: center; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; }
+.sheet-btn:hover { background: var(--line); }
+.sheet-btn + .sheet-btn { border-top: 1px solid var(--line); }
+.sheet-btn.danger { color: var(--danger); }
+.sheet-group[hidden] { display: none; }
+.sheet-btn[hidden] { display: none; }
+.sheet-btn svg { width: 20px; height: 20px; color: var(--accent-text); }
+.sheet-cancel { background: var(--surface-2); border-radius: var(--radius); padding: 17px; font-weight: 700; color: var(--muted); }
+/* 裁切 */
+#crop { position: fixed; inset: 0; z-index: 30; background: #000; display: flex; flex-direction: column; }
+.crop-bar { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: calc(12px + var(--safe-t)) 12px 8px; }
+.crop-bar .ed-x svg { transform: rotate(45deg); }
+.crop-stage { flex: 1; min-height: 0; display: grid; place-items: center; }
+#cropCv { touch-action: none; display: block; }
+.crop-actions { display: flex; justify-content: center; gap: 16px; padding: 10px 16px calc(20px + var(--safe-b)); }
+
+/* ---------- 牆面頁：照片＋入口 ---------- */
+#wall { min-height: 100%; display: flex; flex-direction: column; }
+.wall-name { flex: 1; min-width: 0; background: transparent; border: 0; font-size: 20px; font-weight: 600; padding: 6px 10px; border-radius: 12px; }
+.wall-name:hover, .wall-name:focus { background: var(--surface-2); outline: none; }
+.overview { display: flex; flex-direction: column; gap: 12px; padding: 0 16px calc(96px + var(--safe-b)); max-width: 720px; width: 100%; margin: 0 auto; }
+.wall-photo { width: 100%; max-height: 46dvh; object-fit: contain; background: var(--surface-2); border-radius: var(--radius); display: block; }
+.route-list { display: flex; flex-direction: column; gap: 8px; }
+.list-hint { color: var(--muted); font-size: 14px; padding: 18px 4px; text-align: center; }
+/* 路線清單的篩選（Flash／完攀／未完攀，再點一次取消）和排序（預設→低到高→高到低，一個按鈕循環） */
+.list-tools { display: flex; align-items: center; gap: 2px; }
+.list-tools[hidden] { display: none; }
+.lt-btn { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: none; color: var(--muted); }
+.lt-btn svg { width: 18px; height: 18px; }
+.lt-btn:active { background: var(--surface-2); }
+.lt-btn[aria-pressed="true"] { background: var(--surface-2); color: var(--accent-text); }
+.lt-btn[data-sort]:not([data-v="added"]) { color: var(--accent-text); }
+.route-card { display: flex; align-items: center; gap: 12px; background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 13px 4px; text-align: left; }
+.route-card .rc-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.route-card .rc-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.route-card .rc-sub { color: var(--muted); font-size: 13px; }
+
+/* ---------- 編輯：全螢幕 ---------- */
+#editor { z-index: 15; }
+.ed-bar { background: var(--bg); display: flex; flex: none; }
+.ed-top { align-items: center; gap: 4px; padding: calc(6px + var(--safe-t)) 8px 6px; }
+.ed-title { flex: 1; min-width: 0; font-weight: 600; font-size: 17px; padding-left: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }   /* 沒字也要留著：把右邊的按鈕推到最右 */
+.zoom-v { min-width: 50px; text-align: center; color: var(--muted); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+#viewPanel .view-row { display: grid; grid-template-columns: 1fr auto auto auto 1fr; align-items: center; }   /* 上一條／下一條置中 */
+.sheet-btn:disabled { opacity: .35; }
+/* 個人攀爬紀錄：路線列表的完攀標示 */
+.log-mark { flex: none; display: inline-flex; align-items: center; gap: 2px; color: var(--accent-text); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.log-mark svg { width: 16px; height: 16px; }
+/* 手機用兩指縮放，不顯示右上的縮放按鈕 */
+@media (pointer: coarse) { #editor .zoom-ctl { display: none; } }
+#edMenu { z-index: 16; }
+.top-grp { display: contents; }
+/* 工具列：圖示按鈕（名稱、快捷鍵在滑鼠提示），同一類一組，組之間一條分隔線；類型按鈕帶顏色和這條路線的數量 */
+/* 岩點頁：畫岩點的工具列、重疊提示浮在照片下緣，不佔版面（佔了的話照片區變矮、整張重新縮放，看起來像閃一下） */
+.ed-bottom { flex-direction: column; padding: 10px 12px calc(10px + var(--safe-b)); }
+.ed-panel { display: flex; flex-direction: column; gap: 10px; max-width: 900px; width: 100%; margin: 0 auto; }
+.ed-row { display: flex; gap: 8px; align-items: center; min-width: 0; }
+/* 岩點頁的提示浮在照片下緣、不佔版面：出現或消失時照片不會跟著縮放移位（重疊時連點同一處才換得到下一顆） */
+#holdPanel, #routePanel { position: relative; }
+#holdHint { position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); width: max-content; max-width: calc(100% - 16px);
+  padding: 6px 12px; border-radius: 999px; background: rgba(0, 0, 0, .72); color: #fff; text-align: center; pointer-events: none; z-index: 2; }
+.ed-row .field { flex: 1; }
+.ed-row .field.grade { flex: none; width: 88px; }
+.ed-row .btn { padding: 10px 16px; }
+.view-count { min-width: 64px; text-align: center; font: italic 700 20px/1 var(--display); letter-spacing: .04em; color: var(--muted); }
+.draft-info { flex: 1; color: var(--foot); font-weight: 600; font-size: 14px; min-width: 0; }
+/* 圖片的縮放與平移自己處理（transform），兩指縮放只動圖片、不動整頁 */
+#stage { position: relative; flex: 1; min-height: 0; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+#stage canvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+/* 外框、把手、標籤畫在這層：跟畫面一樣大、用螢幕解析度畫，放大時線條照樣清楚（照片那層才跟著 CSS 放大） */
+#stage #ov { width: 100%; height: 100%; pointer-events: none; will-change: auto; }
+/* 看線的相鄰頁跟著手指進出；非手勢切換沿用短進場。各條的路線視角不同，照片外面要蓋住目前這條 */
+#stage .swipe-page { pointer-events: none; background: var(--bg); }
+/* 3D 牆進定線的開場影片（js/wall3d.js）：蓋在舞台最上面，照舞台高度放、左右裁掉，播完淡出交給 3D */
+#stage .w3d-still { position: absolute; inset: 0; z-index: 2; transition: opacity .25s ease-out; }
+#stage .w3d-wait { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: rgba(14, 14, 15, .55); color: #fff; font-weight: 700; font-size: 15px; transition: opacity .25s ease-out; }
+#stage .w3d-wait i { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .25); border-top-color: #fff; animation: w3d-spin .9s linear infinite; }
+@keyframes w3d-spin { to { transform: rotate(360deg); } }
+#stage .w3d-demo { position: relative; width: 120px; height: 44px; margin-top: 18px; }
+#stage .w3d-demo b { position: absolute; top: 10px; left: 38px; width: 22px; height: 22px; border-radius: 50%; background: rgba(255, 255, 255, .85); box-shadow: 0 0 0 6px rgba(255, 255, 255, .18); animation: w3d-two 1.8s ease-in-out infinite; }
+#stage .w3d-demo b + b { left: 62px; }
+@keyframes w3d-two { 0%, 100% { transform: translateX(-26px); } 50% { transform: translateX(26px); } }
+#stage .w3d-wait small { font-size: 13px; font-weight: 600; opacity: .85; }
+#stage .w3d-still.out, #stage .w3d-wait.out { opacity: 0; pointer-events: none; }
+.slide-next { animation: slide-from-right .22s ease-out; }
+.slide-prev { animation: slide-from-left .22s ease-out; }
+@keyframes slide-from-right { from { transform: translateX(32px); opacity: .4; } }
+@keyframes slide-from-left { from { transform: translateX(-32px); opacity: .4; } }
+.swipe-hint { position: fixed; top: 50%; z-index: 17; max-width: 40%; display: flex; flex-direction: column; pointer-events: none;
+  color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,.7); opacity: calc(.2 + var(--p, 0) * .8); transition: color .12s; }
+.swipe-hint b { font: italic 700 44px/1 var(--display); }
+.swipe-hint span { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .8; }
+.swipe-hint.next { right: 14px; align-items: flex-end; transform: translate(calc((1 - var(--p, 0)) * 100% + (1 - var(--p, 0)) * 14px), -50%); }
+.swipe-hint.prev { left: 14px; align-items: flex-start; transform: translate(calc((var(--p, 0) - 1) * 100% - (1 - var(--p, 0)) * 14px), -50%); }
+.swipe-hint.armed { color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { .slide-next, .slide-prev { animation: none; } }
+/* 定線：下方四個類型按鈕；上方難度；看路線圖時名稱直接點了修改 */
+.type-row { gap: 6px; }
+/* 類型：平常只有色點和字，選中的那顆用自己的顏色淡淡鋪底 */
+.type-btn { flex: 1; min-width: 0; height: 40px; border-radius: 999px; background: transparent; color: var(--text); font-weight: 500; font-size: 14px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 0; white-space: nowrap; }
+.type-btn span { opacity: .6; }
+.type-btn[aria-pressed="true"] { background: color-mix(in srgb, currentColor 20%, transparent); }
+.type-btn[aria-pressed="true"] span { opacity: 1; font-weight: 600; }
+.type-btn[data-type="s"] { color: var(--start); } .type-btn[data-type="h"] { color: var(--hand); }
+.type-btn[data-type="f"] { color: var(--foot); } .type-btn[data-type="t"] { color: var(--top); }
+.type-btn span { color: var(--text); transition: opacity .15s; }
+/* 難度轉盤：左右滑或點旁邊的難度切換，只看得到目前的和前後一兩個（兩邊淡出），選中的是螢光綠 */
+.grade-dial { flex: none; width: 132px; height: 44px; display: flex; align-items: center; overflow-x: auto; overscroll-behavior: contain;
+  scroll-snap-type: x mandatory; scrollbar-width: none; padding: 0 43px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 28%, #000 72%, transparent); mask-image: linear-gradient(90deg, transparent, #000 28%, #000 72%, transparent); }
+.grade-dial::-webkit-scrollbar { display: none; }
+.gd-item { flex: none; width: 46px; height: 44px; scroll-snap-align: center; font: italic 700 26px/44px var(--display); color: var(--muted); text-align: center;
+  transition: color .15s, transform .12s; }
+.gd-item.on { color: var(--accent); }
+.grade-dial.dan { width: 132px; padding: 0 40px; }
+.grade-dial.dan .gd-item { width: 52px; font: 900 18px/44px "Climbio Dan", var(--font); }
+#editor:not(.viewing) .grade-dial.dan .gd-item { font-size: 19px; }
+.view-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; padding-left: 4px; }
+.view-title b { font: italic 700 22px/1 var(--display); flex: none; }
+#routeTitle { flex: 1; min-width: 0; background: transparent; border: 0; font-size: 17px; font-weight: 600; padding: 6px 8px; border-radius: 10px; color: var(--text); }
+#routeTitle:hover, #routeTitle:focus { background: var(--surface-2); outline: none; }
+#routeTitle::placeholder { color: transparent; font-weight: 600; text-shadow: none; }   /* 沒取名就空著（字透明時陰影也要拿掉，不然留一團淡黑），點下去才提示可以取名 */
+#routeTitle:focus::placeholder { color: var(--muted); text-shadow: inherit; }
+.btn.danger-fill { color: #fff; font-weight: 600; }   /* 底色在 appkit/components.css */
+
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+.seq-dot { width: 14px; height: 14px; display: inline-grid; place-items: center; background: #f4f4f4; color: #0a0a0a; font-size: 10px; font-weight: 700; font-style: normal; line-height: 1; }
+
+/* 岩點頁的操作示範 */
+/* 對話框只佔鍵盤以外看得到的範圍（--vv-top／--vv-h 由 visualViewport 更新），輸入名稱時不會被鍵盤蓋住 */
+.guide-backdrop, .sheet-backdrop { top: var(--vv-top, 0px) !important; bottom: auto !important; height: var(--vv-h, 100%); }
+.guide-backdrop { position: fixed; inset: 0; z-index: 45; background: rgba(0,0,0,.6); display: grid; place-items: center; padding: 16px; }
+.guide-card { width: min(100%, 380px); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px;
+  display: flex; flex-direction: column; gap: 10px; box-shadow: 0 20px 50px var(--shadow-c); }
+
+.home-actions { display: flex; gap: 8px; align-items: center; flex: none; }
+@media (max-width: 440px) { .bar h1.brand { font-size: 21px; } }
+/* 首頁「⋯」選單：連結和按鈕一樣的樣子；語言一列放下拉選單；最下面是版本 */
+.home-menu { width: min(300px, calc(100vw - 24px)); }
+.menu a { padding: 12px 14px; border-radius: 12px; font-weight: 600; color: var(--text); text-decoration: none; }
+.menu a:hover { background: var(--line); }
+.menu-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 6px 6px 14px; font-weight: 600; }
+.menu button.menu-row { padding: 12px 14px; }
+.menu-val { color: var(--muted); font-weight: 600; }
+/* 語言選單：目前的語言字變螢光綠、右邊打勾 */
+.lang-opt, .grade-opt, .share-setting-opt { position: relative; }
+.lang-opt svg, .grade-opt svg, .share-setting-opt svg { position: absolute; right: 18px; }
+.lang-opt[aria-pressed="false"] svg, .grade-opt[aria-pressed="false"] svg, .share-setting-opt[aria-pressed="false"] svg { display: none; }
+.lang-opt[aria-pressed="true"], .grade-opt[aria-pressed="true"], .share-setting-opt[aria-pressed="true"] { color: var(--accent-text); }
+.sign-head { margin: 0 0 12px; font-size: 24px; font-weight: 800; line-height: 1.3; }   /* 跟體驗版介紹頁的大字同一種 */
+.share-signin .btn[hidden] { display: none; }
+/* 分享／接收 */
+.share-card { display: flex; flex-direction: column; gap: 12px; align-items: stretch; text-align: center; max-height: calc(100dvh - 40px); overflow-y: auto; }
+.share-card h2 { margin: 0; }
+.share-card p { margin: 0; }
+.share-card > div { display: flex; flex-direction: column; gap: 12px; }
+.share-card [hidden] { display: none !important; }
+.share-signin { text-align: left; }
+.share-signin .btn { align-self: stretch; }
+.share-card .legal a { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+.text-btn.danger { background: transparent; color: var(--danger); align-self: center; }
+@keyframes up-pulse { 50% { opacity: .3; } }
+/* 勾選清單 */
+.pick-group { max-height: 70dvh; }
+.gym-find { margin: 6px 16px 8px; width: auto; flex: none; }
+.pick-title { padding: 16px 18px 8px; font-size: 15px; color: var(--muted); }
+.pick-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; }   /* 選單裡的長清單自己捲（min-height: 0 才縮得進選單的高度），捲到底也不帶動後面的頁面 */
+/* 從下方跳出的選單開著：後面的頁面不跟著捲 */
+html:has(.sheet-backdrop:not([hidden])), html:has(.sheet-backdrop:not([hidden])) body { overflow: hidden; }
+.pick-row { display: flex; align-items: center; gap: 12px; padding: 10px 18px; cursor: pointer; text-align: left; }
+.pick-row:hover { background: var(--line); }
+.pick-row img { width: 56px; height: 42px; object-fit: cover; border-radius: 10px; background: var(--surface-2); flex: none; display: grid; place-items: center; color: var(--accent-text); }
+.pick-row span { flex: 1; min-width: 0; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sh-prev { position: relative; display: flex; flex-shrink: 0; justify-content: center; align-items: center; min-height: 160px; }
+.sh-prev img { transition: opacity .2s; }
+.sh-prev.busy img { opacity: .4; }
+.sh-prev canvas { display: block; max-width: 100%; max-height: min(44dvh, 440px); border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+.sh-prev img { display: block; max-width: 100%; max-height: min(44dvh, 440px); border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+.stats-route .log-mark { flex: none; }
+.personal-route img { width: 88px; height: 88px; }
+.personal-route .row-text small { white-space: normal; overflow-wrap: anywhere; }
+.row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pick-row .row-text b { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-text small { color: var(--muted); font-size: 13px; }
+.pick-empty { padding: 8px 18px 16px; color: var(--muted); font-size: 14px; }
+/* 手感特效：點岩點的波紋、完攀的「Sent」／「Flash」 */
+.tap-ripple { position: fixed; z-index: 30; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; border: 3px solid var(--c); pointer-events: none;
+  animation: ripple .45s ease-out forwards; }
+@keyframes ripple { from { transform: scale(.4); opacity: 1; } to { transform: scale(3.4); opacity: 0; } }
+
+/* 首頁右上：還沒登入時的「登入」（登入後收進「⋯」） */
+
+/* 看路線圖（手機）：照片滿版，上下工具列收掉；左上返回，旁邊是難度和名稱（跟分享的圖一樣難度在上面）；
+   右下一顆「＋」，按了轉成「×」、工具沿著 1/4 圓彈出來（位置由 JS 算好放在 --x、--y） */
+#editor.viewing > .ed-top, #editor.viewing > .ed-bottom { display: none; }
+#editor:not(.viewing) .vw { display: none; }
+.st-ol[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+:is(.vw-base, .st-base)[aria-pressed="true"] { color: var(--accent); }
+
+@keyframes pill-in { from { opacity: 0; transform: translate(-50%, 16px) scale(.9); } }
+.vw-title { position: absolute; left: calc(12px + var(--tb) + var(--tg)); right: calc(12px + 3 * (var(--tb) + var(--tg))); top: calc(15px + var(--safe-t)); display: flex; align-items: baseline; gap: 8px; pointer-events: auto;
+  color: #fff; text-shadow: 0 1px 8px rgba(0,0,0,.6); }
+.vw-title b { font: italic 700 34px/1 var(--display); flex: none; }
+.vw-mark { flex: none; width: 18px; height: 18px; color: var(--accent); }
+.vw-mark svg { width: 18px; height: 18px; }
+.vw-title #routeTitle { flex: 1; min-width: 0; background: transparent; border: 0; color: #fff; font-size: 15px; font-weight: 600; padding: 4px 0; text-shadow: inherit; pointer-events: none; }
+.vw-count { position: absolute; left: 0; top: calc(100% + 6px); font: italic 700 13px/1 var(--display); color: rgba(255,255,255,.6); }   /* 放在難度下面：四位數的條數（1000 條）才不把路線名稱擠掉 */
+@media (prefers-reduced-motion: reduce) { .rarc-btn, .rfab-btn svg { transition: none !important; } }
+
+/* 右下「＋」（首頁、牆面頁、看路線圖共用）：螢光綠圓鈕，按了轉成「×」，功能沿著 1/4 圓彈出來（位置由 JS 算好放在 --x、--y） */
+.rfab-btn { box-shadow: 0 8px 24px var(--shadow-c), 0 4px 18px rgba(198, 255, 61, .25); }   /* 岩點貓：螢光綠發光 */
+.rfab-btn svg { transition: transform .45s var(--spring); }
+.rfab-btn[aria-expanded="true"] { background: var(--surface-2); color: var(--text); box-shadow: 0 8px 24px var(--shadow-c); }
+.rfab-btn[aria-expanded="true"] svg { transform: rotate(135deg); }
+#vwFab { background: rgba(14,14,15,.55); color: #fff; box-shadow: none; }   /* 還沒完攀：沒有顏色 */
+#vwFab[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); box-shadow: 0 8px 24px var(--shadow-c), 0 4px 18px rgba(198, 255, 61, .25); }   /* 完攀：亮起來，再按一次取消 */
+.rarc-btn { position: absolute; left: 4px; top: 4px; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; cursor: pointer;
+  background: var(--surface-2); color: var(--text); box-shadow: 0 6px 18px var(--shadow-c);
+  opacity: 0; transform: scale(.4); pointer-events: none; transition: transform .4s var(--spring), opacity .2s; }
+.rarc-btn svg { width: 24px; height: 24px; }
+.rarc-btn.danger { color: var(--danger); }
+.rarc-btn[hidden] { display: none; }
+.rarc-btn.on { opacity: 1; transform: translate(var(--x), var(--y)); pointer-events: auto; }
+.rarc-btn.on:active { scale: .9; }
+.rarc-btn.on:disabled { opacity: .3; }
+
+/* 定線、岩點（手機）：跟看路線圖一樣照片滿版，上下工具列變成浮在照片上的控制。
+   左上 × 取消、旁邊是難度轉盤（定線）或岩點數量（岩點）；右上螢光綠 ✓ 完成；
+   下方左邊是類型膠囊（定線）或畫岩點的圓鈕；右下「＋」放不常用的功能；選到岩點時「＋」上方多一顆紅色垃圾桶 */
+#editor:not(.viewing) > .ed-bar { position: absolute; left: 0; right: 0; z-index: 4; background: transparent; pointer-events: none; }
+#editor:not(.viewing) > .ed-bar :is(button, .grade-dial, .type-row) { pointer-events: auto; }
+#editor:not(.viewing) > .ed-top { top: 0; padding: calc(12px + var(--safe-t)) 12px 0; gap: var(--tg); }
+#editor:not(.viewing) > .ed-bottom { bottom: 0; padding: 0 16px calc(26px + var(--safe-b)) 16px; }
+#editor:not(.viewing) .ed-panel { margin: 0; align-items: flex-start; }
+.ed-x svg { transform: rotate(45deg); }
+.vw-btn.ed-ok { background: var(--accent); color: var(--on-accent); }
+.vw-btn[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }   /* 圈起來開著 */
+.vw-btn.ed-ok:disabled { opacity: .35; }
+.vw-btn.danger { color: var(--danger); }
+#editor:not(.viewing) #edDelRoute { display: none; }
+#editor:not(.viewing) .ed-title { flex: 1; }
+/* 手機定線：「灰階／暗彩」「顯示所有岩點」放在上方（跟取消、完成一樣的圓鈕），開著（暗彩、顯示所有岩點）時鋪螢光綠 */
+#editor:not(.viewing) :is(#baseBtn, #outlineBtn) { width: var(--tb); height: var(--tb); border-radius: 50%; color: #fff; background: rgba(14,14,15,.35); }
+#editor:not(.viewing) :is(#baseBtn, #outlineBtn) svg { width: 22px; height: 22px; }
+#editor:not(.viewing) #outlineBtn[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+#editor:not(.viewing) #baseBtn[aria-pressed="true"] { color: var(--accent); }   /* 暗彩是定線的預設：只把圖示換成螢光綠，不鋪底，不搶眼 */
+#editor:not(.viewing) > .ed-top :is(#edCancel, #baseBtn, #outlineBtn, #edDone) { flex: none; }   /* 圓鈕不被擠扁 */
+#editor:not(.viewing) > .ed-top :is(#edCancel, #edDone) { width: var(--tb); height: var(--tb); }
+#editor:not(.viewing) > .ed-top #edCancel { background: rgba(14,14,15,.35); }
+#editor:not(.viewing) .gd-item { font-size: 30px; text-shadow: 0 1px 8px rgba(0,0,0,.6); }
+#editor:not(.viewing) .gd-item:not(.on) { color: #fff; }
+/* 類型：半透明膠囊，只有色點，選中的才顯示字 */
+/* 手機定線：類型列佔滿整個寬度（下面沒有「＋」了），每顆一樣寬、色點和字都看得到，選中的那顆用自己的顏色鋪底 */
+#routePanel { align-items: stretch; }
+.type-row { align-self: stretch; gap: 4px; padding: 5px; border-radius: 999px; background: rgba(14,14,15,.6); }
+.type-row .type-btn { flex: 1 1 auto; height: 48px; min-width: 0; padding: 0 6px; gap: 5px; font-size: 14px; }
+.type-row .type-btn .sw-slot { transform: scale(1.15); }
+/* 順序的「1」跟其他色點一樣大，數字用實際高度置中 */
+.type-row .sw-slot { display: inline-grid; place-items: center; }   /* 色點不跟著文字基線走，才跟字對齊 */
+.type-row .seq-dot { width: 11px; height: 11px; font-size: 8px; line-height: 1; }
+/* 選中的類型：底下一塊會流動的色塊（js 的 slideTypePill），按鈕本身不換底色 */
+.type-pill { display: none; }
+.type-row { position: relative; --pw: calc((100% - 26px) / 5); --step: calc(var(--pw) + 4px); }
+.type-pill { display: block; position: absolute; top: 5px; bottom: 5px; left: calc(5px + var(--i, 0) * var(--step)); width: var(--pw);
+  border-radius: 999px; background: color-mix(in srgb, currentColor 22%, transparent); pointer-events: none; transition: color .25s; }
+@media (max-width: 400px) {
+  #editor:not(.viewing) > .ed-bottom { padding-inline: 10px; }
+  .type-row { gap: 2px; }
+  .type-row .type-btn { padding: 0 4px; gap: 3px; font-size: 12.5px; }
+}
+.type-row .type-btn { position: relative; }
+.type-row .type-btn[aria-pressed="true"] { background: transparent; }
+/* 單點編輯：浮在選到的岩點下方的小膠囊（位置由 js 的 placeHoldActions 設）：復原（用到底變灰）、刪除、完成（螢光綠，跟刪除隔開一點） */
+#holdActions { position: fixed; left: 50%; top: 50%; z-index: 4; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px;
+  background: rgba(14,14,15,.6); }
+#holdActions[hidden] { display: none; }
+#holdActions .ha-gap { width: 1px; height: 22px; background: rgba(255,255,255,.18); }
+#holdActions :is(#holdLasso, #holdUndo, #delHold) { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: transparent; }   /* 膠囊本身有深色底，按鈕再疊一層會多出一圈深色圓底 */
+#holdActions #holdLasso[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+/* 圈起來時膠囊只留「圈」一顆（當離開鈕），放在畫面右下角，其他按鈕收起來，不擋要圈的量體 */
+#holdActions.lassoing > :not(#holdLasso) { display: none; }
+#holdActions #holdUndo:disabled { opacity: .35; }
+#holdActions #delHold { color: var(--danger); }
+#holdActions #holdDone { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; margin-left: 8px; }
+/* 類型列從中間撐開、稍微彈一下；單點編輯的膠囊從岩點那邊彈出來 */
+@keyframes capsule-in { from { transform: scale(.55, .8); opacity: 0; } 60% { transform: scale(1.03, .97); opacity: 1; } to { transform: none; } }
+@keyframes pop-in { from { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.06); opacity: 1; } to { transform: none; } }
+.type-row { animation: capsule-in .34s cubic-bezier(.2, .8, .3, 1) both; }
+#holdActions { animation: pop-in .3s cubic-bezier(.2, .8, .3, 1) both; transform-origin: 50% 0; }
+@media (prefers-reduced-motion: reduce) { body :is(.type-row, #holdActions) { animation: none; } }
+#draftBar .vw-btn { flex: none; }
+/* 「＋」展開時，左下的類型膠囊、畫岩點的圓鈕先淡出（不跟 1/4 圓的按鈕疊在一起） */
+#editor > .ed-bottom { transition: opacity .2s; }
+
+/* 分享（全螢幕）：中間是盡量放大的預覽，背後是預覽的模糊光暈；卡片上下都有字，按鈕不疊在預覽上。
+   上面左上 ×（只有圖示、沒有圓底），只有一頁：預覽下面一排分享目標圖片、連結（拇指最好按的位置） */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.share-page { position: fixed; inset: 0; z-index: 20; background: #0b0b0c; overflow: hidden; }
+.share-page[hidden] { display: none; }
+/* 光暈：先縮成 1/4 大小再模糊、放大回來，模糊的計算量只有全尺寸的 1/16 */
+.sh-glow { position: absolute; inset: -20%; pointer-events: none; }
+.sh-glow img { position: absolute; left: 0; top: 0; width: 25%; height: 25%; object-fit: cover; transform-origin: 0 0; transform: scale(4);
+  filter: blur(15px) saturate(1.6) brightness(.55); opacity: .9; }
+.sh-glow::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 40%, transparent 30%, #0b0b0c 78%); }
+#shareDialog .share-card { position: relative; height: 100%; max-height: none; box-sizing: border-box; overflow: hidden; display: flex; flex-direction: column; gap: 10px;
+  padding: calc(4px + var(--safe-t)) 12px calc(14px + var(--safe-b)); background: none; border: 0; border-radius: 0; width: auto; animation: item-in .3s var(--spring) both; color: #fff; }
+#shareDialog .sh-top { flex-direction: row; justify-content: space-between; align-items: center; flex: none; margin-bottom: -4px; }
+#shareDialog .sh-top .vw-btn[hidden] { display: none; }
+#shareDialog #shBack { width: 36px; height: 36px; margin-left: -6px; color: #fff; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+#shareDialog #shBack svg { width: 26px; height: 26px; }
+#shareDialog #shBack svg { transform: rotate(45deg); }   /* ×：i-plus 轉 45 度 */
+#shareDialog .sh-stage { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px; padding-bottom: 6px; }
+#shareDialog .sh-prev { flex: 1; min-height: 0; width: 100%; }
+#shareDialog .sh-prev :is(img, video, canvas) { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.08);
+  animation: sh-pop .45s var(--spring) both; }
+@keyframes sh-pop { from { transform: scale(.94); opacity: .6; } }
+/* 產圖中：舊圖淡下來輕輕呼吸，新圖解碼好再彈出來（換掉 animation 就重播 sh-pop）。
+   只動 opacity：交給合成器跑，產圖佔住主執行緒時也不會停格 */
+#shareDialog .sh-prev.busy img { animation: sh-breathe .9s ease-in-out infinite alternate; }
+@keyframes sh-breathe { from { opacity: .55; } to { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { #shareDialog .sh-prev.busy img { animation: none; } }
+#shareDialog .share-signin { width: 100%; max-width: 420px; overflow-y: auto; gap: 16px; }
+/* 分享目標：一排大圓鈕（圖片、連結淡灰），名稱在下面 */
+#shareDialog .sh-to:not([hidden]) { display: flex; flex-direction: row; justify-content: space-evenly; flex: none; align-self: center; width: 100%; max-width: 440px; padding: 6px 0 4px; }
+.sh-app { display: flex; flex-direction: column; align-items: center; gap: 6px; color: rgba(255,255,255,.8); font-size: 12px; font-weight: 600; -webkit-tap-highlight-color: transparent; }
+.sh-app[hidden] { display: none; }
+.sh-app { width: 64px; }
+.sh-app span { white-space: nowrap; }
+.sh-app i { width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; color: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.35); transition: transform .15s var(--spring); }
+.sh-app:active i { scale: .88; }
+.sh-app:disabled { opacity: .4; }
+.sh-app svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linejoin: round; stroke-linecap: round; }
+.sh-app svg .fill { fill: currentColor; stroke: none; }
+.sh-media i, .sh-link i { background: rgba(255,255,255,.18); }
+#shareDialog #shStatus:empty { display: none; }
+#shareDialog .share-signin:not([hidden]) { display: flex; flex-direction: column; }
+#shareDialog .share-signin .btn { height: 54px; border-radius: 999px; font-size: 16px; font-weight: 700; margin-top: 8px; }
+#shareDialog .share-signin .legal { text-align: center; }
+#shareDialog .share-signin .sign-head { align-self: center; margin: 4px 0 10px; }
+
+/* 頭像（首頁右上、選單上的帳號）：Google 照片；沒照片是名字第一個字；沒登入是空心的人形 */
+.avatar { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; overflow: hidden; flex: none;
+  background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 15px; }
+.avatar:empty { visibility: hidden; }   /* 還沒畫（頁面剛載入）先不顯示，免得閃一下空的綠圈 */
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.avatar.empty { background: none; color: var(--text); box-shadow: inset 0 0 0 1.5px var(--line-strong); }
+.avatar svg { width: 20px; height: 20px; }
+.avatar.lg { width: 44px; height: 44px; font-size: 19px; }
+#homeAvatar { width: 40px; height: 40px; font-size: 17px; }   /* 首頁右上：跟「登入」膠囊一樣高（上方一排都是 40 px） */
+#homeAvatar svg { width: 22px; height: 22px; }
+/* 首頁選單：三段（帳號、我的紀錄、設定），最底是條款和版本的小灰字 */
+.home-menu { position: fixed; max-height: calc(100dvh - 70px - var(--safe-t)); overflow-y: auto; width: min(320px, calc(100vw - 24px)); padding: 8px; gap: 6px; transform-origin: top right; animation: menu-in .22s var(--spring) both; }
+@keyframes menu-in { from { opacity: 0; transform: translateY(-6px) scale(.97); } }
+.hm-acct { display: flex; align-items: center; gap: 12px; padding: 8px 6px 8px 8px; }
+.hm-acct[hidden] { display: none; }
+.hm-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.hm-who b, .hm-who small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hm-who small { color: var(--muted); font-size: 12.5px; }
+.menu button.hm-out { flex: none; padding: 6px 12px; border-radius: 999px; color: var(--muted); font-size: 13px; box-shadow: inset 0 0 0 1px var(--line-strong); }
+.menu button.hm-stats { display: flex; align-items: center; gap: 4px; padding: 14px 10px 14px 16px; border-radius: 14px; background: var(--bg); }
+.hm-stats > span { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.hm-stats b { font: italic 700 30px/1 var(--display); color: var(--accent); font-variant-numeric: tabular-nums; }
+.hm-stats small { color: var(--muted); font-size: 12px; font-weight: 600; }
+.hm-stats { cursor: default; }
+.hm-set { display: flex; flex-direction: column; border-top: 1px solid var(--line); padding: 4px 0; margin-top: 4px; }
+.hm-set .menu-row { justify-content: flex-start; gap: 12px; }
+.hm-set .menu-row svg { width: 20px; height: 20px; color: var(--muted); flex: none; }
+.hm-set .menu-row .menu-val { margin-left: auto; max-width: 50%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+
+/* 分析：灰階暗照片＋螢光綠掃描線；結果回來岩點用原本的顏色一顆顆亮起，下方數字跳到 N */
+#scan { position: fixed; inset: 0; z-index: 31; background: #000; display: flex; flex-direction: column; animation: item-in .3s var(--spring) both; }
+#scan[hidden] { display: none; }
+.scan-stage { flex: 1; min-height: 0; display: grid; place-items: center; padding: 0 0 8px; container-type: size; }
+/* 照片照中間這塊的實際大小縮（下方多了選岩館也一樣），岩點畫布疊在照片上一定一樣大 */
+.scan-pic { position: relative; }
+.scan-pic img { display: block; max-width: 100cqw; max-height: 100cqh; filter: grayscale(1) brightness(.55); }
+.scan-pic canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* 掃描線：整層跟照片一樣大、用 transform 上下移（合成器跑，存檔、偵測時主執行緒忙也不會停），線畫在這層的頂端 */
+.scan-line { position: absolute; inset: 0; pointer-events: none; will-change: transform; animation: scan-y 1.8s ease-in-out infinite alternate; }
+.scan-line::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--accent); box-shadow: 0 0 18px 4px rgba(212,255,79,.55); }
+@keyframes scan-y { from { transform: translateY(0); } to { transform: translateY(calc(100% - 2px)); } }
+#scan.done .scan-line, #scan.fail .scan-line { display: none; }
+.scan-foot { flex: none; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 0 16px calc(24px + var(--safe-b)); min-height: 150px; }
+.scan-count { display: flex; align-items: baseline; gap: 8px; }
+.scan-count b { font: italic 700 64px/1 var(--display); color: var(--accent); font-variant-numeric: tabular-nums; min-width: 1ch; text-align: center; }
+.scan-count small { color: var(--muted); font-size: 15px; font-weight: 600; }
+.scan-gym { height: 36px; padding: 0 16px; border-radius: 999px; background: var(--surface); color: var(--text); font-size: 14px; font-weight: 600; animation: item-in .35s var(--spring) both; }
+.scan-gym[hidden] { display: none; }
+#gymSheet { z-index: 32; }   /* 分析畫面上也打得開 */
+#find { min-height: 100%; padding-bottom: calc(24px + var(--safe-b)); }
+.find-gym { padding: 4px 16px 10px; }
+.find-gym-btn { height: 36px; padding: 0 16px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 14px; font-weight: 700; }
+.find-gym-btn:empty { display: none; }
+.find-more { display: block; height: 1px; }
+/* 岩點泡泡：一顆代表一間有牆的岩館，大小是牆面數；點開才顯示那間的牆面（.in-gym） */
+.find-head { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 8px 16px 0; }
+.find-head p { margin: 0; color: var(--muted); font-size: 14px; font-weight: 600; }
+.find-mini { flex: none; width: 56px; height: 56px; overflow: visible; pointer-events: none; }
+.find-bubbles { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 14px 12px; padding: 22px 16px 8px; }
+.find-bubble { width: var(--d); height: var(--d); -webkit-tap-highlight-color: transparent; }   /* 按鈕不動，裡面的岩點飄：點的位置才穩 */
+.find-bubble i { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 8px; background: var(--accent); color: #0a0a0a;
+  border-radius: 58% 42% 55% 45% / 48% 56% 44% 52%; text-align: center; animation: find-bob 3.4s ease-in-out var(--delay) infinite alternate; transition: scale .15s var(--spring); }
+.find-bubble:nth-child(3n+2) i { border-radius: 44% 56% 42% 58% / 56% 44% 58% 42%; }
+.find-bubble:nth-child(3n) i { border-radius: 52% 48% 60% 40% / 42% 58% 42% 58%; }
+.find-bubble:active i { scale: .92; }
+.find-bubble b { font-size: 15px; font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
+.find-bubble span { font-size: 12px; font-weight: 600; opacity: .7; }
+@keyframes find-bob { from { translate: 0 -3px; rotate: -2deg; } to { translate: 0 4px; rotate: 2deg; } }
+#find.in-gym :is(.find-head, .find-bubbles, .find-search) { display: none; }
+/* 找牆面的搜尋欄：手機填滿可用寬度，電腦與平板置中且不隨視窗無限延伸。 */
+.find-search { width: 100%; max-width: 640px; margin-inline: auto; padding: 8px 16px 0; }
+.find-search .field { display: block; width: 100%; }
+.find-sec { grid-column: 1 / -1; margin: 10px 0 0; font-size: 14px; font-weight: 700; color: var(--muted); }
+/* 少量公開牆面：把「岩館名稱＋牆面」當成一張完整的群組卡，整列置中，不讓每間單張牆都卡在第一欄。 */
+#find.flat #findList { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 24px 16px; }
+.find-group { flex: 1 1 calc(50% - 8px); max-width: 260px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.find-group > .find-sec { margin: 0; text-align: center; }
+.find-group-walls { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.find-group.multiple { flex: 0 0 100%; max-width: none; }
+.find-group.multiple .find-group-walls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 768px) {
+  .find-group { flex-basis: 260px; }
+  .find-group.multiple .find-group-walls { grid-template-columns: repeat(auto-fit, minmax(220px, 260px)); justify-content: center; gap: 16px; }
+}
+#find.flat .find-head { display: none; }
+#find:not(.in-gym) .find-gym { display: none; }
+@media (prefers-reduced-motion: reduce) { .find-bubble i, .find-mini { animation: none; } }
+#scan:not(.done) .scan-count small { visibility: hidden; }
+#scan.fail .scan-count { display: none; }
+.scan-err { margin: 0; color: var(--muted); text-align: center; font-size: 14px; }
+.scan-acts { display: flex; gap: 10px; width: 100%; max-width: 420px; animation: item-in .35s var(--spring) both; }
+.scan-acts[hidden] { display: none; }
+.scan-acts .btn, #scanRetry { height: 54px; border-radius: 999px; font-size: 16px; font-weight: 700; }
+.scan-acts .btn { flex: 1; }
+.scan-acts .btn.primary { flex: 1.6; }
+#scanRetry { width: 100%; max-width: 420px; }
+@media (prefers-reduced-motion: reduce) { .scan-line { animation: none; transform: translateY(50%); } }
+/* 背景重描：岩點入口的圖示外圈轉圈，做完就消失 */
+
+/* 拖曳頂點時的放大鏡：手指上方一個圓，放大手指下面那一小塊（手指會擋住小岩點），中間十字是頂點的位置 */
+.loupe { position: fixed; z-index: 18; width: 120px; height: 120px; border-radius: 50%; pointer-events: none; background: #000;
+  box-shadow: 0 0 0 2px #fff, 0 10px 30px rgba(0,0,0,.55); }
+.loupe[hidden] { display: none; }
+
+/* ---------- 首頁（手機）：Logo、繼續爬、找牆、兩欄小卡＋進度環、下拉 ---------- */
+.bar h1.brand { display: flex; align-items: center; font-size: 31px; }
+.bar h1.brand::after { content: none; }
+/* 橫式 Logo 完整採用確認 SVG 的圖形、字形與比例，無線上字型依賴。 */
+.wordmark { display: block; height: .9em; width: 4.05em; color: #fff; flex: none; }
+/* 首頁品牌移除原稿外圍留白，實際圖形高約 40px，與右側使用者圓形置中對齊。 */
+.bar .wordmark { width: 191px; height: 41px; }
+/* 沒登入的第一個畫面：Logo 跟首頁同大小（電腦版介紹頁另外用字級） */
+html:not(.pcland) .ld-bar .wordmark { width: 191px; height: 41px; }
+@media (max-width: 380px) {
+  .env-dev #home > .bar { padding-bottom: 26px; }
+  #home .brand { position: relative; overflow: visible; }
+  #home .brand .env-badge { position: absolute; left: 0; top: calc(100% + 3px); height: 14px; margin-left: 0; line-height: 14px; }
+}
+
+/* 繼續爬：一張橫的大卡，左邊牆的照片，右邊大字難度和「嘗試中」 */
+.cont-card { margin: 4px 16px 12px; display: flex; align-items: center; gap: 14px; padding: 10px 12px 10px 10px; border-radius: 20px; text-align: left;
+  background: linear-gradient(120deg, color-mix(in srgb, var(--accent) 16%, var(--surface)), var(--surface) 70%); border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent); }
+.cont-card[hidden] { display: none; }
+.cont-card img { width: 64px; height: 64px; border-radius: 14px; object-fit: cover; flex: none; background: var(--surface-2); }
+.cont-text { flex: 1; min-width: 0; display: grid; grid-template-columns: auto 1fr; align-items: baseline; column-gap: 8px; }
+.cont-text b { font-size: 18px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cont-text b.grade { font: italic 700 34px/1 var(--display); color: var(--accent); }
+.cont-text small { color: var(--accent-text); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.cont-text span { grid-column: 1 / -1; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 4px; }
+.cont-card > svg { width: 18px; height: 18px; color: var(--muted); flex: none; }
+/* 找牆：搜尋框＋篩選膠囊 */
+.home-find { padding: 0 16px 10px; display: flex; flex-direction: column; gap: 8px; }
+.home-find[hidden] { display: none; }
+.home-find .field { height: 40px; border-radius: 999px; padding: 0 16px; }
+.find-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.find-chips::-webkit-scrollbar { display: none; }
+.find-chips button { flex: none; height: 32px; padding: 0 14px; border-radius: 999px; color: var(--muted); font-size: 13px; font-weight: 600; background: var(--surface); }
+.find-chips button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.find-none { grid-column: 1 / -1; color: var(--muted); text-align: center; padding: 30px 0; margin: 0; }
+/* 首頁卡片：名稱旁邊小小的最高難度、副標有新線時是螢光綠、下緣細進度條（有記錄才有，給進度條留位置） */
+.wall-card .name { display: flex; align-items: baseline; gap: 6px; }
+.wall-card .name .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.wall-card .name .best { flex: none; font: italic 700 13px/1 var(--display); color: var(--accent-text); }
+.wall-card .name .best.dan { font-style: normal; }
+.wall-card .sub b { margin-left: 4px; font: italic 700 12px/1 var(--display); color: #fff; }
+.wall-card .sub b.dan { font-style: normal; }
+.wall-card:has(.wb) .meta { padding-bottom: 18px; }
+.wall-card .pub-mark { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: rgba(0,0,0,.45); color: #fff; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); pointer-events: none; }
+.wall-card .pub-mark svg { width: 16px; height: 16px; }
+.wb { position: absolute; left: 12px; right: 12px; bottom: 8px; height: 4px; display: flex; gap: 2px; border-radius: 999px; overflow: hidden; }
+.wb i { flex: 0 1 0; min-width: 0; transition: flex-grow .7s cubic-bezier(.2,.8,.2,1); }
+.wb i[data-k="send"] { background: color-mix(in srgb, var(--accent) 62%, var(--surface)); }
+.wb i[data-k="none"] { background: rgba(255,255,255,.22); }
+@media (prefers-reduced-motion: reduce) { .wb i { transition: none; } }
+/* 下拉重新整理：列表跟著手指往下，岩點外圈的環跟著填滿，滿了變大；更新中岩點轉圈；放開時平滑回去 */
+/* 只在拉的時候加 transform：平常有 transform 的話，拖曳排序時跟著手指的卡片（position: fixed）會跑位 */
+#home.pre-fly > :not(.bar):not(.rfab) { opacity: 0; }   /* 牆面回首頁：等照片開始飛回卡片才淡入（js 的 popstate） */
+#home.pulling > :not(.bar):not(.pull-hold):not(.rfab) { transform: translateY(var(--pull, 0px)); }
+#home.pull-release > :not(.bar):not(.pull-hold):not(.rfab), #home.pull-release .pull-hold { transition: transform .35s var(--spring), opacity .25s; }
+.pull-hold { position: fixed; left: 50%; top: calc(60px + var(--safe-t)); z-index: 4; width: 44px; height: 44px; opacity: 0; pointer-events: none;
+  transform: translate(-50%, var(--py, -44px)); will-change: transform; }
+.pull-hold svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.pull-hold circle { fill: none; stroke-width: 3; }
+.pull-track { stroke: var(--line-strong); }
+.pull-bar { stroke: var(--accent); stroke-linecap: round; }
+.pull-hold img { position: absolute; inset: 8px; width: 28px; height: 28px; border-radius: 8px; transition: transform .2s var(--spring); }
+.pull-hold.armed img { transform: scale(1.15); }
+.pull-hold.spin img { animation: pull-spin .7s linear infinite; }
+@keyframes pull-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .pull-hold img { transition: none; } .pull-hold.spin img { animation: none; } }
+
+/* ---------- 牆面頁（手機）：照片橫幅、篩選膠囊、路線兩欄小卡（路線小圖） ---------- */
+.wall-title { font-size: 17px; font-weight: 600; opacity: 0; transition: opacity .2s; }
+#wall.hero-gone .wall-title { opacity: 1; }
+.wall-hero { position: relative; border-radius: 20px; overflow: hidden; background: var(--surface-2); }
+.wall-hero .wall-photo { width: 100%; max-height: none; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 0; }
+.xfer-btn { position: absolute; top: 50%; z-index: 6; width: 40px; height: 64px; margin-top: -32px; padding: 0; border: 0; border-radius: 20px; background: rgba(0,0,0,.32); color: rgba(255,255,255,.8); display: grid; place-items: center; }
+.xfer-btn[hidden] { display: none; }
+.xfer-btn.prev { left: 6px; }
+.xfer-btn.next { right: 6px; }
+.xfer-btn.next svg { transform: scaleX(-1); }
+.xfer-btn svg { width: 22px; height: 22px; }
+.xfer-btn[data-axis="v"] { left: 50%; right: auto; top: auto; width: 64px; height: 40px; margin: 0 0 0 -32px; }
+.xfer-btn[data-axis="v"].prev { top: 6px; }
+.xfer-btn[data-axis="v"].next { bottom: 6px; }
+.xfer-btn[data-axis="v"].prev svg { transform: rotate(90deg); }
+.xfer-btn[data-axis="v"].next svg { transform: rotate(-90deg); }
+.grp-strip { display: flex; gap: 4px; overflow-x: auto; padding: 8px 16px 0; scrollbar-width: none; }
+.grp-strip button { flex: none; width: 64px; aspect-ratio: 4 / 3; padding: 0; border: 2px solid transparent; border-radius: 8px; overflow: hidden; background: var(--surface-2); }
+.grp-strip button[aria-current="true"] { border-color: var(--accent); }
+.grp-strip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wall-hero::after { content: ''; position: absolute; inset: 40% 0 0; background: linear-gradient(transparent, rgba(0,0,0,.7)); pointer-events: none; }
+.wall-hero .wall-name { position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 1; color: #fff; font-size: 22px; font-weight: 700; padding: 4px 8px; text-shadow: 0 1px 8px rgba(0,0,0,.5); }
+.wall-hero .wall-name:hover, .wall-hero .wall-name:focus { background: rgba(0,0,0,.45); }
+.route-tools[hidden], .rf-chips[hidden], .prog-bar[hidden] { display: none; }
+/* 牆面頁：左邊完攀／未完攀篩選、右邊排序，下面一整條跟首頁小卡 .wb 一樣的細進度條 */
+.route-tools { display: grid; grid-template-columns: 1fr auto; align-items: center; row-gap: 8px; }
+.route-tools .list-tools { grid-column: 2; }
+.rf-chips { display: flex; gap: 6px; min-width: 0; }
+.rf-chip { height: 36px; padding: 0 14px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; background: var(--surface); color: var(--muted);
+  font-size: 14px; font-weight: 600; transition: background .2s, color .2s; }
+.rf-chip b { font-variant-numeric: tabular-nums; }
+.rf-chip[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.rf-chip:active { scale: .96; }
+.prog-bar { grid-column: 1 / -1; display: flex; }
+.prog-bar .wb { position: static; flex: 1; }
+/* 路線兩欄小卡 */
+#routeList { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+#routeList .list-hint { grid-column: 1 / -1; }
+.grade-sec { grid-column: 1 / -1; margin: 8px 2px -2px; font: italic 700 20px/1 var(--display); color: var(--text); }
+#routeList .route-card { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0; border: 0; border-radius: 18px; overflow: hidden;
+  background: var(--surface); transition: transform .12s; }
+#routeList .route-card:active { scale: .97; }
+.rc-thumb { width: 100%; aspect-ratio: 1; display: block; object-fit: cover; background: color-mix(in srgb, var(--muted) 35%, var(--surface-2)); }
+.rc-thumb.in { animation: thumb-in .3s ease-out both; }
+@keyframes thumb-in { from { opacity: .3; } }
+/* 難度、名稱疊在小圖下緣（跟首頁牆面小卡一樣），整張卡就是一張圖 */
+#routeList .rc-text { position: absolute; left: 0; right: 0; bottom: 0; padding: 28px 12px 10px; display: flex; flex-direction: row; align-items: baseline; gap: 8px; min-width: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,.72)); color: #fff; pointer-events: none; }
+.rc-grade { font: italic 700 24px/1 var(--display); flex: none; }
+#routeList .rc-name { font-size: 13px; font-weight: 600; color: rgba(255,255,255,.8); }
+#routeList .rc-sub { font-size: 12px; color: rgba(255,255,255,.7); margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rs-name { font-size: 17px; padding: 15px 16px; }
+/* 公開牆上這次打開 App 後新出現的別人的線；隱藏的線放在清單最後，按了放回來 */
+#routeList .rc-fresh { position: absolute; top: 8px; right: 8px; padding: 3px 8px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 800; }
+.hidden-lines { grid-column: 1 / -1; justify-self: center; margin: 4px 0 8px; padding: 8px 14px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: 13px; font-weight: 600; }
+#routeList .route-more { grid-column: 1 / -1; height: 1px; }
+#routeList .log-mark { position: absolute; top: 8px; left: 8px; height: 26px; min-width: 26px; padding: 0 6px; border-radius: 999px; justify-content: center;
+  background: rgba(14,14,15,.65); }   /* 跟「⋯」一樣每張小卡都有：不用模糊 */
+/* 從首頁進來：卡片的照片飛到橫幅，下面的內容淡入往上 */
+.hero-fly { position: fixed; z-index: 40; object-fit: cover; pointer-events: none; overflow: hidden; }
+.hero-fly > * { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+body.flying { pointer-events: none; }
+#wall.entering .overview > :not(.wall-hero) { animation: wall-in .4s .12s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes wall-in { from { opacity: 0; transform: translateY(14px); } }
+@media (prefers-reduced-motion: reduce) { .rc-thumb.in, #wall.entering .overview > * { animation: none; } }
+
+/* ---------- 操作示範（js/tour.js）：上面段落名稱和「跳過」，中間縮小的示範畫面（裡面照手機實際大小排，整個 transform 縮小），下面一句說明 ---------- */
+.st { position: fixed; inset: 0; z-index: 45; display: flex; flex-direction: column; padding: calc(8px + var(--safe-t)) 16px calc(14px + var(--safe-b));
+  background: #0b0b0c; color: #fff; }
+.st[hidden] { display: none; }
+.st.prep { visibility: hidden; }   /* 量好比例、畫好第一個畫面前先不露出來（js 的 stEnter 接手） */
+@keyframes st-in { from { opacity: 0; } }
+.st-head { flex: none; height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.st-ch { font-size: 14px; font-weight: 600; color: var(--muted); }
+.st-skip { height: 36px; padding: 0 16px; border-radius: 999px; background: rgba(255,255,255,.1); color: #fff; font-size: 14px; font-weight: 600; }
+.st-skip:active { scale: .94; }
+.st-stage { position: relative; flex: 1; min-height: 0; margin: 6px 0 4px; }
+.st-screen { position: absolute; left: 50%; top: 50%; overflow: hidden; background: #0e0e0f; border-radius: calc(26px / var(--k, 1));
+  box-shadow: 0 0 0 calc(1px / var(--k, 1)) rgba(255,255,255,.14), 0 20px 60px rgba(0,0,0,.6); }
+.st-screen, .st-screen * { pointer-events: none !important; }
+.st-cv { position: absolute; inset: 0; width: 100%; height: 100%; }
+.st-top { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 10px; padding: calc(12px + var(--safe-t)) 12px 0; }
+.st-top[hidden], .st-bottom[hidden], .st-view[hidden], .st-cap[hidden], .st-finger[hidden] { display: none; }
+.st-gap { flex: 1; }
+.st .gd-item { font-size: 30px; text-shadow: 0 1px 8px rgba(0,0,0,.6); }
+.st .gd-item:not(.on) { color: #fff; }
+.st-bottom { position: absolute; left: 0; right: 0; bottom: 0; display: flex; padding: 0 16px calc(26px + var(--safe-b)); }
+.st-bottom .type-row { flex: 1; }
+.st-view { position: absolute; inset: 0; }
+.st-view .st-name { font-size: 15px; font-weight: 600; }
+/* 單點編輯的膠囊（跟 #holdActions 一樣）：復原、刪除、完成 */
+.st-cap { position: absolute; transform: translateX(-50%); display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px;
+  background: rgba(14,14,15,.6); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); animation: pop-in .3s cubic-bezier(.2, .8, .3, 1) both; }
+.st-cap .vw-btn { width: 48px; height: 48px; background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.st-cap .st-del { color: var(--danger); }
+.st-cap .st-lasso[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.st-cap.lassoing > :not(.st-lasso) { display: none; }
+.st-cap .ed-ok { margin-left: 8px; background: var(--accent); }
+/* 指尖：一隻半透明的白色手（像毛玻璃、細白邊，指尖在定位點上），平常輕輕上下飄；點下去往下壓、指尖擴散一圈；壓住（長按、拖曳）時一直壓著、外圈發光 */
+.st-finger { position: absolute; z-index: 8; width: 0; height: 0; }   /* 蓋在示範畫面所有東西上面（包括右下「＋」展開的記錄選項） */
+.st-bob { position: absolute; left: -16.5px; top: -3.6px; width: 44px; height: 44px; animation: st-bob 1.6s ease-in-out infinite; }
+.st-hand { width: 44px; height: 44px; display: block; transform-origin: 37% 8%; filter: drop-shadow(0 4px 10px rgba(0,0,0,.35)); transition: transform .18s; }
+.st-tip { position: absolute; left: -16px; top: -16px; width: 32px; height: 32px; border-radius: 50%; border: 2px solid #fff; background: rgba(255,255,255,.22); opacity: 0; }
+.st-finger.press .st-bob { animation-play-state: paused; }
+.st-finger.press .st-hand { transform: translate(1px, 4px) scale(.9); }
+.st-finger.press .st-tip { opacity: 1; animation: st-glow 1s ease-in-out infinite; }
+@keyframes st-bob { 50% { transform: translateY(-4px) rotate(-3deg); } }
+@keyframes st-glow { 50% { transform: scale(1.25); box-shadow: 0 0 0 8px rgba(255,255,255,.18); } }
+/* 每段開頭、結尾的說明卡；同一隻岩點貓在卡片中央變身與收尾。 */
+.st-hero { display: block; width: 104px; height: 104px; justify-self: center; }
+#stStage:has(#stCard:not([hidden])) .st-mini { width: 104px; height: 104px; }
+.st-card { position: absolute; inset: 0; z-index: 2; display: grid; place-content: center; gap: 10px; padding: 24px; text-align: center;
+  background: rgba(11,11,12,.74); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); animation: st-in .3s ease-out both; }
+.st-card[hidden] { display: none; }
+.st-card { pointer-events: auto; }
+/* 標題是膠帶標籤（跟分享圖、收線的膠帶短句同一款），貼歪一點；登入、登出的標題也是（.tape-title） */
+.st-card b, .tape-title { justify-self: center; align-self: center; padding: 6px 16px; background: #f3eee2; color: #1f1c18; font-size: 22px; font-weight: 400; box-shadow: 0 4px 12px rgba(0,0,0,.35);
+  transform: rotate(-3deg); animation: rv-tape .35s var(--spring) .25s both; }
+.st-card-btns { display: flex; gap: 10px; margin-top: 14px; }
+.st-card-btns .btn { flex: 1; min-width: 120px; }
+/* 正式 SVG 與預覽共用局部變形；靜態品牌保持固定。 */
+.st-mascot { width: 104px; height: 104px; justify-self: center; overflow: visible; pointer-events: none; }
+.mc-face, .mc-eyes { transform-box: fill-box; transform-origin: center; }
+#stCard > .st-mascot { display: none; }
+.st-mini { position: absolute; left: 0; top: 0; z-index: 4; width: 64px; height: 64px; overflow: visible; pointer-events: none; opacity: 1; transform-origin: 50% 100%; }
+.st-mini[hidden] { display: none; }
+.st-card p { margin: 0; font-size: 16px; line-height: 1.5; color: rgba(255,255,255,.75); }
+/* 換底色（灰階↔暗彩）的轉場：新的底從手指按的地方漫開，邊上一圈淡淡的光環（js 的 baseSwap 每格設位置、大小） */
+.base-swap { pointer-events: none; }
+.base-ring { position: fixed; z-index: 16; border-radius: 50%; border: 2px solid rgba(255,255,255,.55); box-shadow: 0 0 18px rgba(255,255,255,.25), inset 0 0 18px rgba(255,255,255,.15); pointer-events: none; }
+/* 小人提示（真實的 App）：右下「＋」的左上，泡泡在左、小人在右下角靠近「＋」；不擋操作，一碰就收 */
+.app-tip { position: fixed; z-index: 30; display: flex; align-items: flex-end; gap: 2px; pointer-events: none; animation: tip-in .45s cubic-bezier(.2,.8,.3,1.3) both; }
+.app-tip[hidden] { display: none; }
+.app-tip.bye { animation: tip-out .3s ease-in forwards; }
+.app-tip p { margin: 0 0 30px; max-width: 220px; padding: 10px 14px; border-radius: 18px 18px 4px 18px; color: rgba(255,255,255,.9); font-size: 15px; font-weight: 600; line-height: 1.35;
+  background: color-mix(in srgb, var(--surface) 72%, transparent); -webkit-backdrop-filter: blur(20px) saturate(1.4); backdrop-filter: blur(20px) saturate(1.4);
+  border: 1px solid rgba(255,255,255,.08); box-shadow: 0 12px 30px rgba(0,0,0,.4); }
+@keyframes mini-bob { 0%, 100% { rotate: 0deg; translate: 0 0; } 50% { rotate: -6deg; translate: 0 -4px; } }
+.app-tip-mini { flex: none; width: 56px; height: 56px; overflow: visible; animation: mini-bob 1.4s ease-in-out .45s infinite; }
+@keyframes tip-in { from { opacity: 0; transform: translateY(20px) scale(.8); } }
+@keyframes tip-out { to { opacity: 0; transform: translateY(12px) scale(.9); } }
+@media (prefers-reduced-motion: reduce) { .app-tip, .app-tip-mini { animation: none; } }
+/* 說明固定在岩點貓身旁，示範操作時持續顯示。 */
+.st-text { position: absolute; left: 0; top: 0; z-index: 3; max-width: calc(100% - 16px); margin: 0; padding: 10px 16px; border-radius: 18px; text-align: center;
+  background: color-mix(in srgb, var(--surface) 72%, transparent); -webkit-backdrop-filter: blur(20px) saturate(1.4); backdrop-filter: blur(20px) saturate(1.4);   /* 跟收線的確認卡同一種毛玻璃 */
+  border: 1px solid rgba(255,255,255,.08); box-shadow: 0 12px 30px rgba(0,0,0,.4); color: rgba(255,255,255,.9); font-size: 16px; font-weight: 600; line-height: 1.35;
+  opacity: 0; transition: opacity .25s; pointer-events: none; }
+.st-text.on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .st, .st-card, .st-cap, .st-bob, .st-mini, .st-mini *, .st-card b { animation: none !important; } .st-mini { opacity: 1; } .st-mascot { display: none; } .st-mini:not([hidden]) { display: block; } }
+
+/* ---------- 接收分享（全螢幕）：掃描 → 開箱 → 揭曉 ---------- */
+.recv-page { position: fixed; inset: 0; z-index: 40; background: var(--bg); color: #fff; display: grid; place-items: center; overflow: hidden; }
+.recv-page[hidden] { display: none; }
+.rv-x { position: absolute; left: 12px; top: calc(12px + var(--safe-t)); width: 40px; height: 40px; z-index: 2; }
+.rv-x svg { transform: rotate(45deg); }
+.rv-box[hidden] { display: none; }
+/* 確認：從下面浮上來的卡片 */
+.rv-ask { position: absolute; left: 16px; right: 16px; bottom: calc(24px + var(--safe-b)); z-index: 2; padding: 18px; border-radius: 22px; color: var(--text);
+  background: color-mix(in srgb, var(--surface) 72%, transparent); -webkit-backdrop-filter: blur(20px) saturate(1.4); backdrop-filter: blur(20px) saturate(1.4);   /* 毛玻璃：疊在 QR code 上看得到後面 */
+  border: 1px solid rgba(255,255,255,.08); box-shadow: 0 20px 50px rgba(0,0,0,.45); display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; animation: pill-in .35s var(--spring) both; }
+.rv-ask[hidden] { display: none; }
+/* 整個岩館：預覽圖的小圖排成格子（跟紅點貓同一套），牆下載到哪、小圖就亮到哪 */
+.rv-ask .rv-from { opacity: 1; transform: none; }
+.rv-what { display: flex; align-items: baseline; gap: 10px; margin-top: 4px; }
+.rv-what b { font: italic 800 44px/1 var(--display); color: var(--accent); }
+.rv-what span { font-size: 18px; font-weight: 700; }
+.rv-ask small { color: var(--muted); font-size: 13px; }
+.rv-ask-btns { display: flex; gap: 10px; align-self: stretch; margin-top: 10px; }
+.rv-ask-btns .btn { flex: 1; }
+.rv-ask-btns .btn[hidden] { display: none; }
+/* 開箱 */
+.rv-box { position: relative; width: min(86vw, 380px); display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.rv-from { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; opacity: 0; transform: translateY(8px); transition: all .4s var(--spring); }
+.rv-box.has-from .rv-from { opacity: 1; transform: none; }
+.rv-av { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); font-weight: 800; overflow: hidden; }
+.rv-card { position: relative; width: 100%; aspect-ratio: 1; border-radius: 22px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,.6);
+  background: linear-gradient(100deg, var(--surface-2) 30%, var(--line) 50%, var(--surface-2) 70%) 0 0 / 300% 100%; animation: skel 1.4s linear infinite; }
+.rv-box.has-pic .rv-card { animation: none; }
+.rv-card canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+#rvPic { transition: filter .6s ease-out; opacity: 0; }
+.rv-box.has-pic #rvPic { opacity: 1; }
+.rv-title { position: absolute; left: 16px; top: 12px; display: flex; align-items: baseline; gap: 10px; text-shadow: 0 2px 12px rgba(0,0,0,.7); opacity: 0; transform: translateY(-36px); }
+.rv-title b { font: italic 800 56px/1 var(--display); }
+.rv-title span { font-size: 17px; font-weight: 700; }
+.rv-box.titled .rv-title { animation: rv-drop .5s var(--spring) forwards; }
+@keyframes rv-drop { to { opacity: 1; transform: none; } }
+/* 膠帶短句：跟分享圖同一款，貼歪一點 */
+.rv-tape { position: absolute; left: 14px; bottom: 16px; max-width: calc(100% - 28px); padding: 6px 14px; background: #f3eee2; color: #1f1c18; font-size: 19px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.35); transform: rotate(-3deg) scale(1.4); opacity: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rv-box.taped .rv-tape { animation: rv-tape .35s var(--spring) forwards; }
+@keyframes rv-tape { to { opacity: 1; transform: rotate(-3deg) scale(1); } }
+.rv-count { margin: 0; display: flex; align-items: baseline; gap: 6px; color: rgba(255,255,255,.7); font-size: 14px; }
+.rv-count b { font: italic 800 30px/1 var(--display); color: #fff; font-variant-numeric: tabular-nums; }
+.rv-status { margin: 0; min-height: 1em; color: rgba(255,255,255,.75); font-size: 14px; text-align: center; }
+/* 「看這條線」浮在下面、不佔位置：出現時上面的卡片不會因為置中而往上移 */
+.rv-go { position: absolute; top: 100%; left: 0; right: 0; width: fit-content; min-width: 200px; margin: 14px auto 0; animation: item-in .35s var(--spring) both; }
+.rv-go[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .rv-card { animation: none; transition: none; }
+}
+
+/* 個人資料：我出的線是主角——大字完攀我的線的人數，一排出的線、分享路線、分享牆面，下面是我的線的小卡 */
+.hm-stats small { font-size: 11px; line-height: 1.5; }
+
+
+/* 平板依可用寬度排版；分割視窗縮到手機寬度時，自動回到兩欄。 */
+@media (min-width: 768px) {
+  body {
+    --tablet-gutter: max(24px, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
+    --tablet-width: 1200px;
+  }
+  :is(#home, #wall) > .bar {
+    padding-left: max(var(--tablet-gutter), calc((100% - var(--tablet-width)) / 2 + var(--tablet-gutter)));
+    padding-right: max(var(--tablet-gutter), calc((100% - var(--tablet-width)) / 2 + var(--tablet-gutter)));
+  }
+  :is(.walls, .home-find, .overview) {
+    width: 100%; max-width: var(--tablet-width); margin-left: auto; margin-right: auto;
+    padding-left: var(--tablet-gutter); padding-right: var(--tablet-gutter);
+  }
+  .walls { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+  .cont-card {
+    width: calc(100% - 2 * var(--tablet-gutter)); max-width: calc(var(--tablet-width) - 2 * var(--tablet-gutter));
+    margin-left: auto; margin-right: auto;
+  }
+  .overview { gap: 16px; }
+  .wall-hero .wall-photo { max-height: 42dvh; }
+  #routeList { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .lt-btn { width: 44px; height: 44px; }
+  .ed-panel { max-width: 640px; }
+  .type-btn { height: 48px; }
+  #shareDialog .share-card { max-width: 760px; margin: 0 auto; padding-left: 28px; padding-right: 28px; }
+  html:not(.pcland) .landing { padding-left: max(32px, env(safe-area-inset-left, 0px)); padding-right: max(32px, env(safe-area-inset-right, 0px)); gap: 20px; }
+  html:not(.pcland) .ld-shot { width: min(42vw, 36dvh, 400px); margin-top: 24px; flex-shrink: 0; }
+  html:not(.pcland) .ld-bar { font-size: 34px; }
+  html:not(.pcland) .ld-title { font-size: 34px; }
+  html:not(.pcland) :is(.ld-install, .landing.welcome .ld-start, html.welcome-boot .ld-start) { max-width: 480px; margin-top: 24px; }
+  html:not(.pcland) .ld-ios { max-width: 420px; }
+  .rv-ask { left: 0; right: 0; width: min(480px, calc(100% - 64px)); margin: 0 auto; }
+  .rfab { right: max(28px, env(safe-area-inset-right, 0px)); bottom: calc(28px + var(--safe-b)); }
+  /* 頂端和文字照平板放大（版面排法不變） */
+  .bar h1.brand { font-size: 40px; }
+  :is(#home, #wall) > .bar .icon-btn { width: 48px; height: 48px; }
+  :is(#home, #wall) > .bar .icon-btn svg { width: 26px; height: 26px; }
+  #homeAvatar { width: 40px; height: 40px; }
+  .cont-card img { width: 80px; height: 80px; }
+  .cont-text b { font-size: 21px; }
+  .cont-text b.grade { font-size: 40px; }
+  :is(.cont-text small, .cont-text span) { font-size: 15px; }
+  .wall-card .name { font-size: 17px; }
+  .vw-title b { font-size: 42px; }
+  .vw-title #routeTitle { font-size: 18px; }
+  .vw-count { font-size: 18px; }
+}
+
+/* 橫向平板：照片是頁面上方的橫幅，路線小卡排在下方（牆面卡與小卡高度不同，不並排）。 */
+@media (min-width: 1000px) and (min-height: 600px) and (orientation: landscape) {
+  .wall-hero .wall-photo { aspect-ratio: 21 / 8; max-height: none; }
+  #routeList { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  /* 左邊示範圖，右邊字標、標題和按鈕：右邊每一組各佔一列，上下各一列 1fr 的空白，兩邊都在畫面中間（空的列不留間距，間距改用上邊距） */
+  html:not(.pcland) .landing { display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 440px); grid-template-rows: 1fr repeat(8, auto) 1fr;
+    justify-content: center; column-gap: 48px; row-gap: 0; }
+  html:not(.pcland) .landing > * { grid-column: 2; }
+  html:not(.pcland) .landing > .ld-shot { grid-column: 1; grid-row: 1 / -1; align-self: center; width: min(36vw, 60dvh, 400px); justify-self: center; margin: 16px 0; }
+  html:not(.pcland) .landing > .ld-bar { grid-row: 2; justify-self: center; }
+  html:not(.pcland) .landing > .ld-title { grid-row: 3; margin-top: 24px; }
+  html:not(.pcland) .landing > .ld-sub { grid-row: 4; margin-top: 20px; }
+  html:not(.pcland) .landing > .ld-install { grid-row: 5; }
+  html:not(.pcland) .landing > .ld-link { grid-row: 6; }
+  html:not(.pcland) .landing > .ld-start { grid-row: 7; }
+  html:not(.pcland) .landing > .ld-done { grid-row: 8; }
+}
+
+/* 測試環境的標示跟著品牌與版本，不遮住岩點和操作按鈕。 */
+.env-badge { display: none; }
+/* 測試版標籤：高度固定（不靠字撐開），語言包還沒填字時不出現，不會先閃一條很扁的橘色 */
+.env-dev .env-badge { display: inline-block; flex: none; align-self: center; box-sizing: border-box; height: 20px; margin-left: 8px; padding: 0 7px; border-radius: 6px;
+  background: #ffb454; color: #30200b; font: 700 11px/20px sans-serif; letter-spacing: 0; white-space: nowrap; vertical-align: middle; }
+.env-dev .env-badge:empty { display: none; }
+
+/* iPhone 主畫面 App 的返回手勢（js/mobile.js 的 edgeBack）：上面這頁跟著手指，底下的上一頁從左邊 30% 處滑出來、由暗變亮 */
+.edge-top { box-shadow: -10px 0 30px rgba(0,0,0,.5); will-change: transform; }
+#wall.edge-top { position: fixed; inset: 0; z-index: 14; overflow: hidden; background: var(--bg); }
+.edge-under { position: relative; z-index: 12; }   /* 上一頁裡固定位置的東西（＋、加到主畫面）也留在陰影和上面這頁的下面 */
+.edge-under > :not(.rfab):not(.pull-hold) { transform: translateX(var(--edge-x, 0px)); }
+.edge-shade { position: fixed; inset: 0; z-index: 13; background: #000; pointer-events: none; }
+.edge-top.edge-settle, .edge-under.edge-settle > :not(.rfab):not(.pull-hold), .edge-shade.edge-settle { transition: transform .28s cubic-bezier(.2,.8,.2,1), opacity .28s cubic-bezier(.2,.8,.2,1); }
+
+.rv-av:has(img) { background: transparent; }
+#stStage:has(#stMini.out) :is(.st-hero, .st-mini) { width: 144px; height: 144px; }
+
+/* 岩點貓（js/holdcat.js）：疊在照片上，跟照片同大小；演員是從照片裁下來的岩點加上耳朵和臉 */
+.hc-layer { position: absolute; z-index: 2; pointer-events: none; }
+.hc-layer > * { position: absolute; }
+.hc-shade { fill: #0b0b0c; opacity: var(--hc-shade, .8); filter: blur(3px); }
+.hc-actor { z-index: 2; transform-origin: 50% 100%; }
+.hc-actor > *, .hc-inner > * { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+.hc-inner { transform-origin: 50% 100%; }
+.hc-cat { overflow: visible; transform-origin: 50% 100%; }
+.hc-ears { transform-box: fill-box; transform-origin: 50% 100%; }
+.hc-face, .hc-eyes { transform-box: fill-box; transform-origin: center; }
+.hc-glow { left: 0; top: 0; width: 100%; height: 100%; }
+.hc-paw { z-index: 3; }
+.hc-paw svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.fab-ripple { width: 56px; height: 56px; margin: -28px 0 0 -28px; animation-name: fab-ripple; }
+@keyframes fab-ripple { from { transform: scale(.9); opacity: .9; } to { transform: scale(2); opacity: 0; } }
+
+/* 分享方式與簽名：選擇圖示與牆面小卡共用。 */
+.sharing-settings { display: grid; gap: 10px; }
+.sharing-settings label { display: grid; gap: 8px; }
+#shareDialog .share-setup .sign-head { font-family: var(--font) !important; align-self: flex-start; }
+#shSetup { display: grid; gap: 16px; width: 100%; }
+#shSetup[hidden] { display: none; }
+.share-signature small { color: var(--muted); font-size: 13px; line-height: 1.5; }
+.share-signature { display: grid; gap: 8px; font-size: 14px; }
+.share-signature input { width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); color: var(--text); font: inherit; }
+
+#shareDialog .share-card:has(.share-setup:not([hidden])) .sh-stage { justify-content: flex-start; overflow-y: auto; padding: 12px 4px; }
+#shareDialog .share-signin.share-setup { flex-shrink: 0; overflow: visible; gap: 12px; }
+#shareDialog .share-setup .sign-head { font-size: 22px; font-weight: 700; color: inherit; background: none; padding: 0; transform: none; box-shadow: none; }
+
+/* 首頁上方的「同步其他裝置」提示（不浮在畫面上，不跟右下的按鈕搶位置） */
+.sync-hint { margin: 4px 16px 12px; box-shadow: none; border: 1px solid var(--line, rgba(128,128,128,.25)); }

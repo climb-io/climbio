@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-Hant" data-climbio-theme="outdoor">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; img-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="/host-redirect.js"></script>
+<title>找不到頁面 · Climbio</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#F7F9FB">
+<link rel="icon" href="/icons/brand/climbio-mark.svg" type="image/svg+xml">
+<link rel="icon" href="/icons/brand/favicon-64.png" sizes="64x64" type="image/png">
+<link rel="apple-touch-icon" href="/icons/brand/apple-touch-icon-180.png">
+<link rel="stylesheet" href="/css/brand-tokens.css">
+<link rel="stylesheet" href="/css/pages.css">
+<style>
+  /* 找不到網址時 Firebase Hosting 回這頁（任何深度的路徑都是它，所以連結、樣式和圖一律從網站根目錄 / 開始） */
+  .pg-brand img.pg-logo { width: auto; height: 28px; }
+  .nf { min-height: calc(100vh - 56px); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding-bottom: 48px; }
+  .nf img { width: 120px; height: 120px; }
+  .nf .code { font-size: 14px; font-weight: 800; letter-spacing: .2em; color: var(--pg-muted); margin-top: 8px; }
+  .nf h1 { font-size: clamp(26px, 5vw, 36px); margin: 4px 0 20px; }
+  .nf .pg-btn { width: auto; }
+</style>
+</head>
+<body>
+<header class="pg-top">
+  <a class="pg-brand" href="/"><img class="pg-logo" src="/icons/brand/climbio-horizontal-light.svg" width="102" height="28" alt="Climbio"></a>
+</header>
+<main class="pg nf">
+  <img src="/icons/brand/climbio-mark.svg" alt="">
+  <span class="code">404</span>
+  <h1>找不到這個頁面</h1>
+  <a class="pg-btn primary" href="/">回到首頁</a>
+</main>
+</body>
+</html>

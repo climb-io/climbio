@@ -1,0 +1,17 @@
+{
+  "name": "@climbio/holdkit",
+  "version": "1.9.0",
+  "description": "Climbing hold analysis: detection box to hold outline, hold color names, MobileSAM outline refinement in the browser. Hold pack format in SPEC.md.",
+  "license": "AGPL-3.0-or-later",
+  "repository": { "type": "git", "url": "git+https://github.com/climb-io/climbio.git", "directory": "holdkit" },
+  "keywords": ["climbing", "bouldering", "hold", "segmentation", "mobilesam", "onnx"],
+  "main": "holdkit.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": { "types": "./index.d.ts", "import": "./index.mjs", "require": "./holdkit.js" },
+    "./samrefine.js": { "types": "./samrefine.d.ts", "default": "./samrefine.js" },
+    "./*": "./*"
+  },
+  "sideEffects": ["./samrefine.js", "./samworker.js", "./ort.js"],
+  "files": ["holdkit.js", "index.mjs", "index.d.ts", "samrefine.js", "samrefine.d.ts", "samworker.js", "ort.js", "models/mobilesam-decoder.onnx", "models/mobilesam-encoder.onnx", "models/README.md", "models/LICENSE-MobileSAM", "SPEC.md", "README.md", "README.en.md", "LICENSE", "NOTICE"]
+}

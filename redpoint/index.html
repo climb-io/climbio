@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="zh-Hant" data-climbio-theme="outdoor">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+<script src="../host-redirect.js"></script>
+<title>紅點貓</title>
+<meta name="application-name" content="紅點貓">
+<meta name="apple-mobile-web-app-title" content="紅點貓">
+<meta name="description" content="收下岩場的 Guidebook，看 Topo、記錄完攀，戶外路線更容易找到與分享。">
+<link rel="canonical" href="https://climbio.app/redpoint/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Climbio">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:url" content="https://climbio.app/redpoint/">
+<meta property="og:title" content="紅點貓">
+<meta property="og:description" content="收下岩場的 Guidebook，看 Topo、記錄完攀，戶外路線更容易找到與分享。">
+<meta property="og:image" content="https://climbio.app/icons/cats/redpoint-cat-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="紅點貓">
+<meta name="twitter:description" content="收下岩場的 Guidebook，看 Topo、記錄完攀，戶外路線更容易找到與分享。">
+<meta name="twitter:image" content="https://climbio.app/icons/cats/redpoint-cat-512.png">
+<link rel="preconnect" href="https://api.openstreetmap.org" crossorigin>
+<link rel="preconnect" href="https://commons.wikimedia.org" crossorigin>
+<link rel="preconnect" href="https://upload.wikimedia.org" crossorigin>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#F7F9FB">
+<link rel="icon" href="../icons/cats/redpoint-cat-192.png">
+<link rel="apple-touch-icon" href="../icons/cats/redpoint-cat-180.png">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://www.gstatic.com https://apis.google.com https://www.google.com; connect-src 'self' https: data: blob:; img-src 'self' https: data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; frame-src 'self' https://*.web.app https://*.firebaseapp.com https://www.google.com https://recaptcha.google.com; object-src 'none'; base-uri 'self'; form-action 'self'">
+<script src="../appkit/recover.js" data-boot="8000" data-cache="redpoint-cat"></script>   <!-- 開機看門狗：app.js 8 秒內沒開機完成或出錯，就換新版／清快取重載 -->
+<script src="../appkit/errors.js"></script>   <!-- 測試版的錯誤回報（正式版不送），越早載入越好 -->
+<link rel="stylesheet" href="../css/brand-tokens.css">
+<link rel="stylesheet" href="../appkit/ui.css">
+<link rel="stylesheet" href="../appkit/components.css">
+<style>
+  /* 戶外白底深海藍（css/brand-tokens.css 的 outdoor，appkit/ui.css 對到 --bg、--surface、--accent…）；版面、元件、動態照岩點貓（docs/style.md），
+     紅點 --brand-role-accent 只用在字標的點和紅點貓的角色 */
+  /* 難度、數字：Barlow Condensed 窄體斜字（跟岩點貓一樣，離線也有） */
+  @font-face { font-family: "Climbio Display"; src: url(../fonts/barlow-condensed-700i.woff2) format("woff2"); font-weight: 700; font-style: italic; font-display: swap; }
+  :root { --radius: 20px; --radius-sm: 14px; --spring: cubic-bezier(.34, 1.56, .64, 1); --ease-out: cubic-bezier(.2, .8, .2, 1);
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang TC", "Noto Sans TC", "Segoe UI", sans-serif;
+    --safe-t: env(safe-area-inset-top, 0px); --safe-b: env(safe-area-inset-bottom, 0px); --red: var(--brand-role-accent); }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.5 var(--font); overscroll-behavior: none; }
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; padding: 0; transition: background-color .15s, transform .35s var(--spring), scale .35s var(--spring), opacity .15s; }
+  button:active:not(:disabled) { scale: .94; transition-duration: .08s; }   /* 按下縮一下用 scale 屬性，不用 transform：元素自己用 transform 定位（置中、圖釘）時才不會被蓋掉而跳位 */
+  .ac-row:active:not(:disabled) { scale: none; }   /* 整列的選單項目不縮：寬的列按下縮小很怪，尤其電腦版 */
+  button:disabled { opacity: .4; cursor: default; }
+  [hidden] { display: none !important; }
+  svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  input[type=file] { display: none; }
+  .btn { min-height: 44px; padding: 0 20px; }
+  .btn.big { width: 100%; max-width: 420px; min-height: 52px; font-size: 17px; }
+  .text-btn { padding: 8px 10px; font-weight: 700; color: var(--accent); }
+  .skel { background: linear-gradient(100deg, var(--surface-2) 30%, var(--line) 50%, var(--surface-2) 70%) 0 0 / 300% 100%; animation: skel 1.4s linear infinite; }
+
+  /* 頁面：一次一頁，全螢幕疊在一起 */
+  .page { position: fixed; inset: 0; overflow: auto; background: var(--bg); display: flex; flex-direction: column; }
+  .bar { min-height: 60px; }
+  .bar-space { flex: 1; }
+  /* 左上的橫式 logo：跟岩點貓的字標同一個位置（左 16 px、上方一排 40 px 高），開場、首頁一樣大 */
+  .bar h1.brand { display: flex; align-items: center; }
+  .logo { display: block; height: 38px; width: auto; flex: none; }
+  /* 開發版、本機：logo 旁的橘色「測試版」（跟岩點貓一樣） */
+  .env-badge { display: none; }
+  .env-dev .env-badge { display: inline-block; flex: none; align-self: center; height: 20px; margin-left: 8px; padding: 0 7px; border-radius: 6px; background: #ffb454; color: #30200b; font: 700 11px/20px sans-serif; white-space: nowrap; }
+  .bar .icon-btn:first-child { margin-left: -8px; }
+
+  /* 頭像（右上）：登入後是 Google 照片、沒有照片用名字第一個字；沒登入是空白人像 */
+  #avatar { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; padding: 0; }
+  #avatar .ak-account-avatar { width: 40px; height: 40px; }
+  #acct { position: fixed; inset: 0; z-index: 30; background: transparent; }
+  #acct .ac-card { position: absolute; top: calc(56px + var(--safe-t)); right: 12px; left: auto; max-width: calc(100vw - 24px); width: 320px; max-height: calc(100dvh - 72px - var(--safe-t)); overflow-y: auto; margin-left: auto; padding: 8px; border-radius: 18px;
+    background: var(--surface-2); box-shadow: 0 20px 50px var(--shadow); transform-origin: top right; animation: acct-in .3s var(--spring) both; }
+  @keyframes acct-in { from { opacity: 0; transform: translateY(-12px) scale(.96); } }
+  .ac-me { display: flex; align-items: center; gap: 12px; padding: 12px; }
+  .ac-me .face { width: 44px; height: 44px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); font-weight: 700; flex: none; }
+  .ac-me .face.ak-account-avatar-empty { background: none; color: var(--text); }
+  .ac-me .face img { width: 100%; height: 100%; object-fit: cover; }
+  .ac-me .who { flex: 1; min-width: 0; }
+  .ac-me .who b, .ac-me .who span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ac-me .who span { color: var(--muted); font-size: 13px; }
+  .ac-card .ak-account-stats { margin: 4px 0; }
+  .ac-card .ak-account-stats b { color: var(--accent); }
+  .ac-rows { border-top: 1px solid var(--line); padding: 4px 0; }
+  .ac-row { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; text-align: left; }
+  .ac-row:active { background: var(--surface-2); }
+  .ac-row svg { width: 20px; height: 20px; color: var(--muted); }
+  .ac-row span { flex: 1; font-weight: 600; }
+  .pick-list { display: flex; flex-direction: column; max-height: 50vh; overflow-y: auto; background: var(--surface-2); border-radius: 14px; }
+  .pick-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; cursor: pointer; }
+  .pick-row + .pick-row { border-top: 1px solid var(--line); }
+  .pick-row input { width: 20px; height: 20px; flex: none; accent-color: var(--accent); }
+  .pick-row b { display: block; font-weight: 600; }
+  .pick-row small { display: block; color: var(--muted); font-size: 13px; }
+  .ac-row em { font-style: normal; color: var(--muted); font-size: 14px; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* 首頁：所有資料都是卡片（收到的岩場、拍的照片、自己畫的 Topo） */
+  #home { padding-bottom: calc(96px + var(--safe-b)); }
+  /* 首頁還沒有任何岩場：貓、一句話、進入世界的按鈕 */
+  .empty-home { display: grid; justify-items: center; gap: 10px; padding: 12vh 32px 0; text-align: center; color: var(--muted); }
+  .empty-home img { width: 120px; height: 120px; }
+  .empty-home strong { color: var(--text); font-size: 20px; font-weight: 600; }
+  .empty-home .btn { margin-top: 10px; }
+  /* 與岩點貓共用輕量安裝提示：完成第一次核心操作後，僅在首頁出現 */
+  .rp-inst-bar { position: fixed; left: 12px; right: 84px; bottom: calc(18px + var(--safe-b)); z-index: 18; animation: item-in .3s var(--ease-out) both; }
+  #home[hidden] ~ .rp-inst-bar { display: none; }
+  .sync-hint { margin: 4px 16px 12px; box-shadow: none; border: 1px solid var(--line, rgba(128,128,128,.25)); }
+  /* 首頁卡片的整理：長按浮起、拖；兩張之間的藍條是換順序，整張亮框是合併 */
+  #cards .card { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  #cards .card.lifted { z-index: 8; transition: transform .2s var(--spring), box-shadow .2s; transform: scale(1.04); box-shadow: 0 16px 36px var(--shadow); }
+  #cards .card.dragging { transition: none; }
+  #cards .card.merge-target { outline: 3px solid var(--accent); outline-offset: -3px; }
+  #cards .card.drop-before::before, #cards .card.drop-after::after { content: ""; position: absolute; top: 0; bottom: 0; width: 5px; border-radius: 3px; background: var(--accent); z-index: 3; }
+  #cards .card.drop-before::before { left: 0; }
+  #cards .card.drop-after::after { right: 0; }
+  @media (prefers-reduced-motion: reduce) { #cards .card.lifted { transition: none; } }
+  .card .badge { position: absolute; left: 10px; top: 10px; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: rgba(8, 38, 58, .62); color: #fff; }
+  .card .badge.go { background: var(--accent); }
+  /* 岩場卡片：名稱、岩壁數、來源由上到下排列並左對齊；來源無外框、無底色。 */
+  .card.ak-photo-card .meta { align-items: flex-start; text-align: left; }
+  .card .source-credit { display: inline-flex; align-items: center; align-self: flex-start; gap: 4px; max-width: 100%; min-width: 0; padding: 0; margin-top: 2px; border: 0; border-radius: 0; background: none; box-shadow: none; color: rgba(255,255,255,.72); font-size: 11px; font-weight: 400; line-height: 1.25; white-space: nowrap; }
+  .card .source-credit svg { width: 12px; height: 12px; flex: none; }
+  .card .source-credit span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  /* 電腦、平板橫放：雙欄工作區。岩場頁固定在左欄，Topo、路線清單開在右欄；首頁卡片內容限寬置中 */
+  @media (min-width: 900px) {
+    :root { --pane: clamp(360px, 34vw, 440px); }
+    #home .cards { max-width: 1200px; width: 100%; margin: 0 auto; }
+    #pack { right: auto; width: var(--pane); box-sizing: border-box; border-right: 1px solid var(--line, rgba(127,127,127,.25)); }
+    body.split :is(#topo, #ticks) { left: var(--pane); }
+    .pk-fab { right: auto; left: calc(var(--pane) - 80px); }
+    #ticks { align-items: center; }
+    #ticks > * { width: min(100%, 760px); }
+  }
+  @keyframes pop { from { opacity: 0; transform: scale(.2); } to { opacity: 1; transform: none; } }
+  @keyframes bob { from { transform: translateY(0); } to { transform: translateY(-6px); } }
+  /* 右下地球：打開「世界」 */
+  .rfab-btn { box-shadow: 0 8px 24px var(--shadow); }
+
+  /* 岩場頁：上面入口照片橫幅（4:3、圓角、左下名稱），下面每面岩壁的小卡 */
+  #packMissing { margin: 0 16px 14px; }
+  .banner { position: relative; margin: 0 16px 14px; }
+  .banner img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; border-radius: var(--radius); background: var(--surface-2); }
+  .banner .cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 40px 16px 14px; border-radius: 0 0 var(--radius) var(--radius); color: #fff;
+    background: linear-gradient(transparent, rgba(8, 38, 58, .7)); }
+  .banner .cap b { display: block; font-size: 22px; font-weight: 800; }
+  .banner .cap span { font-size: 13px; opacity: .9; }
+
+  /* 過場：卡片的照片飛到下一頁（岩點貓的 flyBetween：只動 transform） */
+  .hero-fly { position: fixed; z-index: 40; object-fit: cover; pointer-events: none; transform-origin: 0 0; }
+
+  /* 世界：Studio Crag發佈的所有岩場 */
+  .w-head { display: flex; align-items: center; gap: 10px; padding: 0 16px 12px; color: var(--muted); font-weight: 600; }
+  .w-head img { width: 44px; height: 44px; animation: bob 2.6s var(--spring) infinite alternate; }
+  .w-empty { padding: 18vh 32px 0; text-align: center; color: var(--muted); }
+
+  .over-btn { position: absolute; z-index: 2; top: calc(12px + var(--safe-t)); left: 12px; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: rgba(8, 38, 58, .55); color: #fff; }
+
+  /* 圓形關閉鈕（收岩場、導引頁） */
+  .over-btn { position: absolute; z-index: 2; top: calc(12px + var(--safe-t)); left: 12px; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: rgba(8, 38, 58, .55); color: #fff; }
+
+  /* 收岩場（像岩點貓收線的開箱）：先問、開箱（入口照片從閃光骨架、模糊到清楚，下面每面岩壁的小圖一張張到齊）、揭曉 */
+  #recv { z-index: 20; align-items: center; padding: calc(64px + var(--safe-t)) 20px calc(20px + var(--safe-b)); gap: 14px; text-align: center; }
+  #recv .over-btn { background: var(--surface-2); color: var(--text); }
+  .rv-from { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+  .rv-from i { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); font-style: normal; font-weight: 800; }
+  .rv-card { position: relative; width: min(100%, 420px); aspect-ratio: 4 / 3; border-radius: 24px; overflow: hidden; background: var(--surface-2); box-shadow: 0 24px 60px var(--shadow); transform: rotate(-2deg); }
+  /* 預覽圖（合成圖）的上半是入口照片：先放它、模糊，下載越多越清楚；全部到了換成清楚的入口照片 */
+  .rv-pic { position: absolute; inset: 0; background-size: cover; background-position: center; transition: filter .5s ease-out; transform: scale(1.06); }
+  .rv-card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  .rv-tape { position: absolute; left: 14px; bottom: 16px; padding: 4px 14px; background: #f3eee2; color: #1f1c18; font-weight: 800; transform: rotate(-3deg); box-shadow: 0 6px 14px rgba(0,0,0,.25); animation: pop .4s var(--spring) both; }
+  .rv-name { margin: 0; font-size: 24px; font-weight: 800; }
+  .rv-name.drop { animation: drop .5s var(--spring) both; }
+  @keyframes drop { from { opacity: 0; transform: translateY(-22px); } }
+  .rv-count { color: var(--muted); font-variant-numeric: tabular-nums; }
+  /* 每張照片的小圖：同一張預覽圖切成格子（背景位置由程式算），照片下載到哪就亮到哪 */
+  .rv-tiles { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; width: min(100%, 420px); }
+  .rv-tiles span { aspect-ratio: 4 / 3; border-radius: 6px; background-color: var(--surface-2); opacity: .35; filter: grayscale(1); transition: opacity .35s, filter .35s; }
+  .rv-tiles span.got { opacity: 1; filter: none; }
+  #rvGo { margin-top: auto; }
+  .rv-ask { position: fixed; inset: 0; z-index: 21; background: var(--overlay); display: flex; align-items: flex-end; }
+  .rv-ask .sheet { flex: none; width: min(420px, calc(100% - 24px)); max-height: calc(100% - 32px - var(--safe-t) - var(--safe-b)); overflow-y: auto; margin: 0 auto calc(16px + var(--safe-b)); padding: 18px; border-radius: 22px; background: color-mix(in srgb, var(--surface) 82%, transparent);
+    backdrop-filter: blur(20px) saturate(1.4); -webkit-backdrop-filter: blur(20px) saturate(1.4); box-shadow: 0 20px 50px var(--shadow); display: flex; flex-direction: column; gap: 12px; animation: item-in .35s var(--spring) both; }
+  .rv-ask .acts { display: flex; gap: 10px; }
+  .rv-ask .acts .btn { flex: 1; }
+  @media (prefers-reduced-motion: reduce) { .rv-pic, .rv-tiles span { transition: none; } .rv-name.drop, .rv-tape { animation: none; } }
+
+
+  /* 看 Topo、編輯 */
+  #topo { z-index: 10; background: #000; }
+  /* Topo：上方中間是在哪顆石頭（第幾張）；點路線，下面浮出一張輕的說明卡（不壓暗、不擋操作） */
+  .tp-where { position: absolute; left: 50%; top: calc(12px + var(--safe-t)); z-index: 4; transform: translateX(-50%); max-width: calc(100% - 140px); height: var(--tb, 46px);
+    display: flex; align-items: center; gap: 8px; padding: 0 16px; border-radius: 999px; background: rgba(14,14,15,.35); color: #fff; white-space: nowrap; pointer-events: none; }
+  .tp-where b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+  .tp-where span { font: italic 700 16px/1 "Climbio Display", var(--font); opacity: .8; }
+  .tp-where.bump { animation: tp-bump .35s var(--spring); }
+  /* 滑鼠：左右兩側的換張按鈕（手機用滑的，不顯示） */
+  .tp-nav { position: absolute; top: 50%; z-index: 4; transform: translateY(-50%); display: none; }
+  .tp-prev { left: 12px; }
+  .tp-next { right: 12px; }
+  .tp-next svg { transform: scaleX(-1); }
+  @media (hover: hover) and (pointer: fine) { .tp-nav:not([hidden]) { display: grid; } }
+  @keyframes tp-bump { from { transform: translateX(-50%) scale(.9); opacity: .4; } }
+  .tp-pop { position: absolute; left: 12px; right: 12px; bottom: calc(14px + var(--safe-b)); z-index: 6; max-width: 460px; margin: 0 auto; padding: 14px 16px 16px; border-radius: 22px;
+    background: rgba(14,14,15,.78); color: #fff; box-shadow: 0 14px 40px rgba(0,0,0,.35); animation: pop-up .32s var(--spring) both; }
+  @keyframes pop-up { from { transform: translateY(24px) scale(.97); opacity: 0; } }
+  .tp-pop .hd { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .tp-pop .no { flex: none; min-width: 30px; height: 30px; padding: 0 9px; border-radius: 999px; display: grid; place-items: center; background: var(--red); color: #fff; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  .tp-pop .gr { flex: none; font: italic 700 26px/1 "Climbio Display", var(--font); letter-spacing: .01em; }
+  .tp-pop .nm { flex: 1; min-width: 0; font-size: 17px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tp-pop .rating { margin-top: 10px; }
+  .tp-pop .stars .star-scale .dim { color: rgba(255,255,255,.36); opacity: 1; }
+  .tp-pop .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .tp-pop .tags span { padding: 3px 10px; border-radius: 999px; background: rgba(255,255,255,.14); font-size: 12.5px; font-weight: 600; }
+  .tp-pop p { margin: 10px 0 0; font-size: 14.5px; line-height: 1.6; color: rgba(255,255,255,.88); }
+  #m3d { overflow: hidden; }   /* 說明卡浮上的動畫一瞬間超出底部會冒出捲軸，畫面寬度變了又變回來、畫布重設兩次，點路線時閃一下（電腦版） */
+  #m3dView { position: relative; flex: 1; min-height: 0; }
+  /* 3D 岩場：底部一排岩壁名稱（點了沿步道走過去），往上拉是路線清單；電腦版是浮在左邊的一欄。
+     都是半透明的深色玻璃、白字，跟左上返回鈕同一種，壓在 3D 上不搶、看得到後面的岩壁 */
+  .m3-sheet { --text: #fff; --muted: rgba(255,255,255,.66); --surface: rgba(255,255,255,.1); --surface-2: rgba(255,255,255,.16); --line: rgba(255,255,255,.4);
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; flex-direction: column; max-height: 55%; padding-bottom: var(--safe-b); color: var(--text);
+    border-radius: 22px 22px 0 0; background: transparent; --peek: calc(58px + var(--safe-b));
+    transform: translateY(calc(100% - var(--peek))); transition: transform .32s var(--ease-out), background-color .25s; }
+  .m3-sheet.open { transform: none; background: rgba(14,14,15,.38); backdrop-filter: blur(16px) saturate(1.3); -webkit-backdrop-filter: blur(16px) saturate(1.3); }
+  html { touch-action: manipulation; }   /* iOS Safari 不理 user-scalable=no：快速連點（爪印、按鈕）會雙擊放大整頁 */
+  .m3-grip { flex: none; height: 16px; display: grid; place-items: center; touch-action: none; }
+  .m3-grip::before { content: ""; width: 34px; height: 4px; border-radius: 2px; background: #fff; opacity: .55; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+  .m3-walls { flex: none; display: flex; gap: 6px; overflow-x: auto; padding: 2px 12px 10px; scrollbar-width: none; touch-action: pan-x; }
+  .m3-walls::-webkit-scrollbar { display: none; }
+  .m3-walls button { flex: none; height: 30px; padding: 0 12px; border-radius: 999px; background: rgba(14,14,15,.32); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    color: #fff; font-weight: 600; font-size: 13.5px; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,.25); }
+  .m3-walls button[aria-current="true"] { background: var(--red); font-weight: 700; }
+  .m3-sheet.open .m3-walls button:not([aria-current="true"]) { background: rgba(255,255,255,.12); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .m3-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+  .m3-acts { display: flex; gap: 8px; justify-content: flex-end; padding: 0 12px; }
+  .m3-acts:not(:has(> :not([hidden]))) { display: none; }
+  .m3-acts .bn-btn { width: 34px; height: 34px; color: #fff; background: rgba(255,255,255,.12); }
+  .m3-acts .bn-btn svg { width: 18px; height: 18px; }
+  .m3-body .tk-list { padding: 0 8px 12px; }
+  .m3-body .tk-wall { margin: 12px 6px 6px; }
+  .m3-body .tk-wall b { font-size: 14px; }
+  .m3-body .tk-row { margin-bottom: 4px; padding: 2px 2px 2px 10px; border-radius: 14px; background: rgba(255,255,255,.07); }
+  .m3-body .tk-row .go { padding: 4px 0; gap: 10px; }
+  .m3-body .tk-row .no { min-width: 24px; height: 24px; padding: 0 6px; font-size: 12.5px; background: rgba(255,255,255,.16); }
+  .m3-body .tk-row .gr { font-size: 18px; }
+  .m3-body .tk-paw { width: 44px; height: 44px; }
+  .m3-body .tk-paw::before { inset: 7px; }
+  #m3d .tp-pop { bottom: calc(10px + var(--peek, 58px)); background: rgba(14,14,15,.5); backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3); box-shadow: 0 10px 30px rgba(0,0,0,.2); }
+  #m3d:has(.m3-sheet.open) .tp-pop { display: none; }   /* 清單拉開時說明卡先收著，收回清單再出來 */
+  /* 右上：清單鈕（在分享鈕左邊），開關路線清單；拉握把的手勢仍可用 */
+  .m3-listbtn { right: calc(22px + var(--tb, 46px)); }
+  .m3-listbtn[aria-expanded="true"] { background: rgba(14,14,15,.6); }
+  @media (min-width: 900px) {   /* 電腦：岩壁名稱與清單在畫面下方置中（不是靠左），寬度固定 */
+    .m3-sheet { left: 50%; right: auto; width: min(560px, calc(100% - 32px)); margin-left: calc(min(560px, 100% - 32px) / -2); }
+    .m3-walls { justify-content: center; flex-wrap: wrap; }
+    .m3-walls button { height: 34px; padding: 0 16px; font-size: 14.5px; }
+    .m3-grip { cursor: pointer; }
+  }
+  #view.slide-l { animation: slide-l .32s var(--ease-out); }
+  #view.slide-r { animation: slide-r .32s var(--ease-out); }
+  @keyframes slide-l { from { transform: translateX(14%); opacity: 0; } }
+  @keyframes slide-r { from { transform: translateX(-14%); opacity: 0; } }
+  /* 岩場地圖：mapkit 的向量地圖，顏色跟紅點貓的戶外主題（陸地是頁面底色，分區淡淡的海藍，岩壁是品牌色） */
+  #cmap { z-index: 10; background: var(--bg); }
+  #cmapView { position: absolute; inset: 0; height: auto; --mk-land: var(--bg); --mk-sea: var(--bg); --mk-brand: var(--accent); --mk-bottom: calc(16px + var(--safe-b)); }
+  #cmap .vw-btn { color: var(--text); background: color-mix(in srgb, var(--surface) 85%, transparent); box-shadow: 0 4px 14px var(--shadow); }
+  #cmap .tp-where { color: var(--text); background: color-mix(in srgb, var(--surface) 85%, transparent); box-shadow: 0 4px 14px var(--shadow); }
+  /* 交通：上面是交通圖（OpenStreetMap 畫的道路、建議路線的箭頭），下面是說明和導航鈕 */
+  #way { z-index: 10; background: var(--bg); }
+  #wayView { position: relative; flex: 1; min-height: 0; height: auto; --mk-brand: var(--accent); }
+  #way .vw-btn, #way .tp-where { color: var(--text); background: color-mix(in srgb, var(--surface) 85%, transparent); box-shadow: 0 4px 14px var(--shadow); }
+  .way-card { flex: none; max-height: 46%; overflow: auto; margin-top: -18px; position: relative; z-index: 2; padding: 16px 16px calc(16px + var(--safe-b)); border-radius: 22px 22px 0 0; background: var(--surface); box-shadow: 0 -8px 24px var(--shadow); animation: pop-up .32s var(--spring) both; }
+  .way-card p { margin: 0; font-size: 14.5px; line-height: 1.65; white-space: pre-line; }
+  .way-nav { display: grid; gap: 8px; margin-top: 14px; }
+  .way-nav a { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 16px; border-radius: 16px; background: var(--surface-2); color: var(--text); font-weight: 700; text-decoration: none; transition: transform .15s var(--spring); }
+  .way-nav a:first-child { background: var(--accent); color: #fff; }
+  .way-nav a:active { scale: .97; }
+  .way-nav svg { flex: none; width: 20px; height: 20px; fill: currentColor; transform: rotate(45deg); }
+  .way-nav span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* 岩場頁：分區（上攀區、抱石區）一段一段，一顆石頭（岩壁）一張卡；右下爪印打開路線清單 */
+  .pk-sec { margin: 4px 0 18px; animation: item-in .35s var(--ease-out) both; }
+  .pk-head { display: flex; align-items: baseline; gap: 10px; margin: 0 20px 10px; }
+  .pk-head b { position: relative; z-index: 0; font-size: 20px; font-weight: 800; }
+  .pk-head b::after { content: ""; position: absolute; left: -3px; right: -5px; bottom: 2px; height: 9px; border-radius: 5px; background: var(--red); opacity: .3; z-index: -1; transform: rotate(-1.5deg); }
+  .pk-head span { color: var(--muted); font-size: 13px; }
+  .paw svg { stroke: none; }
+  .pk-fab { position: fixed; right: calc(20px + env(safe-area-inset-right, 0px)); bottom: calc(20px + var(--safe-b)); z-index: 6; width: 60px; height: 60px; border-radius: 50%;
+    display: grid; place-items: center; background: var(--red); color: #fff; box-shadow: 0 10px 26px var(--shadow); transform: rotate(-8deg); }
+  .pk-fab svg { width: 30px; height: 30px; }
+  .pk-fab:active:not(:disabled) { scale: .92; }
+  /* 卡片的圖還沒下載好：灰底閃著，圖到了才淡入 */
+  .card .pic { transition: opacity .35s var(--ease-out); }
+  .card .pic.wait { opacity: 0; }
+  /* 沒有照片（下載到一半、檔案遺失）：一塊有圖示的底色，不是破圖 */
+  .card.nophoto, #packBanner.nophoto { background: #7d8da0 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' fill='none' stroke='%23fff' stroke-opacity='.55' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='6' y='8' width='36' height='32' rx='5'/%3E%3Cpath d='M6 34l10-10 8 8 6-6 12 12'/%3E%3Ccircle cx='32' cy='18' r='3'/%3E%3C/svg%3E") center 36% / 30% no-repeat; }
+  .card.nophoto { aspect-ratio: 1 / 1; }   /* 高度平常是照片撐出來的 */
+  #packBanner.nophoto { aspect-ratio: 4 / 3; }
+  .card:has(.pic.wait) { background: linear-gradient(100deg, var(--surface-2) 30%, var(--line) 50%, var(--surface-2) 70%) 0 0 / 300% 100%; animation: skel 1.4s linear infinite; }
+  /* 世界：立體卡堆（國家 → 地區 → 岩場），沒有地圖；卡堆依地理位置排進格子，厚度是岩場數量，最後一層才是岩場卡片 */
+  #world { z-index: 9; background: var(--bg); overflow: hidden; }
+  #world .vw { z-index: 20; }
+  #worldNearby { position: absolute; right: 12px; top: calc(12px + var(--safe-t, 0px)); }
+  #world .vw-btn, #world .tp-where { color: var(--text); background: color-mix(in srgb, var(--surface) 88%, transparent); box-shadow: 0 4px 14px var(--shadow); }
+  #world .w-head { gap: 8px; padding: 0 16px; color: var(--text); }
+  #world .w-head img { width: 26px; height: 26px; }
+  #world .w-head.busy img { animation: bob 1.2s var(--spring) infinite alternate; }   /* 找岩場中：紅點貓晃著 */
+  #worldStage { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; padding: calc(76px + var(--safe-t, 0px)) 16px calc(40px + var(--safe-b, 0px)); }
+  .w-piles { --cols: 3; display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 30px 18px; max-width: 1100px; margin: 0 auto; }
+  .pile { position: relative; grid-column: var(--col); grid-row: var(--row); aspect-ratio: 5 / 4; margin: 0 10px 14px 0; padding: 0; text-align: left; isolation: isolate; transition: translate .3s var(--spring); }
+  /* 厚度：下面墊幾張，每張往右下偏一點；岩場越多越厚 */
+  .pile .sheet { position: absolute; inset: 0; z-index: calc(-1 * var(--i)); border-radius: 16px; background: var(--surface-2); border: 1px solid var(--line); box-shadow: 0 2px 5px var(--shadow); translate: calc(var(--i) * 2px) calc(var(--i) * 5px); }
+  .pile .sheet:nth-child(even) { background: color-mix(in srgb, var(--surface-2) 70%, var(--line)); }
+  .pile .face { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; padding: 10px; border-radius: 16px; border: 1px solid var(--line); box-shadow: 0 10px 24px var(--shadow); overflow: hidden;
+    background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 12%, var(--surface)), var(--surface) 62%); }
+  .pile .face b { font-size: clamp(14px, 3.8vw, 18px); font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .pile .face small { color: var(--muted); font-size: 12.5px; font-weight: 650; }
+  .pile.got .face small::before { content: '✓ '; color: var(--accent); }
+  @media (hover: hover) { .pile:hover { translate: 0 -5px; } }
+  .w-crags { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-width: 1100px; margin: 0 auto; }
+  .w-crags .card .pic { aspect-ratio: 4 / 3; }   /* 入口照片本來就是 4:3（預覽圖上半 720×540）：整張露出來 */
+  .w-crags .card.nophoto { aspect-ratio: 4 / 3; }   /* OpenClimbing 的岩場還沒有縮圖：灰底卡片跟有圖的同高 */
+  .w-more { height: 1px; grid-column: 1 / -1; }
+  @media (min-width: 560px) { .w-crags { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (min-width: 900px) { .w-crags { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  @media (prefers-reduced-motion: reduce) { .pile { transition: none; } }
+  /* 世界卡堆照首頁卡片（AppKit 的 ak-photo-card）：圓角 18、4:3、不加外框；名稱和數量在下方，沒有每張都有的裝飾記號，
+     只有國旗／地圖標記（.mark）和收過的 ✓ 這類有意義的標示；下面墊的厚度層保留但用同一個底色 */
+  .pile { aspect-ratio: 4 / 3; margin: 0 6px 8px 0; }
+  .w-piles { gap: 20px 12px; }
+  .pile .sheet { border-radius: 18px; border: 0; background: var(--surface-2); box-shadow: 0 1px 3px var(--shadow); }
+  .pile .sheet:nth-child(even) { background: var(--surface-2); }
+  .pile .face { border-radius: 18px; border: 0; gap: 2px; padding: 12px; background: var(--surface); box-shadow: 0 2px 10px var(--shadow); }
+  .pile .face b { color: var(--text); }
+  .pile:active .face { scale: .98; }
+  .pile .face { transition: scale .12s; }
+  @media (prefers-reduced-motion: reduce) { .pile .face { transition: none; } }
+  /* 國家、地區的底圖：國旗／地圖標記放大到幾乎滿版、淡化、去飽和，位置角度每張不同（--s 大小、--r 角度、--x/--y 裁切，由程式依名稱給）；
+     下方用卡片底色漸層蓋住，名稱和數量照樣清楚 */
+  .pile .face { container-type: inline-size; }
+  .pile .face > b, .pile .face > small { position: relative; z-index: 1; }
+  .pile .face::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, var(--surface) 28%, color-mix(in srgb, var(--surface) 55%, transparent) 60%, transparent); pointer-events: none; }
+  .pile .mark { position: absolute; left: var(--x); top: var(--y); line-height: 1; rotate: var(--r); pointer-events: none; }
+  .pile .mark.flag { display: inline-block; left: var(--tx); top: var(--ty); translate: calc(-1 * var(--fx)) calc(-1 * var(--fy)); transform-origin: var(--fx) var(--fy);
+    font-size: calc(var(--s) * 1cqw); opacity: var(--o); filter: saturate(.8) blur(var(--b));
+    -webkit-mask-image: radial-gradient(farthest-side at var(--fx) var(--fy), #000 var(--m), transparent); mask-image: radial-gradient(farthest-side at var(--fx) var(--fy), #000 var(--m), transparent); }   /* 焦點（--fx/--fy）對到卡片上的 --tx/--ty，繞焦點傾斜 */
+  .pile .mark.pin { color: var(--accent); opacity: .26; filter: blur(var(--b)); }
+  .pile .mark.pin svg { display: block; width: calc(var(--s) * .9cqw); height: auto; }
+  .pile .mark.rings { width: calc(var(--s) * 1.2cqw); aspect-ratio: 1; border-radius: 50%; color: var(--accent); opacity: .32;
+    background: repeating-radial-gradient(circle, transparent 0 7%, currentColor 7% 8%); }
+  /* 主卡右上：交通、區域照片（浮在照片上的深色半透明圓鈕） */
+  .bn-acts { position: absolute; top: 12px; right: 12px; display: flex; gap: 8px; }
+  .bn-btn { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: rgba(8, 38, 58, .45); color: #fff; }
+  .bn-btn svg { width: 21px; height: 21px; }
+  /* 往上滑、主卡捲出去之後，名稱移到「<」右邊 */
+  .pk-title { opacity: 0; transform: translateY(6px); transition: opacity .2s, transform .3s var(--spring); pointer-events: none; }
+  .bar.titled .pk-title { opacity: 1; transform: none; }
+  #packCards { padding-bottom: calc(90px + var(--safe-b)); }
+
+  /* 路線清單：一顆石頭一段，一條路線一列；右邊的爪印按一下換狀態：沒爬 → 完攀 → 爬了 → 沒爬 */
+  .tk-sum { display: flex; gap: 8px; padding: 2px 16px 12px; position: sticky; top: calc(60px + var(--safe-t)); z-index: 4; background: color-mix(in srgb, var(--bg) 88%, transparent); }
+  .tk-sum button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 4px 8px; border-radius: 16px; background: var(--surface); box-shadow: 0 2px 10px var(--shadow); }
+  .tk-sum button b { font: italic 700 28px/1 "Climbio Display", var(--font); }
+  .tk-sum button span { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+  .tk-sum button.s2 b { color: var(--red); }
+  .tk-sum button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+  .tk-sum button[aria-pressed="true"] :is(b, span) { color: inherit; }
+  .tk-list { padding: 0 12px calc(32px + var(--safe-b)); }
+  .tk-wall { margin: 16px 6px 8px; display: flex; align-items: baseline; gap: 8px; }
+  .tk-wall b { font-size: 16px; font-weight: 800; }
+  .tk-wall span { color: var(--muted); font-size: 12.5px; }
+  .tk-row { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; margin-bottom: 6px; border-radius: 16px; background: var(--surface); }
+  .tk-row .go { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 6px 0; text-align: left; }
+  .tk-row .no { flex: none; min-width: 28px; height: 28px; padding: 0 8px; border-radius: 999px; display: grid; place-items: center; background: var(--surface-2); font-weight: 800; font-size: 14px; }
+  .tk-row .tx { flex: 1; min-width: 0; }
+  .tk-row .tx b { display: block; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tk-row .tx span { display: block; color: var(--muted); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* 星等採龍洞的金色已評／灰色未評風格；theCrag 轉為五顆星，局部填色。 */
+  .stars { display: inline-flex; align-items: center; white-space: nowrap; font-size: 14px; font-weight: 700; letter-spacing: 1px; }
+  .stars .star-scale { display: inline-block; position: relative; white-space: nowrap; line-height: 1; }
+  .stars .star-scale .dim { display: block; color: var(--muted); opacity: .55; }
+  .stars .star-scale .filled { display: block; position: absolute; inset: 0 auto auto 0; max-width: 100%; overflow: hidden; white-space: nowrap; color: #f2c14e; }
+  .tk-row .tx span.stars { display: inline-flex; margin-top: 3px; overflow: visible; }
+  .tk-row .tx .stars .star-scale { display: inline-block; overflow: visible; }
+  .tk-row .tx .stars .star-scale .filled { display: block; overflow: hidden; }
+  .tk-row .tx .stars .star-scale .dim { display: block; overflow: visible; }
+  .tk-row .gr { flex: none; font: italic 700 22px/1 "Climbio Display", var(--font); }
+  .tk-row { align-items: flex-start; }
+  .tk-row .go { align-items: flex-start; }
+  .tk-row .no, .tk-row .gr { margin-top: 2px; }
+  .tk-paw { align-self: center; }
+  .tk-paw { flex: none; position: relative; width: 56px; height: 56px; display: grid; place-items: center; color: var(--muted); }
+  .tk-paw::before { content: ""; position: absolute; inset: 8px; border-radius: 50%; border: 2px dashed var(--line); transition: transform .3s var(--spring), background .2s, border-color .2s; }
+  .tk-paw svg { position: relative; width: 22px; height: 22px; opacity: .3; transition: transform .35s var(--spring), opacity .2s; }
+  .tk-paw small { position: absolute; left: 0; right: 0; bottom: -3px; text-align: center; font-size: 10.5px; font-weight: 800; line-height: 1; }
+  .tk-paw[data-s="2"] { color: #fff; }
+  .tk-paw[data-s="2"]::before { border: 0; background: var(--red); transform: rotate(-10deg); }
+  .tk-paw[data-s="2"] svg { opacity: 1; transform: rotate(-10deg) scale(1.08); }
+  .tk-paw[data-s="2"] small { color: var(--red); }
+  .tk-paw[data-s="1"] { color: var(--red); }
+  .tk-paw[data-s="1"]::before { border: 2px solid color-mix(in srgb, var(--red) 55%, transparent); }
+  .tk-paw[data-s="1"] svg { opacity: .75; transform: rotate(16deg) scale(.88); }
+  .tk-paw.stamp svg { animation: stamp .45s var(--spring); }
+  .tk-paw.stamp::before { animation: ring .45s var(--spring); }
+  @keyframes stamp { from { transform: scale(2) rotate(-35deg); opacity: 0; } }
+  @keyframes ring { from { transform: scale(.4); } }
+  #packCards .card .tick { position: absolute; right: 10px; top: 10px; height: 24px; padding: 0 8px 0 6px; border-radius: 999px; display: flex; align-items: center; gap: 3px;
+    background: rgba(8, 38, 58, .62); color: #fff; font: italic 700 15px/1 "Climbio Display", var(--font); }
+  #packCards .card .tick svg { width: 14px; height: 14px; stroke: none; color: var(--red); }
+  @media (prefers-reduced-motion: reduce) { .tk-paw.stamp svg, .tk-paw.stamp::before, .tp-pop, .pk-sec, #view.slide-l, #view.slide-r, .tp-where.bump { animation: none; } }
+</style>
+<link rel="stylesheet" href="../css/desktop.css">
+<script src="../js/rename.js"></script>
+<script src="../site.js"></script>
+<script src="../version.js"></script>
+<script src="../format/format.js"></script>
+<script src="../appkit/share-tools.js"></script>
+<script src="../backend/firebase.js"></script>
+<script src="../appkit/i18n.js"></script>
+<script src="boot.js"></script>
+<script src="../appkit/install.js"></script>
+<script src="../appkit/photo.js"></script>
+<script src="../appkit/nearby.js"></script>
+<script src="../appkit/files.js"></script>
+<script src="../appkit/idb.js"></script>
+<script src="../appkit/store.js"></script>
+<script src="../appkit/gesture.js"></script>
+<script src="../appkit/backstack.js"></script>
+<script src="../appkit/ui.js"></script>
+<script src="../appkit/update.js"></script>
+<script src="../appkit/account.js"></script>
+<script src="../appkit/share.js"></script>
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="m9 3-.5 2.5-2 .9-2.2-.8-2 3.4 1.8 1.7v2.6l-1.8 1.7 2 3.4 2.2-.8 2 .9L9 21h4l.5-2.5 2-.9 2.2.8 2-3.4-1.8-1.7v-2.6L19.7 9l-2-3.4-2.2.8-2-.9L13 3z"/><circle cx="11" cy="12" r="3"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-photo" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 16l5-5 4 4 2-2 5 5"/><circle cx="15.5" cy="9.5" r="1.5"/></symbol>
+  <symbol id="i-qr" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z"/><path d="M14 14h2v2h-2zM18 14h2M14 18v2M18 18h2v2"/></symbol>
+  <symbol id="i-nearby" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.6 5.2 3.6 8.5s-1 6.1-3.6 8.5c-2.6-2.4-3.6-5.2-3.6-8.5s1-6.1 3.6-8.5z"/></symbol>
+  <symbol id="i-crag" viewBox="0 0 24 24"><path d="m3 20 6-12 4 6 3-4 5 10H3z"/><circle cx="17" cy="6" r="1.5"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V4M8 8l4-4 4 4"/><path d="M5 13v6h14v-6"/></symbol>
+  <symbol id="i-way" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></symbol>
+  <symbol id="i-nav" viewBox="0 0 24 24"><path d="M12 3.5l6.5 16.5-6.5-3.8-6.5 3.8z"/></symbol>
+  <symbol id="i-map" viewBox="0 0 24 24"><path d="M3.5 6.5l5-2 7 2.5 5-2v13l-5 2-7-2.5-5 2z"/><path d="M8.5 4.5v13M15.5 7v13"/></symbol>
+  <symbol id="i-backup" viewBox="0 0 24 24"><path d="M12 15V4M8 8l4-4 4 4M5 14v5h14v-5"/></symbol>
+  <symbol id="i-restore" viewBox="0 0 24 24"><path d="M12 4v11M8 11l4 4 4-4M5 14v5h14v-5"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2-2V8zM14 3v5h5M9 13h6M9 17h6"/></symbol>
+  <symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v6M12 7.5h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><path d="M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01"/></symbol>
+  <symbol id="i-paw" viewBox="0 0 24 24"><g fill="currentColor"><path d="M12 11.2c-2.9 0-6.2 3.3-6.2 6.1 0 1.9 1.4 2.9 3 2.9 1.3 0 2.1-.7 3.2-.7s1.9.7 3.2.7c1.6 0 3-1 3-2.9 0-2.8-3.3-6.1-6.2-6.1z"/><ellipse cx="5.2" cy="10.4" rx="1.9" ry="2.4" transform="rotate(-20 5.2 10.4)"/><ellipse cx="9.2" cy="5.6" rx="2" ry="2.6" transform="rotate(-8 9.2 5.6)"/><ellipse cx="14.8" cy="5.6" rx="2" ry="2.6" transform="rotate(8 14.8 5.6)"/><ellipse cx="18.8" cy="10.4" rx="1.9" ry="2.4" transform="rotate(20 18.8 10.4)"/></g></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4"/></symbol>
+  <symbol id="i-split" viewBox="0 0 24 24"><rect x="4" y="5" width="7" height="14" rx="1.5"/><rect x="13" y="5" width="7" height="14" rx="1.5"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="9" r="3.5"/><path d="M5.5 19c1.2-3 3.6-4.5 6.5-4.5s5.3 1.5 6.5 4.5"/></symbol>
+  <symbol id="i-sign" viewBox="0 0 24 24"><path d="M4 17c3-5 5-8 7-8 1.5 0-1 6 1 6 1.5 0 2.5-3 4-3 1 0 1 2 4 2"/><path d="M4 21h16"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M5 12l7-7 7 7M7 10v9h10v-9"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+</svg>
+
+<section id="home" class="page" hidden>
+  <header class="bar">
+    <h1 class="brand"><img class="logo" src="../icons/cats/redpoint-cat-wordmark.svg" alt="紅點貓"><span class="env-badge" data-i18n="envDev"></span></h1>
+    <button class="icon-btn ak-account-trigger" id="avatar" data-i18n-aria="more" aria-label="更多" aria-haspopup="true" aria-expanded="false"><span class="ak-account-avatar" id="rpHomeAvatar"></span></button>
+  </header>
+  <div class="ak-hint sync-hint" id="rpSyncBar" hidden><button class="ak-hint-go" id="rpSyncGo"><svg><use href="#i-nearby"/></svg><span data-i18n="syncHint">同步</span></button><button class="ak-hint-x" id="rpSyncX" data-i18n-aria="close" aria-label="關閉"><svg><use href="#i-close"/></svg></button></div>
+  <div id="cards" class="cards ak-photo-grid"></div>
+  <div class="empty-home" id="homeEmpty" hidden>
+    <img src="../icons/cats/redpoint-cat.svg" alt="">
+    <strong data-i18n="emptyTitle">從世界收下第一個岩場</strong>
+    <span data-i18n="emptySub">看看有哪些岩場，點開收下來，Topo 離線也能看、爬完就記一筆。</span>
+    <button class="btn primary big" id="emptyGo" data-i18n="emptyGo">探索世界</button>
+    <button class="btn big" id="emptyTry3d" data-i18n="emptyTry3d">看 3D 岩場範例</button>
+  </div>
+</section>
+<div class="ak-hint rp-inst-bar" id="rpInstallBar" hidden><button class="ak-hint-go" id="rpInstallGo"><svg><use href="#i-home"/></svg><span data-i18n="addToHome">加到主畫面</span></button><button class="ak-hint-x" id="rpInstallX" data-i18n-aria="close" aria-label="關閉"><svg><use href="#i-close"/></svg></button></div>
+
+<section id="pack" class="page" hidden>
+  <header class="bar">
+    <button class="icon-btn" id="packBack" data-i18n-aria="back" aria-label="返回"><svg><use href="#i-back"/></svg></button>
+    <h1 class="pk-title" id="packTitle" aria-hidden="true"></h1>
+    <button class="icon-btn" id="packShare" data-i18n-aria="share" aria-label="分享"><svg><use href="#i-share"/></svg></button>
+  </header>
+  <div class="banner" id="packBanner"><img alt=""><div class="cap"><b></b><span></span></div>
+    <div class="bn-acts"><a class="bn-btn" id="packSource" data-i18n-aria="sourceData" aria-label="原始資料" target="_blank" rel="noopener noreferrer" hidden><svg><use href="#i-doc"/></svg></a><button class="bn-btn" id="packWay" data-i18n-aria="access" aria-label="交通" hidden><svg><use href="#i-way"/></svg></button><button class="bn-btn" id="packArea" data-i18n-aria="areaPhotos" aria-label="區域照片" hidden><svg><use href="#i-map"/></svg></button></div></div>
+  <button class="btn" id="packMissing" hidden></button>
+  <div id="packCards"></div>
+  <button class="pk-fab paw" id="packTicks" data-i18n-aria="routeList" aria-label="路線清單"><svg><use href="#i-paw"/></svg></button>
+</section>
+
+<section id="m3d" class="page ak-photo-page" hidden aria-label="3D">
+  <header class="vw">
+    <button class="vw-btn vw-back" id="closeM3d" data-i18n-aria="back" aria-label="返回"><svg><use href="#i-back"/></svg></button>
+    <div class="tp-where" id="m3dWhere"><b></b><span></span></div>
+    <button class="vw-btn vw-share" id="m3dShare" data-i18n-aria="share" aria-label="分享" hidden><svg><use href="#i-share"/></svg></button>
+    <button class="vw-btn vw-share m3-listbtn" id="m3dToggle" data-i18n-aria="routeList" aria-label="路線清單" aria-expanded="false" hidden><svg><use href="#i-list"/></svg></button>
+  </header>
+  <div id="m3dView"></div>
+  <div class="tp-pop" id="m3dPop" hidden role="status"></div>
+  <div class="m3-sheet" id="m3dSheet">
+    <button class="m3-grip" id="m3dGrip" data-i18n-aria="routeList" aria-label="路線清單" aria-expanded="false"></button>
+    <div class="m3-walls" id="m3dWalls" role="group"></div>
+    <div class="m3-body">
+      <div class="m3-acts"><a class="bn-btn" id="m3dSource" data-i18n-aria="sourceData" aria-label="原始資料" target="_blank" rel="noopener noreferrer" hidden><svg><use href="#i-doc"/></svg></a><button class="bn-btn" id="m3dWay" data-i18n-aria="access" aria-label="交通" hidden><svg><use href="#i-way"/></svg></button><button class="bn-btn" id="m3dArea" data-i18n-aria="areaPhotos" aria-label="區域照片" hidden><svg><use href="#i-map"/></svg></button></div>
+      <div class="tk-list" id="m3dList"></div>
+    </div>
+  </div>
+</section>
+
+<section id="ticks" class="page" hidden data-i18n-aria="routeList" aria-label="路線清單">
+  <header class="bar">
+    <button class="icon-btn" id="ticksBack" data-i18n-aria="back" aria-label="返回"><svg><use href="#i-back"/></svg></button>
+    <h1 id="ticksTitle"></h1>
+  </header>
+  <div class="tk-sum" id="ticksSum" role="group" data-i18n-aria="filter" aria-label="篩選"></div>
+  <div class="tk-list" id="ticksList"></div>
+</section>
+
+<section id="world" class="page ak-photo-page" hidden data-i18n-aria="world" aria-label="世界">
+  <div id="worldStage"></div>
+  <header class="vw">
+    <button class="vw-btn vw-back" id="worldBack" data-i18n-aria="back" aria-label="返回"><svg><use href="#i-back"/></svg></button>
+    <button class="vw-btn" id="worldNearby" data-i18n-aria="nearbyTitle" aria-label="附近交換"><svg><use href="#i-nearby"/></svg></button>
+    <div class="tp-where w-head" id="worldNote" hidden><img src="../icons/cats/redpoint-cat.svg" alt=""><span id="worldHead"></span></div>
+  </header>
+</section>
+
+<div class="rfab" id="fab">
+  <button class="rfab-btn" id="fabBtn" data-i18n-aria="world" aria-label="世界"><svg><use href="#i-globe"/></svg></button>
+</div>
+
+<div id="acct" hidden>
+  <div class="ac-card ak-account-menu" role="menu">
+    <div class="ac-me" id="acMe" role="button" tabindex="0"><span class="face ak-account-avatar ak-account-avatar-lg" id="acFace"></span><span class="who"><b id="acName"></b></span></div>
+    <div class="ak-account-stats" id="acStats" hidden>
+      <span><b data-ak-stat="crags">—</b><small data-i18n="statCrags">岩場</small></span>
+      <span><b data-ak-stat="topos">—</b><small data-i18n="statTopos">路線圖</small></span>
+      <span><b data-ak-stat="routes">—</b><small data-i18n="statRoutes">路線</small></span>
+    </div>
+    <div class="ac-rows">
+      <button class="ac-row" id="acExport"><svg><use href="#i-backup"/></svg><span data-i18n="backupData">備份資料</span></button>
+      <button class="ac-row" id="acImport"><svg><use href="#i-restore"/></svg><span data-i18n="restoreData">復原資料</span></button>
+      <button class="ac-row" id="acSync" hidden><svg><use href="#i-nearby"/></svg><span data-i18n="syncDevices">同步到其他裝置</span><em id="acSyncVal"></em></button>
+      <button class="ac-row" id="acHelp"><svg><use href="#i-info"/></svg><span data-i18n="help">使用說明</span></button>
+      <button class="ac-row" id="acAutoMerge" hidden><svg><use href="#i-home"/></svg><span data-i18n="autoMerge">自動合併岩場</span></button>
+      <button class="ac-row" id="acInstall" hidden><svg><use href="#i-home"/></svg><span data-i18n="addToHome">加到主畫面</span></button>
+    </div>
+    <div id="acFoot"></div>
+  </div>
+</div>
+
+<section id="recv" class="page" hidden>
+  <button class="over-btn" id="rvClose" data-i18n-aria="close" aria-label="關閉"><svg><use href="#i-close"/></svg></button>
+  <div class="rv-from"><i id="rvFace"></i><span id="rvFrom"></span></div>
+  <div class="rv-card skel" id="rvCard"><div class="rv-pic" id="rvPic"></div><img alt="" hidden></div>
+  <h2 class="rv-name" id="rvName"></h2>
+  <div class="rv-count" id="rvCount"></div>
+  <div class="rv-tiles" id="rvTiles"></div>
+  <button class="btn primary big" id="rvGo" hidden></button>
+</section>
+
+<section id="topo" class="page ak-photo-page" hidden aria-label="Topo">
+  <header class="vw">
+    <button class="vw-btn vw-back" id="closeTopo" data-i18n-aria="back" aria-label="返回"><svg><use href="#i-back"/></svg></button>
+    <div class="tp-where" id="topoWhere" hidden><b></b><span></span></div>
+    <button class="vw-btn vw-share" id="shareTopo" data-i18n-aria="share" aria-label="分享"><svg><use href="#i-share"/></svg></button>
+  </header>
+  <button class="vw-btn tp-nav tp-prev" id="topoPrev" data-i18n-aria="prevPhoto" aria-label="上一張" hidden><svg><use href="#i-back"/></svg></button>
+  <button class="vw-btn tp-nav tp-next" id="topoNext" data-i18n-aria="nextPhoto" aria-label="下一張" hidden><svg><use href="#i-back"/></svg></button>
+  <climbio-topo id="view" controls="false" fit="width" swipe="page" bolts="zoom" lang="zh-Hant"></climbio-topo>
+  <div class="tp-pop" id="topoPop" hidden role="status"></div>
+</section>
+
+<section id="cmap" class="page ak-photo-page" hidden data-i18n-aria="cragMap" aria-label="岩場地圖">
+  <header class="vw">
+    <button class="vw-btn vw-back" id="cmapBack" data-i18n-aria="back" aria-label="返回"><svg><use href="#i-back"/></svg></button>
+    <div class="tp-where" id="cmapName"><b></b></div>
+    <button class="vw-btn vw-share" id="cmapSketch" data-i18n-aria="sketch" aria-label="手繪圖" hidden><svg><use href="#i-photo"/></svg></button>
+  </header>
+  <climbio-map id="cmapView" lang="zh"></climbio-map>
+</section>
+
+<section id="way" class="page ak-photo-page" hidden data-i18n-aria="access" aria-label="交通">
+  <header class="vw">
+    <button class="vw-btn vw-back" id="wayBack" data-i18n-aria="back" aria-label="返回"><svg><use href="#i-back"/></svg></button>
+    <div class="tp-where" id="wayName"><b></b></div>
+  </header>
+  <climbio-map id="wayView" lang="zh" controls="false"></climbio-map>
+  <div class="way-card"><p id="wayText"></p><div class="way-nav" id="wayNav"></div></div>
+</section>
+
+</body>
+</html>

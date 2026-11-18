@@ -1,0 +1,63 @@
+name: 回報問題 Bug report
+description: App 或工具的行為不對 / Something in the apps or tools does not work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        照片、精確位置、私人路線只在你願意公開時才附上；issue 所有人都看得到。
+        Only attach photos, exact locations or private routes if you are happy for them to be public; issues are visible to everyone.
+  - type: dropdown
+    id: product
+    attributes:
+      label: 產品 Product
+      options:
+        - 岩點貓 Hold Cat (/hold/)
+        - 紅點貓 Redpoint Cat (/redpoint/)
+        - Climbio Studio (/studio/)
+        - 路線書轉換 Guidebook conversion (tools/guidebook.mjs)
+        - 開源元件 Kit (format, routekit, topokit, mapkit, holdkit, appkit, sourcekit, holdscan)
+        - 其他 Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版號 Version
+      description: 設定頁或診斷裡的版號，例如 climbio-v1846-hk1.9.0 / The version shown in Settings or diagnostics
+      placeholder: climbio-v…
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: 裝置與瀏覽器 Device and browser
+      placeholder: iPhone 15 Safari / Pixel 7 Chrome / Windows Chrome
+  - type: input
+    id: data
+    attributes:
+      label: 資料 Data
+      description: 公開的牆、岩場或包的網址，或路線、節點的 id（私人資料請不要貼）/ Link or id of the public wall, crag or pack involved (no private data)
+  - type: textarea
+    id: steps
+    attributes:
+      label: 重現步驟 Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 預期 Expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 實際 Actual
+      description: 錯誤訊息、App 的診斷（按「複製」貼上）、截圖 / Error messages, the app's diagnostics (press Copy and paste), screenshots
+    validations:
+      required: true

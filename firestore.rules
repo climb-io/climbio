@@ -1,0 +1,18 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 沒有帳號、沒有登入：App 不直接讀寫 Firestore，全部經過雲端函式（Admin SDK，不受規則限制）
+    // 分享（shared/、wallRoutes/、putQuota/、config/uploads）：只有雲端函式（Admin SDK）讀寫，
+    // App 分享、讀公開牆都經過雲端函式 walls（functions/walls.js）；沒有規則＝誰都不能直接讀寫
+
+    // 岩館的公開牆面清單 gymWalls、有牆的岩館索引 gymIndex：雲端函式整理（functions/gym-walls.js），只有 Admin SDK 讀寫；
+    // App 讀站的公開牆面檔（/climbio.json、/w/…，functions/site-data.js），不直接讀這兩個集合（沒有規則＝誰都不能讀寫）
+
+    // Climbio Studio 發佈的公開資料索引 datasets/{id}（岩場、3D、公開牆同一個集合）：{ owner, type, name, version, t, files, locations }。
+    // 只有雲端函式 datasets 寫（functions/projects.js、walls-dataset.js：不記擁有者，已發佈的 id 不能改），公開網址 /p/ 由 projectFiles 讀；
+    // 網頁、App 都不能直接讀寫
+    match /datasets/{id}/{rest=**} {
+      allow read, write: if false;
+    }
+  }
+}

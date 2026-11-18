@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-Hant" data-climbio-theme="outdoor">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F7F9FB">
+<meta name="description" content="不用重建岩場網站。盤點公開資料入口、授權與跨站讀取條件，讓紅點貓有機會支援你的網站；也可直接輸出 Climbio 格式。">
+<link rel="canonical" href="https://climbio.app/redpoint-sites/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Climbio">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:url" content="https://climbio.app/redpoint-sites/">
+<meta property="og:title" content="串接岩場網站｜紅點貓資料藍圖 · Climbio">
+<meta property="og:description" content="不用重建岩場網站。盤點公開資料入口、授權與跨站讀取條件，讓紅點貓有機會支援你的網站；也可直接輸出 Climbio 格式。">
+<meta property="og:image" content="https://climbio.app/icons/cats/redpoint-cat-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="串接岩場網站｜紅點貓資料藍圖 · Climbio">
+<meta name="twitter:description" content="不用重建岩場網站。盤點公開資料入口、授權與跨站讀取條件，讓紅點貓有機會支援你的網站；也可直接輸出 Climbio 格式。">
+<meta name="twitter:image" content="https://climbio.app/icons/cats/redpoint-cat-512.png">
+<title>串接岩場網站｜紅點貓資料藍圖 · Climbio</title>
+<link rel="icon" href="../icons/cats/redpoint-cat-192.png">
+<link rel="stylesheet" href="../css/brand-tokens.css">
+<link rel="stylesheet" href="../css/pages.css">
+</head>
+<body>
+<header class="pg-top"><a class="pg-brand" href="../"><img src="../icons/brand/climbio-mark.svg" alt=""><span>Climbio</span></a><span class="grow"></span><nav class="pg-nav" aria-label="紅點貓資料藍圖"><a href="../redpoint/">紅點貓</a><a href="../redpoint-collect/">收藏岩場</a><a href="../studio/convert/">轉換路線書</a><a href="../redpoint-sites/" aria-current="page">串接網站</a></nav></header>
+<main class="pg">
+  <div class="pg-hero">
+    <h1>你整理的岩場資料，也能帶到現場</h1>
+    <p class="pg-lead">不用換網站，也不用重做資料庫。讓公開的岩場、路線、照片有個可讀取的入口，就能變成岩友手機裡的離線 Guidebook。</p>
+    <div class="pg-actions">
+      <button class="pg-btn primary copy" type="button">複製給 AI 的網站盤點說明</button>
+      <a class="pg-btn" href="#v2">我想直接提供 Climbio 格式</a>
+    </div>
+    <p class="pg-muted">一般網站要先盤點資料、做對應的讀取器；已提供 Climbio 公開格式的，直接給入口就好。</p>
+  </div>
+
+  <section class="pg-section" aria-labelledby="what">
+    <h2 id="what">從現有資料開始</h2>
+    <p class="pg-sub">先看哪些資料有公開網址、瀏覽器讀不讀得到、作者與授權怎麼標。沒有的路線或照片不用補。</p>
+    <div class="pg-grid three">
+      <article class="pg-card"><span class="pg-num">1 · 讀得到</span><h3>公開的資料網址</h3><p>HTTPS、不用登入，資料與圖片允許跨站讀取（最簡單是 <code>Access-Control-Allow-Origin: *</code>）。JSON、GeoJSON、API 回應都行。</p></article>
+      <article class="pg-card"><span class="pg-num">2 · 有什麼給什麼</span><h3>岩場、路線、照片</h3><p>岩場、岩壁、路線的名稱與難度，照片網址。有 Topo 線的話，說明座標怎麼算：照片像素或比例、原點在哪。</p></article>
+      <article class="pg-card"><span class="pg-num">3 · 授權</span><h3>署名與授權</h3><p>路線資料、照片、Topo 各自的作者與授權照舊保留。沒明確公開轉載權限的，只依原來源條件處理。</p></article>
+    </div>
+    <p class="pg-muted">把資料網址、欄位說明與一份實際回應範例交給紅點貓專案。讀取器完成後，使用者才能透過紅點貓收藏；這不代表已支援所有外站。</p>
+  </section>
+
+  <section class="pg-section" aria-labelledby="v2">
+    <h2 id="v2">直接輸出 Climbio 格式</h2>
+    <p class="pg-sub">網站輸出 Climbio 公開格式 v2，並在 HTML 的 <code>&lt;head&gt;</code> 加一行：</p>
+    <pre><code>&lt;link rel="climbio" type="application/json" href="/climbio/入口.json"&gt;</code></pre>
+    <p>紅點貓收藏擴充功能就能從該頁找到入口，不用為這個網站另寫讀取器。使用者也能直接貼入口網址：<code>https://climbio.app/?topo=https://你的網站/climbio/入口.json</code>。網站上可以放一顆「用紅點貓收藏」的連結指向它。</p>
+    <p class="pg-muted">格式見 <a href="https://github.com/climb-io/climbio/tree/main/format">Climbio 公開格式 v2</a>，<a href="https://longdong.web.app/climbio/longdong.json">龍洞岩場站的出口</a>是範例。檔案多、照片大時，可選用預覽圖、合併檔和照片縮小（<a href="https://github.com/climb-io/climbio/tree/main/sourcekit">@climbio/sourcekit</a>）讓下載更快，沒有也能收。</p>
+  </section>
+
+  <section class="pg-section" aria-labelledby="ai-title">
+    <h2 id="ai-title">先請 AI 盤點</h2>
+    <p class="pg-sub">把說明交給能讀網頁的 AI，它會檢查可讀取的網址、資料結構、跨站限制與授權標示，整理成清單。盤點時不會要求 AI 改你的網站。</p>
+    <div class="pg-actions"><button class="pg-btn primary copy" type="button">複製給 AI 的說明</button></div>
+  </section>
+
+  <section class="pg-section" aria-labelledby="next-title">
+    <h2 id="next-title">資料最後用在哪？</h2>
+    <div class="pg-grid two">
+      <a class="pg-card" href="../redpoint-collect/"><h3>岩友用收藏工具帶走路線圖</h3><p>支援的網站可被收藏到個人 Google Drive，再在手機離線看。</p><span class="pg-go">看收藏工具 →</span></a>
+      <a class="pg-card" href="../studio/convert/"><h3>作者用 Studio 轉換舊路線書</h3><p>Word、PDF、網頁路線書，整理成可維護的數位 Guidebook。</p><span class="pg-go">開始轉換 →</span></a>
+    </div>
+  </section>
+
+  <footer class="pg-foot"><span>Climbio 公開格式 v2 · 資料與照片依各自來源授權使用</span><a href="../redpoint/">前往紅點貓</a></footer>
+</main>
+<script src="copy.js"></script>
+</body>
+</html>

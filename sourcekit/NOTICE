@@ -1,0 +1,9 @@
+sourcekit（站台與匯入器共用的純函式：Topo 照片尺寸、合成預覽圖版面、路線描線 trace、來源 id、OpenClimbing／OSM 讀取、號碼牌數字辨識）
+Copyright (c) 2026 Climbio 貢獻者（Climbio contributors）
+
+本資料夾以 GNU AGPL-3.0 授權（見 LICENSE），不含第三方程式、模型或資料。
+它是 Climbio（AGPL-3.0）的一部分，可以單獨拿去用，使用時須遵守 AGPL-3.0。
+
+English: sourcekit is AGPL-3.0 and contains no third-party code, models or data.
+
+`badge-digits.js` 的數字樣板：0、2～9 是 Liberation Sans Bold（SIL Open Font License 1.1，Copyright (c) Red Hat, Inc.）的字形縮成 16×24 的格子；1 是從路線書的號碼牌取的平均。

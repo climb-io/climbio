@@ -1,0 +1,342 @@
+/* AppKit 共用樣式：介面色、對話框、提示（toast）、清單、提示列。
+   顏色一律取自 css/brand-tokens.css：頁面的 html 掛 data-climbio-theme="indoor"（深底綠：岩點貓）或 "outdoor"（白底深海藍：紅點貓、Studio），
+   這裡把品牌 token 對到 App 用的介面變數（--bg、--surface、--text、--accent…），App 的樣式只用這些變數，不另寫色碼。
+   按鈕、輸入框沿用 App 自己的 .btn（.primary、.danger-fill）、.field：手機和電腦的尺寸不同。
+   English: AppKit shared styles: interface variables from brand tokens, dialog, toast, list, hint bar. */
+[data-climbio-theme] {
+  --bg: var(--brand-bg); --surface: var(--brand-surface); --surface-2: var(--brand-surface-2); --hover: var(--brand-surface-hover);
+  --line: var(--brand-line); --line-strong: var(--brand-line-strong); --control: var(--brand-control);
+  --text: var(--brand-text); --muted: var(--brand-text-muted);
+  --accent: var(--brand-action); --accent-hover: var(--brand-action-hover); --on-accent: var(--brand-on-action); --accent-soft: var(--brand-action-soft);
+  --danger: var(--brand-danger); --on-danger: var(--brand-on-danger); --overlay: var(--brand-overlay); --shadow: var(--brand-shadow);
+}
+/* 室內的次要文字比品牌的 text-muted 暗一階（介面上大量使用，不搶岩點） */
+[data-climbio-theme="indoor"] { --muted: var(--brand-text-dim); }
+
+/* 對話框：整頁一層（原生 <dialog>，在最上層），中間一張卡片；只佔鍵盤以外看得到的範圍（App 有設 --vv-top／--vv-h 時） */
+.ak-dialog { position: fixed; inset: 0; top: var(--vv-top, 0px); width: 100%; height: var(--vv-h, 100%); max-width: none; max-height: none; margin: 0;
+  padding: 16px; border: 0; border-radius: 0; box-shadow: none; background: var(--overlay); color: var(--text); place-items: center; }
+.ak-dialog[open] { display: grid; }
+.ak-dialog::backdrop { background: transparent; }
+.ak-card { width: min(100%, 380px); max-height: 100%; overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius, 20px);
+  padding: 18px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 20px 50px var(--shadow); }
+.ak-title { font-size: 17px; font-weight: 700; }
+.ak-dialog .ak-text { margin: 0; color: var(--text); font-size: 16px; font-weight: 700; line-height: 1.55; white-space: pre-line; }
+.ak-dialog .ak-title + .ak-text { margin-top: -6px; font-size: 15px; font-weight: 400; color: var(--muted); line-height: 1.7; }
+.ak-dialog .ak-field { display: flex; flex-direction: column; gap: 6px; margin: 0; color: var(--muted); font-size: 13px; }
+/* 共用對話框的輸入框必須自足，不依賴岩點貓 css/app.css 的 .field；紅點貓也使用相同字級與品牌樣式。 */
+.ak-dialog .field { width: 100%; min-width: 0; min-height: 48px; padding: 12px 14px; border: 1px solid transparent; border-radius: var(--radius-sm, 14px);
+  background: var(--surface-2); color: var(--text); font-family: inherit; font-size: 16px; line-height: 1.4; outline: none; }
+.ak-dialog .field:focus-visible { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 2px; }
+.ak-actions { display: flex; gap: 10px; }
+.ak-actions .btn { flex: 1; }
+
+/* 清單：一組圓角面板，一列一個按鈕（對話框的選項、選單） */
+.ak-list { display: flex; flex-direction: column; background: var(--surface-2); border-radius: var(--radius-sm, 14px); overflow: hidden; }
+.ak-list > button, .ak-list > a { padding: 14px 16px; text-align: left; font-weight: 600; color: var(--text); text-decoration: none; }
+.ak-list > button + button, .ak-list > a + a { border-top: 1px solid var(--line); }
+.ak-list > button:hover, .ak-list > a:hover { background: var(--hover, var(--line)); }
+.ak-list > .danger { color: var(--danger); }
+
+/* 有新版本（appkit/update.js）：一條圓角提示；放進容器時在流程裡，沒有容器就浮在畫面下方；按「更新」後按鈕轉圈到重新載入 */
+.ak-update { margin: 4px 16px 12px; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 20px;
+  background: var(--surface); border: 1px solid var(--line); font-size: 14px; font-weight: 700; white-space: nowrap; animation: ak-upd-in .45s cubic-bezier(.34,1.3,.64,1) both; }
+.ak-update[hidden] { display: none; }
+.ak-update.float { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(76px + env(safe-area-inset-bottom, 0px)); z-index: 41; margin: 0; max-width: calc(100% - 32px); box-shadow: 0 10px 30px var(--shadow); animation-name: ak-upd-up; }
+.ak-update svg { width: 18px; height: 18px; flex: none; color: var(--accent-text); }
+.ak-update span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ak-update button { position: relative; min-width: 72px; padding: 8px 16px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-weight: 700; border: 0; }
+.ak-update button.busy { color: transparent; pointer-events: none; }
+.ak-update button.busy::after { content: ''; position: absolute; inset: 0; margin: auto; width: 16px; height: 16px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--on-accent) 30%, transparent); border-top-color: var(--on-accent); animation: ak-spin .8s linear infinite; }
+@keyframes ak-upd-in { from { opacity: 0; transform: translateY(-12px); } }
+@keyframes ak-upd-up { from { opacity: 0; transform: translate(-50%, 12px); } }
+@media (prefers-reduced-motion: reduce) { .ak-update { animation: none; } }
+
+/* 提示（toast）：畫面下方置中的一行；位置用 --ak-toast-bottom 調（例如避開底部的按鈕） */
+.ak-toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: var(--ak-toast-bottom, calc(24px + env(safe-area-inset-bottom, 0px))); z-index: 40;
+  max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); color: var(--text);
+  font-size: 13px; font-weight: 600; display: flex; gap: 8px; align-items: center; box-shadow: 0 10px 30px var(--shadow); transition: opacity .25s; }
+.ak-toast.fade { opacity: 0; pointer-events: none; }
+.ak-toast-act { margin-left: 4px; padding: 4px 10px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-weight: 600; font-size: 13px; }
+.ak-spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: ak-spin .8s linear infinite; flex: none; }
+.ak-toast-act[hidden], .ak-spin[hidden] { display: none; }
+@keyframes ak-spin { to { transform: rotate(360deg); } }
+
+/* 提示列：一列膠囊，左邊圖示和文字按鈕、右邊關閉（例如「加到主畫面」）；擺在哪裡由 App 決定 */
+.ak-hint { display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px 16px; border-radius: 999px; background: var(--surface); box-shadow: 0 10px 30px var(--shadow); }
+.ak-hint[hidden] { display: none; }
+.ak-hint-go { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 40px; color: var(--text); font-weight: 700; text-align: left; }
+.ak-hint-go span { min-width: 0; overflow-wrap: anywhere; }
+.ak-hint-go svg, .ak-hint-go img { width: 22px; height: 22px; color: var(--accent); flex: none; }
+.ak-hint-x { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 50%; color: var(--muted); }
+
+/* 手機介紹頁（landing.js）：電腦版工具在手機上只顯示 .ak-landing，App 的畫面整個藏起來（提示照常顯示）；室內深底綠、戶外白底深海藍跟著頁面的主題 */
+.ak-landing { display: none; }
+html.ak-phone, html.ak-phone body { height: auto; min-height: 100%; overflow: auto; display: block; }
+html.ak-phone body > :not(.ak-landing):not(.ak-toast) { display: none !important; }
+html.ak-phone .ak-landing { display: flex; flex-direction: column; gap: 22px; max-width: 480px; margin: 0 auto;
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 20px calc(32px + env(safe-area-inset-bottom, 0px)); background: var(--bg); color: var(--text);
+  font: 15px/1.55 -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Segoe UI", sans-serif; }
+.ak-ld-bar img { display: block; width: 116px; height: auto; }
+.ak-ld-hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; }
+.ak-ld-hero img { width: 132px; height: 132px; object-fit: contain; margin-bottom: 4px; filter: drop-shadow(0 12px 18px var(--shadow)); }
+.ak-ld-hero h1 { margin: 0; font-size: 34px; font-weight: 900; line-height: 1.2; letter-spacing: -.5px; }
+.ak-ld-tag { padding: 3px 12px; border: 1.5px solid var(--accent); border-radius: 999px; color: var(--accent); font-size: 13px; font-weight: 700; }
+.ak-ld-hero p { margin: 6px 0 0; max-width: 330px; text-wrap: balance; color: var(--muted); font-size: 15px; }
+.ak-ld-feats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.ak-ld-feats li { position: relative; padding: 14px 16px 14px 50px; border: 1px solid var(--line-strong); border-radius: 16px; background: var(--surface); }
+.ak-ld-feats li::before { content: ""; position: absolute; left: 16px; top: 16px; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); }
+.ak-ld-feats li::after { content: ""; position: absolute; left: 23px; top: 20px; width: 6px; height: 11px; border: solid var(--on-accent); border-width: 0 2.5px 2.5px 0; transform: rotate(45deg); }
+.ak-ld-feats b { display: block; font-size: 16px; }
+.ak-ld-feats span { display: block; margin-top: 2px; color: var(--muted); font-size: 13.5px; }
+.ak-ld-open { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 20px 18px; border-radius: 20px; background: var(--surface-2); text-align: center; }
+.ak-ld-open b { font-size: 19px; }
+.ak-ld-open > span { color: var(--muted); font-size: 13.5px; }
+.ak-ld-open code { max-width: 100%; margin-top: 4px; padding: 8px 12px; border-radius: 10px; background: var(--bg); font: 13px/1.4 ui-monospace, Menlo, monospace; overflow-wrap: anywhere; user-select: all; -webkit-user-select: all; }
+.ak-ld-copy { width: 100%; min-height: 48px; margin-top: 6px; border: 0; border-radius: 999px; background: var(--accent); color: var(--on-accent); font: inherit; font-size: 16px; font-weight: 800; cursor: pointer; }
+.ak-ld-copy:active { scale: .98; }
+
+/* 手機照片小卡與滿版工具：岩點貓、紅點貓共用。 */
+:is(.walls, .ak-photo-grid) { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 14px; padding: 6px 16px; }
+:is(.wall-card, .ak-photo-card) { background: transparent; border-radius: var(--radius); overflow: hidden; text-align: left; display: flex; flex-direction: column; border: 0;
+  -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.route-card { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+:is(.wall-card, .ak-photo-card) { position: relative; }
+:is(.wall-card, .ak-photo-card) img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; background: var(--surface-2); border-radius: var(--radius); }
+:is(.wall-card, .ak-photo-card) .meta { padding: 10px 4px 6px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+:is(.wall-card, .ak-photo-card) .name { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:is(.wall-card, .ak-photo-card) .sub { color: var(--muted); font-size: 13px; font-weight: 400; font-variant-numeric: tabular-nums; }
+.acting { box-shadow: 0 0 0 2px var(--accent); }
+.card-acts { position: absolute; inset: 0; z-index: 2; display: flex; flex-wrap: wrap; align-content: center; justify-content: center; gap: 12px 10px; padding: 18px 12px;
+  background: rgba(10,10,11,.7); border-radius: inherit; }
+.card-act { flex: none; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: rgba(255,255,255,.14);
+  transition: background-color .12s, transform .12s, scale .12s; }
+.card-act:active { background: rgba(255,255,255,.26); scale: .92; }
+.card-act svg { width: 23px; height: 23px; }
+.card-act.danger { color: var(--danger); }
+
+.vw-btn { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; pointer-events: auto; color: #fff;
+  background: rgba(14,14,15,.55); transition: transform .12s; }   /* 浮在照片上不用模糊：照片縮放、轉場時每格都要重算後面的模糊 */
+.vw-btn svg { width: 22px; height: 22px; }
+/* 上方一排跟定線頁（.ed-top）同一套：圓鈕大小 --tb、間距 --tg、離上緣 12、靠右 12，看線↔定線切換時工具不位移。
+   定線頁一排放得下才靠右（固定寬度的元素加起來 ≈ 394 px）：390、393 寬的手機縮間距，窄手機再縮圓鈕 */
+:is(#editor, .ak-photo-page) { --tb: 46px; --tg: 10px; }
+.vw-back { position: absolute; left: 12px; top: calc(12px + var(--safe-t)); }
+/* 左上返回、右上分享：線條一樣粗（螢幕上約 2.2 px） */
+.vw-back svg { width: 24px; height: 24px; }
+.vw-share svg { width: 22px; height: 23px; }
+/* 分享：跟其他圓鈕一樣的圓底，位置在定線頁「完成」的位置 */
+.vw-share { position: absolute; right: 12px; top: calc(12px + var(--safe-t)); }
+.vw-share:active { scale: .94; }
+/* 看路線圖上方：分享左邊跟定線一樣的兩顆圓鈕（灰階／暗彩、顯示所有岩點），開著時的樣子跟定線一樣 */
+.vw-base, .vw-edit { position: absolute; top: calc(12px + var(--safe-t)); }
+.vw :is(.vw-back, .vw-share, .vw-edit, .vw-base) { width: var(--tb); height: var(--tb); background: rgba(14,14,15,.35); }   /* 上方工具的圓底淡一點：壓在照片上不搶，黑邊上本來就看不見 */
+.vw-edit { right: calc(12px + var(--tb) + var(--tg)); }
+.vw-base { right: calc(12px + 2 * (var(--tb) + var(--tg))); }
+:is(.walls, .ak-photo-grid) { grid-template-columns: 1fr 1fr; gap: 10px; }
+:is(.wall-card, .ak-photo-card) { border-radius: 18px; overflow: hidden; transition: transform .12s; }
+:is(.wall-card, .ak-photo-card):active { scale: .97; }
+:is(.wall-card, .ak-photo-card) img { aspect-ratio: 1; border-radius: 18px; }
+:is(.wall-card, .ak-photo-card) .meta { position: absolute; left: 0; right: 0; bottom: 0; padding: 26px 12px 10px; gap: 2px; border-radius: 0 0 18px 18px;
+  background: linear-gradient(transparent, rgba(0,0,0,.72)); color: #fff; }
+:is(.wall-card, .ak-photo-card) .name { font-size: 15px; }
+:is(.wall-card, .ak-photo-card) .sub { color: rgba(255,255,255,.7); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 393px) { :is(#editor, .ak-photo-page) { --tg: 8px; } }
+@media (max-width: 389px) { :is(#editor, .ak-photo-page) { --tb: 42px; --tg: 6px; } }
+.ak-photo-page { position: fixed; inset: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+.ak-photo-page > climbio-topo { display: block; position: relative; width: 100%; flex: 1; min-height: 0; height: auto; }
+.ak-photo-page > .vw { height: calc(12px + var(--safe-t) + var(--tb)); bottom: auto; }
+
+.vw { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+
+/* AppKit account: 兩個 Viewer 共用的右上頭像、摘要、個人統計。色彩繼承 indoor/outdoor token。 */
+.ak-account-avatar { display: grid; place-items: center; width: 40px; height: 40px; flex: none; overflow: hidden; border-radius: 50%; font-weight: 700; font-size: 17px; background: var(--accent); color: var(--on-accent); }
+.ak-account-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.ak-account-avatar svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.ak-account-avatar-empty { background: none; color: var(--text); box-shadow: inset 0 0 0 1.5px var(--line-strong, var(--line)); }
+.ak-account-avatar.ak-account-avatar-lg { width: 44px; height: 44px; font-size: 19px; }
+.ak-account-trigger { width: 40px; height: 40px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
+.ak-account-trigger:active { background: var(--surface-2); }
+.ak-account-menu { width: min(320px, calc(100vw - 24px)); max-height: calc(100dvh - 70px - env(safe-area-inset-top, 0px)); overflow-y: auto; border-radius: 18px; padding: 8px; background: var(--surface-2); box-shadow: 0 16px 40px var(--shadow); }
+.ak-account-stats { width: 100%; display: flex; align-items: center; gap: 4px; padding: 14px 10px 14px 16px; border: 0; border-radius: 14px; background: var(--bg); color: var(--text); text-align: left; }
+.ak-account-stats > span { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.ak-account-stats b { font: italic 700 30px/1 "Climbio Display", -apple-system, sans-serif; color: var(--accent); font-variant-numeric: tabular-nums; }
+.ak-account-stats small { font-size: 12px; font-weight: 600; color: var(--muted); }
+.ak-account-stats > svg { width: 18px; height: 18px; color: var(--muted); }
+.ak-account-details { display: flex; flex-direction: column; gap: 14px; width: 100%; }
+/* 個人資料（兩個 App 一樣）不能選取、不跳複製選單：iPhone 選取文字時介面會跑掉 */
+:is(.ak-account-details, .ak-account-menu) { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+:is(.ak-account-details, .ak-account-menu) :is(input, textarea) { -webkit-user-select: text; user-select: text; }
+.ak-account-details-title { margin: 0; font-size: 21px; font-weight: 800; }
+.ak-account-details-stats { display: flex; align-items: stretch; gap: 6px; width: 100%; }
+.ak-account-details-stat { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 5px; border-radius: 12px; background: var(--surface-2); }
+.ak-account-details-stat b { color: var(--accent); font: italic 700 30px/1 "Climbio Display", sans-serif; font-variant-numeric: tabular-nums; }
+.ak-account-details-stat small { font-size: 12px; font-weight: 600; color: var(--muted); text-align: center; }
+.ak-account-details-note, .ak-account-details-section p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.ak-account-details-section { display: flex; flex-direction: column; gap: 8px; }
+.ak-account-details-section h3 { margin: 0; font-size: 14px; }
+
+/* 附近交換（appkit/nearby.js）：滿版一頁，上面標題列、你的名字，下面依階段換內容；清單沿用 .ak-list */
+.ak-nearby { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; background: var(--bg); color: var(--text); overflow: auto; padding: env(safe-area-inset-top, 0px) 16px env(safe-area-inset-bottom, 0px); }
+.ak-nb-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0 4px; }
+.ak-nb-title { font-size: 20px; font-weight: 700; }
+.ak-nb-x { width: 40px; height: 40px; border-radius: 50%; font-size: 26px; line-height: 1; color: var(--text); background: var(--surface); }
+.ak-nb-me { color: var(--muted); font-size: 13px; padding-bottom: 12px; }
+.ak-nb-body { display: flex; flex-direction: column; gap: 16px; padding-bottom: 24px; }
+.ak-nb-hint { margin: 24px 0; text-align: center; color: var(--muted); font-size: 15px; line-height: 1.7; }
+.ak-nb-sec { display: flex; flex-direction: column; gap: 10px; }
+.ak-nb-sec h3 { margin: 0; font-size: 14px; font-weight: 700; color: var(--muted); }
+.ak-nb-items { display: flex; flex-direction: column; background: var(--surface-2); border-radius: var(--radius-sm, 14px); overflow: hidden; }
+.ak-nb-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+.ak-nb-item + .ak-nb-item { border-top: 1px solid var(--line); }
+.ak-nb-item input { width: 20px; height: 20px; accent-color: var(--accent); flex: none; }
+.ak-nb-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ak-nb-name b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ak-nb-name small { color: var(--muted); font-size: 12px; }
+.ak-nearby .btn:disabled { opacity: .4; }
+.ak-nb-qr { width: min(100%, 320px); align-self: center; background: #fff; padding: 12px; border-radius: var(--radius-sm, 14px); image-rendering: pixelated; }
+.ak-nb-video { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius-sm, 14px); background: var(--surface-2); }
+
+/* 附近交換：想傳東西給我的提示、確認碼、小字 */
+.ak-nb-ask { background: var(--surface-2); border-radius: var(--radius-sm, 14px); padding: 4px 16px 16px; }
+.ak-nb-ask .ak-nb-hint { margin: 12px 0 4px; color: var(--text); font-weight: 600; }
+.ak-nb-small { margin: 0; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.ak-nb-code { text-align: center; font-size: 44px; font-weight: 800; letter-spacing: .18em; padding: 8px 0; font-variant-numeric: tabular-nums; }
+.ak-nb-item.on .ak-nb-name small { color: var(--accent); }
+
+/* 進度條：頂端浮著的膠囊（備份、復原、下載共用）。完成變成強調色，失敗變紅；不擋畫面 */
+.ak-prog { position: fixed; left: 50%; top: calc(14px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); z-index: 70; width: min(360px, calc(100% - 32px)); padding: 10px 14px 12px; border-radius: 18px; background: var(--surface); color: var(--text); box-shadow: 0 10px 30px var(--shadow); transition: opacity .25s, transform .35s var(--spring, ease-out); font-size: 14px; }
+.ak-prog.fade { opacity: 0; pointer-events: none; transform: translate(-50%, -16px); }
+.ak-prog-row { display: flex; align-items: center; gap: 10px; min-height: 24px; }
+.ak-prog-ico { width: 16px; height: 16px; border-radius: 50%; border: 2.5px solid var(--line); border-top-color: var(--accent); animation: ak-spin .8s linear infinite; flex: none; position: relative; }
+.ak-prog-text { flex: 1; min-width: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ak-prog-act { padding: 4px 12px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 13px; }
+.ak-prog-act[hidden] { display: none; }
+.ak-prog > i { display: block; height: 4px; margin-top: 8px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.ak-prog b { display: block; height: 100%; width: 0; border-radius: 2px; background: var(--accent); transition: width .4s var(--spring, ease-out); }
+.ak-prog.indet b { width: 32%; transition: none; animation: ak-prog-run 1.2s ease-in-out infinite; }
+.ak-prog.done { background: var(--accent); color: var(--on-accent); }
+.ak-prog.done .ak-prog-ico { animation: ak-prog-pop .4s var(--spring, ease-out); border-color: currentColor; background: currentColor; }
+.ak-prog.done .ak-prog-ico::after { content: ''; position: absolute; left: 4px; top: 0; width: 4px; height: 8px; border: solid var(--accent); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.ak-prog.done > i { display: none; }
+.ak-prog.done .ak-prog-act { background: var(--on-accent); color: var(--accent); }
+.ak-prog.bad .ak-prog-ico { animation: none; border-color: #d33; background: #d33; }
+.ak-prog.bad b { background: #d33; }
+@keyframes ak-prog-run { 0% { margin-left: -32%; } 100% { margin-left: 100%; } }
+@keyframes ak-prog-pop { 0% { transform: scale(.4); } 70% { transform: scale(1.25); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .ak-prog, .ak-prog b { transition: none; } .ak-prog-ico { animation: none; } .ak-prog.indet b { animation: none; width: 60%; } }
+
+/* ---- 附近交換：雷達、小貓臉、裝置卡片、傳送動畫 ---- */
+.ak-face { position: relative; display: inline-grid; place-items: center; width: 44px; height: 44px; flex: none; }
+.ak-face img { width: 100%; height: 100%; object-fit: contain; }
+.ak-face::after { content: ''; position: absolute; width: 8px; height: 8px; right: 0; bottom: 2px; border: 2px solid var(--surface); border-radius: 50%; background: var(--ak-device-color, var(--accent)); pointer-events: none; }
+.ak-face.asleep { filter: saturate(.35); opacity: .75; }
+.ak-radar { position: relative; width: min(100%, 340px); aspect-ratio: 1; align-self: center; margin: 4px 0; }
+.ak-radar.empty { opacity: .9; }
+.ak-radar.has-peers { margin-bottom: 64px; } /* 最下方名稱與狀態不覆蓋下一區 */
+.ak-ring { position: absolute; inset: 0; margin: auto; border-radius: 50%; border: 1.5px solid color-mix(in srgb, var(--accent) 35%, transparent); width: 30%; height: 30%; animation: ak-pulse 3.6s ease-out infinite; }
+.ak-ring:nth-of-type(2) { animation-delay: 1.2s; } .ak-ring:nth-of-type(3) { animation-delay: 2.4s; }
+@keyframes ak-pulse { 0% { width: 26%; height: 26%; opacity: .9; } 100% { width: 100%; height: 100%; opacity: 0; } }
+.ak-radar-me { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 2px; z-index: 1; }
+.ak-radar-me .ak-face { width: 60px; height: 60px; }
+.ak-peer { position: absolute; transform: translate(-50%, -32px); display: flex; flex-direction: column; align-items: center; gap: 3px; width: 92px; z-index: 2; -webkit-tap-highlight-color: transparent; }
+@keyframes ak-peer-in { 0% { opacity: 0; transform: translate(-50%, -32px) scale(.3); } 100% { opacity: 1; transform: translate(-50%, -32px) scale(1); } }
+.ak-peer-ring { --p: 0%; display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: var(--surface-2); box-shadow: inset 0 0 0 2px var(--line); transition: box-shadow .2s, transform .2s var(--spring, ease-out); }
+.ak-peer-face { position: relative; display: grid; place-items: center; width: 54px; height: 54px; border-radius: 50%; background: var(--surface); }
+.ak-peer-face .ak-face { width: 46px; height: 46px; }
+.ak-peer-check { position: absolute; right: -4px; bottom: -4px; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-style: normal; font-size: 13px; font-weight: 800; display: grid; place-items: center; transform: scale(0); transition: transform .25s var(--spring, ease-out); }
+.ak-peer.on .ak-peer-ring { box-shadow: inset 0 0 0 3px var(--accent); transform: scale(1.08); }
+.ak-peer.on .ak-peer-check { transform: scale(1); }
+.ak-peer b { max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
+.ak-peer small { max-width: 92px; font-size: 11px; color: var(--muted); line-height: 1.25; text-align: center; }
+.ak-peer.enter { animation: ak-peer-in .5s var(--spring, ease-out) both; }
+.ak-peer.still .ak-peer-ring { animation: none; }
+.ak-peer.asking .ak-peer-ring { animation: ak-breathe 1.1s ease-in-out infinite; box-shadow: inset 0 0 0 3px var(--accent); }
+.ak-peer.sending .ak-peer-ring { background: conic-gradient(var(--accent) var(--p), var(--line) 0); box-shadow: none; }
+.ak-peer.done .ak-peer-ring { box-shadow: inset 0 0 0 3px #2ea66b; animation: ak-pop .5s var(--spring, ease-out); }
+.ak-peer.done .ak-peer-check { transform: scale(1); background: #2ea66b; }
+.ak-peer.declined .ak-peer-ring { box-shadow: inset 0 0 0 3px #d33; animation: ak-shake .4s; }
+.ak-peer.declined .ak-face { filter: saturate(.3); }
+@keyframes ak-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+@keyframes ak-pop { 0% { transform: scale(.7); } 70% { transform: scale(1.18); } 100% { transform: scale(1); } }
+@keyframes ak-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+.ak-nb-all { align-self: center; padding: 6px 16px; border-radius: 999px; background: var(--surface-2); color: var(--text); font-weight: 600; font-size: 13px; }
+.ak-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ak-chip { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; max-width: 100%; padding: 8px 14px; border-radius: 16px; background: var(--surface-2); color: var(--text); text-align: left; box-shadow: inset 0 0 0 2px transparent; transition: box-shadow .15s, background .15s, transform .2s var(--spring, ease-out); }
+.ak-chip b { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.ak-chip small { font-size: 11px; color: var(--muted); }
+.ak-chip.all { justify-content: center; font-weight: 700; }
+.ak-chip[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 14%, var(--surface-2)); }   /* 選取靠底色和右上的勾，不加外框（上方頭像沒有外框，下方獨有一圈很突兀） */
+.ak-nb-go { position: sticky; bottom: 8px; box-shadow: 0 8px 24px var(--shadow); }
+.ak-fly { position: fixed; z-index: 80; width: 36px; height: 36px; border-radius: 12px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-size: 13px; font-weight: 800; pointer-events: none; transition: transform .75s cubic-bezier(.2, .7, .2, 1), opacity .75s ease-in; box-shadow: 0 6px 16px var(--shadow); }
+.ak-dev-card { border-radius: 18px; background: var(--surface-2); padding: 12px 14px; }
+.ak-dev-card + .ak-dev-card, .ak-nb-item.ak-dev-card + .ak-nb-item { border-top: 0; }
+.ak-dev-card.me { background: color-mix(in srgb, var(--accent) 12%, var(--surface-2)); }
+.ak-dev-card .ak-face { width: 48px; height: 48px; }
+.ak-dev-card.off { opacity: .85; }
+.ak-dev-card.synced { box-shadow: inset 0 0 0 2px #2ea66b; }
+.ak-dev-list { gap: 0; }
+.ak-dev-list h3 { margin-bottom: 8px; }
+.ak-dev-link { display: block; width: 4px; height: 26px; margin: 0 auto; border-radius: 2px; background: var(--line); }
+.ak-dev-link.syncing { background: repeating-linear-gradient(to bottom, var(--accent) 0 6px, transparent 6px 12px); background-size: 4px 12px; animation: ak-flow .6s linear infinite; }
+.ak-dev-link.synced { background: #2ea66b; }
+.ak-dev-link.off { background: repeating-linear-gradient(to bottom, var(--line) 0 4px, transparent 4px 9px); }
+@keyframes ak-flow { to { background-position: 0 12px; } }
+.ak-dev-list .ak-nb-small { margin-top: 12px; }
+.ak-pair-faces { display: flex; align-items: center; justify-content: center; gap: 10px; padding-top: 14px; }
+.ak-pair-faces .ak-face { width: 56px; height: 56px; animation: ak-pop .6s var(--spring, ease-out) both; }
+.ak-pair-link { width: 36px; height: 4px; border-radius: 2px; background: repeating-linear-gradient(to right, var(--accent) 0 6px, transparent 6px 12px); background-size: 12px 4px; animation: ak-flow-x .6s linear infinite; }
+@keyframes ak-flow-x { to { background-position: 12px 0; } }
+.ak-nb-ask.pop { animation: ak-pop .45s var(--spring, ease-out); }
+.ak-nb-ask:not(.pop) .ak-pair-faces .ak-face { animation: none; }
+@media (prefers-reduced-motion: reduce) { .ak-ring, .ak-peer, .ak-peer.enter, .ak-peer-ring, .ak-dev-link, .ak-pair-link, .ak-nb-ask.pop, .ak-pair-faces .ak-face { animation: none !important; } .ak-fly { display: none; } }
+.ak-peer b { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; text-align: center; line-height: 1.2; overflow-wrap: anywhere; width: 100%; }
+.ak-chips { max-height: 34vh; overflow-y: auto; padding: 2px; }
+.ak-nb-body { padding-bottom: 72px; }
+.ak-nb-go { background-clip: padding-box; }
+.btn.ak-nb-go:disabled { opacity: 1; background: color-mix(in srgb, var(--accent) 35%, var(--bg)); color: color-mix(in srgb, var(--on-accent) 55%, var(--bg)); }   /* 不能按時不用半透明：後面的字會透出來疊在按鈕上 */
+
+/* 要傳的：兩欄整齊的格子，文字置中；標題跟全選按鈕拉開距離 */
+.ak-chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.ak-chip { align-items: center; justify-content: center; text-align: center; padding: 12px 10px; }
+.ak-chip b { max-width: 100%; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ak-chip.all { grid-column: 1 / -1; padding: 8px 10px; }
+.ak-nb-radar + .ak-nb-sec { margin-top: 8px; }
+.ak-nb-sec > h3 { text-align: center; }
+
+/* 要傳的：岩場圖片小卡（兩欄格子，上面圖、下面名字；選取時外框＋打勾） */
+.ak-chips { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
+.ak-chip { padding: 0 0 10px; overflow: hidden; gap: 2px; border-radius: 18px; }
+.ak-chip b, .ak-chip small { padding: 0 10px; }
+.ak-chip.all { padding: 8px 10px; flex-direction: row; border-radius: 999px; }
+.ak-chip-pic { position: relative; display: block; width: 100%; aspect-ratio: 4 / 3; background: color-mix(in srgb, var(--accent) 14%, var(--surface)); margin-bottom: 6px; }
+.ak-chip-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ak-chip-pic em { position: absolute; inset: 0; display: grid; place-items: center; font-style: normal; font-size: 30px; font-weight: 800; color: var(--accent); }
+.ak-chip-check { position: absolute; right: 8px; top: 8px; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-style: normal; font-size: 14px; font-weight: 800; display: grid; place-items: center; transform: scale(0); transition: transform .25s var(--spring, ease-out); box-shadow: 0 2px 8px var(--shadow); }
+.ak-chip[aria-pressed="true"] .ak-chip-check { transform: scale(1); }
+.ak-chips { grid-auto-rows: max-content; max-height: 46vh; }
+.ak-chip { min-height: min-content; }
+.ak-chip-pic { align-self: stretch; }
+.ak-chip-pic img { position: absolute; inset: 0; }
+.ak-radar.empty { width: min(100%, 240px); }
+/* 要傳的：像 Studio 路線圖頁下方那排小圖——一格一格的小縮圖，名字在下面一行小字 */
+.ak-chips { grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 8px; max-height: 44vh; }
+.ak-chip { padding: 0 0 6px; border-radius: 12px; gap: 0; align-items: stretch; text-align: center; }
+.ak-chip-pic { aspect-ratio: 1; margin-bottom: 4px; }
+.ak-chip b { font-size: 11px; font-weight: 600; padding: 0 4px; line-height: 1.25; -webkit-line-clamp: 2; }
+.ak-chip small { font-size: 10px; padding: 0 4px; }
+.ak-chip-check { right: 4px; top: 4px; width: 20px; height: 20px; font-size: 12px; }
+.ak-chip[aria-pressed="true"] { transform: none; }
+.ak-chip.all { align-items: center; }
+
+/* 桌面共用對話流程：背景可滿版，實際配對／傳送內容保持可閱讀寬度。 */
+@media (min-width: 900px) {
+  .ak-nearby > :is(.ak-nb-bar, .ak-nb-me, .ak-nb-body) {
+    width: 100%;
+    max-width: 640px;
+    min-width: 0;
+    margin-inline: auto;
+  }
+  /* 在頁面內顯示的新版本提示也不應撐滿大螢幕。浮動提示自有寬度。 */
+  .ak-update:not(.float) { width: min(640px, calc(100% - 48px)); margin: 4px auto 12px; }
+}

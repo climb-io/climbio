@@ -1,0 +1,11 @@
+{
+ "areas": 1,
+ "walls": 2,
+ "routes": 3,
+ "photos": 1,
+ "ok": 2,
+ "unassigned": 0,
+ "stub": 0,
+ "noTopo": 1,
+ "errors": 0
+}

@@ -1,0 +1,21 @@
+{
+ "climbio": 2,
+ "t": 1761620000000,
+ "license": "CC-BY-SA-4.0",
+ "attribution": "Climbio sample",
+ "kind": "view",
+ "surface": "model",
+ "id": "crag3dmodel00001",
+ "name": "Sample crag 3D",
+ "origin": "self",
+ "href": "model.spz",
+ "mime": "model/x-spz",
+ "props": {
+  "node": "sample3dcrag",
+  "sky": [
+   "#dfe6ec",
+   "#dfe6ec",
+   "#dfe6ec"
+  ]
+ }
+}

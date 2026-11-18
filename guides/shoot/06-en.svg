@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 1060" width="700" height="1060" role="img" font-family="-apple-system, BlinkMacSystemFont, 'PingFang TC', 'Noto Sans TC', 'Segoe UI', sans-serif">
+<rect width="700" height="1060" rx="28" fill="#F7F9FB"/>
+<text x="32" y="58" font-size="34" font-weight="700" fill="#0C1C2B">Top view: walk an arc on the trail</text>
+<rect x="110" y="110" width="480" height="30" rx="8" fill="#8B93A0"/>
+<rect x="30" y="119" width="80" height="12" rx="6" fill="#C9D5DE"/><rect x="590" y="119" width="80" height="12" rx="6" fill="#C9D5DE"/>
+<text x="350" y="100" text-anchor="middle" font-size="30" font-weight="700" fill="#0C1C2B">Wall</text>
+<text x="70" y="178" text-anchor="middle" font-size="26" fill="#47687B">past the ends</text><text x="630" y="178" text-anchor="middle" font-size="26" fill="#47687B">past the ends</text>
+<path d="M60 372 Q350 296 640 372" fill="none" stroke="#0B4A6B" stroke-width="3" stroke-dasharray="2 12" stroke-linecap="round"/>
+<g transform="translate(80,360)"><circle r="13" fill="#0B4A6B"/><path d="M0 -34 L-12 -17 L12 -17 Z" fill="#0B4A6B" transform="rotate(-14)"/></g><g transform="translate(170,343)"><circle r="13" fill="#0B4A6B"/><path d="M0 -34 L-12 -17 L12 -17 Z" fill="#0B4A6B" transform="rotate(-10)"/></g><g transform="translate(260,330)"><circle r="13" fill="#0B4A6B"/><path d="M0 -34 L-12 -17 L12 -17 Z" fill="#0B4A6B" transform="rotate(-6)"/></g><g transform="translate(350,321)"><circle r="13" fill="#0B4A6B"/><path d="M0 -34 L-12 -17 L12 -17 Z" fill="#0B4A6B" transform="rotate(-2)"/></g><g transform="translate(440,321)"><circle r="13" fill="#0B4A6B"/><path d="M0 -34 L-12 -17 L12 -17 Z" fill="#0B4A6B" transform="rotate(2)"/></g><g transform="translate(530,330)"><circle r="13" fill="#0B4A6B"/><path d="M0 -34 L-12 -17 L12 -17 Z" fill="#0B4A6B" transform="rotate(6)"/></g><g transform="translate(620,343)"><circle r="13" fill="#0B4A6B"/><path d="M0 -34 L-12 -17 L12 -17 Z" fill="#0B4A6B" transform="rotate(10)"/></g>
+<line x1="350" y1="152" x2="350" y2="282" stroke="#C83C3C" stroke-width="4"/><path d="M342 164 L350 148 L358 164 Z" fill="#C83C3C"/><path d="M342 270 L350 286 L358 270 Z" fill="#C83C3C"/>
+<text x="368" y="226" font-size="32" fill="#C83C3C" font-weight="700">about 8–12 m</text>
+<path d="M440 412 H530 M440 404 V420 M530 404 V420" stroke="#47687B" stroke-width="3" fill="none"/>
+<text x="485" y="452" text-anchor="middle" font-size="28" fill="#47687B">a photo every 1–2 m</text>
+<text x="350" y="500" text-anchor="middle" font-size="28" fill="#0C1C2B" font-weight="700">Trail (far enough to see the whole wall)</text>
+<line x1="32" y1="540" x2="668" y2="540" stroke="#C9D5DE" stroke-width="2"/>
+<text x="32" y="598" font-size="34" font-weight="700" fill="#0C1C2B">Side view: one pass each at high, mid, low</text>
+<rect x="590" y="680" width="30" height="300" rx="8" fill="#8B93A0"/>
+<path d="M560 682 Q600 620 640 644 Q684 620 690 682 Z" fill="#5E8C5A" opacity=".8"/>
+<g transform="translate(110,700)"><circle r="15" fill="#0B4A6B"/><path d="M36 0 L18 -12 L18 12 Z" fill="#0B4A6B"/></g><text x="150" y="711" font-size="32" fill="#0C1C2B" font-weight="700">Overhead</text><g transform="translate(110,800)"><circle r="15" fill="#0B4A6B"/><path d="M36 0 L18 -12 L18 12 Z" fill="#0B4A6B"/></g><text x="150" y="811" font-size="32" fill="#0C1C2B" font-weight="700">Chest</text><g transform="translate(110,900)"><circle r="15" fill="#0B4A6B"/><path d="M36 0 L18 -12 L18 12 Z" fill="#0B4A6B"/></g><text x="150" y="911" font-size="32" fill="#0C1C2B" font-weight="700">Crouch</text>
+<path d="M140 684 L520 644" stroke="#0B4A6B" stroke-width="3" stroke-dasharray="8 8"/><path d="M520 644 l-16 -8 M520 644 l-14 12" stroke="#0B4A6B" stroke-width="3" fill="none"/>
+<text x="340" y="630" text-anchor="middle" font-size="26" fill="#47687B">also shoot top and canopy</text>
+<line x1="32" y1="980" x2="668" y2="980" stroke="#C9D5DE" stroke-width="4"/>
+<text x="350" y="1030" text-anchor="middle" font-size="28" fill="#47687B">one pass per height, facing the wall</text>
+</svg>

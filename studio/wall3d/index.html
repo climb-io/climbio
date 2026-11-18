@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-Hant" data-climbio-theme="outdoor" data-studio-ws="wall">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="../../host-redirect.js"></script>
+<script src="../../site.js"></script>   <!-- 站台設定：接不接後端（studio/backend.js 照 SITE.backend） -->
+<title data-i18n="w3Title">3D 牆實驗 · Climbio Lab</title>
+<meta name="description" content="Climbio Lab 的 3D 岩牆工作台：整理照片、建立並檢查岩牆 3D 模型。">
+<link rel="canonical" href="https://climbio.app/studio/wall3d/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Climbio">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:url" content="https://climbio.app/studio/wall3d/">
+<meta property="og:title" content="3D 牆實驗 · Climbio Lab">
+<meta property="og:description" content="Climbio Lab 的 3D 岩牆工作台：整理照片、建立並檢查岩牆 3D 模型。">
+<meta property="og:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="3D 牆實驗 · Climbio Lab">
+<meta name="twitter:description" content="Climbio Lab 的 3D 岩牆工作台：整理照片、建立並檢查岩牆 3D 模型。">
+<meta name="twitter:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<link rel="manifest" href="../manifest.webmanifest">
+<meta name="theme-color" content="#0E0E0F">
+<link rel="icon" href="../../icons/brand/favicon-64.png">
+<link rel="apple-touch-icon" href="../../icons/brand/apple-touch-icon-180.png">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://www.google.com; connect-src 'self' blob: data: https:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; frame-src 'self' https://*.web.app https://www.google.com https://recaptcha.google.com; object-src 'none'; base-uri 'self'; form-action 'self'">
+<link rel="stylesheet" href="../../css/brand-tokens.css">
+<link rel="stylesheet" href="../../appkit/ui.css">
+<link rel="stylesheet" href="../shell.css">
+<link rel="stylesheet" href="../chrome.css">
+<script src="../../appkit/landing.js"></script>   <!-- 手機只顯示介紹頁（下面的 .ak-landing） -->
+<style>
+  /* 跟 Wall 同一套：Studio 頁首與步驟列，照片區（這裡是模型）全幅深色，工具是浮在上面的膠囊（docs/style.md） */
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 -apple-system, "PingFang TC", sans-serif; }
+  body { display: flex; flex-direction: column; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; padding: 0; }
+  main { flex: 1; min-height: 0; position: relative; }
+  #top { flex: none; }
+  #wallName { font-weight: 600; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #saveState { font-size: 12px; color: var(--muted); }
+  #saveState:empty { display: none; }
+  #gate { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+  #gate button { background: var(--accent); color: var(--on-accent); font-weight: 600; font-size: 16px; padding: 12px 32px; border-radius: 999px; }
+  #gate .err { color: var(--danger); }
+  #work { position: absolute; inset: 0; background: var(--bg); color: var(--text); }
+  #view { position: absolute; inset: 0; background: var(--bg); touch-action: none; }
+  #view canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #view.cutting canvas { cursor: crosshair; }
+  #view.pick canvas { cursor: pointer; }
+  #cutLine { pointer-events: none; }
+  .pill { position: absolute; z-index: 2; display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 999px; background: rgba(14,14,15,.72); color: #fff; }
+  .pill button { height: 36px; min-width: 36px; padding: 0 14px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
+  .pill button:hover:not(:disabled) { background: rgba(255,255,255,.16); }
+  .pill button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+  .pill button.ok { background: var(--accent); color: var(--on-accent); }
+  .pill button.danger { color: var(--danger); }
+  .pill button:disabled { opacity: .35; cursor: default; }
+  /* 版面跟 Wall 編輯器同一套：左上牆資訊、右上復原／重做／存檔、下方中間工具列、選到岩點的動作列浮在工具列上方 */
+  .pill button.on { background: var(--accent); color: var(--on-accent); }
+  .pill [hidden] { display: none; }
+  #histbar { right: 12px; top: 12px; }
+  #toolbar { left: 50%; bottom: 16px; transform: translateX(-50%); }
+  #editBar { display: flex; gap: 2px; }
+  #bar { left: 50%; bottom: 68px; transform: translateX(-50%); }
+  #holdInfo { position: absolute; left: 12px; top: 12px; z-index: 2; padding: 8px 16px; border-radius: 999px; background: rgba(14,14,15,.72); color: #fff; font-size: 14px; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<section class="ak-landing">
+  <header class="ak-ld-bar"><a href="../../"><img src="../../icons/brand/climbio-horizontal-light.svg" width="116" height="32" alt="Climbio"></a></header>
+  <div class="ak-ld-hero">
+    <img src="../../icons/brand/climbio-mark.svg" alt="">
+    <h1>Climbio Lab</h1>
+    <span class="ak-ld-tag" data-i18n="w3LdTag">3D Lab · 室內牆面實驗 · 電腦</span>
+    <p data-i18n="w3LdLead">整理照片重建的 3D 牆：沿轉角切掉旁邊的牆、隱藏不要的牆面，拿掉不是岩點的。</p>
+  </div>
+  <div class="ak-ld-open">
+    <b data-i18n="w3LdOpen">請用電腦打開</b>
+    <span data-i18n="w3LdBrowsers">電腦版 Chrome、Edge</span>
+    <code data-ak-url>https://climbio.app/studio/wall3d/</code>
+    <button type="button" class="ak-ld-copy" data-ak-copy="已複製網址" data-i18n="w3LdCopy">複製網址</button>
+  </div>
+</section>
+<header id="top">
+  <a class="st-brand" href="../"><img src="../../icons/brand/climbio-mark.svg" alt="Climbio">Studio</a>
+  <span class="st-ws">Wall 3D</span>
+  <b id="wallName"></b>
+  <span id="saveState"></span>
+  <span class="grow"></span>
+</header>
+<nav id="steps" class="st-steps" aria-label="步驟" data-i18n-aria="w3StepsAria" hidden></nav>
+<main>
+<div id="gate">
+  <button id="open" data-i18n="w3OpenFolder">選 3D 牆的資料夾</button>
+  <button id="restore" class="alt" data-i18n="w3Restore" hidden>下載已發佈的版本</button>
+  <span id="gateErr" class="err" hidden></span>
+</div>
+<div id="work" data-climbio-theme="indoor" hidden>
+  <div id="view"></div>
+  <span id="holdInfo"></span>
+  <div id="histbar" class="pill"><button id="undo" data-i18n="w3Undo" disabled>復原</button><button id="redo" data-i18n="w3Redo" disabled>重做</button><button class="ok" id="save" data-i18n="w3Save" disabled>存檔</button></div>
+  <div id="toolbar" class="pill">
+    <button id="modeCut" data-stage="model" aria-pressed="false" data-i18n="w3Cut">切直線</button>
+    <button id="modeAdd" data-stage="holds" aria-pressed="false" data-i18n="w3ToolAdd">新增</button>
+    <button id="modeDraw" data-stage="holds" aria-pressed="false" data-i18n="w3ToolDraw">手畫</button>
+  </div>
+  <div id="bar" class="pill" hidden>
+    <button class="ok" id="selEdit" data-i18n="w3EditOutline">修外框</button><button class="danger" id="selDel" data-i18n="w3Delete">刪除</button>
+    <span id="editBar" hidden><button class="danger" id="editDel" data-i18n="w3Delete">刪除</button><button class="ok" id="editOk" data-i18n="w3Done">完成</button></span>
+  </div>
+</div>
+</main>
+<script src="../../appkit/i18n.js"></script>
+<script src="../i18n-boot.js" data-packs="studio studio-wall3d"></script>
+<script src="../../appkit/share-tools.js"></script>
+<script src="../../backend/firebase.js"></script>   <!-- 發佈要帶的 App Check 權杖（studio/backend.js 的 appCheck） -->
+<script src="../../version.js"></script>
+<script src="../shell.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

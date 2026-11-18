@@ -1,0 +1,24 @@
+{
+ "climbio": 2,
+ "kind": "view",
+ "surface": "photo",
+ "id": "2e26idbcphon06ov",
+ "name": "騙人的牆",
+ "t": 1793104618291,
+ "license": "CC-BY-SA-4.0",
+ "attribution": "KK",
+ "origin": "self",
+ "href": "2e26idbcphon06ov.webp",
+ "w": 2560,
+ "h": 1711,
+ "mime": "image/webp",
+ "sha256": "222146ffab66fc112ef0e102fa75c9d91a06d47fe53afdfef4bbe5c30d82e4e1",
+ "props": {
+  "crop": {
+   "x": 557.056,
+   "y": 0,
+   "w": 1389.312,
+   "h": 1276.2349
+  }
+ }
+}

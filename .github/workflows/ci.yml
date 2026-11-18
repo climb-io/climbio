@@ -1,0 +1,70 @@
+# 公開版的檢查：語法、語言包、Node 測試，Firestore／Storage 規則（Emulator），以及 Chromium 冒煙案例（npm run test:smoke）。
+# 公開 repo（climb-io/climbio）的 PR 與 main 的推送自動跑（公開 repo 的 Actions 不收費，PR 只有讀取權限、拿不到任何部署憑證）；
+# 其他 repo 只接受 Actions → CI → Run workflow 手動執行（每個工作的 if 判斷）。
+# 完整的瀏覽器端對端測試（Playwright，約 15 分鐘）不在這裡跑，見 docs/development.md。
+name: CI
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  test:
+    if: github.repository == 'climb-io/climbio' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm ci --prefix functions
+      - run: npm run test:quick
+  smoke:
+    if: github.repository == 'climb-io/climbio' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:smoke
+  redpoint-map:
+    if: github.repository == 'climb-io/climbio' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node --test tools/openclimbing.test.mjs tools/openclimbing-group.test.mjs tools/world-cluster.test.mjs
+      - run: python3 tools/test-openclimbing-index.py
+      - run: python3 -m pip install pillow && python3 tools/test-openclimbing-previews.py
+  rules:
+    if: github.repository == 'climb-io/climbio' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tests/rules/package-lock.json
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci --prefix tests/rules
+      - run: npm test --prefix tests/rules

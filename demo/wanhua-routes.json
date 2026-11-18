@@ -1,0 +1,23 @@
+{
+ "nodes": [
+  {
+   "id": "rmwk3l7co3avgf",
+   "type": "route",
+   "author": "Kant Kang",
+   "t": 1794884002494,
+   "props": {
+    "grade": {
+     "v": "V3"
+    },
+    "holds": {
+     "hmvroy36pjxvcj": "s",
+     "hmvroy3ejij1lc": "s",
+     "hmvroy3exa4gz5": "h",
+     "hmvroy3bosh62f": "h",
+     "hmvroy39282g35": "t"
+    }
+   }
+  }
+ ],
+ "marks": []
+}

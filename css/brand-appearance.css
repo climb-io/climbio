@@ -1,0 +1,134 @@
+/*
+ * Climbio 母品牌首頁的明暗外觀。
+ * 僅由首頁 index.html 載入：不影響岩點貓、紅點貓及 Studio App。
+ * 與頁面的內嵌樣式分層，這裡只覆寫品牌頁面需要的語意色。
+ */
+body.climbio-brand-site {
+  color-scheme: light;
+  --brand-page-bg: var(--climbio-brand-paper);
+  --brand-panel-bg: var(--climbio-brand-light-surface);
+  --brand-page-text: var(--climbio-brand-light-text);
+  --brand-page-muted: var(--climbio-brand-light-muted);
+  --brand-panel-border: var(--climbio-brand-light-border);
+  --brand-header-bg: #FFFFFF;
+  --brand-hero-gradient: linear-gradient(116deg, #FFFFFF 10%, #F0F7F9 62%, #DCECF5);
+  --brand-copy: #415A65;
+  --brand-action-bg: #0B4A6B;
+  --brand-action-text: #FFFFFF;
+  --brand-secondary-text: #0B4A6B;
+  --brand-demo-bg: #F4F7F9;
+  --brand-demo-border: #CCDBE3;
+  --brand-demo-pane: #FFFFFF;
+  --brand-demo-canvas: #E7F0F4;
+  --brand-demo-placeholder: #DBE7ED;
+  --brand-demo-caption: #708A98;
+  --brand-panel-soft: #F5F8F9;
+  --brand-workspace-copy: #314B58;
+  --brand-link: #0B4A6B;
+  --brand-highlight: #2E8CC9;
+  --brand-shadow: rgba(8, 38, 58, .075);
+  --ink: var(--brand-page-text);
+  --paper: var(--brand-page-bg);
+  --muted: var(--brand-page-muted);
+  --line: var(--brand-panel-border);
+  --sea: var(--brand-link);
+  --blue: var(--brand-highlight);
+  background: var(--brand-page-bg);
+  color: var(--brand-page-text);
+}
+
+body.climbio-brand-site .site-header {
+  background: var(--brand-header-bg);
+  border-color: var(--brand-panel-border);
+}
+body.climbio-brand-site .hero {
+  background: var(--brand-hero-gradient);
+  border-color: var(--brand-panel-border);
+}
+body.climbio-brand-site .hero-copy p { color: var(--brand-copy); }
+body.climbio-brand-site .btn.primary {
+  background: var(--brand-action-bg);
+  color: var(--brand-action-text);
+}
+body.climbio-brand-site .btn.secondary {
+  background: var(--brand-panel-bg);
+  border-color: var(--brand-panel-border);
+  color: var(--brand-secondary-text);
+}
+body.climbio-brand-site .studio,
+body.climbio-brand-site .platform-card {
+  background: var(--brand-panel-bg);
+  border-color: var(--brand-panel-border);
+}
+body.climbio-brand-site .workspace {
+  background: var(--brand-panel-soft);
+  border-color: var(--brand-panel-border);
+}
+body.climbio-brand-site .workspace-demo {
+  background: var(--brand-demo-bg);
+  border-color: var(--brand-demo-border);
+}
+body.climbio-brand-site .workspace-pane {
+  background: var(--brand-demo-pane);
+  border-color: var(--brand-panel-border);
+}
+body.climbio-brand-site .workspace-pane.canvas {
+  background: var(--brand-demo-canvas);
+  border-color: var(--brand-demo-border);
+}
+body.climbio-brand-site .workspace-pane b,
+body.climbio-brand-site .workspace-pane.canvas b { color: var(--brand-link); }
+body.climbio-brand-site .workspace-pane span { background: var(--brand-demo-placeholder); }
+body.climbio-brand-site .workspace-pane.canvas small,
+body.climbio-brand-site .workspace-caption { color: var(--brand-demo-caption); }
+body.climbio-brand-site .workspace ul { color: var(--brand-workspace-copy); }
+body.climbio-brand-site .workspace .state,
+body.climbio-brand-site .workspace .work-kind,
+body.climbio-brand-site .workspace a,
+body.climbio-brand-site .platform-card .number { color: var(--brand-link); }
+body.climbio-brand-site .hero-product {
+  box-shadow: 0 18px 40px var(--brand-shadow);
+}
+body.climbio-brand-site footer.site {
+  border-color: var(--brand-panel-border);
+  color: var(--brand-page-muted);
+}
+body.climbio-brand-site .hero-note,
+body.climbio-brand-site .section-heading p,
+body.climbio-brand-site .studio-logo small,
+body.climbio-brand-site .studio-heading p,
+body.climbio-brand-site .workspace p,
+body.climbio-brand-site .platform-card p,
+body.climbio-brand-site .platform-foot {
+  color: var(--brand-page-muted);
+}
+
+/* 跟隨 OS 模式，不影響兩款固定明／暗的手機 App 卡片。 */
+@media (prefers-color-scheme: dark) {
+  html { color-scheme: dark; }
+  body.climbio-brand-site {
+    color-scheme: dark;
+    --brand-page-bg: var(--climbio-brand-dark);
+    --brand-panel-bg: var(--climbio-brand-dark-surface);
+    --brand-page-text: var(--climbio-brand-dark-text);
+    --brand-page-muted: var(--climbio-brand-dark-muted);
+    --brand-panel-border: var(--climbio-brand-dark-border);
+    --brand-header-bg: #142333;
+    --brand-hero-gradient: linear-gradient(116deg, #0E1722 10%, #102537 62%, #17344B);
+    --brand-copy: #CAD8E1;
+    --brand-action-bg: #0FADEA;
+    --brand-action-text: #08263A;
+    --brand-secondary-text: #89D9F8;
+    --brand-demo-bg: #102435;
+    --brand-demo-border: #344D61;
+    --brand-demo-pane: #172636;
+    --brand-demo-canvas: #142D42;
+    --brand-demo-placeholder: #344D61;
+    --brand-demo-caption: #B5C8D3;
+    --brand-panel-soft: #1B2D40;
+    --brand-workspace-copy: #D0E0E9;
+    --brand-link: #89D9F8;
+    --brand-highlight: #55C4F3;
+    --brand-shadow: rgba(0, 0, 0, .23);
+  }
+}

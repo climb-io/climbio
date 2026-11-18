@@ -1,0 +1,17 @@
+{
+  "name": "@climbio/crag3dkit",
+  "version": "0.1.0",
+  "description": "Outdoor 3D crag player and reader: a Gaussian-splat or mesh crag model with 3D routes, walk along the wall, occlusion-aware route lines. Climbio format v2 in, no framework, no build step.",
+  "license": "AGPL-3.0-or-later",
+  "repository": { "type": "git", "url": "git+https://github.com/climb-io/climbio.git", "directory": "crag3dkit" },
+  "keywords": ["climbing", "topo", "crag", "3d", "gaussian-splatting", "webgl"],
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": { "types": "./index.d.ts", "default": "./index.js" },
+    "./*.js": "./*.js",
+    "./package.json": "./package.json"
+  },
+  "files": ["*.js", "*.d.ts", "vendor/", "README.md", "README.en.md", "LICENSE", "NOTICE"]
+}

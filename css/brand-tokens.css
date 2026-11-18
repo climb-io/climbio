@@ -1,0 +1,72 @@
+/* Climbio 品牌色（規範見 docs/brand.md）：母品牌、室內、戶外各自管理，不取代各 App 的 --accent 與路線語意色。
+   手機 App 分室內岩點貓（深底綠、操作色 #D4FF4F）及戶外紅點貓（白底深海藍）。Climbio Studio 沿用母品牌 Logo，Wall／Crag 共用 Shell，僅工作區內容可使用對應主題色。在容器加 data-climbio-theme="indoor"／"outdoor" 取用 --brand-*。 */
+:root {
+  --climbio-brand-green: #B6F000;
+  --climbio-brand-green-depth: #8AD300;
+  --climbio-brand-blue: #0FADEA;
+  --climbio-brand-blue-depth: #0873BA;
+  --climbio-brand-ink: #08263A;
+  --climbio-brand-paper: #F7F9FB;
+  --climbio-brand-dark: #0E1722;
+  /* 母品牌頁面語意色：不取代兩款手機 App 的 --brand-* token。 */
+  --climbio-brand-light-surface: #FFFFFF;
+  --climbio-brand-light-text: #08263A;
+  --climbio-brand-light-muted: #47687B;
+  --climbio-brand-light-border: #DCE6ED;
+  --climbio-brand-dark-surface: #172636;
+  --climbio-brand-dark-text: #F7F9FB;
+  --climbio-brand-dark-muted: #B5C8D3;
+  --climbio-brand-dark-border: #344D61;
+}
+[data-climbio-theme="indoor"] {
+  color-scheme: dark;
+  --brand-bg: #0E0E0F;
+  --brand-surface: #161618;
+  --brand-logo-front: #A4DC2A;
+  --brand-logo-back: #709F39;
+  --brand-logo-face: #F7F8F4;
+  --brand-text: #F2F2F0;
+  --brand-text-muted: #ADADB1;
+  --brand-action: #D4FF4F;
+  --brand-on-action: #0E0E0F;
+  --brand-role-accent: #78D4D6;
+  /* 室內 App 介面（岩點貓，appkit/ui.css 對到 --surface-2、--line…）：次要文字 --brand-text-dim 比 text-muted 暗一階，不搶岩點 */
+  --brand-text-dim: #85858B;
+  --brand-surface-2: #1E1E21;
+  --brand-surface-hover: #1F1F23;
+  --brand-line: #1F1F23;
+  --brand-line-strong: #2C2C31;
+  --brand-control: #2C2C31;
+  --brand-action-hover: #D4FF4F;
+  --brand-action-soft: rgba(212, 255, 79, .1);
+  --brand-danger: #FF4D4D;
+  --brand-on-danger: #FFFFFF;
+  --brand-overlay: rgba(0, 0, 0, .6);
+  --brand-shadow: rgba(0, 0, 0, .6);
+}
+[data-climbio-theme="outdoor"] {
+  color-scheme: light;
+  --brand-bg: #F7F9FB;
+  --brand-surface: #FFFFFF;
+  --brand-logo-front: #0B4A6B;
+  --brand-logo-back: #2E8CC9;
+  --brand-logo-face: #FFFFFF;
+  --brand-text: #0C1C2B;
+  --brand-text-muted: #47687B;
+  --brand-action: #0B4A6B;
+  --brand-on-action: #FFFFFF;
+  --brand-role-accent: #FF6B6B;
+  /* 戶外 App 介面（紅點貓、Studio）：對比在 #F7F9FB／#FFFFFF 上都過 WCAG AA（文字 4.5:1、必要圖形 3:1） */
+  --brand-layer: #2E8CC9;
+  --brand-surface-2: #E9EFF4;
+  --brand-surface-hover: #DCE5EC;
+  --brand-line: #E1E8EE;
+  --brand-line-strong: #C9D5DE;
+  --brand-control: #7A92A3;
+  --brand-action-hover: #083A54;
+  --brand-action-soft: rgba(11, 74, 107, .1);
+  --brand-danger: #B42318;
+  --brand-on-danger: #FFFFFF;
+  --brand-overlay: rgba(8, 38, 58, .45);
+  --brand-shadow: rgba(8, 38, 58, .16);
+}

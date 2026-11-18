@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>沿牆鏡頭原型</title>
+<style>
+  html,body{margin:0;height:100%;background:#1b1c1e;color:#ddd;font:14px system-ui;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
+  #stage{position:fixed;inset:0}
+  #stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #info{position:fixed;left:8px;bottom:8px;background:#000a;padding:6px 8px;border-radius:8px;font-size:12px;max-width:90vw;white-space:pre-line;pointer-events:none}
+  #pick{position:fixed;left:8px;top:8px;display:flex;gap:6px}
+  #pick a{background:#333c;color:#eee;padding:6px 10px;border-radius:8px;text-decoration:none}
+</style></head>
+<body>
+<div id="stage"></div>
+<div id="pick"><a href="?wall=mingde">明德</a><a href="?wall=dapao">大砲岩</a></div>
+<div id="info">載入中…</div>
+<script type="module">
+import { loadGlb, meshesOf, WalkCam, wallPath } from '../../wall3dkit/walkcam.js';
+import { Scene, PerspectiveCamera, WebGLRenderer, Vector3, Raycaster, Vector2, SRGBColorSpace, MeshBasicMaterial, Color } from '../../wall3dkit/vendor/three.js';
+import { hull } from '../../wall3dkit/stage.js';
+// 資料：本機讀 repo 根的 .proto-data/（不提交，連到 Drive），開發版網站從 /p/<id>/（Studio 發佈的資料包）讀
+const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+const inflate = async (b) => new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream('deflate'))).arrayBuffer());
+const WALLS = {
+  mingde: async () => {
+    const base = local ? '/.proto-data/mingde/' : '/p/ghhxkq4pfz7vbfoh/', doc = await (await fetch(base + 'wall.json')).json();
+    const faces = await inflate(await (await fetch(base + doc.faces)).arrayBuffer());
+    return { glb: base + doc.model, up: doc.up, front: doc.front, labels: new Uint16Array(faces.buffer), holds: doc.holds };
+  },
+  dapao: async () => ({ glb: local ? '/.proto-data/dapao/9eujp64q8p9hu3du.glb' : '/p/rw9oa7t1taemt9zj/9eujp64q8p9hu3du.glb', up: [0, 1, 0], front: [0, 0, -1] }),
+};
+const key = new URLSearchParams(location.search).get('wall') || 'mingde', info = document.getElementById('info');
+const t0 = performance.now(), w = await WALLS[key]();
+const phone = innerWidth < 900;
+const gltf = await loadGlb(w.glb, { maxTex: phone ? 2048 : 0 });
+const meshes = meshesOf(gltf);
+const path = wallPath(meshes, new Vector3(...w.up).normalize(), new Vector3(...w.front).normalize());
+
+const scene = new Scene(); scene.background = new Color(0x1b1c1e);
+gltf.scene.traverse(o => { if (o.isMesh) { const m = o.material.map; o.material = new MeshBasicMaterial({ map: m, side: 2 }); } });
+scene.add(gltf.scene);
+const cam = new PerspectiveCamera(50, 1, 0.05, 100), wc = new WalkCam(path, cam);
+const r = new WebGLRenderer({ antialias: true }); r.outputColorSpace = SRGBColorSpace; r.setPixelRatio(Math.min(devicePixelRatio, 2));
+const st = document.getElementById('stage'); st.appendChild(r.domElement);
+const ov = document.createElement('canvas'); st.appendChild(ov); const g = ov.getContext('2d');
+
+// 岩點：每個面屬於第幾顆（0＝牆面），點到的岩點畫外框（它的頂點投到畫面取凸包）
+const mesh = []; gltf.scene.traverse(o => { if (o.isMesh) mesh.push(o); });
+const holdPts = new Map(), picked = new Map(), roles = ['#2ecc71', '#3b82f6', '#3b82f6', '#3b82f6', '#ef4444'];
+if (w.labels && mesh.length === 1) {
+  const m = meshes[0];
+  for (let fI = 0; fI < w.labels.length; fI++) { const L = w.labels[fI]; if (!L) continue; let a = holdPts.get(L); if (!a) holdPts.set(L, a = []); if (a.length < 600) for (let q = 0; q < 3; q++) { const v = m.index[fI * 3 + q]; a.push(new Vector3(m.pos[v * 3], m.pos[v * 3 + 1], m.pos[v * 3 + 2])); } }
+}
+let dirty = true;
+const draw = () => {
+  if (!dirty) return; dirty = false;
+  wc.apply(); r.render(scene, cam);
+  const k = devicePixelRatio; g.setTransform(k, 0, 0, k, 0, 0); g.clearRect(0, 0, innerWidth, innerHeight);
+  for (const [L, role] of picked) {
+    const P = holdPts.get(L).map(p => { const q = p.clone().project(cam); return [(q.x + 1) / 2 * innerWidth, (1 - q.y) / 2 * innerHeight]; });
+    const h = hull(P); g.beginPath(); h.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.lineWidth = 3; g.strokeStyle = roles[role]; g.stroke();
+  }
+};
+const loop = () => { draw(); requestAnimationFrame(loop); }; requestAnimationFrame(loop);
+const resize = () => { r.setSize(innerWidth, innerHeight, false); ov.width = innerWidth * devicePixelRatio; ov.height = innerHeight * devicePixelRatio; wc.resize(innerWidth, innerHeight); dirty = true; };
+resize(); addEventListener('resize', resize);
+// 實拍的邊界表：正式流程在 Studio 烘焙時算好；原型先讀存好的（同樣的畫面比例），沒有才當場算（大岩壁要十幾秒）
+const tc = performance.now(), saved = new URLSearchParams(location.search).has('cal') ? null : await fetch(`./${key}-table.json`).then(r => r.ok ? r.json() : null).catch(() => null);   // ?cal：不讀存好的，當場重算
+if (saved && Math.abs(saved.aspect - innerWidth / innerHeight) < 0.06) wc.useTable(saved); else wc.calibrate(r, scene);
+const calMs = Math.round(performance.now() - tc);
+// 一開始：拉到最遠、站在牆中間附近最遠看得到整面的地方
+{ const t = wc.table, mid = (t.sa.at(-1) + t.sb.at(-1)) / 2; let best = 0; wc.reach.forEach((f, i) => { const s = t.s0 + i * t.step; if (f > wc.reach[best] + 1e-6 || (Math.abs(f - wc.reach[best]) < 1e-6 && Math.abs(s - mid) < Math.abs(t.s0 + best * t.step - mid))) best = i; }); wc.s = t.s0 + best * t.step; }
+wc.d = Infinity; wc.clamp(); wc.want = wc.dMax; dirty = true;
+
+// 手勢：一指拖＝平移，兩指＝捏合縮放＋平移，放開有慣性；點一下選岩點；滾輪縮放
+const pts = new Map(); let vel = [0, 0], lastT = 0, downAt = null, inertia = 0;
+const center = (a) => [a.reduce((s, p) => s + p[0], 0) / a.length, a.reduce((s, p) => s + p[1], 0) / a.length], dist = (a) => a.length > 1 ? Math.hypot(a[0][0] - a[1][0], a[0][1] - a[1][1]) : 0;
+st.addEventListener('pointerdown', e => { st.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); cancelAnimationFrame(inertia); vel = [0, 0]; lastT = e.timeStamp; downAt = pts.size === 1 ? [e.clientX, e.clientY] : null; });
+st.addEventListener('pointermove', e => {
+  if (!pts.has(e.pointerId)) return;
+  const prev = [...pts.values()]; pts.set(e.pointerId, [e.clientX, e.clientY]); const cur = [...pts.values()];
+  const [x0, y0] = center(prev), [x1, y1] = center(cur), dt = Math.max(1, e.timeStamp - lastT); lastT = e.timeStamp;
+  if (cur.length > 1 && dist(prev) > 0) wc.zoomAt(dist(cur) / dist(prev), x1, y1);
+  wc.pan(x1 - x0, y1 - y0); vel = [0.8 * (x1 - x0) / dt + 0.2 * vel[0], 0.8 * (y1 - y0) / dt + 0.2 * vel[1]]; dirty = true;
+});
+const glide = () => { let t = performance.now(); const step = (n) => { const dt = n - t; t = n; vel = vel.map(v => v * Math.exp(-dt / 280)); if (Math.hypot(...vel) < 0.02) return; wc.pan(vel[0] * dt, vel[1] * dt); dirty = true; inertia = requestAnimationFrame(step); }; inertia = requestAnimationFrame(step); };
+const up = e => {
+  const at = pts.get(e.pointerId) || [e.clientX, e.clientY]; pts.delete(e.pointerId);   // 放開的位置用最後一次移動記到的（有些環境 pointerup 的座標是 0）
+  if (downAt && Math.hypot(at[0] - downAt[0], at[1] - downAt[1]) < 8) tap(at[0], at[1]);
+  else if (!pts.size && e.timeStamp - lastT < 80) glide();
+  downAt = null;
+};
+st.addEventListener('pointerup', up); st.addEventListener('pointercancel', up);
+st.addEventListener('wheel', e => { e.preventDefault(); if (e.ctrlKey) wc.zoomAt(Math.exp(-e.deltaY / 100), e.clientX, e.clientY); else if (Math.abs(e.deltaY) > 40 && !e.deltaX && e.deltaMode === 0 && Number.isInteger(e.deltaY)) wc.zoomAt(Math.exp(-e.deltaY / 400), e.clientX, e.clientY); else wc.pan(-e.deltaX, -e.deltaY); dirty = true; }, { passive: false });
+const ray = new Raycaster();
+function tap(x, y) {
+  if (!holdPts.size) return;
+  wc.apply(); ray.setFromCamera(new Vector2(x / innerWidth * 2 - 1, 1 - y / innerHeight * 2), cam);
+  const hit = ray.intersectObjects(mesh, false)[0]; if (!hit) return;
+  const L = w.labels[hit.faceIndex]; if (!L) return;
+  if (picked.has(L)) picked.delete(L); else picked.set(L, Math.min(4, picked.size)); dirty = true;
+}
+// 檢查用：畫面四邊各取幾個點，射線打不到牆的有幾個（露出牆外）
+const edges = () => { wc.apply(); const W = innerWidth, H = innerHeight, miss = []; for (let i = 0; i <= 8; i++) for (const [x, y] of [[i / 8 * W, 2], [i / 8 * W, H - 2], [2, i / 8 * H], [W - 2, i / 8 * H]]) { ray.setFromCamera(new Vector2(x / W * 2 - 1, 1 - y / H * 2), cam); if (!ray.intersectObjects(mesh, false).length) miss.push([Math.round(x), Math.round(y)]); } return miss; };
+// 檢查用：畫面中間一帶找一顆岩點（射線打到的面屬於它）的螢幕位置
+const spot = () => { wc.apply(); for (let k = 0; k < 400; k++) { const x = innerWidth * (0.2 + 0.6 * ((k * 0.618) % 1)), y = innerHeight * (0.25 + 0.5 * ((k * 0.382) % 1)); ray.setFromCamera(new Vector2(x / innerWidth * 2 - 1, 1 - y / innerHeight * 2), cam); const h = ray.intersectObjects(mesh, false)[0]; if (h && w.labels && w.labels[h.faceIndex]) return [x, y, w.labels[h.faceIndex]]; } return null; };
+const p = path;
+window.__walk = { wc, path: { smin: p.smin, smax: p.smax, h: wc.hTyp }, ms: Math.round(performance.now() - t0), calMs, renders: wc.renders, table: () => JSON.stringify(wc.table), holds: holdPts.size, picked, tap, edges, spot, mesh, cam, redraw: () => { dirty = true; } };
+info.textContent = `${key}：沿牆 ${(p.smax - p.smin).toFixed(1)} m、高 ${wc.hTyp.toFixed(1)} m，${window.__walk.ms} ms（校正 ${calMs} ms）` + (holdPts.size ? `，${holdPts.size} 顆岩點\n點岩點：起攀→手點→完攀` : '');
+</script>
+</body></html>

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en" data-climbio-theme="outdoor">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#F7F9FB">
+<meta name="description" content="Load, render, walk and bake indoor 3D walls">
+<link rel="canonical" href="https://climbio.app/kits/en/wall3dkit.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Climbio">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="https://climbio.app/kits/en/wall3dkit.html">
+<meta property="og:title" content="Wall3DKit | Climbio kits">
+<meta property="og:description" content="Load, render, walk and bake indoor 3D walls">
+<meta property="og:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Wall3DKit | Climbio kits">
+<meta name="twitter:description" content="Load, render, walk and bake indoor 3D walls">
+<meta name="twitter:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<title>Wall3DKit | Climbio kits</title>
+<link rel="icon" href="../../icons/brand/favicon-brand.svg" type="image/svg+xml">
+<link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/kits/wall3dkit.html">
+<link rel="alternate" hreflang="en" href="https://climbio.app/kits/en/wall3dkit.html">
+<link rel="stylesheet" href="../../css/brand-tokens.css">
+<link rel="stylesheet" href="../../css/pages.css">
+</head>
+<body>
+<header class="pg-top"><a class="pg-brand" href="../../en/"><img src="../../icons/brand/climbio-mark.svg" alt=""><span>Climbio</span></a><span class="grow"></span><nav class="pg-nav" aria-label="All kits"><a href="../../en/">Home</a><a href="../../kits/en/">All kits</a><a href="../../kits/wall3dkit.html" hreflang="zh-Hant" lang="zh-Hant">繁體中文</a></nav></header>
+<main class="pg">
+  <div class="pg-hero">
+    <span class="pg-eyebrow">@climbio/wall3dkit · AGPL-3.0</span>
+    <h1>Wall3DKit</h1>
+    <p class="pg-lead">Load, render, walk and bake indoor 3D walls</p>
+    <div class="pg-actions"><a class="pg-btn primary" href="https://github.com/climb-io/climbio/tree/main/wall3dkit">View source on GitHub</a></div>
+  </div>
+  <section class="pg-section" aria-labelledby="what">
+    <h2 id="what">What it is</h2>
+    <p>A gym wall reconstructed from photos, with every hold labelled on the model: load the pack, render the model underneath a 2D route-setting view, pick holds by raycast and walk the camera along the wall; on the author side, bake working files into a finished pack anyone can read as is.</p>
+  </section>
+  <section class="pg-section" aria-labelledby="points">
+    <h2 id="points">What it does</h2>
+    <div class="pg-grid">
+      <article class="pg-card"><span class="pg-num">1</span><h3>Route setting as simple as 2D</h3><p>The model renders under the 2D route-setting view, so zoom and pan work as before; holds are picked by raycast, hidden ones included, and their outlines are projected back to the front view for saving.</p></article>
+      <article class="pg-card"><span class="pg-num">2</span><h3>A camera that walks the wall</h3><p>Drag sideways to walk, up and down to rise and sink, pinch to move closer; the camera turns smoothly at corners. Its ranges come only from the model and holds: every hold can be tapped, everywhere else shows wall on all four edges, worked out per screen aspect ratio.</p></article>
+      <article class="pg-card"><span class="pg-num">3</span><h3>Baked into standard files</h3><p>The author side bakes cropping, hidden parts, hold fixes and the camera track into the finished pack: standard glTF 2.0 plus hold labels, so phones only read it and other viewers can open it too.</p></article>
+    </div>
+  </section>
+  <section class="pg-section" aria-labelledby="install">
+    <h2 id="install">Install</h2>
+    <pre><code>npm install @climbio/wall3dkit</code></pre>
+    <h2 id="example">Minimal example</h2>
+    <pre><code>import { loadPack, openStage } from &#39;@climbio/wall3dkit&#39;;
+const pack = await loadPack(base);
+const stage = await openStage(base, pack);
+stage.mount(host);
+stage.setView({ s: 1, tx: 0, ty: 0, bw: stage.snapW });
+const id = stage.pick(x, y);</code></pre>
+  </section>
+  <section class="pg-section" aria-labelledby="notes">
+    <h2 id="notes">License and limits</h2>
+    <p class="pg-note">AGPL-3.0 (bundles three.js and three-mesh-bvh, MIT). Reads packs and bakes them; it does not build models from photos; needs WebGL. Use Crag3DKit for outdoor 3D crags and RouteKit for walls on 2D photos.</p>
+    <p class="pg-muted"><a href="../../kits/en/">All kits</a> · <a href="https://github.com/climb-io/climbio/tree/main/wall3dkit">GitHub</a> · Machine-readable docs are the README.md files on GitHub</p>
+  </section>
+  <footer class="pg-foot"><span>Climbio · All kits</span><a href="../../en/">Home</a></footer>
+</main>
+</body>
+</html>

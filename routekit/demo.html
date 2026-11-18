@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RouteKit 範例</title>
+<style>
+  :root { --bg: #111214; --ink: #eee; --line: #2a2b2f; color-scheme: dark; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font: 14px/1.5 system-ui, sans-serif; }
+  h2 { font-size: 15px; margin: 16px 0 8px; }
+  routekit-viewer { height: 60vh; background: #000; border-radius: 8px; overflow: hidden; }
+  canvas { display: block; width: 100%; height: 60vh; background: #000; border-radius: 8px; touch-action: manipulation; }
+  .types { display: flex; gap: 8px; margin: 8px 0; }
+  .types button { flex: 1; padding: 10px 0; border: 1px solid var(--line); border-radius: 8px; background: none; color: inherit; font: inherit; }
+  .types button[aria-pressed="true"] { background: #fff; color: #000; }
+  pre { white-space: pre-wrap; word-break: break-all; background: #000; padding: 8px; border-radius: 8px; font-size: 12px; }
+  #err { color: #f87171; }
+</style>
+</head>
+<body>
+<p id="err" hidden></p>
+<h2>RouteViewer</h2>
+<canvas id="viewer"></canvas>
+<h2>RouteEditor</h2>
+<div class="types" id="types">
+  <button data-type="s" aria-pressed="true">S</button><button data-type="h">H</button><button data-type="f">F</button><button data-type="t">T</button><button data-type="n">1 2 3</button>
+</div>
+<canvas id="editor"></canvas>
+<pre id="out"></pre>
+<h2>&lt;routekit-viewer&gt;（圈點格式的路線）</h2>
+<routekit-viewer id="wc"></routekit-viewer>
+<script src="geometry.js"></script>
+<script src="labels.js"></script>
+<script src="base.js"></script>
+<script src="scene.js"></script>
+<script src="image.js"></script>
+<script src="editor.js"></script>
+<script src="viewer.js"></script>
+<script src="circles.js"></script>
+<script src="format.js"></script>
+<script src="elements.js"></script>
+<script>
+  'use strict';
+  // 預設用畫出來的範例牆（不讀別的檔案，單獨複製這個資料夾也能開）；?route=<路線圖層的 https 網址，例如分享連結的 route.json> 讀分享出去的路線（Climbio 公開格式 v2）
+  function sample() {
+    const W = 800, H = 1000, c = Object.assign(document.createElement('canvas'), { width: W, height: H }), g = c.getContext('2d');
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    g.fillStyle = '#8a7f72'; g.fillRect(0, 0, W, H);
+    const colors = ['#e4572e', '#29335c', '#f3a712', '#669bbc', '#a8c686', '#d1495b'], holds = [];
+    for (let row = 0; row < 6; row++) for (let col = 0; col < 4; col++) {
+      const cx = 110 + col * 190 + (rnd() - 0.5) * 80, cy = 90 + row * 165 + (rnd() - 0.5) * 60, r = 28 + rnd() * 26;
+      const poly = Array.from({ length: 10 }, (_, k) => { const a = k / 10 * Math.PI * 2, d = r * (0.75 + rnd() * 0.4); return [Math.round(cx + Math.cos(a) * d), Math.round(cy + Math.sin(a) * d)]; });
+      g.fillStyle = colors[holds.length % colors.length]; g.beginPath(); poly.forEach(([x, y], k) => k ? g.lineTo(x, y) : g.moveTo(x, y)); g.fill();
+      holds.push({ id: `h${holds.length + 1}`, poly });
+    }
+    return { img: c, holds, route: { holds: { h22: 's', h23: 's', h18: 'h', h15: 'h', h10: 'h', h7: 'h', h2: 't', h21: 'f' } } };
+  }
+  async function load() {
+    const url = new URLSearchParams(location.search).get('route');
+    if (!url) return sample();
+    if (!/^https:\/\//.test(url)) throw new Error('只收 https 的網址');
+    const d = await RouteKit.loadRoute(url);
+    return { holds: d.holds, route: d.route, img: d.photo };
+  }
+  (async () => {
+    const { holds, route, img } = await load();
+    const scene = RouteKit.scene(img, holds);
+    const viewer = new RouteKit.RouteViewer(document.getElementById('viewer'), { scene, route });
+    const out = document.getElementById('out'), show = (r) => { out.textContent = JSON.stringify({ holds: r.holds, seq: r.seq }, null, 1); };
+    const draft = structuredClone(route);
+    const editor = new RouteKit.RouteEditor(document.getElementById('editor'), { scene, route: draft, type: 's', onChange: (r) => { show(r); viewer.setRoute(r); } });
+    show(draft);
+    document.getElementById('types').onclick = (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      for (const x of document.querySelectorAll('#types button')) x.setAttribute('aria-pressed', x === b);
+      editor.setType(b.dataset.type);
+    };
+    // 圈點格式（例如 RouteMake）的路線：轉成 RouteKit 路線，交給 Web Component
+    const circles = RouteKit.toCircles(route, holds, img.width, img.height);
+    const wc = document.getElementById('wc');
+    Object.assign(wc, { photo: img, holds, route: RouteKit.fromCircles(circles, img.width, img.height, { holds }) });
+    window.routekitDemo = { scene, viewer, editor, draft, circles, wc };
+  })().catch((e) => { const el = document.getElementById('err'); el.hidden = false; el.textContent = e.message; });
+</script>
+</body>
+</html>

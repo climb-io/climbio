@@ -1,0 +1,17 @@
+{
+  "name": "Climbio Studio",
+  "short_name": "Studio",
+  "description": "戶外岩場（Crag）的工作台，輸出 Climbio 公開格式。",
+  "lang": "zh-Hant",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F7F9FB",
+  "theme_color": "#F7F9FB",
+  "icons": [
+    { "src": "../icons/brand/apple-touch-icon-180.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
+    { "src": "../icons/brand/app-icon-light-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "../icons/brand/app-icon-light-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

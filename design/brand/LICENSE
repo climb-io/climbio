@@ -1,0 +1,37 @@
+Climbio 的品牌美術：母品牌 Logo（綠藍雙岩塊與 climbio 字標）、兩款手機 App 角色（岩點貓、紅點貓）
+與岩點貓家族（綠綠、條條、圓圓、尖尖、洞洞）的角色設計與美術
+Copyright (c) 2026 Kant Kang（Climbio）
+
+以創用 CC 姓名標示 4.0 國際（CC BY 4.0）授權：
+https://creativecommons.org/licenses/by/4.0/deed.zh-hant
+
+任何人都可以使用、修改、二創、商業使用，只要標示來源，例如：
+
+  Climbio Logo 與貓咪角色 © Climbio｜CC BY 4.0｜https://climbio.app
+
+範圍：本資料夾（design/brand/）的原稿、設定圖與動畫預覽，以及由它們派生的美術
+（icons/brand/、icons/cats/ 的圖示，hold/index.html 內嵌的岩點貓，js/holdcat.js 的 CAST，js/mascot-motion.js 的造型與動作）。
+程式碼依 repo 的授權。用「Climbio」名稱與 Logo 代表官方服務的請求見 repo 根目錄的 TRADEMARKS.md。
+
+字標的字母是向量輪廓，依 Comfortaa（SIL Open Font License 1.1）的字形轉成；這裡不附、不散布字型檔。
+
+---
+
+Climbio brand artwork: the parent logo (green and blue twin holds with the climbio wordmark), the two mobile app cat characters
+(Hold Cat and Redpoint Cat) and the Holdcats (綠綠, 條條, 圓圓, 尖尖 and 洞洞) character designs and artwork
+Copyright (c) 2026 Kant Kang (Climbio)
+
+Licensed under Creative Commons Attribution 4.0 International (CC BY 4.0):
+https://creativecommons.org/licenses/by/4.0/
+
+Anyone may use, adapt, remix and use them commercially, as long as they give credit, e.g.
+
+  Climbio logo and cat characters © Climbio | CC BY 4.0 | https://climbio.app
+
+Scope: the source files, character sheet and motion preview in this folder (design/brand/), and the artwork derived from them
+(icons in icons/brand/ and icons/cats/, the Hold Cat embedded in hold/index.html, CAST in js/holdcat.js, the shapes and moves in
+js/mascot-motion.js). The code is licensed under the repo's license. See TRADEMARKS.md at the repo root for the request about
+using the name and logo “Climbio” to represent an official service.
+
+The wordmark letters are vector outlines converted from Comfortaa (SIL Open Font License 1.1); no font files are included or
+distributed here.

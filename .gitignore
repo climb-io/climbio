@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pt
+.DS_Store
+data/
+!redpoint/data/
+!functions/data/
+runs/
+weights/
+datasets/
+.claude/*
+dist/
+node_modules
+/test-results/
+/playwright-report/
+.firebase/
+demo/capture-redpoint/

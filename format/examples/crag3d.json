@@ -1,0 +1,85 @@
+{
+ "climbio": 2,
+ "t": 1761620000000,
+ "license": "CC-BY-SA-4.0",
+ "attribution": "Climbio sample",
+ "kind": "set",
+ "type": "guidebook",
+ "id": "crag3dsample0001",
+ "name": {
+  "zh-Hant": "3D 範例岩場",
+  "en": "3D sample crag"
+ },
+ "nodes": [
+  {
+   "id": "sample3dcrag",
+   "type": "crag",
+   "name": {
+    "zh-Hant": "3D 範例岩場",
+    "en": "3D sample crag"
+   }
+  },
+  {
+   "id": "sample3dwall",
+   "type": "wall",
+   "parent": "sample3dcrag",
+   "name": {
+    "zh-Hant": "範例岩壁",
+    "en": "Sample wall"
+   },
+   "props": {
+    "order": 1
+   }
+  },
+  {
+   "id": "sample3dr1",
+   "type": "route",
+   "parent": "sample3dwall",
+   "name": {
+    "zh-Hant": "第一線",
+    "en": "Line one"
+   },
+   "props": {
+    "grade": {
+     "yds": "5.9"
+    },
+    "style": "sport",
+    "order": 1
+   }
+  },
+  {
+   "id": "sample3dr2",
+   "type": "route",
+   "parent": "sample3dwall",
+   "name": {
+    "zh-Hant": "第二線",
+    "en": "Line two"
+   },
+   "props": {
+    "grade": {
+     "yds": "5.10b"
+    },
+    "style": "sport",
+    "order": 2
+   }
+  }
+ ],
+ "items": [
+  {
+   "href": "crag3d-overview.json",
+   "id": "crag3dover000001"
+  },
+  {
+   "href": "crag3d-wall.json",
+   "id": "crag3dsnap000001"
+  },
+  {
+   "href": "crag3d-model.json",
+   "id": "crag3dmodel00001"
+  },
+  {
+   "href": "crag3d-routes.json",
+   "id": "crag3dlayer00001"
+  }
+ ]
+}

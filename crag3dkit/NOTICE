@@ -1,0 +1,7 @@
+Crag3DKit（戶外 3D 岩場的播放與讀取）
+Copyright (c) 2026 Climbio 貢獻者（Climbio contributors）
+
+本資料夾以 GNU AGPL-3.0 授權（見 LICENSE）。
+它是 Climbio（AGPL-3.0）的一部分，可以單獨拿去用，使用時須遵守 AGPL-3.0。
+
+vendor/three-splat.js 是 three.js r180（MIT）與 Spark 2.4.0（MIT）用 esbuild 打包成的單一模組，兩份 MIT 授權全文在 vendor/three-splat-LICENSE.txt。

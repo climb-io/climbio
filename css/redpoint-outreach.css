@@ -1,0 +1,106 @@
+/* 紅點貓資料藍圖：三個對外介紹頁的共同樣式。
+ * 只調整行銷／教學頁，不影響紅點貓 App 或 Studio 工作區。
+ * 色彩引用 css/brand-tokens.css 的戶外主題；首頁另採自己的深色廣告版面。
+ */
+:root[data-climbio-theme="outdoor"] {
+  background:var(--brand-bg,#F7F9FB);
+  color:var(--brand-text,#0C1C2B);
+}
+body {
+  background:var(--brand-bg,#F7F9FB);
+  color:var(--brand-text,#0C1C2B);
+}
+main {max-width:1180px}
+a {text-underline-offset:4px}
+.outreach-nav {
+  display:flex;align-items:center;justify-content:space-between;gap:24px;
+  padding:22px 0 20px;border-bottom:1px solid var(--brand-line,#E1E8EE)
+}
+.outreach-brand {display:inline-flex;align-items:center;flex-shrink:0}
+.outreach-brand img {display:block;width:138px;height:35px;object-fit:contain;object-position:left center}
+.outreach-links {display:flex;align-items:center;gap:clamp(12px,2.2vw,28px);flex-wrap:wrap}
+.outreach-links a {
+  text-decoration:none;font-size:14px;font-weight:650;white-space:nowrap;
+  color:var(--brand-text-muted,#47687B)
+}
+.outreach-links a[aria-current="page"],.outreach-links a:hover {color:var(--brand-action,#0B4A6B)}
+.outreach-links a[aria-current="page"] {text-decoration:underline;text-underline-offset:7px}
+.hero.outreach-hero {
+  display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);
+  align-items:center;gap:clamp(28px,5vw,62px);max-width:none;
+  padding:clamp(42px,6vw,74px) 0 clamp(46px,6vw,76px)
+}
+.outreach-hero-copy {min-width:0}
+.outreach-hero h1 {display:block;max-width:690px;letter-spacing:-.045em;line-height:1.16}
+.outreach-hero .eyebrow {color:var(--brand-layer,#2E8CC9);letter-spacing:.08em;font-size:13px}
+.outreach-hero .lead {font-size:clamp(17px,1.7vw,20px);line-height:1.68;max-width:620px}
+.outreach-hero .title-logo {width:56px;height:56px;vertical-align:middle;margin-right:12px}
+.outreach-hero .actions {margin-top:28px}
+.outreach-visual {
+  position:relative;isolation:isolate;aspect-ratio:4/5;
+  overflow:hidden;border-radius:20px;background:#163347;box-shadow:0 26px 70px #0b38511f
+}
+.outreach-visual img {position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.outreach-visual::after {
+  content:"";position:absolute;inset:0;z-index:0;
+  background:linear-gradient(180deg,transparent 36%,rgba(5,26,37,.76) 100%)
+}
+/* Finished Redpoint App capture, never the unfinished crag 3D mockup. */
+.outreach-visual.app-shot {display:flex;flex-direction:column;aspect-ratio:4/5;background:#08263a}
+.outreach-visual.app-shot img {position:relative;inset:auto;flex:1;min-height:0;object-fit:contain;background:#0b2230}
+.outreach-visual.app-shot::after {display:none}
+.outreach-visual.app-shot .outreach-visual-caption {position:relative;inset:auto;padding:19px 23px;background:#0b3045}
+.outreach-visual-caption {
+  position:absolute;z-index:1;left:24px;right:24px;bottom:24px;color:#fff;
+  display:flex;flex-direction:column;gap:7px;line-height:1.5
+}
+.outreach-visual-caption strong {font-size:clamp(19px,2.4vw,28px);letter-spacing:-.035em}
+.outreach-visual-caption span {font-size:13px;color:#e4eff4}
+.outreach-note {font-size:14px;line-height:1.8;color:var(--brand-text-muted,#47687B);margin-top:16px;max-width:650px}
+.download,.btn:not(.ghost) {
+  border-radius:11px;background:var(--brand-action,#0B4A6B);color:var(--brand-on-action,#fff);
+  font-weight:700
+}
+.download:hover,.btn:not(.ghost):hover {background:var(--brand-action-hover,#083A54)}
+.btn.ghost {background:#fff;color:var(--brand-action,#0B4A6B);border-color:var(--brand-line-strong,#C9D5DE)}
+.btn.ghost:hover {background:var(--brand-surface-2,#E9EFF4)}
+.step,.card,.ai,details {
+  background:var(--brand-surface,#fff);
+  border-color:var(--brand-line,#E1E8EE);
+  box-shadow:0 8px 32px rgba(8,38,58,.035)
+}
+.step p,.card p,.sub,.ai p,.step>p {color:var(--brand-text-muted,#47687B)}
+.number {color:var(--brand-action,#0B4A6B)}
+h1,h2,h3,.step strong,.card strong {color:var(--brand-text,#0C1C2B)}
+section.block,.steps,section:not(.hero) {border-color:var(--brand-line,#E1E8EE)}
+.small,.note,.requirement,footer {color:var(--brand-text-muted,#47687B)}
+.promise {background:var(--brand-action-soft,rgba(11,74,107,.1));border-color:var(--brand-line,#E1E8EE)}
+.outreach-next {
+  margin:38px 0 20px;padding:38px 0;border-top:1px solid var(--brand-line,#E1E8EE);
+  border-bottom:1px solid var(--brand-line,#E1E8EE)
+}
+.outreach-next h2 {font-size:clamp(25px,3vw,34px);margin:0 0 16px}
+.outreach-next-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.outreach-next-grid a {
+  display:block;padding:22px 24px;border-radius:16px;border:1px solid var(--brand-line,#E1E8EE);
+  background:#fff;text-decoration:none;transition:border-color .2s,transform .2s
+}
+.outreach-next-grid a:hover {transform:translateY(-2px);border-color:var(--brand-layer,#2E8CC9)}
+.outreach-next-grid strong {display:block;font-size:19px;color:var(--brand-text,#0C1C2B)}
+.outreach-next-grid span {display:block;margin-top:8px;font-size:14px;line-height:1.65;color:var(--brand-text-muted,#47687B)}
+@media(max-width:850px) {
+  .hero.outreach-hero {grid-template-columns:1fr}
+  .outreach-visual {aspect-ratio:16/8;min-height:220px}
+  .outreach-nav {align-items:flex-start;flex-direction:column;gap:15px}
+}
+@media(max-width:600px) {
+  .outreach-hero .title-logo {width:46px;height:46px}
+  .outreach-links {column-gap:16px;row-gap:12px}
+  .outreach-links a {font-size:13px}
+  .outreach-next-grid {grid-template-columns:1fr}
+  .outreach-visual {aspect-ratio:4/3}
+  .outreach-visual-caption {left:19px;right:19px;bottom:19px}
+}
+@media(prefers-reduced-motion:reduce) {
+  .outreach-next-grid a {transition:none}
+}

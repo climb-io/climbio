@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Climbio App Icon">
+<rect width="512" height="512" rx="0" fill="#FFFFFF"/>
+<g transform="translate(132.800 140.500) scale(0.77)"><defs>
+  <clipPath id="green-clip"><path d="M26 163 C18 130 38 82 72 57 C115 26 157 13 190 13 C219 13 240 29 246 53 C257 92 231 115 204 119 C172 127 153 118 142 122 C123 131 118 147 103 189 C97 207 76 212 59 207 C37 202 23 185 26 163 Z"/></clipPath>
+  <mask id="green-hole" maskUnits="userSpaceOnUse" x="0" y="0" width="320" height="300"><rect width="320" height="300" fill="white"/><circle cx="157" cy="75" r="13" fill="black"/></mask>
+  <clipPath id="blue-clip"><path d="M143 151 C162 136 189 135 227 125 C258 117 279 123 286 144 C297 180 265 219 240 244 C214 269 180 280 145 276 C111 273 101 253 110 224 C122 191 126 164 143 151 Z"/></clipPath>
+</defs>
+<g aria-hidden="true">
+ <path d="M26 163 C18 130 38 82 72 57 C115 26 157 13 190 13 C219 13 240 29 246 53 C257 92 231 115 204 119 C172 127 153 118 142 122 C123 131 118 147 103 189 C97 207 76 212 59 207 C37 202 23 185 26 163 Z M144 75 a13 13 0 1 0 26 0 a13 13 0 1 0 -26 0 Z" fill-rule="evenodd" fill="#B6F000"/>
+ <path d="M12 93 C24 123 31 158 58 172 C75 188 91 196 103 189 L102 237 L7 224 Z" clip-path="url(#green-clip)" fill="#8AD300" opacity=".9"/>
+ <path d="M33 107 C35 141 49 160 83 170 C92 174 100 178 105 177 L115 217 L19 216 Z" clip-path="url(#green-clip)" fill="#A0E000" opacity=".42"/>
+ <path d="M143 151 C162 136 189 135 227 125 C258 117 279 123 286 144 C297 180 265 219 240 244 C214 269 180 280 145 276 C111 273 101 253 110 224 C122 191 126 164 143 151 Z" fill="#0FADEA"/>
+ <path d="M142 147 C126 167 117 199 108 226 C93 259 115 280 145 285 C173 282 209 271 231 255 C171 257 143 237 137 203 C133 181 136 155 154 142Z" fill="#0873BA" clip-path="url(#blue-clip)"/>
+ <circle cx="215" cy="207" r="35" fill="#FFFFFF"/>
+ <circle cx="215" cy="207" r="16" fill="#0795DE"/>
+</g></g>
+</svg>

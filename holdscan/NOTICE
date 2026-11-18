@@ -1,0 +1,18 @@
+holdscan（岩點偵測）
+Copyright (c) 2026 Climbio 貢獻者（Climbio contributors）
+
+本資料夾以 GNU AGPL-3.0 授權（見 LICENSE）。包含或使用以下第三方元件：
+
+1. 偵測模型權重（models/freeclimbs.onnx）
+   https://huggingface.co/jwlarocque/yolov8n-freeclimbs-detect-2
+   Copyright (c) 2024 John LaRocque
+   AGPL-3.0。由 Ultralytics YOLOv8n（https://github.com/ultralytics/ultralytics，AGPL-3.0）在 freeclimbs v2 資料集上微調；
+   資料集尚未公開。本專案只匯出成 ONNX，未重新訓練。細節見 models/README.md。
+
+2. ONNX Runtime（onnxruntime-web：瀏覽器執行時從 jsDelivr 載入，見 holdkit/ort.js；onnxruntime-node：雲端函式的 npm 相依套件）
+   https://github.com/microsoft/onnxruntime
+   Copyright (c) Microsoft Corporation
+   MIT License
+
+English: holdscan is AGPL-3.0 because its detection weights are fine-tuned from Ultralytics YOLOv8 (AGPL-3.0).
+The training dataset (freeclimbs v2) has not been published by its author.

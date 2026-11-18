@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-Hant" data-climbio-theme="outdoor">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#F7F9FB">
+<meta name="description" content="岩壁照片上的 Topo 看圖與編輯">
+<link rel="canonical" href="https://climbio.app/kits/topokit.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Climbio">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:url" content="https://climbio.app/kits/topokit.html">
+<meta property="og:title" content="TopoKit｜Climbio 元件">
+<meta property="og:description" content="岩壁照片上的 Topo 看圖與編輯">
+<meta property="og:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="TopoKit｜Climbio 元件">
+<meta name="twitter:description" content="岩壁照片上的 Topo 看圖與編輯">
+<meta name="twitter:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<title>TopoKit｜Climbio 元件</title>
+<link rel="icon" href="../icons/brand/favicon-brand.svg" type="image/svg+xml">
+<link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/kits/topokit.html">
+<link rel="alternate" hreflang="en" href="https://climbio.app/kits/en/topokit.html">
+<link rel="stylesheet" href="../css/brand-tokens.css">
+<link rel="stylesheet" href="../css/pages.css">
+</head>
+<body>
+<header class="pg-top"><a class="pg-brand" href="../"><img src="../icons/brand/climbio-mark.svg" alt=""><span>Climbio</span></a><span class="grow"></span><nav class="pg-nav" aria-label="所有元件"><a href="../">首頁</a><a href="../kits/">所有元件</a><a href="../kits/en/topokit.html" hreflang="en" lang="en">English</a></nav></header>
+<main class="pg">
+  <div class="pg-hero">
+    <span class="pg-eyebrow">@climbio/topokit · AGPL-3.0</span>
+    <h1>TopoKit</h1>
+    <p class="pg-lead">岩壁照片上的 Topo 看圖與編輯</p>
+    <div class="pg-actions"><a class="pg-btn primary" href="#demo">看線上範例</a><a class="pg-btn" href="https://github.com/climb-io/climbio/tree/main/topokit">在 GitHub 看原始碼</a></div>
+  </div>
+  <section class="pg-section" aria-labelledby="what">
+    <h2 id="what">這是什麼</h2>
+    <p>在戶外岩壁照片上畫出路線、bolt 和帶難度的編號牌，可縮放、點路線；也能讓使用者直接畫線、放 bolt、分岔，並輸出成標準圖層。</p>
+  </section>
+  <section class="pg-section" aria-labelledby="points">
+    <h2 id="points">能做什麼</h2>
+    <div class="pg-grid">
+      <article class="pg-card"><span class="pg-num">1</span><h3>路線圖自動排版</h3><p>編號、難度、名稱自動避開彼此與路線，路線擠在一起時會自動精簡。</p></article>
+      <article class="pg-card"><span class="pg-num">2</span><h3>看和編輯長一樣</h3><p>編輯時看到的就是成品，畫線、放 bolt、分岔、復原重做都在同一張圖上。</p></article>
+      <article class="pg-card"><span class="pg-num">3</span><h3>標準資料進出</h3><p>吃 Climbio 公開格式的照片與圖層，輸出也是圖層，不連任何後端。</p></article>
+    </div>
+  </section>
+  <section class="pg-section" aria-labelledby="demo">
+    <h2 id="demo">線上範例</h2>
+    <iframe class="pg-demo" src="../topokit/demo.html" title="TopoKit · 線上範例" loading="lazy"></iframe>
+  </section>
+  <section class="pg-section" aria-labelledby="install">
+    <h2 id="install">安裝</h2>
+    <pre><code>npm install @climbio/topokit @climbio/format</code></pre>
+    <h2 id="example">最小範例</h2>
+    <pre><code>import &#39;@climbio/topokit/element&#39;;
+// &lt;climbio-topo view=&quot;topo.json&quot; layers=&quot;routes.json&quot;
+//   bolts style=&quot;height:70vh&quot;&gt;&lt;/climbio-topo&gt;
+// 編輯：加上 mode=&quot;edit&quot;，el.editor.setTool(&#39;line&#39;)</code></pre>
+  </section>
+  <section class="pg-section" aria-labelledby="notes">
+    <h2 id="notes">授權與限制</h2>
+    <p class="pg-note">AGPL-3.0。需要瀏覽器；上傳與版本歷史由你的 App 負責。室內岩點路線請用 RouteKit。</p>
+    <p class="pg-muted"><a href="../kits/">所有元件</a> · <a href="https://github.com/climb-io/climbio/tree/main/topokit">GitHub</a> · 給 AI 讀的說明在 GitHub 的 README.md</p>
+  </section>
+  <footer class="pg-foot"><span>Climbio · 所有元件</span><a href="../">首頁</a></footer>
+</main>
+</body>
+</html>

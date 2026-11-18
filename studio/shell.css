@@ -1,0 +1,40 @@
+/* Climbio Studio 的共用外殼：品牌（母品牌 Logo＋「Studio」）、工作區標籤、步驟列。三個頁面都是亮色（outdoor token）；
+   Wall 用室內綠點綴、Crag 用深海藍點綴，只在工作區標籤與目前的步驟上，版面與操作完全相同。 */
+[data-studio-ws="gym"] { --ws: var(--climbio-brand-green-depth); --ws-soft: rgba(138, 211, 0, .16); --on-ws: var(--climbio-brand-ink); }
+[data-studio-ws="crag"] { --ws: var(--brand-action); --ws-soft: var(--brand-action-soft); --on-ws: var(--brand-on-action); }
+.st-brand { display: flex; align-items: center; gap: 8px; color: var(--text); text-decoration: none; flex: none; font-weight: 700; font-size: 16px; letter-spacing: .01em; }
+.st-brand img { width: 28px; height: 28px; display: block; }
+.st-ws { flex: none; font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--ws-soft); color: var(--text); border: 1px solid var(--ws); }
+.st-steps { flex: none; display: flex; gap: 4px; padding: 6px 12px; background: var(--surface); border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.st-steps::-webkit-scrollbar { display: none; }
+.st-step { flex: none; display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px 0 6px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.st-step:hover { background: var(--surface-2); color: var(--text); }
+.st-step i { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 12px; background: var(--surface-2); color: var(--muted); }
+.st-step small { font-size: 12px; font-weight: 500; color: var(--muted); }
+.st-step.on { background: var(--ws-soft); color: var(--text); }
+.st-step.on i { background: var(--ws); color: var(--on-ws); }
+.st-step + .st-step::before { content: ""; width: 14px; height: 1px; background: var(--line-strong); margin: 0 6px 0 -12px; }
+@media (pointer: coarse) { .st-step { height: 44px; } }
+/* 測試版標示（開發版網站、本機）：跟岩點貓的 Beta 標籤同色 */
+.st-env { flex: none; align-self: center; height: 20px; padding: 0 7px; border-radius: 6px; background: #ffb454; color: #30200b; font: 700 11px/20px sans-serif; white-space: nowrap; }
+/* 頁首右上的帳號頭像與選單 */
+.st-acct { position: relative; flex: none; margin-left: auto; }
+.st-avatar { box-sizing: border-box; width: 32px; height: 32px; min-width: 0; min-height: 0; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center; overflow: hidden; cursor: pointer; background: var(--ws, var(--brand-action)); color: var(--on-ws, #fff); font-family: inherit; font-weight: 700; font-size: 15px; line-height: 1; }
+.st-avatar svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+@media (pointer: coarse) { .st-avatar { width: 40px; height: 40px; } .st-menu-row { padding: 12px 10px; } }
+.st-avatar:hover { box-shadow: 0 0 0 3px var(--surface-2); }
+.st-menu { position: absolute; right: 0; top: calc(100% + 8px); z-index: 30; min-width: 220px; display: flex; flex-direction: column; padding: 6px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 8px 28px var(--shadow, rgba(0,0,0,.18)); }
+.st-menu[hidden] { display: none; }
+.st-menu-row { border: 0; background: none; text-align: left; padding: 9px 10px; border-radius: 8px; font: inherit; font-size: 14px; color: var(--text); cursor: pointer; }
+.st-menu-row:hover { background: var(--surface-2); }
+.st-ver { display: flex; align-items: center; gap: 6px; padding: 8px 10px 4px; margin-top: 4px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.st-ver .st-env { height: 18px; line-height: 18px; font-size: 10.5px; }
+/* 長時間工作的過場（StudioShell.busy）：佔滿整個畫面，做完才關 */
+.st-busy { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border: 0; border-radius: 0; box-shadow: none; background: var(--bg); color: var(--text); padding: 24px 16px calc(24px + env(safe-area-inset-bottom, 0px)); }
+.st-busy[open] { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; }
+.st-busy::backdrop { background: var(--bg); }
+.st-busy .ak-spin { width: 36px; height: 36px; border-width: 3px; }
+.st-busy b { font-size: 18px; max-width: 360px; }
+.st-busy .bar { width: min(360px, 100%); height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.st-busy .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+.st-busy .meta { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }

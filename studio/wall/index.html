@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="zh-Hant" data-ak-phone="app" data-climbio-theme="outdoor" data-studio-ws="gym">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="../../host-redirect.js"></script>
+<script src="../../site.js"></script>   <!-- 站台設定：接不接後端（studio/backend.js 照 SITE.backend） -->
+<title>Studio Wall · Climbio Studio</title>
+<meta name="description" content="Studio Wall：在 Climbio Studio 檢查與修正岩點辨識結果，讓岩點貓越來越準。">
+<link rel="canonical" href="https://climbio.app/studio/wall/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Climbio">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:url" content="https://climbio.app/studio/wall/">
+<meta property="og:title" content="Studio Wall · Climbio Studio">
+<meta property="og:description" content="Studio Wall：在 Climbio Studio 檢查與修正岩點辨識結果，讓岩點貓越來越準。">
+<meta property="og:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Studio Wall · Climbio Studio">
+<meta name="twitter:description" content="Studio Wall：在 Climbio Studio 檢查與修正岩點辨識結果，讓岩點貓越來越準。">
+<meta name="twitter:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<link rel="manifest" href="../manifest.webmanifest">
+<meta name="theme-color" content="#F7F9FB">
+<link rel="icon" href="../../icons/brand/favicon-64.png">
+<link rel="apple-touch-icon" href="../../icons/brand/apple-touch-icon-180.png">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/ https://www.gstatic.com https://www.google.com; connect-src 'self' https: data: blob:; img-src 'self' data: blob: https://*.googleusercontent.com; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; frame-src 'self' https://*.web.app https://www.google.com https://recaptcha.google.com; object-src 'none'; base-uri 'self'; form-action 'self'">
+<script src="../../appkit/errors.js"></script>   <!-- 測試版的錯誤回報（正式版不送），越早載入越好 -->
+<link rel="stylesheet" href="../../css/brand-tokens.css">
+<link rel="stylesheet" href="../../appkit/ui.css">
+<link rel="stylesheet" href="../shell.css">
+<link rel="stylesheet" href="../chrome.css">
+<script src="../../appkit/landing.js"></script>   <!-- 手機照常打開，html 加 ak-handset 換手機版面 -->
+<style>
+  /* 介面色來自 css/brand-tokens.css 的戶外亮色主題（Studio 共用；照片畫布 #stage 是室內深色）（appkit/ui.css 對到 --bg、--surface、--text、--accent…）；--warn、--ok 是進度狀態 */
+  :root { --warn: #B54708; --ok: #027A48; }
+  #board button:not([class]), #routes button:not([class]) { display: inline-flex; align-items: center; justify-content: center; height: 32px; padding: 0 14px; border-radius: 999px; background: var(--surface-2); font-weight: 600; white-space: nowrap; }
+  #board button:not([class]):hover, #routes button:not([class]):hover { background: var(--hover); }
+  #wbar.off { display: none; }
+  #wbar { position: relative; left: auto; top: auto; transform: none; align-self: center; margin: 10px 12px 0; flex: none; }
+  #wbar .menu > div { top: calc(100% + 10px); right: auto; left: 0; }
+  #runInfo:empty { display: none; }
+  #runInfo { font-size: 12.5px; max-width: 320px; padding: 0 10px 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #saveState { font-size: 12px; flex: none; }
+  .view { display: none; height: 100%; min-height: 0; }
+  .view.on { display: flex; }
+  body { display: flex; flex-direction: column; }
+  main { flex: 1; min-height: 0; position: relative; }
+  .dim { color: var(--muted); }
+  input.txt, select.txt { background: var(--surface); color: var(--text); border: 1px solid var(--line-strong); border-radius: 8px; padding: 6px 10px; font: inherit; }
+  #pName { background: transparent; border: 1px solid transparent; border-radius: 8px; color: var(--text); font: inherit; font-weight: 600; padding: 4px 8px; width: 240px; }
+  #pName:hover, #pName:focus { border-color: var(--line-strong); outline: none; }
+  #runInfo:empty { display: none; }
+  #runInfo { font-size: 12.5px; max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #saveState { font-size: 12px; }
+  .menu { position: relative; }
+  .menu > div { position: absolute; right: 0; top: calc(100% + 6px); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 10px; padding: 6px; display: none; flex-direction: column; min-width: 190px; z-index: 20; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+  .menu.open > div { display: flex; }
+  .menu > div button { border: 0; background: transparent; text-align: left; padding: 7px 10px; }
+  .menu > div button:hover { background: var(--hover); }
+  #start { flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; padding: 24px; }
+  #startDrop { min-width: min(420px, 100%); padding: 40px 24px; border: 2px dashed var(--line-strong); border-radius: 15px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  #startDrop.over { border-color: var(--accent); background: var(--accent-soft); }
+  #gate { flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; }
+  #gateBtn { font-size: 16px; padding: 12px 32px; border-radius: 12px; }
+  #board { flex-direction: column; overflow: auto; padding: 18px 22px 60px; gap: 22px; }
+  #routes { flex-direction: column; overflow: auto; padding: 18px 22px 60px; }
+  .rwrap { display: flex; flex-direction: column; gap: 22px; max-width: 980px; width: 100%; margin: 0 auto; }
+  .rzone .zhead b { font-size: 15px; }
+  .rwall { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; margin-top: 8px; overflow: hidden; }
+  .rwhead { display: flex; align-items: center; gap: 10px; padding: 8px 12px; }
+  .rwhead .nm { font-weight: 600; font-size: 13px; }
+  .rwhead .n { color: var(--muted); font-size: 12.5px; flex: 1; }
+  .rwhead button { padding: 4px 10px; font-size: 12.5px; }
+  table.rt { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.rt th { text-align: left; font-weight: 600; font-size: 12px; color: var(--muted); padding: 6px 12px; border-top: 1px solid var(--line-strong); }
+  table.rt td { padding: 8px 12px; border-top: 1px solid var(--line); }
+  table.rt tr.route { cursor: pointer; }
+  table.rt tr.route:hover td { background: var(--hover); }
+  table.rt td i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; border: 1px solid var(--line-strong); }
+  #pubs { flex-direction: column; overflow: auto; padding: 18px 22px 60px; gap: 10px; }
+  #pubs > * { width: 100%; max-width: 760px; margin: 0 auto; }
+  .prow { display: flex; align-items: center; gap: 12px; padding: 10px; border: 1px solid var(--line-strong); border-radius: 14px; background: var(--surface); }
+  .prow .pic { flex: none; width: 72px; aspect-ratio: 4 / 3; border-radius: 8px; background: #111 center / cover no-repeat; }
+  .prow .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .prow .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .prow .st { font-size: 12.5px; color: var(--muted); }
+  .prow .st.look { color: var(--warn); }
+  .prow .st.ok { color: var(--ok); }
+  .addbar { display: flex; justify-content: flex-end; gap: 8px; }
+  html:not(.has-account) .mine { display: none; }
+  #walls .card .x { height: 28px; padding: 0 12px; font-size: 12px; font-weight: 600; }
+  #walls { flex-direction: column; overflow: auto; padding: 18px 22px 60px; gap: 18px; }
+  #board.over { outline: 2px dashed var(--accent); outline-offset: -8px; }
+  .gym { display: flex; flex-direction: column; gap: 14px; padding: 12px 14px 16px; border: 1px solid var(--line-strong); border-radius: 16px; background: var(--surface); }
+  .ghead { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .ghead .gname { background: transparent; color: var(--text); border: 1px solid transparent; border-radius: 10px; padding: 4px 8px; font: inherit; font-weight: 700; font-size: 17px; width: 260px; }
+  .ghead .gname:hover, .ghead .gname:focus { border-color: var(--line-strong); outline: none; }
+  .ghead .n { color: var(--muted); font-size: 12.5px; flex: 1; }
+  .zone { display: flex; flex-direction: column; gap: 10px; border-radius: 12px; padding: 4px; }
+  .zone.over { background: var(--accent-soft); outline: 2px dashed var(--accent); }
+  .zhead { display: flex; gap: 8px; align-items: center; }
+  .zhead input { background: transparent; color: var(--text); border: 1px solid transparent; border-radius: 8px; padding: 4px 8px; font: inherit; font-weight: 600; font-size: 15px; width: 260px; }
+  .zhead input:hover, .zhead input:focus { border-color: var(--line-strong); outline: none; }
+  .zhead .n { color: var(--muted); font-size: 12.5px; flex: 1; }
+  .zhead button { padding: 4px 10px; font-size: 12.5px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); gap: 12px; }
+  .card { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; overflow: hidden; cursor: pointer; display: flex; flex-direction: column; position: relative; }
+  .card:hover { border-color: var(--muted); }
+  .card.run { border-color: var(--accent); }
+  .card .pic { aspect-ratio: 4 / 3; background: #111 center / cover no-repeat; }
+  .card .meta { padding: 8px 10px 9px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .card .nm { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card .st { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card .st.look { color: var(--warn); }
+  .card .st.ok { color: var(--ok); }
+  .card .st.bad { color: var(--danger); }
+  .card .tags { position: absolute; top: 8px; left: 8px; display: flex; gap: 4px; }
+  .card .pub { font-size: 11px; padding: 1px 7px; border-radius: 9px; background: rgba(0,0,0,.65); color: #fff; }
+  .card .pub.stale { color: var(--warn); }
+  .card .x { position: absolute; top: 6px; right: 6px; padding: 0 8px; border-radius: 8px; background: rgba(0,0,0,.6); color: #fff; border: 0; }
+  .bar2 { height: 3px; background: var(--line-strong); }
+  .bar2 i { display: block; height: 100%; background: var(--accent); }
+  .empty { border: 2px dashed var(--line-strong); border-radius: 12px; padding: 28px; text-align: center; color: var(--muted); }
+  .pill { position: absolute; z-index: 6; display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 999px; background: rgba(14,14,15,.72); color: #fff; }
+  .pill button { height: 36px; min-width: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: #fff; font: inherit; font-weight: 600; white-space: nowrap; }
+  .pill button:hover:not(:disabled) { background: rgba(255,255,255,.16); }
+  .pill button.on { background: var(--accent); color: var(--on-accent); }
+  .pill button:disabled { opacity: .35; }
+  #wallbar { left: 12px; top: 12px; }
+  #histbar { right: 12px; top: 12px; }
+  #toolbar { left: 50%; bottom: 16px; transform: translateX(-50%); }
+  #multiBtn { display: none; }
+  #wallName { font-weight: 600; padding: 0 12px 0 6px; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ak-card { width: min(100%, 560px); }   /* 電腦：清單、設定比手機寬 */
+  .ak-dialog label.f { display: grid; grid-template-columns: 80px 1fr; gap: 10px; align-items: center; color: var(--text); }
+  .ak-dialog .autos { display: flex; flex-direction: column; gap: 4px; }
+  .ak-dialog .autos label { display: flex; gap: 8px; align-items: center; color: var(--text); }
+  .ak-dialog .autos input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+  .ak-dialog .dim { white-space: pre-line; }
+  .ak-dialog .list { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow: auto; }
+  .ak-dialog .list > div { display: flex; gap: 10px; align-items: center; justify-content: space-between; background: var(--surface-2); border-radius: 8px; padding: 7px 10px; }
+  .ak-dialog .list > div > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #review { flex-direction: row; }
+  #stage { flex: 1; position: relative; min-width: 0; background: var(--bg); color: var(--text); -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }   /* 照片畫布是深色的一塊（data-climbio-theme="indoor"），岩點才看得清楚 */
+  #cv { width: 100%; height: 100%; display: block; cursor: default; touch-action: none; }
+  #bar { position: absolute; display: none; gap: 2px; padding: 3px; background: rgba(14,14,15,.78); border-radius: 999px; transform: translateX(-50%); z-index: 5; }
+  #bar.on { display: flex; }
+  #bar.fix { left: 50% !important; top: auto !important; bottom: 68px; }
+  #bar button { height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: #fff; font: inherit; font-weight: 600; white-space: nowrap; }
+  #bar button:hover { background: rgba(255,255,255,.16); }
+  #bar button.go { background: var(--accent); color: var(--on-accent); }
+  #msg { position: absolute; left: 50%; top: 64px; transform: translateX(-50%); background: rgba(14,14,15,.78); color: #fff; padding: 6px 14px; border-radius: 999px; display: none; z-index: 7; }
+  #side { width: 300px; flex: none; border-left: 1px solid var(--line-strong); display: flex; flex-direction: column; background: var(--surface); position: relative; transition: width .18s ease; min-height: 0; }
+  #side.fold { width: 44px; }
+  #side.fold .panel { display: none; }
+  #fold { position: absolute; left: -14px; top: 14px; width: 28px; height: 28px; padding: 0; border-radius: 50%; display: grid; place-items: center; z-index: 6; background: var(--surface); font-size: 15px; line-height: 1; }
+  #foldCount { display: none; writing-mode: vertical-rl; margin: 54px auto 0; color: var(--warn); font-weight: 600; letter-spacing: 2px; }
+  #side.fold #foldCount { display: block; }
+  .panel { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+  .panel > header { padding: 18px 16px 12px; }
+  #count { font-size: 17px; font-weight: 700; display: flex; align-items: baseline; gap: 6px; }
+  #count small { color: var(--muted); font-weight: 400; font-size: 12.5px; }
+  #prog { height: 4px; border-radius: 2px; background: var(--line-strong); margin-top: 10px; overflow: hidden; }
+  #prog i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .25s; }
+  #saveMsg { margin-top: 8px; font-size: 12px; min-height: 16px; }
+  #list { flex: 1; min-height: 0; overflow: auto; padding: 4px 8px; scrollbar-width: thin; }
+  #list > div { display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 12px; cursor: pointer; font-size: 13px; color: var(--warn); }
+  #list > div:hover { background: var(--hover); }
+  #list > div.sel { background: var(--accent-soft); }
+  #list canvas { width: 48px; height: 48px; flex: none; border-radius: 8px; background: #111; }
+  .panel > footer { padding: 12px 16px 16px; }
+  #reviewed { width: 100%; height: 44px; border-radius: 22px; }
+  #reviewed.on { background: var(--accent-soft); color: var(--accent); }
+  .dock { display: none; }
+  /* 觸控（iPad、手機）：按鈕放大到手指好按，多選取代 Shift */
+  @media (hover: none) and (pointer: coarse) {
+    #multiBtn { display: block; }
+    .pill button, #bar button { height: 44px; padding: 0 16px; }
+    #fold { width: 40px; height: 40px; left: -20px; font-size: 18px; }
+    #list > div { padding: 11px 8px; }
+    .card .x { min-height: 36px; }
+  }
+  /* 手機（ak-handset，appkit/landing.js）：照片佔滿，底部一條「上一顆、要看幾顆、下一顆、清單」，清單往上展開；選取後的動作列固定在工具列上方，不蓋住正在改的岩點 */
+  html.ak-handset .card .x { display: none; }
+  html.ak-handset #review { flex-direction: column; }
+  html.ak-handset #stage { min-height: 0; overflow: hidden; }
+  html.ak-handset .pill { padding: 2px; }
+  html.ak-handset .pill button { padding: 0 12px; }
+  html.ak-handset #wallbar { left: 8px; top: 8px; }
+  html.ak-handset #histbar { right: 8px; top: 8px; }
+  html.ak-handset #wallName { max-width: 28vw; padding: 0 8px 0 4px; }
+  html.ak-handset #toolbar { bottom: 10px; max-width: calc(100% - 16px); }
+  html.ak-handset #bar.fix { bottom: 66px; max-width: calc(100% - 16px); flex-wrap: wrap; justify-content: center; border-radius: 22px; }
+  html.ak-handset #side { width: auto; border-left: 0; border-top: 1px solid var(--line-strong); padding-bottom: var(--safe-b); transition: none; }
+  html.ak-handset :is(#fold, #foldCount) { display: none; }
+  html.ak-handset .panel { flex: none; }
+  html.ak-handset #side:not(.open) .panel > :not(header) { display: none; }
+  html.ak-handset #side.open .panel { max-height: 52dvh; overflow-y: auto; overscroll-behavior: contain; }
+  html.ak-handset .panel > header { display: flex; align-items: center; gap: 8px; padding: 6px 10px; position: sticky; top: 0; z-index: 2; background: var(--surface); }
+  html.ak-handset .hd { flex: 1; min-width: 0; }
+  html.ak-handset #count { font-size: 14px; }
+  html.ak-handset #prog { margin-top: 4px; }
+  html.ak-handset #saveMsg { margin-top: 2px; min-height: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  html.ak-handset .dock { display: inline-grid; place-items: center; flex: none; min-width: 48px; height: 44px; padding: 0 12px; border-radius: 22px; background: var(--surface-2); font-weight: 600; font-size: 17px; white-space: nowrap; }
+  html.ak-handset #sheetBtn { font-size: 14px; }
+  html.ak-handset #sheetBtn.on { background: var(--accent-soft); color: var(--accent); }
+  html.ak-handset #list { overflow: visible; }
+  html.ak-handset #top { gap: 6px; padding: calc(6px + var(--safe-t)) 10px 6px; }
+  html.ak-handset #top :is(.st-ws, .st-env) { display: none; }
+  html.ak-handset #top .st-brand { font-size: 0; gap: 0; }
+  html.ak-handset #pName { flex: 1; min-width: 0; width: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  html.ak-handset #saveState { max-width: 30%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  html.ak-handset #top .grow { display: none; }
+  html.ak-handset #startDrop { min-width: 0; width: 100%; padding: 28px 16px; border: 0; }
+  html.ak-handset #startDrop b { display: none; }
+  html.ak-handset #startPick { height: 52px; padding: 0 36px; font-size: 16px; border-radius: 26px; }
+  html.ak-handset :is(#walls, #board, #routes) { padding: 12px 12px 28px; gap: 14px; }
+  html.ak-handset .gym { padding: 10px 10px 12px; border-radius: 14px; }
+  html.ak-handset .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  html.ak-handset .ak-card { width: 100%; }
+  html.ak-handset .st-step small { display: none; }
+</style>
+</head>
+<body>
+<header id="top">
+  <a class="st-brand" href="../"><img src="../../icons/brand/climbio-mark.svg" alt="Climbio">Studio</a>
+  <span class="st-ws">Wall</span>
+  <b id="pName"></b>
+  <span id="saveState" class="dim"></span>
+  <span class="grow"></span>
+</header>
+<nav id="steps" class="st-steps" aria-label="步驟" data-i18n-aria="hlStepsAria" hidden></nav>
+<main>
+<section id="start" class="view">
+  <div id="startDrop"><b data-i18n="hlDropHere">把一張牆面照片拖進來</b><button class="primary" id="startPick" data-i18n="hlPickPhoto">選照片</button></div>
+  <button class="btn mine" id="startMine" data-i18n="hlMineBtn">我的岩點貓牆面</button>
+  <button class="btn mine" id="startSync" data-i18n="syncDevices" hidden>同步到其他裝置</button>
+  <button class="btn mine" id="startNear" data-i18n="nearbyTitle" hidden>附近交換</button>
+  <input id="startFiles" type="file" accept="image/*,.heic,.heif" multiple hidden>
+  <input id="addFiles" type="file" accept="image/*,.heic,.heif" multiple hidden>
+</section>
+<section id="gate" class="view"><button class="primary" id="gateBtn"></button><div class="dim" id="gateMsg"></div></section>
+<section id="walls" class="view"></section>
+<section id="pubs" class="view"></section>
+<section id="review" class="view">
+  <div id="stage" data-climbio-theme="indoor">
+    <canvas id="cv"></canvas>
+    <div id="wallbar" class="pill"><button id="prevWall" aria-label="上一面牆" data-i18n-aria="hlPrevWall">‹</button><button id="nextWall" aria-label="下一面牆" data-i18n-aria="hlNextWall">›</button><span id="wallName"></span></div>
+    <div id="histbar" class="pill"><button id="undoBtn" data-act="undo" data-i18n="hlUndo">復原</button><button id="redoBtn" data-act="redo" data-i18n="hlRedo">重做</button></div>
+    <div id="toolbar" class="pill">
+      <button data-act="add" data-i18n="hlToolAdd">新增</button>
+      <button data-act="draw" data-i18n="hlToolDraw">手畫</button>
+      <button data-act="crop" data-i18n="hlToolCrop">裁切</button>
+      <button data-act="multi" id="multiBtn" data-i18n="hlToolMulti">多選</button>
+      <button data-act="all" data-i18n="hlToolLook">待確認</button>
+    </div>
+    <div id="bar"></div><div id="msg"></div>
+  </div>
+  <aside id="side">
+    <button id="fold" aria-label="收合" data-i18n-aria="hlFold">›</button>
+    <div id="foldCount"></div>
+    <div class="panel">
+      <header>
+        <button class="dock" data-act="prev" aria-label="上一顆" data-i18n-aria="hlRPrevLook">‹</button>
+        <div class="hd">
+          <div id="count"></div>
+          <div id="prog"><i></i></div>
+          <div id="saveMsg" class="dim"></div>
+        </div>
+        <button class="dock" data-act="next" aria-label="下一顆" data-i18n-aria="hlRNextLook">›</button>
+        <button class="dock" id="sheetBtn" data-i18n="hlList">清單</button>
+      </header>
+      <div id="list"></div>
+      <footer><button class="btn" id="reviewed"></button></footer>
+    </div>
+  </aside>
+</section>
+</main>
+<script src="../../holdscan/browser/holdscan.js"></script>
+<script src="../../appkit/i18n.js"></script>
+<script src="../i18n-boot.js" data-packs="studio studio-wall"></script>
+<script src="../../appkit/photo.js"></script>
+<script src="../../appkit/files.js"></script>
+<script src="../../appkit/idb.js"></script>
+<script src="../../appkit/ui.js"></script>
+<script src="../../appkit/nearby.js"></script>
+<script src="../../appkit/share-tools.js"></script>
+<script src="../../backend/firebase.js"></script>   <!-- 發佈要帶的 App Check 權杖（studio/backend.js 的 appCheck） -->
+<script src="geometry.js"></script>
+<script src="record.js"></script>
+<script src="../../holdkit/holdkit.js"></script>
+<script src="sam.js"></script>
+<script src="../store.js"></script>
+<script src="store.js"></script>
+<script src="editor.js"></script>
+<script src="../../version.js"></script>
+<script src="../shell.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,193 @@
+/* Climbio 首頁（index.html、en/index.html 共用）：一條線流過整頁。首屏深色（兩款 App 並列，Logo 的綠、藍兩塊就是兩款 App），之後是亮色的章節。
+   English: homepage styles. The hero is dark with both apps side by side; a single glowing route line flows down the page (home.js draws it).
+   需要先載入 css/brand-tokens.css、css/pages.css；動態在「減少動態效果」時全部關掉，畫面直接是完成的樣子。 */
+:root {
+  --home-green: var(--climbio-brand-green, #B6F000);
+  --home-blue: var(--climbio-brand-blue, #0FADEA);
+  --home-dark: var(--climbio-brand-dark, #0E1722);
+  --home-dark-2: var(--climbio-brand-dark-surface, #172636);
+  --home-dark-line: var(--climbio-brand-dark-border, #344D61);
+  --home-dark-text: var(--climbio-brand-dark-text, #F7F9FB);
+  --home-dark-muted: var(--climbio-brand-dark-muted, #B5C8D3);
+  --home-flow: linear-gradient(90deg, var(--home-green), var(--home-blue));
+  --spring: cubic-bezier(.34, 1.56, .64, 1);
+}
+html { scroll-padding-top: 64px; }
+body.home { background: var(--pg-bg); overflow-x: hidden; }
+
+/* 頁首：玻璃感，在深色首屏上是深色，捲到亮色章節換亮色（home.js 加 .on-dark） */
+.home-top { background: color-mix(in srgb, var(--pg-surface) 82%, transparent); backdrop-filter: saturate(1.4) blur(14px); -webkit-backdrop-filter: saturate(1.4) blur(14px); transition: background-color .3s, border-color .3s; }
+.home-top.on-dark { background: color-mix(in srgb, var(--home-dark) 72%, transparent); border-color: color-mix(in srgb, var(--home-dark-line) 60%, transparent); }
+.home-top.on-dark .pg-brand { color: var(--home-dark-text); }
+.home-top.on-dark .pg-nav a { color: var(--home-dark-muted); }
+.home-top.on-dark .pg-nav a:hover, .home-top.on-dark .pg-nav a[aria-current] { color: var(--home-dark-text); background: color-mix(in srgb, #fff 10%, transparent); }
+.pg-brand .mark-live { position: relative; display: block; width: 28px; height: 28px; flex: none; }
+.mark-live img, .mark-live svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.mark-live path { fill: none; stroke: #fff; stroke-width: 18; stroke-linecap: round; stroke-dasharray: 260; stroke-dashoffset: 260; opacity: 0; animation: mark-link 2.4s .3s ease-in-out forwards; }
+@keyframes mark-link { 0% { opacity: .95; stroke-dashoffset: 260; } 45% { opacity: .95; stroke-dashoffset: 0; } 100% { opacity: 0; stroke-dashoffset: -260; } }
+
+/* 整頁的線（home.js 依各章節標題的位置畫，捲動畫到哪裡亮到哪裡） */
+main.home { position: relative; }
+.flow-spine { position: absolute; left: 0; top: 0; width: 100%; pointer-events: none; z-index: 0; overflow: visible; }
+.flow-spine .track { fill: none; stroke: color-mix(in srgb, var(--home-blue) 18%, transparent); stroke-width: 2; }
+.flow-spine .lit { fill: none; stroke: url(#spineGrad); stroke-width: 3; stroke-linecap: round; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--home-green) 55%, transparent)); }
+.flow-spine .pulse { fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 2 140; animation: spine-pulse 3.2s linear infinite; opacity: .85; }
+.flow-spine .node { fill: var(--pg-bg); stroke: color-mix(in srgb, var(--home-blue) 40%, transparent); stroke-width: 2; transition: fill .4s, stroke .4s; }
+.flow-spine .node.on { fill: var(--home-green); stroke: var(--home-green); }
+@keyframes spine-pulse { to { stroke-dashoffset: -142; } }
+main.home > section { position: relative; z-index: 1; }
+
+/* 首屏：深色、滿版，背景是緩緩流動的路線線條 */
+.home .hero { color: var(--home-dark-text); border-top: 0; padding: 0 0 36px; isolation: isolate; }
+.home .hero::before { content: ""; position: absolute; z-index: -2; top: -56px; bottom: 0; left: 50%; width: 100vw; translate: -50% 0; background: radial-gradient(120% 70% at 85% 0%, color-mix(in srgb, var(--home-blue) 22%, transparent), transparent 60%), radial-gradient(90% 60% at 0% 30%, color-mix(in srgb, var(--home-green) 13%, transparent), transparent 60%), var(--home-dark); }
+.flow-field { position: absolute; z-index: -1; top: -56px; bottom: 0; left: 50%; width: 100vw; height: calc(100% + 56px); translate: -50% 0; pointer-events: none; opacity: .55; }
+.flow-field path { fill: none; stroke: url(#fieldGrad); stroke-width: 1.4; stroke-dasharray: 520 380; animation: field 26s linear infinite; }
+.flow-field path:nth-child(3n) { animation-duration: 34s; stroke-width: 1; }
+.flow-field path:nth-child(3n + 1) { animation-duration: 21s; animation-direction: reverse; }
+@keyframes field { to { stroke-dashoffset: -1800; } }
+.home .hero .pg-hero { padding: 64px 0 28px; }
+.home .hero .pg-eyebrow { color: var(--home-green); letter-spacing: .08em; }
+.home .hero h1 { font-size: clamp(36px, 6.2vw, 68px); letter-spacing: -.045em; margin-bottom: 18px; }
+.home .hero h1 .flowing { background: var(--home-flow); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.home .hero .pg-lead { color: var(--home-dark-muted); max-width: 640px; }
+
+/* 兩款 App：岩點貓深色、紅點貓亮色，中間一段線把它們連起來 */
+.app-grid { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; margin: 8px 0 0; }
+.app-card { position: relative; display: grid; gap: 12px; align-content: start; padding: 14px 14px 22px; border-radius: 26px; min-width: 0; overflow: hidden; }
+.app-card.indoor { background: var(--home-dark-2); border: 1px solid var(--home-dark-line); color: var(--home-dark-text); }
+.app-card.outdoor { background: var(--pg-surface); border: 1px solid transparent; color: var(--pg-text); }
+.app-card::after { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; background: var(--home-flow); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: 0; transition: opacity .4s; pointer-events: none; }
+.app-card:hover::after, .app-card:focus-within::after { opacity: 1; }
+.app-card > :not(.stage) { margin-inline: 10px; }
+.app-card .stage { position: relative; aspect-ratio: 1440 / 900; border-radius: 16px; overflow: hidden; margin: 0; }
+.app-card.indoor .stage { background: #0b0b0c; isolation: isolate; }
+.app-card.indoor .stage::before { content: ""; position: absolute; z-index: -1; inset: -24px; background: url(../demo/wanhua-wall.jpg) center 40% / cover; filter: blur(16px) grayscale(1) brightness(.32); }
+.app-card.outdoor .stage { background: var(--pg-surface-2); }
+.app-card .stage > img, .app-card .stage picture, .app-card .stage picture img { width: 100%; height: 100%; display: block; }
+.app-card.indoor .stage > img { object-fit: contain; }
+.app-card.outdoor .stage > img, .app-card.outdoor .stage picture img { object-fit: cover; }
+.stage-credit { position: absolute; z-index: 3; left: 10px; bottom: 8px; font-size: 11px; color: rgba(255,255,255,.78); text-decoration: none; text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+.stage-credit:hover { color: #fff; text-decoration: underline; }
+.app-card .head { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+.app-card .pg-cat { width: 48px; height: 48px; }
+.app-card .app-name { font-size: 22px; font-weight: 750; letter-spacing: -.02em; }
+.app-card .app-type { font-size: 13px; font-weight: 650; letter-spacing: .06em; }
+.app-card.indoor .app-type { color: var(--home-green); }
+.app-card.outdoor .app-type { color: var(--climbio-brand-blue-depth, #0873BA); }
+.app-card h2 { font-size: clamp(22px, 2.6vw, 28px); margin: 0; }
+.app-card > p { margin: 0; font-size: 15px; }
+.app-card.indoor > p { color: var(--home-dark-muted); }
+.app-card.outdoor > p { color: var(--pg-muted); }
+.app-card.indoor .pg-btn.primary { background: var(--home-green); color: #0E0E0F; }
+.app-card.indoor .pg-btn.primary:hover { background: #c9ff3d; }
+.app-card.indoor .pg-link { color: var(--home-dark-muted); }
+.bridge { position: absolute; left: calc(50% - 40px); top: 18%; width: 80px; height: 64%; pointer-events: none; z-index: 2; overflow: visible; }
+.bridge path { fill: none; stroke: url(#bridgeGrad); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 6 10; animation: bridge 1.6s linear infinite; filter: drop-shadow(0 0 5px color-mix(in srgb, var(--home-green) 60%, transparent)); }
+@keyframes bridge { to { stroke-dashoffset: -32; } }
+.app-shortcuts { display: none; gap: 10px; margin: 0 0 18px; }
+.app-shortcuts a { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; border-radius: 999px; background: color-mix(in srgb, #fff 8%, transparent); border: 1px solid var(--home-dark-line); color: var(--home-dark-text); text-decoration: none; font-weight: 700; }
+.app-shortcuts img { width: 28px; height: 28px; }
+.app-shortcuts .app-shortcut-type { color: var(--home-dark-muted); font-size: 12px; font-weight: 600; }
+
+/* 示範牆（home.js 用開放格式的真實資料畫）：掃描出岩點 → 路線的岩點留彩色、其他退成灰 → 線從起攀流到完攀 */
+.wall-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.wall-svg .hold { fill: none; stroke: #fff; stroke-width: 5; opacity: 0; }
+.wall-svg .route-hold { fill: none; stroke: var(--home-green); stroke-width: 9; opacity: 0; filter: drop-shadow(0 0 10px var(--home-green)); }
+.wall-svg .route-color { opacity: 0; }
+.wall-svg .route-line { fill: none; stroke: var(--home-green); stroke-width: 11; stroke-linecap: round; stroke-linejoin: round; opacity: .95; filter: drop-shadow(0 0 14px var(--home-green)); }
+.wall-svg .route-pulse { fill: none; stroke: #fff; stroke-width: 11; stroke-linecap: round; stroke-dasharray: 1 260; opacity: 0; }
+.wall-svg .scan { fill: url(#scanGrad); opacity: 0; }
+.wall-svg .role { font: 800 64px/1 var(--pg-font); fill: #0E0E0F; paint-order: stroke; stroke: var(--home-green); stroke-width: 26px; stroke-linejoin: round; opacity: 0; }
+.play .wall-svg .scan { animation: scan 1.5s ease-in-out forwards; }
+.play .wall-svg .hold { animation: hold-in .5s calc(var(--d) * 1s) ease-out forwards, hold-dim .6s 1.7s ease-in forwards; }
+.play .wall-svg .route-color { animation: fade-in .7s 1.8s ease-out forwards; }
+.play .wall-svg .route-hold { animation: fade-in .6s 1.9s ease-out forwards; }
+.play .wall-svg .route-line { animation: draw 1.6s 2.4s cubic-bezier(.6, 0, .2, 1) forwards; }
+.play .wall-svg .route-pulse { animation: fade-in .3s 4.1s forwards, flow 3.4s 4.1s linear infinite; }
+.play .wall-svg .role { animation: fade-in .4s 3.9s forwards; }
+.done .wall-svg .hold { opacity: .12; }
+.done .wall-svg .route-color, .done .wall-svg .route-hold, .done .wall-svg .role { opacity: 1; }
+.done .wall-svg .route-line { stroke-dashoffset: 0 !important; }
+@keyframes scan { 0% { opacity: .9; transform: translateY(100%); } 100% { opacity: 0; transform: translateY(-30%); } }
+@keyframes hold-in { to { opacity: .7; } }
+@keyframes hold-dim { from { opacity: .7; } to { opacity: .12; } }
+@keyframes fade-in { to { opacity: 1; } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes flow { to { stroke-dashoffset: -261; } }
+
+/* 紅點貓的真實截圖：進入畫面時一道光掃過 */
+.app-card.outdoor .stage::after { content: ""; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 35%, color-mix(in srgb, var(--home-blue) 30%, transparent) 50%, transparent 65%); translate: -110% 0; pointer-events: none; }
+.app-card.outdoor.play .stage::after { animation: sweep 1.6s 1s ease-in-out; }
+@keyframes sweep { to { translate: 110% 0; } }
+
+/* 亮色章節 */
+.home .pg-section:not(.hero) { border-top: 0; padding: 72px 0 24px; }
+.home .pg-section h2 { font-size: clamp(26px, 3.4vw, 38px); }
+.data-story .pg-note { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; background: var(--pg-surface); border: 1px solid var(--pg-line); }
+.data-story .pg-note .pg-btn { flex: none; }
+.data-story .pg-grid.three { counter-reset: d; }
+.data-story-card { position: relative; padding-top: 28px; }
+.data-story-card::before { counter-increment: d; content: counter(d); position: absolute; top: -14px; left: 20px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font: 800 13px/1 var(--pg-font); color: #0E0E0F; background: var(--home-green); box-shadow: 0 0 0 4px var(--pg-bg), 0 0 14px color-mix(in srgb, var(--home-green) 70%, transparent); }
+
+/* Studio：路線書流成 Guidebook */
+.flowline { list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: 24px 0; padding: 0; position: relative; }
+.flowline li { position: relative; display: grid; justify-items: center; gap: 8px; text-align: center; font-weight: 700; font-size: 15px; z-index: 1; }
+.flowline li span { color: var(--pg-muted); font-weight: 500; font-size: 13px; max-width: 18ch; }
+.flowline li::before { content: ""; width: 18px; height: 18px; border-radius: 50%; background: var(--pg-bg); border: 3px solid var(--home-blue); }
+.flowline li:last-child::before { background: var(--home-green); border-color: var(--home-green); box-shadow: 0 0 14px var(--home-green); }
+.flowline::before { content: ""; position: absolute; top: 9px; left: 12.5%; right: 12.5%; height: 3px; background: repeating-linear-gradient(90deg, var(--home-blue) 0 10px, transparent 10px 18px); background-size: 36px 3px; animation: dash-x 1.2s linear infinite; }
+@keyframes dash-x { to { background-position: 36px 0; } }
+.studio .pg-grid { margin-top: 8px; }
+
+/* 開發者：同一份資料，兩種讀法 */
+.dual { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 0; margin: 24px 0; border-radius: 22px; overflow: hidden; background: var(--home-dark); color: var(--home-dark-text); border: 1px solid var(--home-dark-line); }
+.dual figure { margin: 0; position: relative; min-height: 340px; }
+.dual figcaption { position: absolute; z-index: 2; top: 12px; left: 12px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: .04em; background: color-mix(in srgb, var(--home-dark) 70%, transparent); color: var(--home-dark-muted); }
+.dual .wall-pane { background: #0b0b0c; }
+.dual .wall-pane > img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dual .code-pane { border-left: 1px solid var(--home-dark-line); padding: 44px 0 0; overflow: auto; max-height: 520px; }
+.dual pre { margin: 0; padding: 0 18px 18px; border: 0; border-radius: 0; background: none; font: 13px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--home-dark-muted); white-space: pre; word-break: normal; overflow: visible; }
+.dual pre .k { color: #78D4D6; }
+.dual pre .s { color: #E8F3F8; }
+.dual pre .jid { font: inherit; color: var(--home-green); background: none; border: 0; padding: 0 2px; border-radius: 4px; cursor: pointer; }
+.dual pre .jid.on { background: var(--home-green); color: #0E0E0F; }
+.wall-svg .hold.pick { opacity: 1 !important; stroke: #fff; stroke-width: 12; animation: none; }
+.dual-points { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 0 0 8px; padding: 0; list-style: none; }
+.dual-points li { padding: 18px 20px; background: var(--pg-surface); border: 1px solid var(--pg-line); border-radius: var(--pg-radius); }
+.dual-points h3 { font-size: 17px; margin: 0 0 4px; }
+.dual-points p { margin: 0; color: var(--pg-muted); font-size: 14px; }
+.kit { padding: 18px 20px; }
+.kit h3 { margin: 0 0 4px; font-size: 18px; }
+.kit p { font-size: 14px; }
+.kit code { display: inline-block; margin-top: 8px; font-size: 12.5px; }
+.pg-kits { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin: 16px 0; }
+.pg-lab { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin: 16px 0; padding: 20px 24px; border-radius: var(--pg-radius); background: var(--pg-surface); border: 1px solid var(--pg-line); }
+.pg-lab h3 { margin: 0 0 2px; }
+.pg-lab p { margin: 0; color: var(--pg-muted); font-size: 14px; }
+
+@media (max-width: 860px) {
+  .dual { grid-template-columns: minmax(0, 1fr); }
+  .dual figure.wall-pane { min-height: 0; aspect-ratio: 4 / 3; }
+  .dual .code-pane { border-left: 0; border-top: 1px solid var(--home-dark-line); max-height: 360px; }
+  .dual-points { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  .app-shortcuts { display: flex; }
+  .app-grid { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .bridge { display: none; }
+  .app-card.indoor .stage { aspect-ratio: 4 / 3; }
+  .app-card.outdoor .stage { aspect-ratio: 3 / 4; }
+  .home .hero .pg-hero { padding: 36px 0 18px; }
+  .home .hero .pg-lead { font-size: 15px; margin-bottom: 18px; }
+  .home .pg-section:not(.hero) { padding-top: 56px; }
+  .flowline { grid-template-columns: minmax(0, 1fr); gap: 18px; justify-items: start; }
+  .flowline li { grid-template-columns: 18px 1fr; justify-items: start; text-align: left; column-gap: 12px; }
+  .flowline li span { grid-column: 2; }
+  .flowline::before { top: 9px; bottom: 9px; left: 7.5px; right: auto; width: 3px; height: auto; background: repeating-linear-gradient(180deg, var(--home-blue) 0 10px, transparent 10px 18px); background-size: 3px 36px; animation-name: dash-y; }
+  @keyframes dash-y { to { background-position: 0 36px; } }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mark-live path, .flow-field path, .bridge path, .flow-spine .pulse, .flowline::before { animation: none !important; }
+  .mark-live path, .flow-spine .pulse { display: none; }
+  .app-card.outdoor .stage::after { display: none; }
+}
