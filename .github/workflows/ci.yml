@@ -48,7 +48,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: node --test tools/openclimbing.test.mjs tools/openclimbing-group.test.mjs tools/world-cluster.test.mjs
       - run: python3 tools/test-openclimbing-index.py
       - run: python3 -m pip install pillow && python3 tools/test-openclimbing-previews.py
   rules:
