@@ -473,12 +473,12 @@ html{background:#0e0e0f}
 <section class="landing" id="landing" hidden>
   <button class="vw-btn ld-x" id="ldClose" data-i18n-aria="close" aria-label="關閉"><svg><use href="#i-plus"/></svg></button>
   <header class="ld-bar"><svg class="wordmark" viewBox="0 0 1260 280" role="img" aria-label="岩點貓"><use href="#i-wordmark"/></svg><span class="env-badge" data-i18n="envDev"></span></header>
-  <!-- 首次開場：展示正式品牌圖像，不匯入示範牆或讀取示範照片。 -->
-  <div class="ld-shot"><img id="ldShot" src="../icons/cats/hold-cat-192.png" alt="" width="192" height="192"></div>
+  <!-- 示範牆只用於開場動畫，不匯入使用者牆面。 -->
+  <div class="ld-shot"><canvas id="ldShot" width="600" height="600"></canvas><span class="ld-tape" id="ldTape"></span></div>
   <h1 class="ld-title" id="ldTitle"></h1>   <!-- 主標、副標三組輪播（js/mobile.js 的 showPitch） -->
   <p class="ld-sub" id="ldSub"></p>
   <div class="ld-shared" id="ldSharedInfo" hidden><b data-i18n="pcSharedRoute">朋友分享的路線</b></div>
-  <div class="ld-feats" id="ldFeats"></div>   <!-- 電腦：三組文案搭配品牌圖像（js/mobile.js 的 pcScenes），第四欄是連結卡。 -->
+  <div class="ld-feats" id="ldFeats"></div>   <!-- 電腦：三組示範牆動畫配合文案（js/mobile.js 的 pcScenes），第四欄是連結卡。 -->
   <!-- 安裝說明（首頁下方的「加到主畫面」打開）：Android 按鈕或 ⋮ 說明、iPhone 一排三步、內建瀏覽器請用 Chrome／Safari -->
   <div class="ld-install" id="ldInstall">
     <ol class="ld-ios" id="ldIos" hidden>

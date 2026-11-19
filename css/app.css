@@ -117,7 +117,7 @@ html.lite-boot #landing[hidden] { display: flex; }
 .ld-bar { align-self: flex-start; display: flex; align-items: center; font-size: 26px; }
 .ld-shot { position: relative; width: min(72vw, 300px); aspect-ratio: 1; margin: 18px 0 8px; border-radius: 26px; overflow: hidden; transform: rotate(-3deg);
   box-shadow: 0 24px 60px rgba(0,0,0,.6); background: var(--surface); }
-.ld-shot img { width: 100%; height: 100%; display: block; object-fit: contain; padding: 18%; box-sizing: border-box; background: radial-gradient(circle at 50% 42%, #354628, #12171a 72%); }
+.ld-shot canvas { width: 100%; height: 100%; display: block; }
 .ld-tape { position: absolute; left: 12px; bottom: 14px; padding: 5px 12px; background: #f3eee2; color: #1f1c18; font-size: 16px; transform: rotate(-2deg);
   box-shadow: 0 4px 10px rgba(0,0,0,.35); opacity: 0; transition: opacity .3s; }
 .ld-tape.on { opacity: 1; }
@@ -160,8 +160,9 @@ html.pcland .ld-feats { grid-area: feats; align-self: center; display: grid; gri
   container-type: inline-size; }   /* 字跟著三欄的寬度 */
 .ld-feat { min-width: 0; display: flex; flex-direction: column; }
 .ld-pic { position: relative; aspect-ratio: 1; border-radius: 22px; overflow: hidden; background: var(--surface); }
-.ld-pic > img:first-child { display: block; width: 100%; height: 100%; object-fit: contain; padding: 24%; box-sizing: border-box; background: radial-gradient(circle at 50% 42%, #354628, #12171a 72%); }
+.ld-pic > canvas:first-child { display: block; width: 100%; height: 100%; }
 .ld-pic .ld-tape { top: 16px; bottom: auto; z-index: 1; }   /* 下緣壓著大編號 */
+.ld-feat:nth-child(2) :is(.ld-pic > canvas:first-child, .ld-fx) { position: absolute; left: 0; top: auto; bottom: 0; height: auto; }
 
 .ld-num { position: relative; margin: -.5em 0 0 12px; color: var(--text); font-family: var(--display); font-style: italic; font-size: clamp(44px, 4.8cqi, 80px); font-weight: 700; line-height: 1;
   text-shadow: 0 4px 20px rgba(0,0,0,.55); transition: color .3s; }   /* 大編號壓在圖的下緣 */
@@ -212,7 +213,7 @@ html.welcome-boot #landing[hidden] { display: flex; }
   html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing)[data-pitch="1"] .ld-title { order: 1; margin-top: calc(56px + var(--safe-t)); min-height: 0; }
   html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing)[data-pitch="1"] .ld-sub { order: 2; }
   html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing)[data-pitch="1"] .ld-shot { order: 3; flex: 1 1 0; min-height: 0; height: auto; margin: 6px -20px 0; }
-  html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing)[data-pitch="1"] .ld-shot img { height: 100%; }
+  html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing)[data-pitch="1"] :is(.ld-shot canvas, .ld-fx) { position: absolute; left: 0; top: auto; bottom: 0; height: auto; }
   html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing)[data-pitch="1"] .ld-shot::before { display: none; }
   html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing)[data-pitch="1"] .ld-shot::after { inset: 70% 0 0; }
   html:not(.pcland) :is(.landing.welcome, html.welcome-boot .landing)[data-pitch="1"] .ld-start { order: 4; }

@@ -457,48 +457,192 @@
     openOverlay('landing', hideLanding);
     renderInstall(); landingShot();
   }
-  // 首次使用只展示品牌圖像與精簡文字；不載入內建範例牆或產生假的 App 畫面。
-  let pitchAt = 0, pitchTimer = 0;
+  // 僅用舊示範牆的資料播放介紹動畫，不建立或匯入示範牆。
+  // 示範畫面：示範牆「螢光紅」裁到路線附近，灰階的底，路線岩點照順序一顆顆亮起，最後貼上膠帶短句；停一下再重來
+  let shotRun = 0;
+  // 主標、副標三組（想定線的岩友、岩點貓、找岩友挑戰）輪播：示範畫面每從頭亮一次就淡出換下一組
+  let pitchAt = 0;
   function showPitch(next = false) {
-    const ps = t('ldPitch');
-    if (next) pitchAt = (pitchAt + 1) % ps.length;
-    const [title, sub] = ps[pitchAt];
-    $('ldTitle').textContent = title;
-    $('ldSub').textContent = sub;
-    $('landing').dataset.pitch = pitchAt;
+    const set = () => {
+      const ps = t('ldPitch'), [title, sub] = ps[pitchAt % ps.length];
+      $('ldTitle').textContent = title;
+      $('ldSub').textContent = sub;
+      $('landing').classList.remove('pitch-out');
+    };
+    if (!next) return set();
+    pitchAt++; $('landing').classList.add('pitch-out'); setTimeout(set, 300);
   }
   showPitch();
-  function landingShot() {
-    clearInterval(pitchTimer);
-    const shared = PCLAND && !!openHref;
-    $('ldSharedInfo').hidden = !shared;
-    $('landing').classList.toggle('is-shared', shared);
-    if (PCLAND) { pcScenes(); return; }
-    showPitch();
-    if (!$('landing').classList.contains('welcome')) return;
-    pitchTimer = setInterval(() => {
-      if ($('landing').hidden || !$('landing').classList.contains('welcome')) {
-        clearInterval(pitchTimer);
-        pitchTimer = 0;
-        return;
-      }
-      showPitch(true);
-    }, 4800);
+  // 示範牆：資料（含 323 px 的縮圖）和清晰照片各只下載一次；js/boot.js 在開場時已先 preload，這裡接著用
+  let demoWallJob = null, demoWallPhotoJob = null;
+  const demoWallData = () => demoWallJob || (demoWallJob = fetch('../demo/demo.json').then(r => r.json()).catch((e) => { demoWallJob = null; throw e; }));
+  const demoWallPhoto = () => demoWallPhotoJob || (demoWallPhotoJob = AppKit.photo.load('../demo/demo.jpg').catch((e) => { demoWallPhotoJob = null; throw e; }));
+  // 舊版五隻岩點貓的展示位置，僅供動畫使用。
+  const DEMO_CAST = { 'hcat-lulu': ['lulu', 662, 1562, 0.27, 0], 'hcat-jianjian': ['jianjian', 210, 1455, 0.28, -12], 'hcat-tiaotiao': ['tiaotiao', 118, 1205, 0.24, -10], 'hcat-dongdong': ['dongdong', 1128, 1335, 0.29, 16], 'hcat-yuanyuan': ['yuanyuan', 955, 1800, 0.28, 8] };
+  // 縮圖放大成跟清晰照片一樣的座標（岩點座標是照片的），先讓開場的三個畫面有東西可以演
+  async function previewOf(d) {
+    const th = new Image(); th.src = d.wall.thumb; await th.decode();
+    const c = document.createElement('canvas'); c.width = d.wall.w; c.height = d.wall.h;
+    const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(th, 0, 0, c.width, c.height);
+    return c;
   }
-  function pcScenes() {
+  async function landingShot() {
+    const run = ++shotRun, c = $('ldShot'), g = c.getContext('2d'), CW = 600, CH = 600;
+    if (PCLAND && openHref) {
+      $('ldSharedInfo').hidden = false;
+      $('landing').classList.add('is-shared');
+    }
+    c.width = CW; c.height = CH;
+    let d, img;
+    if (!PCLAND && $('landing').classList.contains('welcome')) {   // 手機開場：示範資料一到先用小預覽跑，清晰版好了再換，不等 460 KB 的照片
+      try { d = await demoWallData(); img = await previewOf(d); } catch (e) { return; }
+      if (run !== shotRun) return;
+      const src = { img };
+      demoWallPhoto().then(full => { src.img = full; }, () => {});
+      return welcomeScenes(run, d, src);
+    }
+    try { [d, img] = await Promise.all([demoWallData(), demoWallPhoto()]); }
+    catch (e) { return; }
+    if (run !== shotRun) return;
+    if (PCLAND) return pcScenes(run, d, { img });
+    const r = d.wall.routes.find(x => x.name === '螢光紅') || d.wall.routes[0], hs = holdsOf(r, d.wall);
+    const b = hs.map(h => bbox(h.poly)).reduce((a, x) => ({ x0: Math.min(a.x0, x.x0), y0: Math.min(a.y0, x.y0), x1: Math.max(a.x1, x.x1), y1: Math.max(a.y1, x.y1) }));
+    const W = d.wall.w, H = d.wall.h, A = CW / CH, cw = Math.min(W, H * A, Math.max((b.x1 - b.x0) * 1.25, (b.y1 - b.y0) * 1.25 * A)), ch = cw / A;   // 裁出跟畫面同比例、剛好放進路線的一塊
+    const sx = Math.max(0, Math.min(W - cw, (b.x0 + b.x1 - cw) / 2)), sy = Math.max(0, Math.min(H - ch, (b.y0 + b.y1 - ch) / 2)), k = CW / cw;
+    const color = document.createElement('canvas'); color.width = CW; color.height = CH; color.getContext('2d').drawImage(img, sx, sy, cw, ch, 0, 0, CW, CH);
+    const gray = document.createElement('canvas'); gray.width = CW; gray.height = CH; const gg = gray.getContext('2d'); gg.drawImage(color, 0, 0);
+    const id = gg.getImageData(0, 0, CW, CH), px = id.data;
+    for (let i = 0; i < px.length; i += 4) { const y = (0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2]) * 0.72; px[i] = px[i + 1] = px[i + 2] = y; }
+    gg.putImageData(id, 0, 0);
+    const steps = RouteKit.revealSteps(r, hs), STEP = 0.32;
+    const pt = d.wall.routes && t('capOpen'); $('ldTape').textContent = Array.isArray(pt) ? pt[0] : '';
+    const loop = (t0) => {
+      if (run !== shotRun || $('landing').hidden) return;
+      const s = (performance.now() - t0) / 1000, end = 0.5 + steps.length * STEP + 0.25;
+      g.drawImage(gray, 0, 0);
+      steps.forEach((st, i) => {
+        const a = Math.max(0, Math.min(1, (s - 0.5 - i * STEP) / 0.25)); if (!a) return;
+        g.save(); g.globalAlpha = a; g.beginPath();
+        for (const h of st) h.poly.forEach(([x, y], j) => g[j ? 'lineTo' : 'moveTo']((x - sx) * k, (y - sy) * k));
+        g.clip(); g.drawImage(color, 0, 0); g.restore();
+      });
+      $('ldTape').classList.toggle('on', s > end);
+      if (s > end + 2.4) { showPitch(true); return requestAnimationFrame(() => loop(performance.now())); }   // 看一下，換一組文案，再從頭亮一次
+      requestAnimationFrame(() => loop(t0));
+    };
+    loop(performance.now());
+  }
+  // 開場的三個畫面，跟三組文案一對一：0 定線：暗彩的牆，手指一顆顆點路線岩點，照類型框起來；
+  // 1 掃描：整面牆的岩點由上往下浮出，接著五位主角岩點貓醒來；2 挑戰：路線分享卡（灰階的底、路線岩點照順序亮起、膠帶短句），蓋下完攀爪印。
+  // 每個畫面演在一個舞台（sceneStage）；live() 變成 false 就停
+  const wait = AppKit.timing.wait;
+  // src.img：目前用的照片（開場先用縮圖放大的預覽，清晰照片好了換成它）；各畫面開始時、定線畫面每點一顆岩點時才讀，所以換上去不用重來
+  function demoScenes(d, src) {
+    const W = d.wall.w, H = d.wall.h, by = (f) => { let k, v; return () => (src.img === k ? v : (v = f(k = src.img))); };
+    const grayOf = by(RouteKit.grayOf), mutedOf = by(RouteKit.mutedOf);
+    const r = d.wall.routes.find(x => x.name === '螢光紅') || d.wall.routes[0], hs = holdsOf(r, d.wall), order = RouteKit.revealSteps(r, hs).flat();
+    const b = hs.map(h => bbox(h.poly)).reduce((a, x) => ({ x0: Math.min(a.x0, x.x0), y0: Math.min(a.y0, x.y0), x1: Math.max(a.x1, x.x1), y1: Math.max(a.y1, x.y1) }));
+    const crop = (A) => {   // 跟畫面同比例、剛好放進路線的一塊
+      const cw = Math.min(W, H * A, Math.max((b.x1 - b.x0) * 1.25, (b.y1 - b.y0) * 1.25 * A)), ch = cw / A;
+      return { sx: Math.max(0, Math.min(W - cw, (b.x0 + b.x1 - cw) / 2)), sy: Math.max(0, Math.min(H - ch, (b.y0 + b.y1 - ch) / 2)), cw, ch };
+    };
+    const trace = (ctx, poly) => { ctx.beginPath(); poly.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); };
+    return [
+      async (st, live) => {   // 定線
+        const { host, c, g, finger } = st;
+        const box = host.getBoundingClientRect(); c.width = 600; c.height = Math.round(600 * box.height / box.width);
+        const { sx, sy, cw, ch } = crop(c.width / c.height), k = c.width / cw, css = box.width / c.width, marks = [];
+        const draw = () => {
+          g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(mutedOf(), sx, sy, cw, ch, 0, 0, c.width, c.height);
+          g.setTransform(k, 0, 0, k, -sx * k, -sy * k); g.lineJoin = 'round';
+          for (const h of marks) RouteKit.strokeRouteHold(g, h.poly, r.holds[h.id], (v) => v / (k * css));
+        };
+        draw(); finger.hidden = false;
+        for (const h of order) {
+          if (!live()) return;
+          const q = bbox(h.poly);
+          Object.assign(finger.style, { left: `${((q.x0 + q.x1) / 2 - sx) * k * css}px`, top: `${((q.y0 + q.y1) / 2 - sy) * k * css}px` });
+          await wait(300); finger.classList.add('press'); marks.push(h); draw(); await wait(110); finger.classList.remove('press');
+        }
+        await wait(1000); finger.hidden = true;
+      },
+      async (st, live) => {   // 掃描：整面牆
+        const { host, c, g, fx } = st;
+        c.width = 600; c.height = Math.round(600 * H / W); fx.width = c.width; fx.height = c.height;
+        g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(grayOf(), 0, 0, c.width, c.height); g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(0, 0, c.width, c.height);
+        await wait(300); if (!live()) return;
+        await HoldCat.reveal({ base: c, fx, img: src.img, holds: d.wall.holds, w: W, dur: 1100, onCount: () => {} });
+        if (!live()) return;
+        await HoldCat.wake({ host, rect: { left: 0, top: host.clientHeight - c.clientHeight, width: c.clientWidth, height: c.clientHeight }, img: src.img, holds: d.wall.holds, w: W, base: c, cast: DEMO_CAST });   // 牆貼著下緣
+        await wait(300);
+      },
+      async (st, live) => {   // 挑戰：分享卡
+        const { host, c, g } = st;
+        c.width = c.height = 600;
+        const { sx, sy, cw, ch } = crop(1), k = c.width / cw;
+        g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(grayOf(), sx, sy, cw, ch, 0, 0, 600, 600); RouteKit.tintCard(g, 600);
+        st.tape.textContent = t('capSet').find(x => !/[，？！、。,?!]/.test(x)) || '';   // 膠帶短句挑沒有標點的 st.tape.classList.remove('on');
+        await wait(300);
+        for (const h of order) {
+          if (!live()) return;
+          g.save(); g.setTransform(k, 0, 0, k, -sx * k, -sy * k); trace(g, h.poly); g.clip(); g.drawImage(src.img, 0, 0); g.restore();
+          await wait(110);
+        }
+        st.tape.classList.add('on'); await wait(600); if (!live()) return;
+        await HoldCat.celebrate({ host, rect: { left: 0, top: 0, width: host.clientWidth, height: host.clientHeight }, src: c, w: cw,
+          holds: hs.map(h => ({ poly: h.poly.map(([x, y]) => [x - sx, y - sy]) })) });
+        await wait(600); st.tape.classList.remove('on');
+      },
+    ];
+  }
+  // 舞台：放畫布的框（裡面有畫布和膠帶），加上手指和效果層
+  function sceneStage(host) {
+    const c = host.querySelector('canvas');
+    const finger = document.createElement('i'); finger.className = 'st-finger ld-finger'; finger.hidden = true;
+    finger.innerHTML = '<b class="st-tip"></b><span class="st-bob"><svg class="st-hand"><use href="#i-hand"/></svg></span>';
+    const fx = document.createElement('canvas'); fx.className = 'ld-fx';
+    host.append(finger, fx);
+    // tintCard reads these pixels on every loop of the route demo.
+    return { host, c, g: c.getContext('2d', { willReadFrequently: true }), fx, finger, tape: host.querySelector('.ld-tape'),
+      clear: () => fx.getContext('2d').clearRect(0, 0, fx.width, fx.height), remove: () => { finger.remove(); fx.remove(); } };
+  }
+  const stopCats = (host) => { if (host.querySelector('.hc-layer')) HoldCat.stop(); };   // 只收開場自己的岩點貓：收掉開場時分析畫面可能正在演
+  // 手機開場：三組文案輪流，各自的版面（landing 的 data-pitch），演完淡出換下一組
+  async function welcomeScenes(run, d, src) {
+    const live = () => run === shotRun && !$('landing').hidden && $('landing').classList.contains('welcome');
+    const scenes = demoScenes(d, src), st = sceneStage($('ldShot').parentElement);
+    for (let i = pitchAt % scenes.length; live(); i = (i + 1) % scenes.length) {
+      $('landing').dataset.pitch = i; pitchAt = i; showPitch();
+      st.clear();
+      await scenes[i](st, live);
+      if (!live()) break;
+      $('landing').classList.add('pitch-out'); await wait(320); stopCats(st.host);
+    }
+    st.remove(); stopCats(st.host);
+  }
+  // 電腦：三組文案並排成三欄（像雜誌的全版廣告），各配手機開場的同一個畫面；輪流演，演完停在最後一格。
+  // 第四欄是同樣大小的連結卡（網址和複製鈕），標題是「用手機打開」
+  async function pcScenes(run, d, src) {
+    const live = () => run === shotRun && !$('landing').hidden;
     const feats = t('ldPitch').map(([title, sub], i) => {
       const f = document.createElement('article'); f.className = 'ld-feat';
-      f.innerHTML = `<div class="ld-pic"><img src="../icons/cats/hold-cat-192.png" alt="" width="192" height="192"></div><b class="ld-num">0${i + 1}</b><h2></h2><p></p>`;
-      f.querySelector('h2').textContent = title;
-      f.querySelector('p').textContent = sub;
-      if (i === 0) f.classList.add('on');
+      f.innerHTML = `<div class="ld-pic"><canvas></canvas><span class="ld-tape"></span></div><b class="ld-num">0${i + 1}</b><h2></h2><p></p>`;
+      f.querySelector('h2').textContent = title; f.querySelector('p').textContent = sub;
       return f;
     });
     const card = document.createElement('article'); card.className = 'ld-feat ld-linkcard';
     card.innerHTML = '<div class="ld-pic"></div><b class="ld-num" aria-hidden="true">00</b><h2></h2>';
     card.firstChild.append($('ldLinkContent'));
-    card.querySelector('h2').textContent = t(openHref ? 'pcRecv' : 'pcScan').replace(/，/g, '\n');
+    card.querySelector('h2').textContent = t(openHref ? 'pcRecv' : 'pcScan').replace(/，/g, '\n');   // 跟其他欄的主標一樣不用標點，換行分段
     $('ldFeats').replaceChildren(...feats, card);
+    const scenes = demoScenes(d, src), stages = feats.map(f => sceneStage(f.querySelector('.ld-pic')));
+    stages.forEach((st, i) => i && scenes[i](st, () => false));   // 還沒輪到的先畫好第一格（live 是 false：畫完底就停）
+    for (let i = 0; live(); i = (i + 1) % scenes.length) {
+      feats.forEach((f, j) => f.classList.toggle('on', j === i));
+      stages[i].clear();
+      await scenes[i](stages[i], live);
+      await wait(1500);
+    }
   }
   // 電腦的連結卡：平常是 App 的網址；點朋友的連結進來就是那條線（複製到手機打開直接收線）
   function pcLink() {
@@ -514,7 +658,8 @@
   };
   function hideLanding() {
     document.documentElement.classList.remove('welcome-boot');
-    clearInterval(pitchTimer);
+    ++shotRun;
+    stopCats($('ldShot').parentElement);
     if (PCLAND) return;   // 電腦只有介紹頁
     $('landing').hidden = true; document.body.classList.remove('ld-open');
     closeOverlay('landing');
