@@ -34,10 +34,9 @@
   const DEFAULT_GRADE = { v: 'V3', font: '6A+', dan: '3級' };
   const MAX_SIDE = 3072;   // 照片存的長邊：小岩點放大到最大也要看得清楚（偵測照樣送 2048）
 
-  // ---------- 語言：繁中、英、日、法、韓、西、德，預設跟手機語言，可在首頁切換 ----------
-  // 語言包的載入、切換、選擇記在 climbio.lang 都在 AppKit.i18n（js/boot.js 開頭就決定好語言）；lang 是目前的語言
+  // ---------- 語言：繁中、簡中、英、日、法、韓、西、德，只跟瀏覽器語言，沒有手動選擇 ----------
+  // 語言包的載入在 AppKit.i18n（js/boot.js 開頭就決定好語言）；lang 是目前的語言
   let lang = AppKit.i18n.lang;
-  const langSetting = AppKit.i18n.setting;
   // 沒有的 key 回傳 key 本身（看得出漏翻）
   const t = AppKit.i18n.t;
   self.climbioT = t;   // samrefine.js、appkit/share-tools.js、backend/ 的訊息也用語言包
@@ -45,9 +44,10 @@
   const can = (cap) => !!Backend.caps[cap];
   function applyLang() {
     AppKit.i18n.apply();
+    if (self.climbioRefreshText) self.climbioRefreshText();
     document.title = t('app') + (document.documentElement.classList.contains('env-dev') ? ' · ' + t('envDev') : '');
     // 隱私權政策、服務條款是中英同一頁：非中文直接跳到英文那段
-    for (const a of document.querySelectorAll('#hmFoot a[href*="privacy.html"], #hmFoot a[href*="terms.html"]')) a.href = a.getAttribute('href').replace(/#en$/, '') + (lang !== 'zh' ? '#en' : '');
+    for (const a of document.querySelectorAll('#hmFoot a[href*="privacy.html"], #hmFoot a[href*="terms.html"]')) a.href = a.getAttribute('href').replace(/#en$/, '') + (lang === 'zh' || lang === 'zh-CN' ? '' : '#en');
   }
 
   const state = {
@@ -208,12 +208,18 @@
   const putThumb = (wid, rid, sig, blob) => tx('thumbs', 'readwrite', s => s.put({ sig, blob }, [wid, rid]));
   const canvasBlob = (c) => new Promise(res => c.toBlob(res, 'image/jpeg', AppKit.photo.QUALITY.thumb));
   const putImage = async (id, blob) => { const packed = await AppKit.idb.packBlob(blob); return tx(['images', 'thumbs'], 'readwrite', (is, ts) => { is.put(packed, id); ts.delete(thumbRange(id)); }); };
-  const deleteWall = (id) => (window.HoldRefiner && HoldRefiner.forget(id), tx(STORES, 'readwrite', (ws, hs, rs, is, ts) => {
+  const deleteWallRows = (id) => (window.HoldRefiner && HoldRefiner.forget(id), tx(STORES, 'readwrite', (ws, hs, rs, is, ts) => {
     for (const s of [ws, hs, is]) s.delete(id);
     ts.delete(thumbRange(id));
     const c = rs.index('wall').openKeyCursor(IDBKeyRange.only(id));
     c.onsuccess = () => { const k = c.result; if (k) { rs.delete(k.primaryKey); k.continue(); } };
   }));
+  // 3D 牆：刪掉後沒有別的牆用同一包，就把它的檔案從模型快取清掉
+  async function deleteWall(id) {
+    const metas = await listMetas().catch(() => []), w = metas.find(x => x.id === id);
+    await deleteWallRows(id);
+    if (w && w.m3d && w.pid && !metas.some(x => x.id !== id && x.pid === w.pid)) await W3D.dropPack(w.pid).catch(() => {});
+  }
 
   // 路線合併用：編號要跨手機不重複；每條記修改時間 t；刪除留紀錄 w.deleted.routes（點和角色 → 刪除時間，合併時才知道要刪）；分享出去的那份留在伺服器上
   const uid = (p) => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -270,5 +276,6 @@
     clearTimeout(saveTimer);
     const w = state.wall;
     saveTimer = setTimeout(() => { putWall(w).catch(() => toast(t('saveFailed'))); writeBackXfer(w); }, 300);
+    if (self.climbioAutoShare && state.mode !== 'holds') self.climbioAutoShare(w.id);   // 公開牆上定好的線自動公開（js/sync.js）
     if (state.mode === 'holds') $('holdUndo').disabled = !undo.stack.length;   // 單點編輯的復原鈕跟著存檔更新
   }

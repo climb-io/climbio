@@ -9,16 +9,17 @@
 // 岩館字串：`岩館#標籤#標籤`，第一段是岩館名稱（對得上岩館清單），後面是分區、教練等標籤；最多 30 個字（路線的 gym 規則上限）。
 
 const { createHash } = require('node:crypto');
+const { verifyPublisher } = require('./publisher-key');
 const { verifyRequest, KID } = require('./device-key');
 const { clientIp } = require('./client-ip');
 const PID = /^[0-9a-z]{8,40}$/, PROJECT = /^[0-9a-z]{16}$/, PATH = /^[0-9a-z]{8,40}\.json$/;
 const RID = /^[0-9a-z]{1,40}$/;
-const MAX_PIDS = 50, MAX_PUT = 100, MAX_ROUTE_CHARS = 8000, MAX_WALL_ROUTES = 1000, MAX_WALL_CHARS = 800000, DAILY_PUTS = 600, DAILY_PUBLISH = 60, EXPIRE_MS = 90 * 864e5;   // 90 天沒有任何更新（發佈、改線）的公開牆自動從找牆面拿掉（資料集的檔案留著給研究）
+const MAX_PIDS = 50, MAX_PUT = 100, MAX_ROUTE_CHARS = 24000, MAX_WALL_ROUTES = 1000, MAX_WALL_CHARS = 800000, DAILY_PUTS = 600, DAILY_PUBLISH = 60, EXPIRE_MS = 90 * 864e5;   // 90 天沒有任何更新（發佈、改線）的公開牆自動從找牆面拿掉（資料集的檔案留著給研究）
 const fail = (status, error) => Object.assign(new Error(error), { status });
 const dayKey = ms => new Date(ms + 8 * 3600e3).toISOString().slice(0, 10);
 const validGym = g => typeof g === 'string' && g.length >= 1 && g.length <= 30 && !/[\u0000-\u001f]/.test(g) && g.split('#').every(x => x.trim() === x && x.length);
 
-function createHandler({ db, refreshGym, appChecked = async () => true, now = Date.now, verify = verifyRequest }) {   // verify：驗裝置金鑰簽章（測試可換）
+function createHandler({ db, refreshGym, appChecked = async () => true, isOwner = async () => false, now = Date.now, verify = verifyRequest, verifyOwner = verifyPublisher }) {   // verify：驗裝置金鑰簽章（測試可換）
   // 沒有帳號、沒有擁有者（公開＝人人可編輯、可發佈，docs/proposals/open-versions.md）：發佈、通報靠 App Check 與網路來源的每日上限；
   // 寫自己的線（put、withdraw）靠裝置金鑰簽章（要 App Check，deviceKeys/{kid}.blocked 的金鑰拒絕）。回 { uid }
   const keyOf = req => `ip${createHash('sha256').update(clientIp(req)).digest('hex').slice(0, 16)}`;
@@ -51,6 +52,7 @@ function createHandler({ db, refreshGym, appChecked = async () => true, now = Da
   const ops = {
     async publish(body, req) {
       if (!(await appChecked(req))) throw fail(401, 'app check');
+      if (body.source !== 'studio') throw fail(400, 'studio only');   // 找牆面的入口只登記 Studio 發佈的牆；岩點貓 App 不登記
       if (!PID.test(body.pid || '')) throw fail(400, 'bad pid');
       const name = String(body.name || '').trim();
       if (!name || name.length > 60) throw fail(400, 'bad name');
@@ -82,8 +84,10 @@ function createHandler({ db, refreshGym, appChecked = async () => true, now = Da
       for (const x of set) {
         let o = null;
         if (x && RID.test(x.id || '') && typeof x.r === 'string' && x.r.length <= MAX_ROUTE_CHARS) try { o = JSON.parse(x.r); } catch (e) { o = null; }
-        // 一條線存成圖層的片段 { nodes, marks }（App 的 fragmentOf；site-data、route-page、dataset-export 都這樣讀）：要有這條線自己的 route 節點
+        // 一條線存成圖層的片段 { nodes, marks }（3D 牆的線另帶 e；App 的 fragmentOf；site-data、route-page、dataset-export 都這樣讀）：要有這條線自己的 route 節點
         if (!o || !Array.isArray(o.nodes) || !Array.isArray(o.marks) || !o.nodes.some(n => n && n.id === x.id && n.type === 'route')) throw fail(400, 'bad route');
+        // 3D 牆的線多一個 e：這條線用到的岩點的修點（{ 岩點 id: { c, p } }，收的人套到模型上）；只收物件，內容由收的人的 App 檢查
+        if (o.e !== undefined && (!o.e || typeof o.e !== 'object' || Array.isArray(o.e) || Object.keys(o.e).length > 200)) throw fail(400, 'bad route');
         add.set(x.id, x.r);
       }
       const doc = await shared(body.pid).get();
@@ -109,6 +113,21 @@ function createHandler({ db, refreshGym, appChecked = async () => true, now = Da
       });
       if (out.changed) await refreshGym(body.pid);   // 條數變了才重算找牆面（只改線不用）
       return { ok: true, results };
+    },
+    // 手動下架：這面牆的擁有者（第一次發佈的發佈金鑰簽章，見 publisher-key.js）或維護者（X-Studio-Key）；跟過期一樣拿掉找牆面的入口和所有人的線，
+    // 開放資料集裡已經公開的檔案留著（授權已經給出去）。重新用 Studio 發佈同一個牆 id 就回來。可重複呼叫
+    async unpublish(body, req) {
+      if (!PID.test(body.pid || '')) throw fail(400, 'bad pid');
+      const maintainer = await isOwner(req);
+      const kid = maintainer ? '' : (body.auth ? verifyOwner('unpublish', body.pid, body.auth, '', now()) : (() => { throw fail(401, 'owner only'); })());
+      const doc = await shared(body.pid).get();
+      if (!doc.exists || !doc.get('src')) return { removed: false };
+      if (!maintainer) {
+        const ds = await db.collection('datasets').doc(doc.get('src').project).get(), ownerKid = ds.exists ? ds.get('ownerKid') : '';
+        if (!ownerKid || ownerKid !== kid) throw fail(403, 'not owner');   // 沒有擁有者的舊牆只有維護者能下架
+      }
+      await retire(body.pid, doc);
+      return { removed: true };
     },
     // 這面牆所有人的線（不用登入；帶自己的裝置金鑰才標 mine）：{ published, src: { project, path }, ver, routes: [{ rid, mine, r, t }] }，新的在前；
     // 給 pids（最多 50 面）就一次回 { walls: { 牆 id: 同上 } }。published 是 false＝這面牆沒有公開（擁有者收回、過期、包不見了）

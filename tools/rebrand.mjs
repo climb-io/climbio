@@ -6,7 +6,12 @@ const [name, url] = process.argv.slice(2);
 if (!name || /['"`\\<>]/.test(name)) throw new Error('用法：node tools/rebrand.mjs <新名稱> [網址]（名稱不能有引號、反斜線、角括號）');
 if (url && !/^https:\/\/\S+$/.test(url)) throw new Error('網址要是 https:// 開頭');
 const root = new URL('..', import.meta.url);
-const FILES = ['index.html', 'hold/index.html', 'hold/manifest.webmanifest', 'hold/manifest-dev.webmanifest', 'redpoint/index.html', 'studio/index.html', ...readdirSync(new URL('i18n/', root), { recursive: true }).filter(f => f.endsWith('.js')).sort().map(f => `i18n/${f}`)];   // 所有語言包（i18n/<app>/<語言>.js）
+const FILES = [
+  'index.html', 'en/index.html', 'zh-cn/index.html', 'ja/index.html', 'ko/index.html', 'fr/index.html', 'es/index.html', 'de/index.html',
+  'hold/index.html', 'hold/manifest.webmanifest', 'hold/manifest-dev.webmanifest', 'redpoint/index.html',
+  'studio/index.html', 'studio/manifest.webmanifest', 'studio/scene/index.html',
+  ...readdirSync(new URL('i18n/', root), { recursive: true }).filter(f => f.endsWith('.js')).sort().map(f => `i18n/${f}`),
+];   // 所有語言包（i18n/<app>/<語言>.js）
 const NAME = /\bClimbio\b(?! (Display|Dan)\b)/g;   // 字型 Climbio Display、Climbio Dan 是 CSS 裡的名稱，不是產品名
 let total = 0;
 for (const f of FILES) {

@@ -223,13 +223,70 @@
     if (tint) { at(); cover(img); id(); }
     return { c, x, y };
   }
-  // 路線圖的底：共用的底（灰階或暗彩）＋路線岩點的原色圖層。scene：RouteScene（plain、routeLayer 都記在 scene 上）；
-  // mode：'gray' 灰階、'dim' 暗彩；tint 見 routeLayer
-  function drawRouteBase(c, scene, routeHolds, { mode = 'gray', tint = true } = {}) {
+  // 路線岩點外圍一圈角色色的光暈（跟 3D 牆一樣：底變暗、路線岩點原色、外圍角色色的光暈）。roles：{ 岩點 id: 角色 }；colors：角色色；
+  // dpr：畫布的裝置像素比。模糊寬度用螢幕像素（放大縮小一樣寬），兩層：外圈淡而柔（標準差約 3.5 點，節制、不散開）、內圈窄而亮；岩點是重點，光暈只是外圍一小圈。
+  // 畫在共用的底上、路線岩點的原色圖層之前：岩點裡面之後被原色蓋住，只留外圈
+  // 光暈做在縮小的畫布上（先畫角色色的岩點，再模糊），然後放大蓋到畫面上：縮放、平移每一格都要重畫，
+  // 直接在大畫布上用 shadowBlur 一格要 20 多毫秒，這樣只要幾毫秒。一層窄的淡（縮成二分之一），外框的細線由畫的人另外描（strokeRouteHold）。
+  // 畫布沒有 filter（iPhone）就退回 shadowBlur
+  const GLOW_PASSES = [{ sigma: 7, alpha: 1, small: 2 }, { sigma: 2.4, alpha: 1, small: 2 }];   // 一層寬的、一層貼著岩點的亮邊   // sigma：標準差（螢幕點）
+  const GLOW_GROW = 6;   // 光暈來源的岩點外擴的寬度（螢幕點，內外各一半）
+  const glowCanvases = [];
+  const glowCanvas = (i, w, h) => {
+    const c = glowCanvases[i] || (glowCanvases[i] = document.createElement('canvas'));
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    return c;
+  };
+  function drawGlow(c, routeHolds, roles, colors, dpr = 1) {
+    const W = c.canvas.width, H = c.canvas.height, T = c.getTransform();
+    if (!('filter' in c)) { drawGlowShadow(c, routeHolds, roles, colors, dpr); return; }
+    c.save(); c.setTransform(1, 0, 0, 1, 0, 0);
+    GLOW_PASSES.forEach(({ sigma, alpha, small: k }, i) => {
+      const w = Math.max(1, Math.ceil(W / k)), h = Math.max(1, Math.ceil(H / k)), src = glowCanvas(i * 2, w, h), dst = glowCanvas(i * 2 + 1, w, h);
+      const sc = src.getContext('2d'), dc = dst.getContext('2d');
+      sc.setTransform(1, 0, 0, 1, 0, 0); sc.clearRect(0, 0, w, h);
+      sc.setTransform(T.a / k, T.b / k, T.c / k, T.d / k, T.e / k, T.f / k);
+      for (const hold of routeHolds) {
+        const col = colors[roles[hold.id]];
+        if (!col) continue;
+        sc.fillStyle = sc.strokeStyle = col; sc.lineJoin = 'round'; sc.lineWidth = GLOW_GROW * dpr / (T.a || 1); sc.beginPath(); tracePoly(sc, hold.poly); sc.fill(); sc.stroke();   // 外擴一圈再模糊：外圈才夠亮
+      }
+      dc.setTransform(1, 0, 0, 1, 0, 0); dc.clearRect(0, 0, w, h);
+      dc.filter = `blur(${sigma * dpr / k}px)`; dc.drawImage(src, 0, 0); dc.filter = 'none';
+      c.globalAlpha = alpha; c.drawImage(dst, 0, 0, W, H);
+    });
+    c.restore();
+  }
+  function drawGlowShadow(c, routeHolds, roles, colors, dpr) {
+    c.save();
+    for (const [blur, alpha] of [[9, 0.8], [3, 0.9]]) {
+      c.shadowBlur = blur * dpr; c.globalAlpha = alpha;
+      for (const h of routeHolds) {
+        const col = colors[roles[h.id]];
+        if (!col) continue;
+        c.shadowColor = col; c.fillStyle = col;
+        c.beginPath(); tracePoly(c, h.poly); c.fill();
+      }
+    }
+    c.restore();
+  }
+  // 路線圖的底：共用的底（灰階或暗彩）＋（選用）光暈＋路線岩點的原色圖層。scene：RouteScene（plain、routeLayer 都記在 scene 上）；
+  // mode：'gray' 灰階、'dim' 暗彩；tint 見 routeLayer；glow：{ roles, colors, dpr? }，沒給就沒有光暈
+  function drawRouteBase(c, scene, routeHolds, { mode = 'gray', tint = true, glow } = {}) {
     c.drawImage(scene.plain(mode), 0, 0);
+    if (glow) drawGlow(c, routeHolds, glow.roles, glow.colors, glow.dpr);
     const L = scene.routeLayer(routeHolds, { tint });
     if (L) c.drawImage(L.c, L.x, L.y);
   }
 
-  return { liftTint, tintCard, grayOf, plainGrayOf, mutedOf, routeLayers, routeMask, routeLayer, drawRouteBase };
+  // 畫在線條層（螢幕解析度、照片座標的轉換）上的光暈：順序跟 drawRouteBase 一樣——光暈在下、路線岩點的原色圖層（layer，沒給就不蓋）蓋在上面，
+  // 岩點不挖洞、邊緣照原色圖層的柔邊，看起來自然。
+  // 寬度照螢幕點算，放大縮小一樣寬（底圖是照片大小的畫布、用 CSS 縮放時，光暈要畫在這一層才不會跟著照片變粗變細）
+  function glowAround(c, routeHolds, roles, colors, dpr = 1, layer = null) {
+    if (!routeHolds.length) return;
+    drawGlow(c, routeHolds, roles, colors, dpr);
+    if (layer) c.drawImage(layer.c, layer.x, layer.y);
+  }
+
+  return { liftTint, tintCard, grayOf, plainGrayOf, mutedOf, routeLayers, routeMask, routeLayer, drawRouteBase, glowAround };
 });

@@ -17,7 +17,7 @@ function setup(wall, docs = [], layers = {}, open = null) {
   const reads = [], moved = [], unpub = [], pushed = [], layerReads = [], deleted = [], alerts = [], asks = [], patched = [], answer = { remove: true };
   const ctx = vm.createContext({
     deviceId: () => 'phone', signName: () => 'Kant', hash53: (s) => s, wallSig: (w) => JSON.stringify(w.routes), OLD_DEVICES_KEY: 'devices', lsGet: (k, d) => d, Date, Map, Set, JSON,
-    routeReady: () => true, can: () => true, navigator: { onLine: true },
+    routeReady: () => true, can: () => true, autoShare: () => {}, navigator: { onLine: true },
     state: { wall: open }, $: () => ({ hidden: true }), deleteWall: async (id) => { deleted.push(id); }, showAlert: (msg) => { alerts.push(msg); }, askConfirm: async (msg, o) => { asks.push(msg); return answer.remove; }, patchWall: async (wid, fn) => { const x = { id: wid }; fn(x); patched.push(x); }, repaint: () => {}, t: (k, ...a) => `${k}:${a.join(',')}`, setTimeout, clearTimeout, showHome: () => {}, renderOverview: () => {}, renderShareCount: () => {}, console,
     liveWall: async () => wall, listWalls: async () => [wall], putWall: async () => {},
     pushWall: async (wid, rids) => { pushed.push(...rids); }, shareBody: () => ({}), sharedIn: () => [], wallMode: () => 'public',
@@ -38,7 +38,7 @@ test('伺服器上的為準：作者改了就換、刪了就拿掉；還沒傳�
   const fresh = { id: id(T3), t: 3, author: '路人', u: 'x', holds: { g: 's', h: 't' } };
   const s = setup(w);
   const m = s.mergePulled(w, [doc(friend), doc(fresh)]);
-  assert.deepEqual(plain(m.routes.map(r => [r.id, r.name || ''])), [[friend.id, '新版'], [fresh.id, ''], [id(T2), '']]);
+  assert.deepEqual(plain(m.routes.map(r => [r.id, r.name || ''])), [[fresh.id, ''], [friend.id, '新版'], [id(T2), '']]);   // 伺服器上的照路線時間由舊到新，還沒傳上去的接在後面
   assert.deepEqual(plain(m.fresh), [fresh.id]);
   assert.equal(m.routes[0].own, 0);
   assert.equal(m.routes[0].pub, s.pubSig(m.routes[0]));
@@ -51,7 +51,7 @@ test('自己改了還沒傳上去的留著；自己刪了、伺服器上還在�
     deleted: { routes: { [gone.id]: 5, [hid.id]: 5, [back.id]: 5 } } };
   const s = setup(w);
   const m = s.mergePulled(w, [doc({ ...mine, t: 3, name: '伺服器' }, { mine: true }), doc(gone, { mine: true }), doc(hid), doc(back)]);
-  assert.deepEqual(plain(m.routes.map(r => [r.id, r.name || ''])), [[mine.id, '改過'], [back.id, '']]);
+  assert.deepEqual(plain(m.routes.map(r => [r.id, r.name || ''])), [[back.id, ''], [mine.id, '改過']]);   // 路線時間由舊到新
   assert.deepEqual(plain(m.gone), [gone.id]);
   assert.deepEqual(plain(m.hidden.map(r => r.id)), [hid.id]);
 });
@@ -122,8 +122,8 @@ test('收過的分享包圖層（w.subs）：私人的牆也回頭檢查；作�
   await s.readPublic(undefined, { force: true });
   assert.deepEqual(plain(s.reads), ['privatewall1']);   // 收過分享的牆也問索引（有人公開就變成公開牆）；這裡沒有人公開
   assert.deepEqual(plain(s.layerReads), [URL1]);
-  assert.deepEqual(plain(w.routes.map(r => [r.id, r.name || ''])), [[a.id, '新'], [c.id, '']]);
-  assert.deepEqual(plain(w.routes[1].shapes.e.poly), [[0, 0], [1, 0], [1, 1]]);   // 外框用這面牆的原始岩點檔補
+  assert.deepEqual(plain(w.routes.map(r => [r.id, r.name || ''])), [[c.id, ''], [a.id, '新']]);   // 路線時間由舊到新
+  assert.deepEqual(plain(w.routes[0].shapes.e.poly), [[0, 0], [1, 0], [1, 1]]);   // 外框用這面牆的原始岩點檔補
   assert.deepEqual(plain(w.subs[URL1].ids), [a.id, c.id]);
   const gone = setup(w, [], {});
   await gone.readPublic(undefined, { force: true });

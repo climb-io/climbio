@@ -15,7 +15,7 @@ function check(name, code) {
   catch (e) { failed++; console.error(`FAIL ${name}\n${e.stack.split('\n').slice(0, 5).join('\n')}`); }
 }
 // 頁面不能有內嵌的程式（<script> 沒有 src 的、onclick 這類屬性）：內容安全政策（CSP）不執行，岩點貓開頁要做的放 js/boot.js
-for (const page of ['index.html', '404.html', 'hold/index.html', 'studio/index.html', 'studio/wall/index.html', 'studio/crag/index.html', 'about.html', 'privacy.html', 'terms.html', '3d/index.html', 'en/index.html', ...readdirSync('guides').filter(f => f.endsWith('.html')).map(f => 'guides/' + f), ...readdirSync('en/guides').map(f => 'en/guides/' + f)]) {
+for (const page of ['index.html', '404.html', 'hold/index.html', 'studio/index.html', 'studio/wall/index.html', 'studio/crag/index.html', 'about.html', 'privacy.html', 'terms.html', '3d/index.html', 'lab/wall2d-cam/index.html', 'en/index.html', ...readdirSync('guides').filter(f => f.endsWith('.html')).map(f => 'guides/' + f), ...readdirSync('en/guides').map(f => 'en/guides/' + f)]) {
   const html = readFileSync(page, 'utf8');
   for (const m of html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>|\son[a-z]+=["']/g)) {
     failed++; console.error(`FAIL ${page} 第 ${html.slice(0, m.index).split('\n').length} 行有內嵌的程式`);
@@ -26,7 +26,7 @@ for (const page of ['index.html', '404.html', 'hold/index.html', 'studio/index.h
 const fromHold = (u) => posix.normalize(`hold/${u}`);   // hold/ 裡寫的相對網址 → repo 裡的路徑
 const PAGE_JS = [...readFileSync('hold/index.html', 'utf8').matchAll(/<script (?:defer )?src="([^"]+)"/g)].map(m => fromHold(m[1]));
 const WORKER_JS = ['holdscan/browser/holdscan.js', 'holdscan/browser/worker.js', 'holdscan/core/detect-core.js', 'holdkit/ort.js', 'holdkit/samworker.js'];
-for (const f of [...PAGE_JS, ...WORKER_JS, '3d/boot.js', '3d/app.js', 'sw.js', 'appkit/sw.js', 'hold/sw.js', 'studio/sw.js', 'studio/shell.js', 'studio/i18n-boot.js', ...['functions/index.js'].filter(existsSync)]) check(f, readFileSync(f, 'utf8'));
+for (const f of [...PAGE_JS, ...WORKER_JS, '3d/boot.js', '3d/app.js', 'lab/crag/worker.js', 'lab/wall2d-cam/boot.js', 'lab/wall2d-cam/geometry.js', 'lab/wall2d-cam/wall2d-worker.js', 'sw.js', 'appkit/sw.js', 'hold/sw.js', 'studio/sw.js', 'studio/shell.js', 'studio/i18n-boot.js', ...['functions/index.js'].filter(existsSync)]) check(f, readFileSync(f, 'utf8'));
 // 跨檔重複宣告：頂層的 let／const／class 同名，後載入的那個檔整個不會執行。照載入順序接成一份只編譯，報出是哪兩個檔
 {
   const parts = PAGE_JS.map(f => ({ f, code: readFileSync(f, 'utf8') + '\n;\n' }));
@@ -46,7 +46,7 @@ for (const f of [...PAGE_JS, ...WORKER_JS, '3d/boot.js', '3d/app.js', 'sw.js', '
   if (missing.length) soft(`hold/sw.js 的 SHELL 少了：${missing.join('、')}`); else console.log('ok   hold/sw.js 的 SHELL 有頁面和 Worker 的每個程式');
 }
 // 語言包（i18n/<app>/<語言>.js，共用名詞在 i18n/common/）：同一個 App 各語言的 key 要一樣，函式的參數個數也要一樣；少了就不部署
-const LANG_PACKS = ['zh', 'en', 'ja', 'fr', 'ko', 'es', 'de'];
+const LANG_PACKS = ['zh', 'zh-CN', 'en', 'ja', 'fr', 'ko', 'es', 'de'];
 const loadPack = (f) => {
   const code = readFileSync(f, 'utf8');
   check(f, code);
@@ -77,14 +77,16 @@ for (const app of Object.keys(packs).filter(a => a !== 'common' && packs[a].zh &
 }
 // App 的程式和 HTML 用到的 key（t('…')、T('…')、data-i18n*="…"）都要在語言包裡（App 的或共用名詞）；岩點貓看 hold/index.html 載入的程式，紅點貓看它自己的幾個檔
 // holdkit/samrefine.js 的訊息也用語言包（HoldRefiner.configure 的 t）
-const PACK_SOURCES = { hold: ['hold/index.html', ...PAGE_JS], redpoint: ['redpoint/index.html', ...['app.js', 'io.js', 'openclimbing.js', 'auto-merge.mjs'].map(f => `redpoint/${f}`)],
+const PACK_SOURCES = { hold: ['hold/index.html', ...PAGE_JS.filter(f => !/(^|\/)routekit\/ui\.js$/.test(f))],   // kit 的操作介面（routekit/ui.js）有自己內建的文字，不是岩點貓的語言包
+  redpoint: ['redpoint/index.html', ...['app.js', 'io.js', 'openclimbing.js', 'auto-merge.mjs'].map(f => `redpoint/${f}`)],
   // Studio：共用包加各工作區的包（頁面用 studio/i18n-boot.js 載入）；Crag 分成「介面」與「資料」兩個包
-  studio: ['studio/index.html', ...['home', 'shell', 'backend', 'album', 'classify', 'store', 'publisher', 'service'].map(f => `studio/${f}.js`), ...['group-map', 'lightbox', 'workspaces'].map(f => `studio/intake/${f}.js`)],
+  studio: ['studio/index.html', ...['home', 'shell', 'backend', 'album', 'classify', 'store', 'publisher', 'service', 'devices'].map(f => `studio/${f}.js`), 'studio/intake/workspaces.js'],
   'studio-crag': ['studio/crag/index.html', ...['app', 'table', 'grid', 'topo', 'site', 'map', 'geo', 'dom', 'intake', 'match', 'match-worker', 'pair', 'trace'].map(f => `studio/crag/${f}.js`)],
   'studio-crag-data': ['model', 'outline', 'docread', 'ai-prompt', 'publish', 'store'].map(f => `studio/crag/${f}.js`),
-  'studio-wall': ['studio/wall/index.html', ...['app', 'editor', 'geometry', 'sam', 'store'].map(f => `studio/wall/${f}.js`)],
+  'studio-wall': ['studio/wall/index.html', ...['app', 'editor', 'geometry', 'sam', 'store', 'report-view'].map(f => `studio/wall/${f}.js`)],
   'studio-wall3d': ['studio/wall3d/index.html', 'studio/wall3d/app.js'],
-  'studio-convert': ['studio/convert/index.html', 'studio/convert/convert.js'],
+  'studio-scene': ['studio/scene/index.html', 'studio/scene/scene.js'],
+  'studio-convert': ['guides/convert/index.html', 'guides/convert/convert.js'],
 };
 for (const [app, sources] of Object.entries(PACK_SOURCES)) {
   if (!packs[app]?.zh || !packs.common.zh) continue;
@@ -94,7 +96,8 @@ for (const [app, sources] of Object.entries(PACK_SOURCES)) {
     for (const m of src.matchAll(/\b[tT]\('([A-Za-z0-9_]+)'\s*[,)]/g)) used.add(m[1]);
     for (const m of src.matchAll(/data-i18n(?:-aria|-title|-ph|-html|-content)?="([A-Za-z0-9_]+)"/g)) used.add(m[1]);
   }
-  const missing = [...used].filter(k => !(k in packs[app].zh) && !(k in packs.common.zh));
+  const shared = app.startsWith('studio-') && packs.studio?.zh ? packs.studio.zh : {};
+  const missing = [...used].filter(k => !(k in packs[app].zh) && !(k in packs.common.zh) && !(k in shared));
   if (missing.length) { failed++; console.error(`FAIL ${app} 的語言包裡沒有這些 key：${missing.join('、')}`); }
   else console.log(`ok   ${app} 程式用到的 ${used.size} 個 key 都在語言包裡`);
 }

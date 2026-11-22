@@ -17,5 +17,5 @@ test('Studio 介面沒有 emoji 與裝飾符號', () => {
 test('首頁匯入：home.js 不判斷是哪個工作區，工作區的設定在各自資料夾的 intake.js', () => {
   const home = read('studio/home.js');
   assert.doesNotMatch(home, /ws === 'crag'/, 'home.js 走 intake/workspaces.js 的介面');
-  for (const ws of ['crag']) assert.match(read(`studio/${ws}/intake.js`), new RegExp(`id: '${ws}'`));
+  for (const [ws, dir] of [['crag', 'crag'], ['gym', 'wall']]) assert.match(read(`studio/${dir}/intake.js`), new RegExp(`id: '${ws}'`));
 });

@@ -23,7 +23,7 @@ English: [README.en.md](README.en.md)
 |---|---|
 | `index.js` | 入口：讀取、遮擋表、名稱難度、樣式直接匯出；`mountCrag3d` 在呼叫時才載入播放器（three.js、Spark 約 3 MB） |
 | `player.js` | 播放器 `mountCrag3d`：鏡頭、手勢、路線與編號牌、遮擋、載入與淡入 |
-| `read.js` | `readCrag3d`、`sharedModelId`：從 v2 的檔案找出模型、路線、各面岩壁與鏡頭、全區快照 |
+| `read.js` | `readCrag3d`、`sharedModelId`、`cragModelIds`：從 v2 的檔案找出模型（單一或分段）、路線、各面岩壁與鏡頭、全區快照 |
 | `sight.js` | 遮擋表：`readSight`（解碼）、`routeVisibility`（每個點從某個位置看得到嗎） |
 | `text.js` | `pickName`、`pickGrade`（名稱、難度的取法，跟 TopoKit 同一套規則） |
 | `style.js` | 樣式字串 `CSS`、`injectStyle` |
@@ -38,10 +38,10 @@ English: [README.en.md](README.en.md)
 
 | 名稱 | 說明 |
 |---|---|
-| `mountCrag3d(host, options)` | 在 `host` 裡畫一個 3D 岩場；開場快照（`poster`）鋪好就回傳播放器，模型在背景載入。選項：`url`（模型網址或 Promise）、`mime`、`background`（網格時的潑濺背景）、`marks`、`sight`、`nodes`、`areas`（照岩壁順序）、`start`、`intro`（第一次進來：全區快照的鏡頭）、`poster`、`sky`、`onPick(路線 id \| null)`、`onArea(第幾面)` |
+| `mountCrag3d(host, options)` | 在 `host` 裡畫一個 3D 岩場；開場快照（`poster`）鋪好就回傳播放器，模型在背景載入。選項：`url`（模型網址或 Promise）、`mime`、`background`（網格時的潑濺背景）、`segments`（分段多模型陣列，先載所在區段、其餘背景預載）、`marks`、`sight`、`nodes`、`areas`（照岩壁順序）、`start`、`intro`（第一次進來：全區快照的鏡頭）、`poster`、`sky`、`mode`（`free`（預設）、`fixed` 是每區畫成 2D 圖）、`onPick(路線 id \| null)`、`onArea(第幾面)` |
 | 播放器 | `highlight(id)` 亮起路線、`go(i)` 走到第 i 面、`route(id)` 走到路線前面再 `onPick`、`walk(n)` 沿岩壁往前或往後、`area()`、`posterRect()`、`destroy()` |
-| `readCrag3d(docs, modelId, { lang })` | 從這個岩場所有的 v2 檔案找出 `{ model, layers, marks, sight, nodes, owners, areas, overview }`；找不到模型畫面回 `null` |
-| `sharedModelId(views)` | Topo 都是同一個模型的快照時回那個模型的 id，否則 `null` |
+| `readCrag3d(docs, modelId, { lang })` | 從這個岩場所有的 v2 檔案找出 `{ model, models, segments, layers, marks, sight, nodes, owners, areas, overview }`（`modelId` 可為單一 id 或 id 陣列）；找不到模型畫面回 `null` |
+| `sharedModelId(views)` / `cragModelIds(views)` | 前者檢查是否全部 Topo 共用同一模型 id；後者於全部 Topo 都有模型時依序回傳去重後的模型 id 陣列（支援分段多模型） |
 | `readSight(b64)`、`routeVisibility({ table, spec, pts, from, fill, out })` | 解遮擋表；路線的每個點從 `from` 看得到嗎（回傳 `{ vis, seen }`） |
 | `pickName(name, lang)`、`pickGrade(grade, systems)` | 名稱、難度的取法 |
 | `CSS`、`injectStyle(host)` | 樣式；路線顏色用 CSS 變數 `--c3d-sport`、`--c3d-sport-on`、`--c3d-other`、`--c3d-other-on` 覆蓋 |
@@ -53,7 +53,7 @@ English: [README.en.md](README.en.md)
 - 模型畫面 `surface: model`，`href` 指到 `.spz`（`mime: model/x-spz`）或 `.glb`（`mime: model/gltf-binary`）；單一檔案 25 MB 以下（Climbio 開放資料集的限制）。
 - 路線是模型圖層裡的 `LineString`，座標是模型座標；遮擋表的點數必須等於座標的點數，圖層的 `props.sight` 是規格。沒有遮擋表就不做遮擋。
 - 每面岩壁一張快照（`props.model` 記模型 id 和鏡頭），照岩壁節點的 `props.order` 排；岩場（或分區）節點上可有一張全區快照，有就多一段「從全區飛進第一面」的開場。
-- 一個岩場一個模型：有路線的 Topo 都是同一個模型的快照，才用 3D 看（`sharedModelId`）。
+- 同岩場可共用單一模型，或依岩壁順序拆成數個重疊的分段模型（`cragModelIds`）：先載入目前區段並於背景預載鄰段，於重疊邊界無縫切換。
 
 ## 6. 最小範例
 

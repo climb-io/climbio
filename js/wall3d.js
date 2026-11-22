@@ -23,10 +23,19 @@ const W3D = (() => {
   const b64url = (bytes) => { let s = ''; for (let i = 0; i < bytes.length; i += 8192) s += String.fromCharCode(...bytes.subarray(i, i + 8192)); return btoa(s).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, ''); };
   const unb64url = (s) => Uint8Array.from(atob(s.replaceAll('-', '+').replaceAll('_', '/')), c => c.charCodeAt(0));
   const pipe = async (bytes, stream) => new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
-  // 路線連結：名稱、難度、岩點與角色、手順，加上路線用到的岩點的修點（deflate-raw＋base64url）
+  // 這條線用到的岩點的修點
+  const editsOf = (w, r) => Object.fromEntries(w.holds.filter(h => h.m3 && r.holds[h.id]).map(h => [h.id, h.m3]));
+  // 傳到 Climbio 的一條線：跟 2D 公開牆的線同一種圖層片段（岩點編號、角色、手順都在路線節點裡），3D 牆另帶修點 e
+  function fragment(w, r) {
+    const e = editsOf(w, r), l = RouteKit.routesLayer({ id: w.pid, pid: w.pid, href: 'index.json', w: w.w, h: w.h, holds: [], routes: [r] });
+    return { nodes: l.nodes, marks: l.marks, ...(Object.keys(e).length ? { e } : {}) };
+  }
+  // 傳上去之後的短連結：跟 2D 公開牆的線同一種 /r/牆 id/路線 id/（預覽頁，打開後進 3D 牆）
+  const shortLink = (w, r) => `${location.origin}/r/${w.pid}/${encodeURIComponent(r.id)}/`;
+  // 路線連結：名稱、難度、岩點與角色、手順，加上路線用到的岩點的修點（deflate-raw＋base64url）。沒傳到伺服器（沒網路、不能分享）時用這個
   async function link(w, r) {
-    const e = Object.fromEntries(w.holds.filter(h => h.m3 && r.holds[h.id]).map(h => [h.id, h.m3]));
-    const doc = { n: r.name || '', g: r.grade || '', h: r.holds, ...(r.seq ? { q: r.seq } : {}), ...(Object.keys(e).length ? { e } : {}) };
+    const e = editsOf(w, r);
+    const doc = { n: r.name || '', g: r.grade || '', h: r.holds, ...(r.seq ? { q: r.seq } : {}), ...(r.feetFree ? { f: 1 } : {}), ...(Object.keys(e).length ? { e } : {}) };
     const packed = b64url(await pipe(new TextEncoder().encode(JSON.stringify(doc)), new CompressionStream('deflate-raw')));
     return `${location.origin}${location.pathname}?m3d=${w.pid}&r=${packed}`;
   }
@@ -37,6 +46,14 @@ const W3D = (() => {
   async function unpack(text, w) {
     return fromDoc(JSON.parse(new TextDecoder().decode(await pipe(unb64url(text), new DecompressionStream('deflate-raw')))), w);
   }
+  // 短連結的線：從 Climbio 讀那條線的片段（路線節點＋修點 e），轉成連結裡一樣的內容再檢查、收下
+  async function fetchRoute(pid, rid, w) {
+    const f = await Backend.routeFragment(pid, rid), n = f && Array.isArray(f.nodes) ? f.nodes.find(x => x && x.id === rid && x.type === 'route') : null;
+    if (!n) throw new Error('no route');
+    const p = n.props || {};
+    const g = p.grade && typeof p.grade === 'object' ? p.grade.v || p.grade.dan || p.grade.font || '' : '';   // 難度在節點裡是 { v: 'V3' }／{ dan }／{ font }
+    return fromDoc({ n: n.name || '', g, h: p.holds, ...(p.seq ? { q: p.seq } : {}), ...(p['climbio:feetFree'] ? { f: 1 } : {}), ...(f.e ? { e: f.e } : {}) }, w);
+  }
   async function fromDoc(d, w) {
     if (!d || typeof d.h !== 'object' || Array.isArray(d.h)) throw new Error('bad route');
     const e = d.e && typeof d.e === 'object' && !Array.isArray(d.e) ? Object.entries(d.e).filter(([id, m]) => HOLD_ID.test(id) && validM3(m)) : [];
@@ -44,7 +61,7 @@ const W3D = (() => {
     const ids = new Set(w.holds.map(h => h.id)), roles = new Set(['s', 'h', 'f', 't']);
     if (!Object.entries(d.h).every(([id, k]) => ids.has(id) && roles.has(k))) throw new Error('bad route');
     const seq = Array.isArray(d.q) && d.q.every(id => ids.has(id)) ? d.q : null;
-    return { name: String(d.n || '').slice(0, 80), grade: String(d.g || '').slice(0, 24), holds: d.h, ...(seq ? { seq } : {}) };
+    return { name: String(d.n || '').slice(0, 80), grade: String(d.g || '').slice(0, 24), holds: d.h, ...(seq ? { seq } : {}), ...(d.f === 1 ? { feetFree: true } : {}) };
   }
   // 收下修點：套到模型上，算出正面的外框存進這面牆
   async function adopt(w, e) {
@@ -61,7 +78,8 @@ const W3D = (() => {
   }
   const linkOf = (href) => {
     const u = new URL(href), pid = u.searchParams.get('m3d');
-    return PID.test(pid || '') ? { pid, r: u.searchParams.get('r') || '' } : null;
+    const rid = u.searchParams.get('rid') || '';
+    return PID.test(pid || '') ? { pid, r: u.searchParams.get('r') || '', rid: HOLD_ID.test(rid) ? rid : '' } : null;
   };
   // 牆面卡片、首頁的縮圖：快照裁到岩點的範圍（四周留一點邊），不要整張快照（牆外、天花板、地板的灰色佔掉大半）
   // 卡片那一塊（快照的像素）：Studio 烘焙開場影片的第一格也照這個框（wall3dkit/bakepack.js 的 bakeIntro）
@@ -117,13 +135,13 @@ const W3D = (() => {
   function packRoutes(w) {
     const routes = w.routes.filter(r => r.holds && Object.values(r.holds).includes('s') && Object.values(r.holds).includes('t')).map(r => {
       const e = Object.fromEntries(w.holds.filter(h => h.m3 && r.holds[h.id]).map(h => [h.id, h.m3]));
-      return { id: r.id, t: r.t || 0, n: r.name || '', g: r.grade || '', h: r.holds, ...(r.seq ? { q: r.seq } : {}), ...(Object.keys(e).length ? { e } : {}), ...(r.own ? { own: 1 } : {}), ...(r.sent ? { s: 1 } : {}) };
+      return { id: r.id, t: r.t || 0, n: r.name || '', g: r.grade || '', h: r.holds, ...(r.seq ? { q: r.seq } : {}), ...(r.feetFree ? { f: 1 } : {}), ...(Object.keys(e).length ? { e } : {}), ...(r.own ? { own: 1 } : {}), ...(r.sent ? { s: 1 } : {}) };
     });
     return { m3d: w.pid, name: w.name || '', routes };
   }
   async function takeRoutes(doc) {
     if (!doc || !PID.test(doc.m3d || '') || !Array.isArray(doc.routes)) throw new Error('bad m3d');
-    let w = await getWall(doc.m3d);
+    let w = await wallOf(doc.m3d);
     if (!w) w = await create(doc.m3d);
     let changed = false;
     let counted = false;
@@ -132,7 +150,7 @@ const W3D = (() => {
       const old = w.routes.find(r => r.id === d.id), dt = Number.isFinite(d.t) && d.t ? d.t : 0;
       try {
         if (!old) { const x = await fromDoc(d, w); w.routes.push(touch({ id: d.id, ...x, own: d.own ? 1 : 0, ...(dt ? { t: dt } : {}) })); changed = true; }
-        else if (dt > (old.t || 0)) { const x = await fromDoc(d, w); delete old.seq; Object.assign(old, x, { t: dt }); changed = true; }   // 對方改過這條線（名稱、難度、岩點、順序）：用比較新的
+        else if (dt > (old.t || 0)) { const x = await fromDoc(d, w); delete old.seq; delete old.feetFree; Object.assign(old, x, { t: dt }); changed = true; }   // 對方改過這條線（名稱、難度、岩點、順序）：用比較新的
       } catch (e) { console.warn('3D 路線略過', e); continue; }
       const mine = w.routes.find(r => r.id === d.id);
       if (d.s && mine && !isSent(mine)) { mine.sent = 1; const g = mine.grade || '?'; stats[g] = (stats[g] || 0) + 1; changed = counted = true; }   // 完攀只增不減（跟 applyRecords 一樣）
@@ -142,22 +160,56 @@ const W3D = (() => {
     return w;
   }
   // 收到 3D 牆的連結：沒有這面牆就下載，帶了路線就加進來（同樣的點和角色已經有就打開那條）
+  // 這台的哪一面牆：牆 id、目前的版本編號，或跟過的舊版本編號（w.was）都算同一面
+  async function wallOf(pid) {
+    const m = (await listMetas().catch(() => [])).find(x => x.id === pid || x.pid === pid || (x.was || []).includes(pid));
+    return m ? getWall(m.id) : null;
+  }
+  // 自動跟新版（跟 2D 公開牆一樣：打開牆、回到前景時問，同一面牆至少隔 5 分鐘）：每次 Studio 發佈都是新的版本編號，
+  // 這面牆的岩館清單（找牆面同一份）裡同一面牆的最新版，沿著 patch.json 的 parent 往回找得到這台的版本，就是它的新版。
+  // 換成新版：版本編號換掉、舊的記在 was，資料包換了照 current 重做快照與外框，路線、修點留著
+  const asked = new Map();
+  async function followNewer(w) {
+    if (!w || !w.m3d || navigator.onLine === false || Date.now() - (asked.get(w.id) || 0) < 5 * 60 * 1000) return false;
+    asked.set(w.id, Date.now());
+    const get = async (u) => { const r = await fetch(u, { cache: 'no-store' }); if (!r.ok) throw new Error(r.status); return r.json(); };
+    const gym = (await get(new URL('index.json', base(w.pid)).href)).gym;
+    if (!gym) return false;
+    const list = await get(`${location.origin}/w/gym/${encodeURIComponent(gym)}.json`), mine = new Set([w.pid, ...(w.was || [])]);
+    const items = (list.items || []).filter(x => x.props && x.props.model === '3d' && PID.test(x.id || '') && !mine.has(x.id)).sort((a, b) => (b.t || 0) - (a.t || 0));
+    for (const x of items) {
+      let id = x.id;
+      for (let hop = 0; hop < 30 && id; hop++) {
+        const parent = await get(new URL('patch.json', base(id)).href).then(p => p.parent, () => null);
+        if (!parent) break;
+        if (mine.has(parent)) {
+          const old = w.pid;
+          w.was = [...(w.was || []), old].slice(-20); w.pid = x.id; touch(w);
+          await putWall(w);
+          listMetas().then(ms => { if (!ms.some(m => m.id !== w.id && m.pid === old)) return dropPack(old); }).catch(() => {});   // 舊版的舞台與模型快取沒有別的牆用就清掉（由 dropPack 一併 dispose）
+          return true;
+        }
+        id = parent;
+      }
+    }
+    return false;
+  }
   async function receive(href) {
     const c = linkOf(href);
     if (!c) return false;
     toast(t('loading'), { busy: true });
     try {
-      let w = await getWall(c.pid);
+      let w = await wallOf(c.pid);
       if (!w) w = await create(c.pid);   // 已經有這面牆：直接打開，資料包換過沒有在背景比對（show），牆頁不用等模型
       let rid = null;
-      if (c.r) {
-        const x = await unpack(c.r, w), r = touch({ id: uid('r'), ...x, own: 0 });
+      if (c.r || c.rid) {
+        const x = c.r ? await unpack(c.r, w) : await fetchRoute(c.pid, c.rid, w), r = touch({ id: uid('r'), ...x, own: 0 });
         w.routes.push(r); rid = r.id;
         await putWall(w);
       }
       hideToast();
-      await openWall(c.pid);
-      if (rid && state.wall && state.wall.id === c.pid) openRoute(rid);
+      await openWall(w.id);
+      if (rid && state.wall && state.wall.id === w.id) openRoute(rid);
     } catch (e) {
       hideToast(); console.error(e); showAlert(t('shareNotFound'));
     }
@@ -170,7 +222,7 @@ const W3D = (() => {
     if (!w.m3d) return;
     const was = w.m3d;
     for (const [pid, job] of stages) if (pid !== w.pid) job.then(s => s.dispose(), () => {});   // 別面牆的 WebGL 放掉（一次只留一個）
-    current(w).then(async (stage) => {
+    followNewer(w).catch(e => { console.warn('3D 牆新版沒查到', e); return false; }).then(() => current(w)).then(async (stage) => {
       if (w.m3d === was && state.wall === w && $('editor').hidden) setTimeout(() => stage.warm(), 0);   // 背景暖機：進看線、定線不用再等
       if (w.m3d === was || state.wall !== w) return;
       return $('editor').hidden ? openWall(w.id) : swapPhoto(w);
@@ -201,7 +253,10 @@ const W3D = (() => {
   function enter() {
     const w = state.wall;
     if (!w || !w.m3d || state.w3d) return;
-    if (!ready.has(w.pid) && !wait) wait = preparing();
+    if (!ready.has(w.pid) && !wait) {
+      wait = preparing();
+      const f = fitAll(); setView(f.s, f.tx, f.ty);   // 準備中蓋在下面的 2D 照片：整面牆（不要停在編輯頁剛開時的某個局部），3D 好了從這個樣子飛進牆前
+    }
     stageOf(w.pid).then((stage) => {
       const f = fly, wt = wait; fly = null; wait = null;
       if (state.wall !== w || $('editor').hidden || state.w3d) { if (wt) wt.close(); return; }
@@ -215,16 +270,22 @@ const W3D = (() => {
         return;
       }
       flying = true; cv.style.visibility = 'hidden';
+      stage.renderer.domElement.style.visibility = 'hidden';   // 剛掛上的 3D 畫面還在家的位置（正面），第一次進入時主執行緒忙著量鏡頭，會停在那一格：飛進的第一格畫好才顯示
       const t0 = performance.now();
       const r = route(), ids = state.routeView && r && Object.keys(r.holds).length ? Object.keys(r.holds) : null;   // 看線：飛到框住這條路線的位置
-      stage.flyIn(f ? f.v0 : { ...view }, f ? f.progress : () => ease((performance.now() - t0) / FLY_MS), ids, f && f.at).then((v1) => {
-        flying = false; cv.style.visibility = '';
+      let landed = false;
+      const land = (v1) => {
+        if (landed) return; landed = true; clearTimeout(dog);
+        flying = false; cv.style.visibility = ''; if (stage.renderer) stage.renderer.domElement.style.visibility = '';
         if (state.w3d !== stage) return;
         if (!v1) { along(stage); return; }   // 2D 畫面還沒排好（量不到）：照舊從畫面中央那一點換成沿牆鏡頭
         walking = true; setView(v1.s, v1.tx, v1.ty); walking = false; inside = { s: view.s, tx: view.tx, ty: view.ty };
         Object.assign(stage.glide, inside);
         along(stage);
-      });
+      };
+      // 飛進去出錯、或主執行緒卡住太久沒結束：不能讓畫面停在全黑（2D 已藏、3D 還沒顯示），直接降到沿牆鏡頭的位置
+      const dog = setTimeout(() => { console.warn('3D 飛進逾時，直接就位'); land(null); }, FLY_MS + 6000);
+      stage.flyIn(f ? f.v0 : { ...view }, f ? f.progress : () => ease((performance.now() - t0) / FLY_MS), ids, f && f.at).then(land, (e) => { console.warn('3D 飛進失敗', e); land(null); });
       if (wt) wt.close();
       scope();
     }, (e) => { if (wait) { wait.close(); wait = null; } fly = null; console.warn(e); if (state.wall === w && !$('editor').hidden) toast(t('netOffline')); });   // 真的要用 3D 了還是載不到：才提示
@@ -297,7 +358,7 @@ const W3D = (() => {
     if (done) { cancelAnimationFrame(following); following = 0; }
     if (!w || !stage || !stage.tilted) return;
     if (!front.has(w.id)) front.set(w.id, new Map(w.holds.map(h => [h.id, h.poly])));
-    const now = new Map(stage.outlines().map(h => [h.id, h.poly]));
+    const now = new Map(stage.outlines(null, !done).map(h => [h.id, h.poly]));   // 途中只算畫面裡的，放手那一次整面牆
     for (const h of w.holds) if (now.has(h.id)) h.poly = now.get(h.id);
     if (done) scope(); else { touchGeom(); render(); }
   }
@@ -407,6 +468,36 @@ const W3D = (() => {
       .map(([px, py]) => [+((px - view.tx) / k).toFixed(1), +((py - view.ty) / k).toFixed(1)]);
     return poly.length >= 3 && validAddedOutline(poly, x, y, others) ? poly : null;
   }
+  // 3D 的重疊選點：點到的地方射線穿過好幾顆、或附近有被大岩點擋住的小點，沿牆鏡頭轉到露出最多顆的角度、走近一點（stage.revealAt），
+  // 停了重投外框再交給 2D 的候選圓點選（js/edit.js openOverlapPick）。回傳 Promise：候選的岩點（兩顆以上）和回程要的鏡頭；不是重疊回 null
+  function reveal(x, y) {
+    const stage = state.w3d, k = view.bw * view.s / state.w;
+    if (!stage || !stage.along || !stage.glide || flying) return Promise.resolve(null);
+    const r = stage.revealAt(view.tx + x * k, view.ty + y * k);
+    if (!r) return Promise.resolve(null);
+    const wc = stage.wc, back = { s: wc.s, v: wc.v, d: wc.d, yaw: wc.yaw || 0 };
+    const done = () => {
+      const holds = r.ids.map(id => state.wall.holds.find(h => h.id === id)).filter(h => h && h.poly && h.poly.length >= 3);
+      return holds.length >= 2 ? { holds, back } : null;
+    };
+    if (!r.to) return Promise.resolve(done());
+    return stage.flyWalk(r.to, follow, 420).then((v) => {
+      if (state.w3d !== stage || !v) return null;
+      walking = true; setView(v.s, v.tx, v.ty); walking = false; inside = { s: view.s, tx: view.tx, ty: view.ty };
+      Object.assign(stage.glide, inside); retrace();
+      return done();
+    });
+  }
+  // 選好（或取消）重疊的岩點：飛回點之前的位置和角度
+  function flyBack(back) {
+    const stage = state.w3d;
+    if (!stage || !back) return;
+    stage.flyWalk(back, follow, 360).then((v) => {
+      if (state.w3d !== stage || !v) return;
+      walking = true; setView(v.s, v.tx, v.ty); walking = false; inside = { s: view.s, tx: view.tx, ty: view.ty };
+      Object.assign(stage.glide, inside); retrace();
+    });
+  }
   const frontHolds = (w) => { const was = front.get(w.id); return was && w.holds.map(h => was.has(h.id) ? { ...h, poly: was.get(h.id) } : h); };
   // 照片座標 (x, y) 點到的岩點（牆頁上的 2D 程式都用照片座標）
   function holdAt(x, y) {
@@ -415,6 +506,21 @@ const W3D = (() => {
     const id = stage.pick(view.tx + x * k, view.ty + y * k, 22, rank);
     return id ? state.wall.holds.find(h => h.id === id) || null : null;
   }
+  // 刪牆：這面牆的資料包（模型、面標籤、快照、鏡頭表）從模型快取拿掉，不然手機上的檔案只增不減；記憶體裡的舞台也放掉。呼叫端先確認沒有別的牆用同一包
+  async function dropPack(pid) {
+    const job = stages.get(pid); stages.delete(pid); ready.delete(pid);
+    if (job) job.then(s => s.dispose(), () => {});
+    if (!self.caches) return;
+    const hk = ((((document.querySelector('meta[name="app-version"]') || {}).content) || '').match(/-hk[^-]+$/) || [''])[0];
+    const c = await caches.open('hold-models' + hk), prefix = base(pid);
+    await Promise.all((await c.keys()).filter(r => r.url.startsWith(prefix)).map(r => c.delete(r)));
+  }
+  // 回到前景：正在看的 3D 牆也問一次有沒有新版（看線、定線中不換）
+  document.addEventListener('visibilitychange', () => {
+    const w = state.wall;
+    if (document.visibilityState !== 'visible' || !w || !w.m3d || !$('editor').hidden) return;
+    followNewer(w).then(ok => { if (ok && state.wall === w && $('editor').hidden) show(w); }, () => {});
+  });
   const warmed = async (w) => { const job = w && stages.get(w.pid); return !!job && !!(await job).warmed; };   // 測試用：背景暖機做完了沒
-  return { enabled: true, warmed, linkOf, receive, show, enter, flyFrom, frame, leave, sync, edited, grow, follow, retrace, settle, untilt, walk, endZoom, frontHolds, holdAt, link, packRoutes, takeRoutes };
+  return { enabled: true, dropPack, warmed, linkOf, receive, show, enter, flyFrom, frame, leave, sync, edited, grow, follow, retrace, settle, untilt, walk, endZoom, frontHolds, holdAt, reveal, flyBack, link, fragment, shortLink, packRoutes, takeRoutes };
 })();

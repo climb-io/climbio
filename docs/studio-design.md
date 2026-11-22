@@ -1,6 +1,7 @@
 # Climbio Studio — 共用工作台設計規範
 
-> **現行產品分界（2026-11-16）**：`/studio/` 是正式天然岩場 Guidebook 編輯入口，以 Crag 為主要工作區；岩點精修與 3D 牆編輯工具仍存在，但首頁將其歸在 `/lab/` 研究入口，並非已完成的正式 Wall Studio 發佈流程。`/studio/` 已取代 `/find/`、`/author/`。
+> **先讀 [studio.md](studio.md)**：Studio 現在的定位（AI 做工作、人只判斷）、架構、現況與不能破的規則在那裡；這份是首頁、步驟列、專案資料夾、發佈與外觀的細節。
+> **現行產品分界**：`/studio/` 是正式天然岩場 Guidebook 編輯入口，以 Crag 為主要工作區；岩點精修與 3D 牆編輯工具仍存在，但首頁將其歸在 `/lab/` 研究入口，並非已完成的正式 Wall Studio 發佈流程。`/studio/` 已取代 `/find/`、`/author/`。
 > 下面「Shared Studio Shell」的左樹／中央畫布／右 Inspector 是目標版面，還沒做；已做的見「首頁與新專案」「步驟列」。
 > 品牌唯一來源：[brand.md](brand.md)；格式唯一來源：[format/README.md](../format/README.md)。
 
@@ -26,32 +27,54 @@ Studio 是資料製作與長期維護端；岩點貓／紅點貓是手機隨時�
 
 ### Color Tokens
 
-- Studio Shell：以 Climbio 母品牌 \`#F7F9FB\`、\`#08263A\`、\`#B6F000\`、\`#0FADEA\` 為基礎；色碼依 \`css/brand-tokens.css\`。
+- Studio Shell **固定深色**（`css/brand-tokens.css` 的 `studio` 主題：比岩點貓更冷的中性深灰，分 `--chrome`（導覽與外圍）、`--bg`（內容面板）、`--surface`／`--surface-2`（卡片、控制）、`--sunken`（輸入框）幾層；操作色 `#D4FF4F` 只給主要動作、焦點與目前所在；地圖線用亮一階的層次藍 `#4FB3F0`）。
+- **設計系統在 `studio/shell.css`**（每個 Studio 頁面都載入）：內文 14px，標題大而緊（區段 17–19px、首頁主標到 96px、字距收緊）；控制高 34（觸控 40）、圓角 10，卡片圓角 12–22；按鈕細框加一點上緣反光，主要動作是實心操作色加一圈光（`--glow`），卡片滑過會浮起來（`--lift`）（`.btn`、`.primary`、`.ghost`、`.small`、`.large`），輸入框凹下去、焦點是操作色細框加淡光（`.field`），分段（`.seg`）、標籤（`.tag`）、區段小標（`.st-label`）；AppKit 的對話框、清單、提示在 Studio 主題下改成同一套（只蓋 `[data-climbio-theme="studio"]`，手機 App 不受影響）。頁面自己的樣式只排版面，不再重寫按鈕、輸入框。
+- 版面：左側導覽是最深的一層，內容是嵌進去的一塊圓角面板（電腦、iPad；手機是整頁加底部一排）。導覽外圍有一點操作色與層次藍的光，面板裡用 1px 細線分層、不用陰影；浮在畫面上的東西（工具列 `studio/chrome.css` 的 `.tbar`、照片上的工具、選單、對話框）才有陰影與毛玻璃。開著的工具是淡底操作色，實心操作色只給主要動作。風格是「資料就是畫面」：照片、Topo、地圖、3D 佔滿面板；未來感只來自真實資料畫出來的東西（照片位置、視錐、點雲），不加只為好看的特效。
 - Crag 可輔以深海藍；未來增加正式工作區時，應維持共用操作語意。**目前不能宣稱 Crag 與 Lab 已完成相同的三欄 Shell。**
 - 資料層的路線類型、起攀／完攀、難度等有獨立語意色，不可由品牌主色任意覆寫。
-- 亮色與深色 Shell 可作未來偏好設定，不應因切換工作區而突然替換全部操作方式或讓已開的面板移位。
+- 沒有亮色版：切換工作區不換配色，只換工作區色（--ws：Crag 層次藍、Wall 室內綠、3D 牆青藍）。
 
 ## 介面語言（繁體中文、英文）
 
 - Studio 的介面有繁體中文與英文兩版（App 另有七種）。語言包在 `i18n/studio/`（共用：首頁、帳號選單、專案資料夾）與各工作區的包：`studio-crag`（介面）、`studio-crag-data`（資料層的訊息與預設名稱）、`studio-wall`、`studio-wall3d`、`studio-convert`；key 依包加前綴（st、cg、cd、hl、w3、cv），多個包同時載入時依序找 key。
-- 頁面用 `studio/i18n-boot.js` 載入（`data-packs` 列要載入的包，共用名詞自動加上）；語言依這台的選擇（localStorage `climbio.studio.lang`）或瀏覽器語言，在頁首帳號選單切換，換完重新載入頁面。
+- 頁面用 `studio/i18n-boot.js` 載入（`data-packs` 列要載入的包，共用名詞自動加上）；語言只跟瀏覽器語言（繁中、英），沒有手動選擇。
 - 輸入格式不翻：路線書大綱的標題與欄位關鍵字、匯入表格的欄位別名、給 AI 的提示詞全文維持中文（解析端只認這些），英文介面只在說明裡補上對應。資料層產生的預設名稱（岩壁 N、區域 N…）在建立當下依語言產生，之後就是使用者資料。
 - Node 測試用 `tools/studio-i18n.mjs` 載入繁體中文包；Studio 的程式只在呼叫時才查文字，不在載入當下組字串。
 
 ## 首頁與新專案（`studio/index.html`、`studio/home.js`、`studio/album.js`）
 
-- **新專案**：以多張照片為主要輸入。拖進或選照片、資料夾、ZIP（ZIP 展開；公開格式的畫面檔、路線表 CSV 一起收），或貼上 **Google 相簿分享連結**（`photos.app.goo.gl`／`photos.google.com/share`，透過擴充功能或 `/album` 雲端函式轉發，下載 `=d` 原始照片並保留完整 EXIF 與 GPS，預設以相簿名稱作為專案名稱；匯入說明與掃描結果無位置時會提醒在相簿「選項」開啟「分享相片位置資訊」）。
+- **首頁介面**：Studio 是給 AI 代理做事、人來確認的工作台，**沒有給人手動新增的入口**（2026-11-22 拿掉「加資料」、拖放、建立空白岩場）。最上面是主畫面，接著是「交給 AI」（`#aiBox`，這頁唯一的螢光綠區塊，導覽的「交給 AI」連到 `#ai`，舊的 `#add` 也到這裡）：三步——**設定一次**（準備能在電腦上執行程式的 AI 代理，把 Climbio 的 GitHub 專案交給它，它照專案裡的說明自己處理；網站與 Studio 不抄安裝指令，見 site-content.md）、**交代任務**（岩館牆、岩場照片、路線書、3D 牆各一句可以複製的話，換成自己的資料夾或網址；「只有發佈要問我」）、**你來確認**（「打開專案」選代理說的專案資料夾：`SS.claim` 認得是 Studio 專案就記進最近的專案、進那條線的工作頁；要電腦的 Chrome、Edge，其他瀏覽器只顯示說明）。再來是「繼續編輯」（最近的專案），最下面三條線（岩館、岩場、3D）各一張同一版型的說明卡（工作區色的圖示；「輸入 → AI → 你判斷」三步，最後一步用工作區色），只有 3D 另有看的入口（「3D 場景」、「3D 牆」）。路線書不是另一條線：轉出來的就是岩場的 Guidebook，寫在岩場卡的輸入裡。寬的三欄、窄的一欄。
+- **匯入的程式還在，只是人看不到入口**（代理的工具在背景用）：首頁隱藏的 `#addInput`（`tools/guidebook.mjs` 收原生的包）與 `#import=<網址>`（岩場站、Google 相簿）。內容決定交給誰：資料夾已經是 Crag 專案就打開；有 `wall.json` 和它指到的模型、面標籤是 3D 牆（放進瀏覽器私有檔案系統，進 `wall3d/#p=<id>`）；Climbio 原生資料包進 Crag；Word、PDF、網頁、路線表（CSV、TSV）進路線書轉換（`crag/#bookInbox`）；岩場網址、Google 相簿照網址判斷；照片（含只有照片的 ZIP）先快速掃描，猜岩館或岩場（`intake/workspaces.js` 的 `suggest`），整理畫面確認專案名稱和「岩館／岩場」，分組、挑照片、處理項目都自動；建立後岩館進 Wall（`wall/#inbox=`），岩場進 Crag。
+- **專案裡的加入**：Crag 路線清單的工具列「加入資料」選單：這本匯入照片、貼上表格（手機沒有這顆）；新的一本、路線書、岩場站由 AI 代理做。Wall 沒有專案時是作品清單（沒有作品就連到「交給 AI」），已開的專案裡「加牆面照片」照舊（確認時補照片用）。
+- **說明頁不在 Studio 裡**：轉換路線書、把路線書變成 3D 版的說明在 `/guides/convert/`、`/guides/crag3d.html`；Studio 的頁面一律是工具。
+- **新專案**：以多張照片為主要輸入。拖進或選照片、資料夾、ZIP（只有照片的 ZIP 展開整理；有文件、表格的 ZIP 進路線書轉換），或貼上 **Google 相簿分享連結**（`photos.app.goo.gl`／`photos.google.com/share`，透過擴充功能或 `/album` 雲端函式轉發，下載 `=d` 原始照片並保留完整 EXIF 與 GPS，預設以相簿名稱作為專案名稱；匯入說明與掃描結果無位置時會提醒在相簿「選項」開啟「分享相片位置資訊」）。
 - **快速掃描**（幾秒內完成，不做偵測）：讀每張照片檔頭的 EXIF（有沒有拍照位置）、資料夾名稱、機器取的檔名（IMG_1234、iPhone 的 UUID）；過半照片有拍照位置時再抽最多 40 張小圖找紅筆（很鮮的紅色）。
-- **列出可以自動處理的選項讓使用者挑**：先依掃描結果選好工作區（過半照片有拍照位置建議 Crag，否則仍進 Crag，可以改），填好專案名稱（拖進一個資料夾用資料夾名），再列這個工作區能自動做的項目（預設都勾，Crag 的描路線只在找到紅筆時預設勾）：
+- **自動處理**（人不勾）：工作區照掃描結果決定（`intake/workspaces.js` 的 `auto`）。專案名稱預設：拖進一個資料夾用資料夾名，否則用照片所在的資料夾名或日期。
 
-| 工作區 | 項目（有條件的才出現） | 對應 |
+| 工作區 | 自動做的 | 對應 |
 |---|---|---|
-| Crag | 沒有位置的照片照拍攝時間歸岩壁（有沒位置的照片）、從照片描路線（紅筆、跟原圖相減）、匯入路線表（有 CSV） | 建立時做一次（[studio-crag.md](studio-crag.md)） |
+| Crag | 沒有位置的照片照拍攝時間歸岩壁、有紅筆的照片描路線（紅筆、跟原圖相減） | 建立時做一次（[studio-crag.md](studio-crag.md)） |
+| Wall | 每張照片一面牆、分組變分區、偵測岩點 | 接手時做（[studio-wall.md](studio-wall.md)） |
 
-- 按「建立」：檔案和選項放進收件匣（IndexedDB `climbio-studio` 的 `inbox`，`studio/store.js`），轉到 `crag/#inbox=<id>`，工作區取出（取了就刪）建專案。Chrome 拖進一個資料夾時，專案直接存在那個資料夾（按建立時要寫入權限，見下面的「專案資料夾」）。
-- **正式編輯入口**：新的 Guidebook（`crag/#new`）、轉換路線書（`crag/#book`，可讀 Word、文字型 PDF、網頁與大綱；見 [guidebook-convert.md](guidebook-convert.md)）、匯入岩場站（`crag/#site`）。`studio/wall3d/` 技術路徑保留，但對外由 `/lab/` 說明，不屬於正式 Studio 新專案發佈流程。
-- **最近的專案**：`climbio-studio` 的 `recent`，新到舊，寫著放在哪個資料夾（或「這台裝置的瀏覽器」）；存在瀏覽器裡的可以在這裡刪，資料夾是使用者自己的，不刪。資料夾專案點了先要回授權再打開。
+- 按「建立」：檔案和選項放進收件匣（IndexedDB `climbio-studio` 的 `inbox`，`studio/store.js`），轉到工作區的 `#inbox=<id>`（`crag/`、`wall/`），工作區取出（取了就刪）建專案。Chrome 拖進一個資料夾時，專案直接存在那個資料夾（按建立時要寫入權限，見下面的「專案資料夾」）。
+- **正式編輯入口**：新的 Guidebook（`crag/#new`）、轉換路線書（代理交給首頁的路線書檔案，`crag/#bookInbox=…` 打開轉換對話框，可讀 Word、文字型 PDF、網頁與大綱；見 [guidebook-convert.md](guidebook-convert.md)）、匯入岩場站（`crag/#site`）。
+- **岩館、岩場兩頁是作品清單**（`studio/library.js`）：岩館（`wall/`）、岩場（`crag/`）沒有打開專案時，列這條線「進行中」的專案（這台記得的，點了打開）和「已發佈」的作品（岩館讀開放資料集的公開牆目錄 `walls.jsonl`，點了看那面牆的報告 `#r=`；岩場讀公開專案清單，點了進編輯：這台已經有這本書的專案（自己發佈的看 `author:publish` 的 `project`／`root`，匯入的看 `derivedFrom`、來源網址）就打開它，沒有就用 Crag 的 `#site=` 匯入最新的一版成新專案；Studio 裡看岩場是編輯，不是紅點貓的分享頁）；都沒有就一句說明加「交給 AI」。這兩頁沒有匯入的入口，新的作品由 AI 代理做。路線書轉換來的岩場列在岩場、標「路線書」：進行中的看 `project.json` 的 `book: true`（有轉換紀錄的舊專案打開時補標），已發佈的看岩場目錄 `crags.jsonl` 裡帶原始檔 `source` 的（同一本任何一版是就算）。舊的路線書頁網址 `crag/#book` 換成岩場頁。`studio/wall3d/` 技術路徑保留，但對外由 `/lab/` 說明，不屬於正式 Studio 新專案發佈流程。
+- **最近的專案**（首頁的「繼續編輯」，Atlas 的 Library 那種專案卡：工作區色的圖示、名稱、哪一條線 · 放在哪 · 時間，刪除鈕滑過才出現）：`climbio-studio` 的 `recent`，新到舊，寫著放在哪個資料夾（或「這台裝置的瀏覽器」）；存在瀏覽器裡的可以在這裡刪，資料夾是使用者自己的，不刪。資料夾專案點了先要回授權再打開。
 - 工作區頁面沒有專案（網址沒有 `#`）就回首頁；網址是專案 id，重整直接接續。
+
+## 統一導覽（`StudioShell.rail`）
+
+每個 Studio 頁面（首頁、Crag、Wall、3D 牆、3D 場景）左邊同一條導覽，像 Atlas：最上面是母品牌標誌（回 Studio 首頁），接著首頁、交給 AI（連到首頁的 `#ai`），再來三條線：岩館（`wall/`）、岩場（`crag/`，路線書轉換來的也在這裡）、3D（`scene/`）。目前所在的那條亮起來（照頁面的資料夾判斷，`wall3d/` 算 3D）。最下面是網站的其他地方：文件、Lab、Climbio 首頁（Studio 的頁面不再放網站導覽）。寬螢幕（1280 以上）帶名稱、品牌是標誌加「Climbio Studio」（開發版、本機在旁邊標 Beta），窄的只有圖示，手機是底部一排（只有 Studio 的五項）。目前所在的一項是操作色的淡漸層底、圖示發光，左緣一條操作色光條。導覽的層級在彈出選單、對話框之下。
+
+**頁首是麵包屑**（Atlas 的「工具 / 專案」）：工作區頁面的 `.st-ws` 換成這條線的圖示和名稱，接「/」和專案名稱（`StudioShell` 的 `crumb`）；首頁用 `.st-topbar`（圖示＋頁名，捲動時毛玻璃留在上面）。右邊是頭像選單。品牌只在導覽最上面。
+
+## 首頁主畫面
+
+首頁最上面一塊是岩館和天然岩場交替：原岩明德的 3D 牆（開放資料集 `climbio/walls3d` 的快照）和大砲岩的 3D 模型（3D 場景的渲染），每 7 秒淡入淡出、慢慢推近；左下是 Studio 標題和現在這一個的標籤，「打開 3D」進那個 3D（兩個都進 3D 場景：明德 `scene/#src=mingde`，大砲岩 `scene/`）。圖在 `studio/hero/`。系統「減少動態效果」時不換、不推。
+
+## 過場（`StudioShell.busy`）
+
+等超過幾秒的工作用全螢幕過場：標題、進度條、數字。AI 處理照片時（例如 Wall 加牆面照片的偵測）呼叫 `show(照片, 點)`：照片壓暗、偵測到的點一顆一顆亮起來（最後一張等它亮完再關）；只用真的處理結果，系統「減少動態效果」時直接全部顯示。
 
 ## 步驟列（`studio/shell.js` 的 `steps`、`studio/shell.css`）
 
@@ -63,9 +86,22 @@ Studio 是資料製作與長期維護端；岩點貓／紅點貓是手機隨時�
 | 區域圖 | 地圖的編輯模式：地圖放寬，調整、畫岩石、岩壁、區域、步道（只有這一步能改地圖）；小字是幾區、幾面 |
 | 路線清單 | 只有路線表格（不放區域圖、照片），工具列：復原、新增、搜尋，選到路線才有上移、下移、移到、刪除；難度、種類用選的 |
 | 路線圖 | 畫 Topo：先開還沒有圖層的照片；小字是畫過線的路線／全部 |
-| 發佈 | 發佈 Guidebook |
+| 檢查 | 一整頁（`StudioShell.checks`）：沒有位置、來源不能公開的照片、路線沒分到岩壁或沒畫線（`report.js` 的 `bookReport`，同一面岩壁同一種問題併成一列）；點了去處理的地方 |
+| 發佈 | 一整頁（`StudioShell.pubList`）：這本書一列，狀態（尚未發佈、第幾版、有更新）、匯出 ZIP、發佈（打開共用的發佈對話框） |
 
-Wall 的步驟：牆面、岩點、發佈（見 [studio-wall.md](studio-wall.md)）。
+Wall 的步驟：牆面、岩點、檢查、發佈（見 [studio-wall.md](studio-wall.md)）；檢查、發佈兩頁跟 Crag 用同一組元件（`studio/shell.js` 的 `checks`、`pubList`、`pubStatus`，樣式在 `shell.css` 的 `.st-page`）。3D 牆：模型、岩點、發佈（不跳到別的工作區）。
+
+工作區色：Crag 深海藍、Wall 室內綠、3D 牆青藍（`data-studio-ws` 是 `crag`／`gym`／`wall3d`）。
+
+## 3D 場景（`studio/scene/`）
+
+岩場的 3D 模型滿版，每張照片畫成相機視錐（1px 細白線，滑鼠停在上面或選到的變螢光綠），像在空間裡看到每張照片是從哪裡拍的。
+
+- 下方照片膠卷照拍的地方接著排（相鄰兩張拍的地方接得上，岩館牆從最左邊開始；不照資料檔的順序）。點一個視錐（或膠卷的一張）就飛到那張照片拍的位置和方向，用照片的視角；到了照片淡入，上方膠囊寫「正在看 檔名 FOV 角度」；Esc、拖曳或縮放就退出照片、往後拉一點。左右鍵換上一張、下一張；「整區」飛回一開始的整區鏡頭（從相機群背後的斜上方）。
+- 手勢：拖曳轉、滾輪或兩指縮放、右鍵（或 Shift）拖、兩指拖平移；系統「減少動態效果」時不飛、直接跳過去。
+- 資料（網址的 `#`）：`crag=<專案 id>` 讀 Crag 專案——模型畫面，和照片畫面 `props.model` 記著的鏡頭（`{ id, camera: { position, target, fov } }`，公開格式 v2）；照片和模型從專案資料夾讀，資料夾專案要先在 Studio 首頁打開過。`src=dapao`（預設）讀開放資料集 `climbio/crag3d-lab` 的大砲岩（3D 重建流程的 `frames.json`：位置、四元數 rub、像素焦距；垂直視角 2·atan(cy／fy)、往 -z 看，高斯潑濺模型）；`src=mingde` 讀 `climbio/wall3d-lab` 的原岩明德（`pipeline/frames-product.json`，格式 `climbio-wall3d-frames/1`，COLMAP 慣例 x_cam = R·X + t、已換到成品牆座標；網格模型 `.glb` 與 `wall.json` 在 `climbio/walls3d`）。成品牆座標的上方是 `wall.json` 的 `up`、不是 y，相機和模型一起轉正（`upright`）。開放資料集的兩個在頁首用膠囊切換（岩館／天然岩場）；視錐深度照相機散開的範圍算。換算都在 `cameras.js`。
+- 入口：Crag 頁首的「3D 場景」（這本有模型、有照片記著模型鏡頭才出現）。品牌鈕回到那本的 Crag。3D 重建的照片位置用命令列 `tools/studio.mjs frames` 做成 v2 包，Crag「匯入岩場站」收進來。
+- 模型用 Crag3DKit 打包的 three.js＋Spark（`crag3dkit/vendor/three-splat.js`，只讀不改），視錐畫在上面一層 2D canvas；模型下載有全螢幕過場。空的 Crag 專案主畫面只有匯入照片，沒有空的表頭。
 
 ## Shared Studio Shell — Single Interface
 
@@ -150,6 +186,11 @@ Wall 的步驟：牆面、岩點、發佈（見 [studio-wall.md](studio-wall.md)
 
 - **頁首（`studio/shell.js`、`shell.css`，首頁、Crag 共用）**：開發版網站和本機在「Studio」旁邊標 Beta、分頁標題加「· Beta」（網址清單跟岩點貓的 `js/boot.js` 一樣）。最右邊是選單（三個點）：換成另一種語言、最底是版本與環境。Studio 不登入、沒有帳號。
 - **/studio/** 是唯一入口，一個 PWA（`studio/manifest.webmanifest` 用母品牌圖示、`studio/sw.js` 範圍 `/studio/`）；首頁的 Studio 卡片連到這裡。`/find/`、`/author/` 已拿掉（頁面、manifest、Service Worker）。
+- **像同一個 App，不像一堆頁面**：各工作頁還是分開的 HTML，靠這幾件事讓啟動和換頁快、導覽不閃：
+  - 冷啟動：部署時 `tools/stamp-assets.mjs` 在每頁 `<head>` 最前面加程式、樣式的 `<link rel="preload">`。頁面有 meta CSP 時 Chrome 不預先掃描，不加的話約 30 支程式一支載完才抓下一支（首頁 5 秒）；語言包（`appkit/i18n.js` 的 `boot`）也先寫 preload 再寫 script。
+  - 換頁：`studio/sw.js` 對「從 Studio 頁面點過去」的導覽直接用這一版存好的頁面（不等網路）；從外面打開照樣先問網路，部署後第一次打開就是新版。新版 Service Worker 裝好後在背景把各頁和它們帶版本的程式、樣式先存好。任何 Studio 頁都會註冊 Service Worker（`shell.js`）。
+  - 導覽列不動：`shell.css` 的跨頁 view transition；支援 Speculation Rules 的瀏覽器游標停在導覽或作品清單上就在背景把那一頁開好（prerender，`shell.js`）。
+  - 作品清單的「已發佈」先畫上次存的（localStorage），問到網路再換。
 - 多人同時編輯另外做成選用的同步服務（`Backend.caps`），不當本機功能的前提。專案資料夾可以自己用 Dropbox、git、雲端硬碟同步；Studio 本身沒有跨裝置同步（已移除）。
 
 ## 專案資料夾

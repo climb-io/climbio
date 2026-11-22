@@ -31,7 +31,7 @@
     touch() { this.version = nextVersion++; }
     // 放掉照片大小的畫布（共用的底，每張幾十 MB），手機的畫布記憶體才不會被吃滿；用到時再算
     release() {
-      this._plain = this._muted = null;
+      this._plain = this._muted = this._deep = null;
       this.layers.clear();
     }
     // 系統清掉了畫布內容（iOS 放到背景）：路線圖層之後重畫，暗彩被清掉的下次用到再算；lost(canvas)：這張畫布是不是被清掉了。

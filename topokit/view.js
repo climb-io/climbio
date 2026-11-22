@@ -2,6 +2,7 @@
 // 不做任何上傳、不連後端；資料由呼叫的 App 給（Climbio v2 的照片畫面＋圖層，座標是照片像素）。
 // 所有事件監聽都掛在同一個 AbortController 上，ResizeObserver、計時器也在 destroy() 一起收掉。
 // English: native SVG topo viewer. Zoom/pan/pick; no network; destroy() releases every listener and observer.
+import { animateChanges } from './motion.js';
 import { readTopo, assertView } from './data.js';
 import { distanceToLine } from './annotate.js';
 import { esc, renderLines, renderReveal } from './render.js';
@@ -128,6 +129,7 @@ export class TopoViewer extends EventTarget {
     this.data = data;
     this.model = this.read();
     this.labelMemo = new Map();   // 編號牌上次放的位置：縮放時沿用（換資料才重來）
+    this.motion = undefined;      // 牌子上次顯示的位置（換位置時滑過去）：換資料就不動畫
     this.ready = false;
     delete this.host.dataset.ready;
     if (this.img.getAttribute('src') !== this.model.photo.href) this.img.setAttribute('src', this.model.photo.href);
@@ -244,7 +246,14 @@ export class TopoViewer extends EventTarget {
     this.host.classList.toggle('tk-gray', !!this.options.reveal);
     const reveal = this.options.reveal ? renderReveal(this.routes.find((r) => r.id === this.options.highlight)?.line, { photo, width: (this.options.revealWidth ?? REVEAL_WIDTH) * c.w, id: this.maskId }) : '';
     const lo = this.linesOptions();
-    this.svg.innerHTML = reveal + renderLines(this.routes, { photo, crop: c, k, densityK: c.w / size.w, memo: this.labelMemo, ui: this.ui, ...lo, between: this.extras(k) }) + this.extrasTop(k);
+    this.svg.innerHTML = reveal + renderLines(this.routes, { photo, crop: c, k, memo: this.labelMemo, ui: this.ui, ...lo, between: this.extras(k) }) + this.extrasTop(k);
+    const win = this.host.ownerDocument.defaultView;
+    if (this.options.editing || win.matchMedia?.('(prefers-reduced-motion: reduce)').matches) this.motion = undefined;
+    else {
+      const m = animateChanges(this.svg, this.motion, k, win.performance.now());
+      this.motion = m.memory;
+      if (m.busy) this.schedule();
+    }
     this.stage.classList.toggle('draggable', this.movable);
     this.host.dataset.scale = String(Math.round(this.state.scale * 100) / 100);
     if (this.fitButton) this.fitButton.textContent = `${Math.round(this.state.scale * 100)}%`;

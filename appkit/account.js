@@ -73,7 +73,7 @@
    * 共用帳號選單底部：條款、隱私、版本。
    * sourcesHref 只給有獨立來源頁的產品；versionButton 讓原有版本檢查事件可沿用。
    */
-  function footer(target, { version = '', sourcesHref = '', versionButton = false, showUpdateStatus = false } = {}) {
+  function footer(target, { version = '', sourcesHref = '', versionButton = false, showUpdateStatus = false, root = '../' } = {}) {   // root：網站根目錄（頁面不在第一層時給）
     if (!target) return null;
     target.classList.add('ak-account-footer');
     const links = node('div', 'ak-account-footer-links');
@@ -86,8 +86,8 @@
       links.append(a);
     }
     if (sourcesHref) link(sourcesHref, 'sources', '資料來源與授權');
-    link('../privacy.html', 'privacy', '隱私權政策');
-    link('../terms.html', 'terms', '服務條款');
+    link(`${root}privacy.html`, 'privacy', '隱私權政策');
+    link(`${root}terms.html`, 'terms', '服務條款');
     const versionLabel = node(versionButton ? 'button' : 'span', 'ak-account-footer-version',
       version ? `Climbio ${String(version).replace(/^climbio-/, '')}` : 'Climbio');
     if (versionButton) { versionLabel.type = 'button'; versionLabel.id = 'versionBtn'; }

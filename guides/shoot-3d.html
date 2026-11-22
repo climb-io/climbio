@@ -22,6 +22,7 @@
 <link rel="alternate" hreflang="en" href="https://climbio.app/en/guides/shoot-3d.html">
 <link rel="icon" href="../icons/brand/favicon-brand.svg" type="image/svg+xml">
 <link rel="stylesheet" href="../css/brand-tokens.css">
+<link rel="stylesheet" href="../css/site-nav.css">
 <link rel="stylesheet" href="../css/pages.css">
 <style>
 .shoot-fig { margin: 16px 0 8px; }
@@ -29,13 +30,16 @@
 .shoot-fig.tall img { max-width: 460px; margin: 0 auto; }
 </style>
 </head>
-<body>
-<header class="pg-top"><a class="pg-brand" href="../"><img src="../icons/brand/climbio-mark.svg" alt=""><span>Climbio</span></a><span class="grow"></span><nav class="pg-nav" aria-label="相關頁面"><a href="../">首頁</a><a href="../studio/crag3d/">3D 版流程</a><a href="studio.html">Studio 怎麼用</a><a href="../studio/">開啟 Studio</a><a href="../en/guides/shoot-3d.html" hreflang="en" lang="en">English</a></nav></header>
+<body class="site-page">
+<header class="site-header docs-header">
+  <a class="site-brand" href="../"><picture><source media="(max-width: 600px)" srcset="../icons/brand/climbio-mark.svg"><img src="../icons/brand/climbio-horizontal-light.svg" alt="Climbio" width="110" height="30"></picture></a>
+  <nav class="site-nav" aria-label="文件導覽"><a href="../guides/" aria-label="所有文件">文件</a><a class="site-language" href="../en/guides/shoot-3d.html" hreflang="en" lang="en">English</a></nav>
+</header>
 <main class="pg">
   <div class="pg-hero">
     <h1>如何拍 3D 照片</h1>
     <p class="pg-lead">拍得完整，才能重建岩壁。同一站位拍完，再移動到下一站。要做岩場的 3D 模型（紅點貓沿著岩壁看路線），另外要<a href="#crag3d">退後拍一套</a>。</p>
-    <div class="pg-actions"><a class="pg-btn primary" href="../studio/crag3d/">把路線書變成 3D 版</a><a class="pg-btn" href="../studio/">開啟 Studio</a></div>
+    <div class="pg-actions"><a class="pg-btn primary" href="crag3d.html">把路線書變成 3D 版</a><a class="pg-btn" href="../studio/">開啟 Studio</a><a class="pg-link" href="studio.html">Studio 使用說明</a></div>
   </div>
 
   <section class="pg-section" aria-labelledby="rules">
@@ -118,7 +122,7 @@
     <p class="pg-note">沿用上面的共同規則：1× 主鏡頭、不用數位變焦、保留含 GPS 的原始照片、光線均勻時拍、避開人、繩索與裝備。風大時樹和草會晃，晃動的地方會糊，盡量挑風小的時候。照片是拍完才一次整理，現場不必挑，也不必標路線。</p>
     <details class="pg-more"><summary>要拍幾張？</summary><p>照上面的間距算：一面 20 公尺寬的岩壁，弧線上約 10–20 個位置，乘上高、中、低三輪，再加兩端、岩頂與轉角，大約是幾十張。數量還在實地測試，先照間距拍齊；寧可多拍，後面會自動過濾沒用的。</p></details>
     <details class="pg-more"><summary>為什麼貼近拍的照片不夠？</summary><p>高斯潑濺只有在「拍照的位置附近」才畫得清楚。讀者在紅點貓裡是從步道看整面岩壁，如果沒有任何照片是從那裡拍的，那個角度的畫面就是模型猜出來的，會蒙霧。所以不論貼近拍了多少張，退後拍都要另外補。</p></details>
-    <details class="pg-more"><summary>拍完之後呢？</summary><p>看<a href="../studio/crag3d/">把路線書變成 3D 版</a>：建模、把 2D 路線書上的路線放到 3D 岩壁上、檢查與發佈。</p></details>
+    <details class="pg-more"><summary>拍完之後呢？</summary><p>看<a href="crag3d.html">把路線書變成 3D 版</a>：建模、把 2D 路線書上的路線放到 3D 岩壁上、檢查與發佈。</p></details>
   </section>
 
   <section class="pg-section" aria-labelledby="more">
@@ -127,7 +131,7 @@
     <details class="pg-more"><summary>要拍幾張？</summary><p>依岩壁寬度與高度而定。拍攝張數與建模、辨識的效果仍需岩場實地測試；先拍齊，再逐步減少。</p></details>
     <details class="pg-more"><summary>拍完之後呢？</summary><p>到 <a href="../studio/">Studio</a> 匯入照片，整理成可閱讀的攀岩資料。流程見 <a href="studio.html">Studio 怎麼用</a>。</p></details>
   </section>
-  <footer class="pg-foot"><span>Climbio · 如何拍 3D 照片</span><a href="../">回首頁</a></footer>
+  <footer class="pg-foot docs-footer"><span>© 2026 Climbio</span><nav aria-label="網站資訊"><a href="../privacy.html">隱私權</a><a href="../terms.html">使用條款</a></nav></footer>
 </main>
 </body>
 </html>

@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="zh-Hant" data-climbio-theme="outdoor">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F7F9FB">
+<script src="../../host-redirect.js"></script>
+<title>天然岩場 3D 與自動認牆｜Climbio Lab</title>
+<meta name="description" content="戶外天然岩場的 3D 與現場照片自動認牆，以 Climbio 公開格式 v2 發佈。">
+<link rel="canonical" href="https://climbio.app/lab/crag/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Climbio">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:url" content="https://climbio.app/lab/crag/">
+<meta property="og:title" content="天然岩場 3D 與自動認牆｜Climbio Lab">
+<meta property="og:description" content="岩場 3D、現場照片自動認牆疊線，以及拍攝與建置流程。">
+<meta property="og:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="天然岩場 3D 與自動認牆｜Climbio Lab">
+<meta name="twitter:description" content="岩場 3D、現場照片自動認牆疊線，以及拍攝與建置流程。">
+<meta name="twitter:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<link rel="icon" href="../../icons/brand/favicon-64.png">
+<link rel="apple-touch-icon" href="../../icons/brand/apple-touch-icon-180.png">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' blob: data: https:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<link rel="stylesheet" href="../../css/brand-tokens.css">
+<link rel="stylesheet" href="../../css/pages.css">
+<link rel="stylesheet" href="./crag.css">
+<link rel="stylesheet" href="../../studio/report-frame.css">
+<script src="../../format/format.js"></script>
+<script src="../../studio/report-frame.js"></script>
+<script src="../../studio/crag/lab-report.js"></script>
+<script type="module" src="./app.js"></script>
+</head>
+<body>
+<header class="pg-top">
+  <a class="pg-brand" href="../../"><img src="../../icons/brand/climbio-mark.svg" alt=""><span>Climbio</span></a>
+  <a class="pg-tag" href="../">Lab</a>
+  <span class="grow"></span>
+  <nav class="pg-nav" aria-label="頁面區塊">
+    <a href="#explorer" aria-current="page">3D</a>
+    <a href="#recognize" id="navRecognize" hidden>認牆</a>
+    <a href="#guide">建置</a>
+  </nav>
+</header>
+
+<main class="pg">
+  <div class="pg-hero">
+    <h1 id="page-title">天然岩場 3D 與照片認牆</h1>
+    <div class="pg-actions">
+      <button class="pg-btn" id="pickPackBtn" type="button">載入本機包</button>
+      <input class="crag-hidden-file" id="pickPackInput" type="file" webkitdirectory multiple>
+    </div>
+    <div class="crag-status-row">
+      <span class="crag-pill-badge" id="packStatus" role="status" aria-live="polite">正在載入岩場資料包…</span>
+    </div>
+  </div>
+
+  <section class="pg-section" id="explorer" aria-labelledby="explorer-title">
+    <h2 id="explorer-title">3D 岩場</h2>
+    <div class="crag-zone-tabs" id="zoneTabs" role="tablist" aria-label="岩壁分區"></div>
+    <div class="crag-explorer">
+      <div class="crag-stage-wrap" id="modelStageWrap">
+        <div class="crag-stage" id="modelStage"></div>
+        <button class="crag-stage-btn" id="resetViewBtn" type="button">重設視角</button>
+      </div>
+      <aside class="crag-panel" aria-labelledby="activeZoneTitle">
+        <div class="crag-panel-head">
+          <h3 id="activeZoneTitle">分區路線</h3>
+          <span class="crag-panel-meta" id="activeZoneMeta"></span>
+        </div>
+        <ul class="crag-route-list" id="zoneRouteList"></ul>
+      </aside>
+    </div>
+  </section>
+
+  <section class="pg-section" id="recognize" aria-labelledby="recognize-title" hidden>
+    <h2 id="recognize-title">照片認牆</h2>
+    <div class="copyrow">
+      <button class="pg-btn sm primary" id="uploadPhotoBtn" type="button">選現場照片</button>
+      <input class="crag-hidden-file" id="uploadPhotoInput" type="file" accept="image/*">
+      <span class="crag-pill-badge" id="workerStatus">認牆引擎準備中…</span>
+    </div>
+    <div class="crag-sample-strip" id="samplePhotoStrip" aria-label="現場測試範例照片"></div>
+    <div class="crag-recognize-grid">
+      <div class="crag-photo-frame" id="photoFrame">
+        <div class="crag-photo-empty" id="photoEmpty">選一張岩壁照片</div>
+        <div class="crag-photo-box" id="photoBox" hidden>
+          <img id="queryImg" alt="現場測試照片">
+          <svg class="crag-overlay-svg" id="queryOverlay" aria-label="自動投影的攀登路線"></svg>
+        </div>
+      </div>
+      <aside class="crag-panel" aria-labelledby="recogResultTitle">
+        <div class="crag-panel-head">
+          <h3 id="recogResultTitle">辨識結果</h3>
+          <span class="crag-panel-meta" id="recogBadge">待測試</span>
+        </div>
+        <div class="crag-stat-list">
+          <div class="crag-stat-box"><span>辨識分區</span><b id="statSector">—</b></div>
+          <div class="crag-stat-box"><span>幾何內點</span><b id="statInliers">—</b></div>
+          <div class="crag-stat-box"><span>推論耗時</span><b id="statMs">—</b></div>
+          <div class="crag-stat-box"><span>投影路線</span><b id="statRoutes">—</b></div>
+        </div>
+        <div class="copyrow">
+          <button class="pg-btn sm" id="jumpMatchedZoneBtn" type="button" hidden>看此區 3D</button>
+        </div>
+        <ul class="crag-route-list" id="recogRouteList"></ul>
+      </aside>
+    </div>
+  </section>
+
+  <section class="pg-section" id="benchmark" aria-labelledby="benchmark-title" hidden>
+    <h2 id="benchmark-title">實測數據</h2>
+    <ol id="labSteps"></ol>
+    <div id="labNotes" class="lab-notes"></div>
+    <div class="pg-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>分區</th>
+            <th>路線數</th>
+            <th>單區模型大小</th>
+            <th>三角面數</th>
+            <th>對位參考照</th>
+          </tr>
+        </thead>
+        <tbody id="zoneStatsBody">
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="pg-section" id="guide" aria-labelledby="guide-title">
+    <h2 id="guide-title">拍攝與建置</h2>
+
+    <div class="pg-grid three">
+      <article class="pg-card">
+        <span class="pg-num">1 · 平行橫移站位</span>
+        <h3>每隔 1.5–2 公尺橫移一步</h3>
+        <p>離岩壁 4–8 公尺，每個站位拍低（含起攀地面）、中、高三張，相鄰站位畫面重疊六成以上，不要只站在原地轉動手機。</p>
+      </article>
+      <article class="pg-card">
+        <span class="pg-num">2 · 控光與地面銜接</span>
+        <h3>天空不過三分之一、必帶起攀平台</h3>
+        <p>避開正午直射頂光，陰天或側柔光紋理最清楚；最低一排一定要拍到岩壁與地面交界，單區補洞才有真實色彩與高度錨點。</p>
+      </article>
+      <article class="pg-card">
+        <span class="pg-num">3 · 岩頂與林木分開</span>
+        <h3>俯拍只對位、不進貼圖</h3>
+        <p>若從岩頂往下補拍，篩片工具會依俯仰角自動標成 Pose-Only，避免把對面樹冠或草叢烤進正面岩壁貼圖。</p>
+      </article>
+    </div>
+
+    <div id="guidePhotosWrap" hidden>
+      <h3>實拍好壞對照（大砲岩現場樣本）</h3>
+      <div class="crag-guide-grid" id="guidePhotosGrid"></div>
+    </div>
+
+    <h3>建置指令（Holdlab 管線）</h3>
+    <pre id="cliCommands"># 1. 照片品質分級（Mesh &amp; Texture / Pose-Only / Drop）與拍法對照圖輸出
+.venv/bin/python tools/crag3d/preflight.py 3dworkspace/&lt;岩場&gt; --guide-dir runs/&lt;岩場&gt;/pack
+
+# 2. 單區網格裁切、頂部裂隙去假天空、起攀平台高度場補洞與邊緣羽化
+.venv/bin/python tools/crag3d/patch_zone.py 3dworkspace/&lt;岩場&gt;/mesh_work crag.json runs/&lt;岩場&gt;/zones
+
+# 3. 輸出 Climbio v2 Guidebook（index.json、pack.json、單區 GLB、dapaoyan.bundle.json、lab.json）
+.venv/bin/python tools/crag3d/export_lab_pack.py 3dworkspace/&lt;岩場&gt; runs/&lt;岩場&gt;/zones runs/&lt;岩場&gt;/pack &lt;經度,緯度&gt;</pre>
+    <div class="copyrow">
+      <button class="pg-btn sm copy" data-copy="cliCommands" type="button">複製建置指令</button>
+      <a class="pg-btn sm" href="../../studio/crag/">前往 Studio</a>
+    </div>
+  </section>
+
+  <footer class="pg-foot">
+    <span>Climbio Lab · 公開格式 v2（CC-BY-SA-4.0）</span>
+    <span><a href="../">返回 Lab</a> · <a href="../../redpoint/">紅點貓</a> · <a href="../../studio/convert/">轉換路線書</a></span>
+  </footer>
+</main>
+</body>
+</html>

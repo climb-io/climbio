@@ -64,7 +64,7 @@ const siteSet = ({ origin, listed, gyms }) => set('site', fixedId(origin), 'Clim
   gyms.map(g => ({ href: `w/gym/${encodeURIComponent(g.gym)}.json`, name: g.gym, t: g.t, props: { walls: g.n } })), { url: origin, listed });
 // walls：[{ pid, name, thumb, routes: 公開路線數, t, href }]；href＝這面牆從哪裡收（路線圖層，或開放資料集裡發佈的畫面）
 const gymSet = ({ origin, gym, walls }) => set('walls', fixedId(origin, 'gym', gym), gym,
-  walls.map(x => ({ href: x.href, ...fileId(x.pid), name: x.name, t: x.t, props: { ...(x.thumb ? { thumb: x.thumb } : {}), routes: x.routes } })));
+  walls.map(x => ({ href: x.href, ...fileId(x.pid), name: x.name, t: x.t, props: { ...(x.thumb ? { thumb: x.thumb } : {}), routes: x.routes, ...(x.model ? { model: x.model } : {}) } })));
 // gyms：[{ gym, n, t, href: 那個站的岩館清單, site: 站名 }]
 const directorySet = ({ origin, gyms }) => set('directory', fixedId(origin, 'directory'), 'Climbio',
   gyms.map(g => ({ href: g.href, name: g.gym, t: g.t, props: { walls: g.n, site: g.site } })));

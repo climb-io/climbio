@@ -121,6 +121,7 @@
   .card .badge.go { background: var(--accent); }
   /* 岩場卡片：名稱、岩壁數、來源由上到下排列並左對齊；來源無外框、無底色。 */
   .card.ak-photo-card .meta { align-items: flex-start; text-align: left; }
+  .card.ak-photo-card .meta > * { max-width: 100%; }   /* flex-start 會讓長名字撐出卡片、省略號不出現 */
   .card .source-credit { display: inline-flex; align-items: center; align-self: flex-start; gap: 4px; max-width: 100%; min-width: 0; padding: 0; margin-top: 2px; border: 0; border-radius: 0; background: none; box-shadow: none; color: rgba(255,255,255,.72); font-size: 11px; font-weight: 400; line-height: 1.25; white-space: nowrap; }
   .card .source-credit svg { width: 12px; height: 12px; flex: none; }
   .card .source-credit span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -136,8 +137,18 @@
   }
   @keyframes pop { from { opacity: 0; transform: scale(.2); } to { opacity: 1; transform: none; } }
   @keyframes bob { from { transform: translateY(0); } to { transform: translateY(-6px); } }
-  /* 右下地球：打開「世界」 */
+  /* 首頁「＋」：沿用岩點貓的兩個圓形快捷入口。 */
   .rfab-btn { box-shadow: 0 8px 24px var(--shadow); }
+  #fab .rfab-btn svg { transition: transform .35s var(--spring); }
+  #fab[data-open] .rfab-btn svg { transform: rotate(135deg); }
+  #fab .rarc-btn { position: absolute; top: 4px; left: 4px; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--text); box-shadow: 0 6px 18px var(--shadow);
+    opacity: 0; transform: scale(.4); visibility: hidden; pointer-events: none; transition: transform .35s var(--spring), opacity .2s, visibility 0s linear .35s; }
+  #fab[data-open] .rarc-btn:not([hidden]) { opacity: 1; visibility: visible; pointer-events: auto; transform: translate(var(--x), var(--y)); transition-delay: 0s; }
+  #fab .rarc-btn svg { width: 24px; height: 24px; }
+  #fab #worldNearby { --x: 0px; --y: -96px; }
+  #fab #fabWorld { --x: -96px; --y: 0px; }
+  #fab #worldNearby[hidden] + #fabWorld { --x: 0px; --y: -96px; }
+  @media (prefers-reduced-motion: reduce) { #fab .rarc-btn, #fab .rfab-btn svg { transition: none; } }
 
   /* 岩場頁：上面入口照片橫幅（4:3、圓角、左下名稱），下面每面岩壁的小卡 */
   #packMissing { margin: 0 16px 14px; }
@@ -302,12 +313,17 @@
   /* 世界：立體卡堆（國家 → 地區 → 岩場），沒有地圖；卡堆依地理位置排進格子，厚度是岩場數量，最後一層才是岩場卡片 */
   #world { z-index: 9; background: var(--bg); overflow: hidden; }
   #world .vw { z-index: 20; }
-  #worldNearby { position: absolute; right: 12px; top: calc(12px + var(--safe-t, 0px)); }
   #world .vw-btn, #world .tp-where { color: var(--text); background: color-mix(in srgb, var(--surface) 88%, transparent); box-shadow: 0 4px 14px var(--shadow); }
   #world .w-head { gap: 8px; padding: 0 16px; color: var(--text); }
   #world .w-head img { width: 26px; height: 26px; }
   #world .w-head.busy img { animation: bob 1.2s var(--spring) infinite alternate; }   /* 找岩場中：紅點貓晃著 */
   #worldStage { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; padding: calc(76px + var(--safe-t, 0px)) 16px calc(40px + var(--safe-b, 0px)); }
+  #world.has-search #worldStage { padding-top: calc(130px + var(--safe-t, 0px)); }
+  /* 搜尋欄：跟岩點貓找牆的搜尋一樣，置中、不隨視窗無限延伸，浮在卡片上方 */
+  .w-search { position: absolute; left: 0; right: 0; top: calc(68px + var(--safe-t, 0px)); z-index: 3; max-width: 640px; margin-inline: auto; padding: 0 16px; }
+  .w-search .field { display: block; width: 100%; box-sizing: border-box; height: 44px; padding: 0 18px; border: 1px solid var(--line); border-radius: 999px; outline: none; -webkit-appearance: none; appearance: none; background: var(--surface); color: var(--text); font: inherit; font-size: 16px; box-shadow: 0 4px 14px var(--shadow); }
+  .w-search .field::placeholder { color: var(--muted); }
+  .w-search .field:focus { border-color: var(--accent); }
   .w-piles { --cols: 3; display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 30px 18px; max-width: 1100px; margin: 0 auto; }
   .pile { position: relative; grid-column: var(--col); grid-row: var(--row); aspect-ratio: 5 / 4; margin: 0 10px 14px 0; padding: 0; text-align: left; isolation: isolate; transition: translate .3s var(--spring); }
   /* 厚度：下面墊幾張，每張往右下偏一點；岩場越多越厚 */
@@ -432,6 +448,7 @@
 <script src="../appkit/update.js"></script>
 <script src="../appkit/account.js"></script>
 <script src="../appkit/share.js"></script>
+<script src="../appkit/share-image.js"></script>
 <script type="module" src="app.js"></script>
 </head>
 <body>
@@ -441,6 +458,8 @@
   <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
   <symbol id="i-photo" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 16l5-5 4 4 2-2 5 5"/><circle cx="15.5" cy="9.5" r="1.5"/></symbol>
   <symbol id="i-qr" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z"/><path d="M14 14h2v2h-2zM18 14h2M14 18v2M18 18h2v2"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></symbol>
+  <symbol id="i-friends" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 8.5h7m-2-2 2 2-2 2M15.5 15.5h-7m2-2-2 2 2 2"/></g><circle cx="4.5" cy="12" r="2.2" fill="currentColor"/><circle cx="19.5" cy="12" r="2.2" fill="currentColor"/></symbol>
   <symbol id="i-nearby" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2"/></symbol>
   <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
   <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.6 5.2 3.6 8.5s-1 6.1-3.6 8.5c-2.6-2.4-3.6-5.2-3.6-8.5s1-6.1 3.6-8.5z"/></symbol>
@@ -525,15 +544,19 @@
 
 <section id="world" class="page ak-photo-page" hidden data-i18n-aria="world" aria-label="世界">
   <div id="worldStage"></div>
+  <div class="w-search" id="worldSearchBox" hidden><input class="field" id="worldSearch" type="search" data-i18n-ph="findCrag" data-i18n-aria="findCrag" placeholder="搜尋岩場" autocomplete="off"></div>
   <header class="vw">
     <button class="vw-btn vw-back" id="worldBack" data-i18n-aria="back" aria-label="返回"><svg><use href="#i-back"/></svg></button>
-    <button class="vw-btn" id="worldNearby" data-i18n-aria="nearbyTitle" aria-label="附近交換"><svg><use href="#i-nearby"/></svg></button>
     <div class="tp-where w-head" id="worldNote" hidden><img src="../icons/cats/redpoint-cat.svg" alt=""><span id="worldHead"></span></div>
   </header>
 </section>
 
 <div class="rfab" id="fab">
-  <button class="rfab-btn" id="fabBtn" data-i18n-aria="world" aria-label="世界"><svg><use href="#i-globe"/></svg></button>
+  <div class="rarc">
+    <button class="rarc-btn" id="worldNearby" data-i18n-aria="nearbySendTitle" aria-label="傳給朋友" tabindex="-1"><svg><use href="#i-friends"/></svg></button>
+    <button class="rarc-btn" id="fabWorld" data-i18n-aria="world" aria-label="世界" tabindex="-1"><svg><use href="#i-globe"/></svg></button>
+  </div>
+  <button class="rfab-btn" id="fabBtn" data-i18n-aria="more" aria-label="更多" aria-expanded="false"><svg><use href="#i-plus"/></svg></button>
 </div>
 
 <div id="acct" hidden>

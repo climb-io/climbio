@@ -30,10 +30,10 @@ export function buildWorld(items) {
   return countries;
 }
 
-/** 把 Studio Guidebook 與 OpenClimbing 岩場合成 buildWorld 用的扁平清單（Guidebook 在前；同一本書的其他版本各一筆） */
+/** 把 Studio Guidebook 與 OpenClimbing 岩場合成 buildWorld 用的扁平清單（Guidebook 在前；同一本書的其他版本各一筆，但排第一那版的祖先版本不列：那是同一本書的舊版，不是另一個岩場） */
 export function worldItemsFrom(books = [], ocCrags = []) {
   return [
-    ...books.flatMap((b) => [b, ...(b.others ?? []).map((o) => ({ ...o, at: b.at, cc: b.cc }))]).map((b) => ({ key: `s${b.id}`, cc: b.cc, area: b.name, at: b.at, book: b })),
+    ...books.flatMap((b) => [b, ...(b.others ?? []).filter((o) => !(b.lineage ?? []).includes(o.id)).map((o) => ({ ...o, at: b.at, cc: b.cc }))]).map((b) => ({ key: `s${b.id}`, cc: b.cc, area: b.name, at: b.at, book: b })),
     ...ocCrags.map((c) => ({ key: `o${c.osmId ?? c.id}`, cc: c.country, area: c.areaPath?.[0], at: c.at, crag: c })),
   ];
 }

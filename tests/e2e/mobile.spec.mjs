@@ -59,17 +59,13 @@ test('開場的主標、副標三組輪播：品牌圖像配合文案輪替', as
   await expect(page.locator('#ldSub')).toHaveText(ps[1][1]);
 });
 
-test('開始拍打開選照片（iPhone 系統選單、Android 先選拍照或相簿）；選好照片才離開開場，進裁切；開場前不先畫首頁', async ({ page }) => {
+test('相簿按鈕選好照片才離開開場，進裁切；開場前不先畫首頁', async ({ page }) => {
   await watchPaint(page);
   await welcome(page);
   expect(await page.evaluate(() => painted.home)).toBe(false);
-  expect(await page.locator('#photoInput').getAttribute('capture')).toBeNull();   // iPhone 由系統先問拍照或選照片
-  const android = await page.evaluate(() => /Android/.test(navigator.userAgent));
-  if (android) {   // Android 的系統只開相簿：先在 App 的選單選拍照或相簿
-    await page.locator('#ldPlay').tap();
-    await expect(page.locator('#addSheet')).toBeVisible();
-  }
-  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator(android ? '#addLibrary' : '#ldPlay').tap()]);
+  expect(await page.locator('#photoInput').getAttribute('capture')).toBeNull();
+  await page.evaluate(() => { navigator.mediaDevices.getUserMedia = () => new Promise(() => {}); });
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.evaluate(() => $('addLibraryBtn').click())]);
   await expect(page.locator('#landing')).toBeVisible();   // 還在選：開場留著
   await chooser.setFiles('demo/demo.jpg');
   await expect(page.locator('#landing')).toBeHidden();
@@ -87,11 +83,9 @@ const watchEmpty = (page) => page.evaluate(() => {
   requestAnimationFrame(tick);
 });
 
-test('開始拍選了照片、在裁切取消：回到開場畫面，不露出空的首頁', async ({ page }) => {
+test('相簿選了照片、在裁切取消：回到開場畫面，不露出空的首頁', async ({ page }) => {
   await welcome(page);
-  const android = await page.evaluate(() => /Android/.test(navigator.userAgent));
-  if (android) await page.locator('#ldPlay').tap();
-  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator(android ? '#addLibrary' : '#ldPlay').tap()]);
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.evaluate(() => $('addLibraryBtn').click())]);
   await chooser.setFiles('demo/demo.jpg');
   await expect(page.locator('#crop')).toBeVisible();
   await watchEmpty(page);
@@ -203,11 +197,10 @@ test('Messenger 內建瀏覽器點開分享連結：iPhone 先提示改用 Safar
   } finally { await context.close(); }
 });
 
-for (const [lang, htmlLang] of [['zh', 'zh-Hant'], ['en', 'en'], ['ja', 'ja']]) {
-  test(`開場語言設定可跨重新載入保存：${lang}`, async ({ page }) => {
+for (const [locale, htmlLang] of [['zh-TW', 'zh-Hant'], ['en-US', 'en'], ['ja-JP', 'ja']]) test.describe(`瀏覽器語言：${locale}`, () => {
+  test.use({ locale });
+  test(`開場語言依瀏覽器語言決定，重新載入不變：${locale}`, async ({ page }) => {
     await welcome(page);
-    await page.evaluate(value => localStorage.setItem('climbio.lang', value), lang);
-    await page.reload();
     await expect(page.locator('html')).toHaveAttribute('lang', htmlLang);
     const expected = await page.evaluate(() => AppKit.i18n.t('ldPlay'));
     expect(expected).toBeTruthy();
@@ -216,7 +209,7 @@ for (const [lang, htmlLang] of [['zh', 'zh-Hant'], ['en', 'en'], ['ja', 'ja']]) 
     await expect(page.locator('html')).toHaveAttribute('lang', htmlLang);
     await expect(page.locator('#ldPlay')).toHaveText(expected);
   });
-}
+});
 
 test('一般牆面可存入 IndexedDB，重新載入仍保存路線與照片', async ({ page }) => {
   await welcome(page);

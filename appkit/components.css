@@ -33,14 +33,3 @@
 .rfab-btn svg { width: 28px; height: 28px; }
 
 /* 兩款 Viewer 共用的帳號選單底部：來源（如有）、隱私、條款、版本。 */
-.ak-account-footer { display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
-  padding: 12px 14px 8px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; line-height: 1.45; }
-.ak-account-footer-links { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 14px; }
-.ak-account-footer a, .ak-account-footer .ak-account-footer-version {
-  font: inherit; font-weight: 500; color: var(--muted); text-decoration: none; }
-.ak-account-footer a:hover, .ak-account-footer button.ak-account-footer-version:hover { color: var(--text); }
-.ak-account-footer-version-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.ak-account-footer .ak-account-footer-version { padding: 0; margin: 0; background: none; border: 0; border-radius: 0; text-align: left; cursor: default; }
-.ak-account-footer button.ak-account-footer-version { cursor: pointer; }
-.ak-account-footer-status { width: 100%; font-size: 11.5px; color: var(--muted); }
-.ak-account-footer-status:empty { display: none; }

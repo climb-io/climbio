@@ -85,6 +85,7 @@ html{background:#0e0e0f}
 </symbol>
   <!-- 原始單色岩點：僅作攀岩圖形與動畫元素，不作第二套品牌 Logo。 -->
   <symbol id="i-user" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20c.8-3.6 3.8-5.8 7.5-5.8s6.7 2.2 7.5 5.8"/></g></symbol>
+  <symbol id="i-friends" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 8.5h7m-2-2 2 2-2 2M15.5 15.5h-7m2-2-2 2 2 2"/></g><circle cx="4.5" cy="12" r="2.2" fill="currentColor"/><circle cx="19.5" cy="12" r="2.2" fill="currentColor"/></symbol>
   <symbol id="i-nearby" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2"/></g></symbol>
   <symbol id="i-globe" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.4 3.6 5.2 3.6 8.5s-1.2 6.1-3.6 8.5c-2.4-2.4-3.6-5.2-3.6-8.5S9.6 5.9 12 3.5z"/></g></symbol>
   <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></symbol>
@@ -96,6 +97,7 @@ html{background:#0e0e0f}
   <symbol id="i-grade" viewBox="0 0 24 24"><path d="M5 19v-4M10 19v-8M15 19V8M20 19V4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></symbol>
   <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V4M8 8l4-4 4 4M5 13v6h14v-6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
   <symbol id="i-lasso" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4c4.4 0 8 2.2 8 5s-3.6 5-8 5-8-2.2-8-5 3.6-5 8-5Z" stroke-dasharray="3 3"/><path d="M9 13.5c-1 1.4-1.2 3-.3 4.2.8 1 2.2 1.3 3.3.6"/></g></symbol>
+  <symbol id="i-retrace" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 14 10"/><path d="m12 8 4 4"/><path d="M16 3v4M14 5h4"/><path d="M20 11v3M18.5 12.5h3"/></g></symbol>
   <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 7 5 11l4 4M5 11h9a5 5 0 0 1 0 10h-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
   <symbol id="i-mascot" viewBox="-80 -80 160 160"><svg x="-68" y="-68" width="136" height="136" viewBox="0 0 1024 1024">
 <g transform="translate(10 40)">
@@ -181,14 +183,16 @@ html{background:#0e0e0f}
   </div>
   <div class="rfab" id="homeFab">
     <div class="rarc">
-      <button class="rarc-btn" id="addWallBtn" data-i18n-aria="addWall" aria-label="新增牆面"><svg><use href="#i-camera"/></svg></button>
+      <button class="rarc-btn" id="addWallBtn" data-i18n-aria="takePhoto" aria-label="拍照"><svg><use href="#i-camera"/></svg></button>
+      <button class="rarc-btn" id="addLibraryBtn" data-i18n-aria="fromLibrary" aria-label="相簿"><svg><use href="#i-photo"/></svg></button>
+      <button class="rarc-btn" id="findNearby" data-i18n-aria="nearbySendTitle" aria-label="傳給朋友"><svg><use href="#i-friends"/></svg></button>
       <button class="rarc-btn" id="findBtn" data-i18n-aria="findWalls" aria-label="找牆面"><svg><use href="#i-globe"/></svg></button>
     </div>
     <button class="rfab-btn" id="addBtn" data-i18n-aria="add" aria-label="新增" aria-expanded="false"><svg><use href="#i-plus"/></svg></button>
   </div>
 </section>
 
-<!-- 新增牆面：iPhone 由系統選單拍照或選照片；Android 的系統直接開相簿，先在這裡選拍照或相簿（addSheet） -->
+<!-- 新增牆面：先在這裡選拍照或相簿（addSheet）；拍照走 App 自己的 16:9 相機（shotCam） -->
 <input class="file-input" type="file" id="photoInput" accept="image/*">
 <input class="file-input" type="file" id="cameraInput" accept="image/*" capture="environment">
 <div class="sheet-backdrop" id="addSheet" hidden>
@@ -222,7 +226,6 @@ html{background:#0e0e0f}
   <div class="sheet" role="dialog" data-i18n-aria="more" aria-label="更多">
     <div class="sheet-group">
       <button class="sheet-btn" id="renameWallBtn"><svg><use href="#i-rename"/></svg><span data-i18n="renameWall">重新命名</span></button>
-      <button class="sheet-btn" id="gymWallBtn"><svg><use href="#i-pin"/></svg><span></span></button>
       <button class="sheet-btn" id="addPhotoBtn"><svg><use href="#i-photo"/></svg><span data-i18n="addPhoto">增加照片</span></button>
     </div>
     <div class="sheet-group"><button class="sheet-btn danger" id="deleteWallBtn"><svg><use href="#i-trash"/></svg><span data-i18n="deleteWall">刪除這面牆</span></button></div>
@@ -244,16 +247,17 @@ html{background:#0e0e0f}
     <button class="sheet-cancel" id="sideCancel" data-i18n="cancel">取消</button>
   </div>
 </div>
-<div class="sheet-backdrop" id="gymSheet" hidden>
-  <div class="sheet" role="dialog" data-i18n-aria="gymTitle" aria-label="岩館">
-    <div class="sheet-group pick-group">
-      <b class="sheet-title" data-i18n="gymTitle">岩館</b>
-      <input class="field gym-find" id="gymFind" type="search" data-i18n-ph="gymFind" data-i18n-aria="gymFind" placeholder="搜尋岩館" aria-label="搜尋岩館" autocomplete="off">
-      <div class="pick-list" id="gymList"></div>
-    </div>
-    <button class="sheet-cancel" id="gymCancel" data-i18n="cancel">取消</button>
+<!-- 相機（拍牆面）：16:9 影片串流 -->
+<section id="shotCam" hidden>
+  <header class="crop-bar">
+    <button class="vw-btn ed-x" id="shotClose" data-i18n-aria="cancel" aria-label="取消"><svg><use href="#i-plus"/></svg></button>
+  </header>
+  <div class="crop-stage"><video id="shotVideo" playsinline muted></video></div>
+  <div class="crop-actions">
+    <button class="vw-btn ed-ok" id="shotSnap" data-i18n-aria="takePhoto" aria-label="拍照"><svg><use href="#i-camera"/></svg></button>
   </div>
-</div>
+</section>
+
 <!-- 裁切 -->
 <section id="crop" hidden>
   <header class="crop-bar">
@@ -275,7 +279,6 @@ html{background:#0e0e0f}
   <div class="scan-stage"><div class="scan-pic" id="scanPic"><img id="scanImg" alt=""><canvas id="scanCv"></canvas><canvas id="scanFx"></canvas><i class="scan-line"></i></div></div>
   <div class="scan-foot">
     <div class="scan-count"><b id="scanN">…</b><small id="scanUnit" data-i18n="holdsUnit">顆岩點</small></div>
-    <button class="scan-gym" id="scanGym" hidden></button>
     <p class="scan-err" id="scanErr" hidden></p>
     <div class="scan-acts" id="scanActs" hidden>
       <button class="btn primary" id="scanRoute" data-i18n="scanFirst">定第一條線</button>
@@ -289,7 +292,6 @@ html{background:#0e0e0f}
   <header class="bar">
     <button class="icon-btn" id="findBack" data-i18n-aria="back" aria-label="返回"><svg><use href="#i-back"/></svg></button>
     <h1 data-i18n="findWalls">找牆面</h1>
-    <button class="icon-btn" id="findNearby" data-i18n-aria="nearbyTitle" aria-label="附近交換" hidden><svg><use href="#i-nearby"/></svg></button>
   </header>
   <div class="find-search"><input class="field" id="findSearch" type="search" data-i18n-ph="findWall" data-i18n-aria="findWall" placeholder="搜尋牆面" autocomplete="off"></div>
   <div class="find-head"><svg class="find-mini" viewBox="-80 -80 160 160" aria-hidden="true"><use href="#i-mascot"/></svg><p id="findCount"></p></div>
@@ -339,14 +341,12 @@ html{background:#0e0e0f}
     <div class="grade-dial" id="rGrade" role="group" data-i18n-aria="grade" aria-label="難度" hidden></div>
     <span class="view-title" id="viewTitle" hidden><b id="viewGrade"></b></span>
     <span class="ed-title" id="edTitle"></span>
-    <button class="icon-btn base-btn" id="baseBtn" aria-pressed="false" data-i18n-aria="baseToggle" aria-label="灰階／暗彩" hidden><svg><use href="#i-contrast"/></svg></button>
-    <button class="icon-btn outline-btn" id="outlineBtn" aria-pressed="false" data-i18n-aria="showHolds" aria-label="顯示所有岩點"><svg><use href="#i-outline"/></svg></button>
    </div>
    <div class="top-grp" id="topR">
     <button class="icon-btn" id="edDelRoute" data-i18n-aria="deleteRoute" aria-label="刪除路線" hidden><svg><use href="#i-trash"/></svg></button>
+    <button class="icon-btn" id="camTrackBtn" data-i18n-aria="liveCamera" aria-label="相機看線" hidden><svg><use href="#i-camera"/></svg></button>
     <button class="icon-btn" id="shareBtn" data-i18n-aria="share" aria-label="分享" hidden><svg><use href="#i-share"/></svg></button>
     <button class="icon-btn" id="edMenuBtn" data-i18n-aria="more" aria-label="更多" aria-haspopup="true" hidden><svg><use href="#i-more"/></svg></button>
-    <button class="vw-btn ed-ok" id="edDone" data-i18n-aria="done" aria-label="完成" hidden><svg><use href="#i-check"/></svg></button>
    </div>
   </header>
   <div class="menu" id="edMenu" hidden>
@@ -363,34 +363,28 @@ html{background:#0e0e0f}
   <button class="xfer-btn next" id="xferNext" data-i18n-aria="xferPhoto" aria-label="接到相鄰照片" hidden><svg><use href="#i-back"/></svg></button>
   <div class="swipe-hint" id="swipeHint" aria-hidden="true" hidden></div>
   <canvas class="loupe" id="loupe" aria-hidden="true" hidden></canvas>
+  <!-- 相機看線：岩點貓裡蓋一層全螢幕的相機追蹤（/3d/ 的追蹤頁），開相機即時疊這條線的岩點；左上返回回到路線圖 -->
+  <div class="cam-view" id="camView" hidden>
+    <iframe id="camFrame" title="相機看線" data-i18n-title="liveCamera" allow="camera; accelerometer; gyroscope; magnetometer"></iframe>
+    <button class="vw-btn cam-close" id="camClose" data-i18n-aria="back" aria-label="返回"><svg><use href="#i-back"/></svg></button>
+  </div>
   <div class="vw" id="vw">
     <button class="vw-btn vw-back" id="vwBack" data-i18n-aria="back" aria-label="返回"><svg><use href="#i-back"/></svg></button>
-    <div class="vw-title"><b id="vwGrade"></b><i class="vw-mark" id="vwMark" hidden><svg><use href="#i-paw"/></svg></i><input id="routeTitle" readonly tabindex="-1" data-i18n-aria="routeName" aria-label="路線名稱"><span class="vw-count" id="vwCount"></span></div>
-    <button class="vw-btn vw-share" id="vwShare" data-i18n-aria="share" aria-label="分享"><svg viewBox="3.8 2.8 16.4 17.4" aria-hidden="true"><use href="#i-share" width="24" height="24"/></svg></button>
-    <button class="vw-btn vw-edit" id="vwEdit" data-i18n-aria="editRoute" aria-label="編輯路線"><svg><use href="#i-edit"/></svg></button>
+    <div class="vw-title"><b id="vwGrade"></b><i class="vw-mark" id="vwMark" hidden><svg><use href="#i-paw"/></svg></i><input id="routeTitle" readonly tabindex="-1" data-i18n-aria="routeName" aria-label="路線名稱"><span class="vw-count" id="vwCount"></span><span class="vw-feet" id="vwFeet" data-i18n="feetFree" hidden>不限腳</span></div>
     <button class="vw-btn vw-base base-btn" aria-pressed="false" data-i18n-aria="baseToggle" aria-label="灰階／暗彩"><svg><use href="#i-contrast"/></svg></button>
+    <button class="vw-btn vw-more" id="vwMore" data-i18n-aria="more" aria-label="更多" aria-haspopup="true" aria-expanded="false"><svg><use href="#i-more"/></svg></button>
+    <div class="menu vw-menu" id="vwMenu" hidden>
+      <button class="vw-item" id="vwCam" hidden><svg><use href="#i-camera"/></svg><span data-i18n="liveCamera">相機看線</span></button>
+      <button class="vw-item" id="vwEdit"><svg><use href="#i-edit"/></svg><span data-i18n="editRoute">編輯路線</span></button>
+      <button class="vw-item" id="vwShare"><svg viewBox="3.8 2.8 16.4 17.4" aria-hidden="true"><use href="#i-share" width="24" height="24"/></svg><span data-i18n="share">分享</span></button>
+    </div>
     <div class="rfab" id="vwFabWrap">
       <button class="rfab-btn" id="vwFab" aria-pressed="false" data-i18n-aria="logSend" aria-label="完攀"><svg><use href="#i-paw"/></svg></button>
     </div>
   </div>
   <div class="ed-bar ed-bottom">
-    <div id="viewPanel" hidden>
-      <div class="ed-row view-row">
-        <span></span>
-        <button class="icon-btn" id="prevRoute" data-i18n-aria="prevRoute" aria-label="上一條"><svg><use href="#i-back"/></svg></button>
-        <span class="view-count" id="viewCount"></span>
-        <button class="icon-btn" id="nextRoute" data-i18n-aria="nextRoute" aria-label="下一條"><svg><use href="#i-chev"/></svg></button>
-      </div>
-    </div>
+    <div id="viewPanel" hidden></div>   <!-- 看路線圖下面的上一條、下一條在 kit 的操作介面（RouteKit.EditorUI） -->
     <div id="routePanel" class="ed-panel" hidden>
-      <div class="ed-row type-row" id="typeRow">
-        <i class="type-pill" id="typePill" aria-hidden="true"></i>
-        <button class="type-btn" data-type="s" aria-pressed="false"><i class="sw-slot" data-type="s"></i><span data-i18n="start">起攀</span></button>
-        <button class="type-btn" data-type="h" aria-pressed="false"><i class="sw-slot" data-type="h"></i><span data-i18n="hand">手點</span></button>
-        <button class="type-btn" data-type="t" aria-pressed="false"><i class="sw-slot" data-type="t"></i><span data-i18n="top">完攀</span></button>
-        <button class="type-btn" data-type="f" aria-pressed="false"><i class="sw-slot" data-type="f"></i><span data-i18n="foot">腳點</span></button>
-        <button class="type-btn" data-type="n" aria-pressed="false"><i class="sw-slot" data-type="n"></i><span data-i18n="seq">順序</span></button>
-      </div>
     </div>
     <div id="holdPanel" class="ed-panel" hidden>
       <p class="hint" id="holdHint"></p>
@@ -400,9 +394,10 @@ html{background:#0e0e0f}
         <button class="vw-btn danger" id="draftCancel" data-i18n-aria="discardHold" aria-label="放棄"><svg><use href="#i-trash"/></svg></button>
         <button class="vw-btn ed-ok" id="draftDone" data-i18n-aria="addHold" aria-label="加入"><svg><use href="#i-check"/></svg></button>
       </div>
-      <!-- 單點編輯下方（手機）：復原、刪除、完成；岩點數、黑白預覽、重描只有電腦版 -->
+      <!-- 單點編輯：浮在岩點旁的膠囊（圈起來、重描、復原、刪除、完成） -->
       <div class="ed-row" id="holdActions">
         <button class="vw-btn" id="holdLasso" aria-pressed="false" data-i18n-aria="lasso" aria-label="圈起來"><svg><use href="#i-lasso"/></svg></button>
+        <button class="vw-btn" id="holdRetrace" data-i18n-aria="retrace" aria-label="重描" hidden><svg><use href="#i-retrace"/></svg></button>
         <button class="vw-btn" id="holdUndo" data-i18n-aria="undo" aria-label="復原" disabled><svg><use href="#i-undo"/></svg></button>
         <i class="ha-gap"></i>
         <button class="icon-btn danger" id="delHold" data-i18n-aria="deleteSelected" aria-label="刪除選取的岩點" disabled><svg><use href="#i-trash"/></svg></button>
@@ -467,8 +462,6 @@ html{background:#0e0e0f}
 
 
 <!-- 第一次使用的導覽：首次打開時顯示，看完或略過後不再出現；選單「使用說明」改為正式文件。 -->
-<!-- 岩點貓提示（js/tour.js 的 TIPS）：示範沒教、做得到的事，在對的畫面提一次；不擋操作 -->
-<div class="app-tip" id="appTip" aria-live="polite" hidden><p id="appTipText"></p><svg class="app-tip-mini" viewBox="-80 -80 160 160" aria-hidden="true"><use href="#i-mascot"/></svg></div>
 <!-- 體驗版（瀏覽器裡、還沒加到主畫面）：首頁換成簡單的介紹＋加到主畫面的步驟；收到的線照樣能看，編輯類的功能換成下面這條 -->
 <section class="landing" id="landing" hidden>
   <button class="vw-btn ld-x" id="ldClose" data-i18n-aria="close" aria-label="關閉"><svg><use href="#i-plus"/></svg></button>
@@ -522,7 +515,10 @@ html{background:#0e0e0f}
 <script defer src="../routekit/scene.js"></script>
 <script defer src="../routekit/image.js"></script>
 <script defer src="../routekit/editor.js"></script>
+<script defer src="../routekit/fit.js"></script>
+<script defer src="../routekit/viewport.js"></script>
 <script defer src="../routekit/viewer.js"></script>
+<script defer src="../routekit/ui.js"></script>
 <script defer src="../routekit/format.js"></script>
 <script defer src="../appkit/install.js"></script>
 <script defer src="../appkit/photo.js"></script>
@@ -536,6 +532,7 @@ html{background:#0e0e0f}
 <script defer src="../appkit/update.js"></script>
 <script defer src="../appkit/account.js"></script>
 <script defer src="../appkit/share.js"></script>
+<script defer src="../appkit/share-image.js"></script>
 <script defer src="../appkit/nearby.js"></script>
 <script defer src="../js/mascot-motion.js"></script>
 <script defer src="../js/holdcat.js"></script>
@@ -550,7 +547,6 @@ html{background:#0e0e0f}
 <script defer src="../js/export.js"></script>
 <script defer src="../js/mobile.js"></script>
 <script defer src="../js/wall3d.js"></script>
-<script defer src="../js/tour.js"></script>
 <script defer src="../holdkit/samrefine.js"></script>
 <script defer src="../js/main.js"></script>
 <script src="../js/rename.js"></script>

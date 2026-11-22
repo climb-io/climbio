@@ -22,10 +22,14 @@
 <link rel="alternate" hreflang="en" href="https://climbio.app/en/guides/studio.html">
 <link rel="icon" href="../icons/brand/favicon-brand.svg" type="image/svg+xml">
 <link rel="stylesheet" href="../css/brand-tokens.css">
+<link rel="stylesheet" href="../css/site-nav.css">
 <link rel="stylesheet" href="../css/pages.css">
 </head>
-<body>
-<header class="pg-top"><a class="pg-brand" href="../"><img src="../icons/brand/climbio-mark.svg" alt=""><span>Climbio</span></a><span class="grow"></span><nav class="pg-nav" aria-label="相關頁面"><a href="../">首頁</a><a href="../studio/">開啟 Studio</a><a href="../en/guides/studio.html" hreflang="en" lang="en">English</a></nav></header>
+<body class="site-page">
+<header class="site-header docs-header">
+  <a class="site-brand" href="../"><picture><source media="(max-width: 600px)" srcset="../icons/brand/climbio-mark.svg"><img src="../icons/brand/climbio-horizontal-light.svg" alt="Climbio" width="110" height="30"></picture></a>
+  <nav class="site-nav" aria-label="文件導覽"><a href="../guides/" aria-label="所有文件">文件</a><a class="site-language" href="../en/guides/studio.html" hreflang="en" lang="en">English</a></nav>
+</header>
 <main class="pg">
   <div class="pg-hero">
     <h1>Studio 怎麼用</h1>
@@ -48,7 +52,7 @@
     <details class="pg-more"><summary>開源嗎？</summary><p>格式與 Viewer、Editor 元件盡量降低依賴；公開範圍以 GitHub 為準。</p></details>
     <p class="pg-muted"><a href="https://github.com/climb-io/climbio/blob/main/format/README.md">Climbio 公開格式</a> · <a href="https://github.com/climb-io">GitHub</a></p>
   </section>
-  <footer class="pg-foot"><span>Climbio · Studio</span><a href="../">回首頁</a></footer>
+  <footer class="pg-foot docs-footer"><span>© 2026 Climbio</span><nav aria-label="網站資訊"><a href="../privacy.html">隱私權</a><a href="../terms.html">使用條款</a></nav></footer>
 </main>
 </body>
 </html>

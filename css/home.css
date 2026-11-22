@@ -1,193 +1,459 @@
-/* Climbio 首頁（index.html、en/index.html 共用）：一條線流過整頁。首屏深色（兩款 App 並列，Logo 的綠、藍兩塊就是兩款 App），之後是亮色的章節。
-   English: homepage styles. The hero is dark with both apps side by side; a single glowing route line flows down the page (home.js draws it).
-   需要先載入 css/brand-tokens.css、css/pages.css；動態在「減少動態效果」時全部關掉，畫面直接是完成的樣子。 */
+/* 五幕採一致的全版照片、文字尺度與靠下版面；只調整各張照片的焦點。 */
 :root {
-  --home-green: var(--climbio-brand-green, #B6F000);
-  --home-blue: var(--climbio-brand-blue, #0FADEA);
-  --home-dark: var(--climbio-brand-dark, #0E1722);
-  --home-dark-2: var(--climbio-brand-dark-surface, #172636);
-  --home-dark-line: var(--climbio-brand-dark-border, #344D61);
-  --home-dark-text: var(--climbio-brand-dark-text, #F7F9FB);
-  --home-dark-muted: var(--climbio-brand-dark-muted, #B5C8D3);
-  --home-flow: linear-gradient(90deg, var(--home-green), var(--home-blue));
-  --spring: cubic-bezier(.34, 1.56, .64, 1);
+  color-scheme: dark;
+  --reel-ink: #111912;
+  --reel-paper: #fffaf0;
+  --reel-gutter: clamp(22px, 6vw, 132px);
+  --reel-bottom-space: clamp(30px, 7vh, 80px);
+  background: var(--reel-ink);
 }
-html { scroll-padding-top: 64px; }
-body.home { background: var(--pg-bg); overflow-x: hidden; }
-
-/* 頁首：玻璃感，在深色首屏上是深色，捲到亮色章節換亮色（home.js 加 .on-dark） */
-.home-top { background: color-mix(in srgb, var(--pg-surface) 82%, transparent); backdrop-filter: saturate(1.4) blur(14px); -webkit-backdrop-filter: saturate(1.4) blur(14px); transition: background-color .3s, border-color .3s; }
-.home-top.on-dark { background: color-mix(in srgb, var(--home-dark) 72%, transparent); border-color: color-mix(in srgb, var(--home-dark-line) 60%, transparent); }
-.home-top.on-dark .pg-brand { color: var(--home-dark-text); }
-.home-top.on-dark .pg-nav a { color: var(--home-dark-muted); }
-.home-top.on-dark .pg-nav a:hover, .home-top.on-dark .pg-nav a[aria-current] { color: var(--home-dark-text); background: color-mix(in srgb, #fff 10%, transparent); }
-.pg-brand .mark-live { position: relative; display: block; width: 28px; height: 28px; flex: none; }
-.mark-live img, .mark-live svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.mark-live path { fill: none; stroke: #fff; stroke-width: 18; stroke-linecap: round; stroke-dasharray: 260; stroke-dashoffset: 260; opacity: 0; animation: mark-link 2.4s .3s ease-in-out forwards; }
-@keyframes mark-link { 0% { opacity: .95; stroke-dashoffset: 260; } 45% { opacity: .95; stroke-dashoffset: 0; } 100% { opacity: 0; stroke-dashoffset: -260; } }
-
-/* 整頁的線（home.js 依各章節標題的位置畫，捲動畫到哪裡亮到哪裡） */
-main.home { position: relative; }
-.flow-spine { position: absolute; left: 0; top: 0; width: 100%; pointer-events: none; z-index: 0; overflow: visible; }
-.flow-spine .track { fill: none; stroke: color-mix(in srgb, var(--home-blue) 18%, transparent); stroke-width: 2; }
-.flow-spine .lit { fill: none; stroke: url(#spineGrad); stroke-width: 3; stroke-linecap: round; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--home-green) 55%, transparent)); }
-.flow-spine .pulse { fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 2 140; animation: spine-pulse 3.2s linear infinite; opacity: .85; }
-.flow-spine .node { fill: var(--pg-bg); stroke: color-mix(in srgb, var(--home-blue) 40%, transparent); stroke-width: 2; transition: fill .4s, stroke .4s; }
-.flow-spine .node.on { fill: var(--home-green); stroke: var(--home-green); }
-@keyframes spine-pulse { to { stroke-dashoffset: -142; } }
-main.home > section { position: relative; z-index: 1; }
-
-/* 首屏：深色、滿版，背景是緩緩流動的路線線條 */
-.home .hero { color: var(--home-dark-text); border-top: 0; padding: 0 0 36px; isolation: isolate; }
-.home .hero::before { content: ""; position: absolute; z-index: -2; top: -56px; bottom: 0; left: 50%; width: 100vw; translate: -50% 0; background: radial-gradient(120% 70% at 85% 0%, color-mix(in srgb, var(--home-blue) 22%, transparent), transparent 60%), radial-gradient(90% 60% at 0% 30%, color-mix(in srgb, var(--home-green) 13%, transparent), transparent 60%), var(--home-dark); }
-.flow-field { position: absolute; z-index: -1; top: -56px; bottom: 0; left: 50%; width: 100vw; height: calc(100% + 56px); translate: -50% 0; pointer-events: none; opacity: .55; }
-.flow-field path { fill: none; stroke: url(#fieldGrad); stroke-width: 1.4; stroke-dasharray: 520 380; animation: field 26s linear infinite; }
-.flow-field path:nth-child(3n) { animation-duration: 34s; stroke-width: 1; }
-.flow-field path:nth-child(3n + 1) { animation-duration: 21s; animation-direction: reverse; }
-@keyframes field { to { stroke-dashoffset: -1800; } }
-.home .hero .pg-hero { padding: 64px 0 28px; }
-.home .hero .pg-eyebrow { color: var(--home-green); letter-spacing: .08em; }
-.home .hero h1 { font-size: clamp(36px, 6.2vw, 68px); letter-spacing: -.045em; margin-bottom: 18px; }
-.home .hero h1 .flowing { background: var(--home-flow); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.home .hero .pg-lead { color: var(--home-dark-muted); max-width: 640px; }
-
-/* 兩款 App：岩點貓深色、紅點貓亮色，中間一段線把它們連起來 */
-.app-grid { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; margin: 8px 0 0; }
-.app-card { position: relative; display: grid; gap: 12px; align-content: start; padding: 14px 14px 22px; border-radius: 26px; min-width: 0; overflow: hidden; }
-.app-card.indoor { background: var(--home-dark-2); border: 1px solid var(--home-dark-line); color: var(--home-dark-text); }
-.app-card.outdoor { background: var(--pg-surface); border: 1px solid transparent; color: var(--pg-text); }
-.app-card::after { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; background: var(--home-flow); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: 0; transition: opacity .4s; pointer-events: none; }
-.app-card:hover::after, .app-card:focus-within::after { opacity: 1; }
-.app-card > :not(.stage) { margin-inline: 10px; }
-.app-card .stage { position: relative; aspect-ratio: 1440 / 900; border-radius: 16px; overflow: hidden; margin: 0; }
-.app-card.indoor .stage { background: #0b0b0c; isolation: isolate; }
-.app-card.indoor .stage::before { content: ""; position: absolute; z-index: -1; inset: -24px; background: url(../demo/wanhua-wall.jpg) center 40% / cover; filter: blur(16px) grayscale(1) brightness(.32); }
-.app-card.outdoor .stage { background: var(--pg-surface-2); }
-.app-card .stage > img, .app-card .stage picture, .app-card .stage picture img { width: 100%; height: 100%; display: block; }
-.app-card.indoor .stage > img { object-fit: contain; }
-.app-card.outdoor .stage > img, .app-card.outdoor .stage picture img { object-fit: cover; }
-.stage-credit { position: absolute; z-index: 3; left: 10px; bottom: 8px; font-size: 11px; color: rgba(255,255,255,.78); text-decoration: none; text-shadow: 0 1px 3px rgba(0,0,0,.7); }
-.stage-credit:hover { color: #fff; text-decoration: underline; }
-.app-card .head { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
-.app-card .pg-cat { width: 48px; height: 48px; }
-.app-card .app-name { font-size: 22px; font-weight: 750; letter-spacing: -.02em; }
-.app-card .app-type { font-size: 13px; font-weight: 650; letter-spacing: .06em; }
-.app-card.indoor .app-type { color: var(--home-green); }
-.app-card.outdoor .app-type { color: var(--climbio-brand-blue-depth, #0873BA); }
-.app-card h2 { font-size: clamp(22px, 2.6vw, 28px); margin: 0; }
-.app-card > p { margin: 0; font-size: 15px; }
-.app-card.indoor > p { color: var(--home-dark-muted); }
-.app-card.outdoor > p { color: var(--pg-muted); }
-.app-card.indoor .pg-btn.primary { background: var(--home-green); color: #0E0E0F; }
-.app-card.indoor .pg-btn.primary:hover { background: #c9ff3d; }
-.app-card.indoor .pg-link { color: var(--home-dark-muted); }
-.bridge { position: absolute; left: calc(50% - 40px); top: 18%; width: 80px; height: 64%; pointer-events: none; z-index: 2; overflow: visible; }
-.bridge path { fill: none; stroke: url(#bridgeGrad); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 6 10; animation: bridge 1.6s linear infinite; filter: drop-shadow(0 0 5px color-mix(in srgb, var(--home-green) 60%, transparent)); }
-@keyframes bridge { to { stroke-dashoffset: -32; } }
-.app-shortcuts { display: none; gap: 10px; margin: 0 0 18px; }
-.app-shortcuts a { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; border-radius: 999px; background: color-mix(in srgb, #fff 8%, transparent); border: 1px solid var(--home-dark-line); color: var(--home-dark-text); text-decoration: none; font-weight: 700; }
-.app-shortcuts img { width: 28px; height: 28px; }
-.app-shortcuts .app-shortcut-type { color: var(--home-dark-muted); font-size: 12px; font-weight: 600; }
-
-/* 示範牆（home.js 用開放格式的真實資料畫）：掃描出岩點 → 路線的岩點留彩色、其他退成灰 → 線從起攀流到完攀 */
-.wall-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.wall-svg .hold { fill: none; stroke: #fff; stroke-width: 5; opacity: 0; }
-.wall-svg .route-hold { fill: none; stroke: var(--home-green); stroke-width: 9; opacity: 0; filter: drop-shadow(0 0 10px var(--home-green)); }
-.wall-svg .route-color { opacity: 0; }
-.wall-svg .route-line { fill: none; stroke: var(--home-green); stroke-width: 11; stroke-linecap: round; stroke-linejoin: round; opacity: .95; filter: drop-shadow(0 0 14px var(--home-green)); }
-.wall-svg .route-pulse { fill: none; stroke: #fff; stroke-width: 11; stroke-linecap: round; stroke-dasharray: 1 260; opacity: 0; }
-.wall-svg .scan { fill: url(#scanGrad); opacity: 0; }
-.wall-svg .role { font: 800 64px/1 var(--pg-font); fill: #0E0E0F; paint-order: stroke; stroke: var(--home-green); stroke-width: 26px; stroke-linejoin: round; opacity: 0; }
-.play .wall-svg .scan { animation: scan 1.5s ease-in-out forwards; }
-.play .wall-svg .hold { animation: hold-in .5s calc(var(--d) * 1s) ease-out forwards, hold-dim .6s 1.7s ease-in forwards; }
-.play .wall-svg .route-color { animation: fade-in .7s 1.8s ease-out forwards; }
-.play .wall-svg .route-hold { animation: fade-in .6s 1.9s ease-out forwards; }
-.play .wall-svg .route-line { animation: draw 1.6s 2.4s cubic-bezier(.6, 0, .2, 1) forwards; }
-.play .wall-svg .route-pulse { animation: fade-in .3s 4.1s forwards, flow 3.4s 4.1s linear infinite; }
-.play .wall-svg .role { animation: fade-in .4s 3.9s forwards; }
-.done .wall-svg .hold { opacity: .12; }
-.done .wall-svg .route-color, .done .wall-svg .route-hold, .done .wall-svg .role { opacity: 1; }
-.done .wall-svg .route-line { stroke-dashoffset: 0 !important; }
-@keyframes scan { 0% { opacity: .9; transform: translateY(100%); } 100% { opacity: 0; transform: translateY(-30%); } }
-@keyframes hold-in { to { opacity: .7; } }
-@keyframes hold-dim { from { opacity: .7; } to { opacity: .12; } }
-@keyframes fade-in { to { opacity: 1; } }
-@keyframes draw { to { stroke-dashoffset: 0; } }
-@keyframes flow { to { stroke-dashoffset: -261; } }
-
-/* 紅點貓的真實截圖：進入畫面時一道光掃過 */
-.app-card.outdoor .stage::after { content: ""; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 35%, color-mix(in srgb, var(--home-blue) 30%, transparent) 50%, transparent 65%); translate: -110% 0; pointer-events: none; }
-.app-card.outdoor.play .stage::after { animation: sweep 1.6s 1s ease-in-out; }
-@keyframes sweep { to { translate: 110% 0; } }
-
-/* 亮色章節 */
-.home .pg-section:not(.hero) { border-top: 0; padding: 72px 0 24px; }
-.home .pg-section h2 { font-size: clamp(26px, 3.4vw, 38px); }
-.data-story .pg-note { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; background: var(--pg-surface); border: 1px solid var(--pg-line); }
-.data-story .pg-note .pg-btn { flex: none; }
-.data-story .pg-grid.three { counter-reset: d; }
-.data-story-card { position: relative; padding-top: 28px; }
-.data-story-card::before { counter-increment: d; content: counter(d); position: absolute; top: -14px; left: 20px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font: 800 13px/1 var(--pg-font); color: #0E0E0F; background: var(--home-green); box-shadow: 0 0 0 4px var(--pg-bg), 0 0 14px color-mix(in srgb, var(--home-green) 70%, transparent); }
-
-/* Studio：路線書流成 Guidebook */
-.flowline { list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: 24px 0; padding: 0; position: relative; }
-.flowline li { position: relative; display: grid; justify-items: center; gap: 8px; text-align: center; font-weight: 700; font-size: 15px; z-index: 1; }
-.flowline li span { color: var(--pg-muted); font-weight: 500; font-size: 13px; max-width: 18ch; }
-.flowline li::before { content: ""; width: 18px; height: 18px; border-radius: 50%; background: var(--pg-bg); border: 3px solid var(--home-blue); }
-.flowline li:last-child::before { background: var(--home-green); border-color: var(--home-green); box-shadow: 0 0 14px var(--home-green); }
-.flowline::before { content: ""; position: absolute; top: 9px; left: 12.5%; right: 12.5%; height: 3px; background: repeating-linear-gradient(90deg, var(--home-blue) 0 10px, transparent 10px 18px); background-size: 36px 3px; animation: dash-x 1.2s linear infinite; }
-@keyframes dash-x { to { background-position: 36px 0; } }
-.studio .pg-grid { margin-top: 8px; }
-
-/* 開發者：同一份資料，兩種讀法 */
-.dual { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 0; margin: 24px 0; border-radius: 22px; overflow: hidden; background: var(--home-dark); color: var(--home-dark-text); border: 1px solid var(--home-dark-line); }
-.dual figure { margin: 0; position: relative; min-height: 340px; }
-.dual figcaption { position: absolute; z-index: 2; top: 12px; left: 12px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: .04em; background: color-mix(in srgb, var(--home-dark) 70%, transparent); color: var(--home-dark-muted); }
-.dual .wall-pane { background: #0b0b0c; }
-.dual .wall-pane > img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.dual .code-pane { border-left: 1px solid var(--home-dark-line); padding: 44px 0 0; overflow: auto; max-height: 520px; }
-.dual pre { margin: 0; padding: 0 18px 18px; border: 0; border-radius: 0; background: none; font: 13px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--home-dark-muted); white-space: pre; word-break: normal; overflow: visible; }
-.dual pre .k { color: #78D4D6; }
-.dual pre .s { color: #E8F3F8; }
-.dual pre .jid { font: inherit; color: var(--home-green); background: none; border: 0; padding: 0 2px; border-radius: 4px; cursor: pointer; }
-.dual pre .jid.on { background: var(--home-green); color: #0E0E0F; }
-.wall-svg .hold.pick { opacity: 1 !important; stroke: #fff; stroke-width: 12; animation: none; }
-.dual-points { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 0 0 8px; padding: 0; list-style: none; }
-.dual-points li { padding: 18px 20px; background: var(--pg-surface); border: 1px solid var(--pg-line); border-radius: var(--pg-radius); }
-.dual-points h3 { font-size: 17px; margin: 0 0 4px; }
-.dual-points p { margin: 0; color: var(--pg-muted); font-size: 14px; }
-.kit { padding: 18px 20px; }
-.kit h3 { margin: 0 0 4px; font-size: 18px; }
-.kit p { font-size: 14px; }
-.kit code { display: inline-block; margin-top: 8px; font-size: 12.5px; }
-.pg-kits { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin: 16px 0; }
-.pg-lab { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin: 16px 0; padding: 20px 24px; border-radius: var(--pg-radius); background: var(--pg-surface); border: 1px solid var(--pg-line); }
-.pg-lab h3 { margin: 0 0 2px; }
-.pg-lab p { margin: 0; color: var(--pg-muted); font-size: 14px; }
-
-@media (max-width: 860px) {
-  .dual { grid-template-columns: minmax(0, 1fr); }
-  .dual figure.wall-pane { min-height: 0; aspect-ratio: 4 / 3; }
-  .dual .code-pane { border-left: 0; border-top: 1px solid var(--home-dark-line); max-height: 360px; }
-  .dual-points { grid-template-columns: minmax(0, 1fr); }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+.reel-page { margin: 0; overflow: hidden; overscroll-behavior: none; color: var(--reel-paper); font: 400 16px/1.55 system-ui, -apple-system, "PingFang TC", sans-serif; }
+.reel { position: fixed; inset: 0; overflow: hidden; }
+.reel-stage, .reel-frame { position: absolute; inset: 0; }
+.reel-stage { touch-action: pan-y pinch-zoom; }
+.reel:focus-visible { outline: none; }
+/* 固定但低調的入口，讓使用者可直接前往最後的產品清單 */
+.reel-shortcut {
+  position: absolute;
+  z-index: 5;
+  top: calc(14px + env(safe-area-inset-top));
+  right: calc(16px + env(safe-area-inset-right));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgba(255,250,240,.26);
+  border-radius: 12px;
+  background: rgba(13,27,18,.3);
+  backdrop-filter: blur(8px);
+  color: var(--reel-paper);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
 }
-@media (max-width: 640px) {
-  .app-shortcuts { display: flex; }
-  .app-grid { grid-template-columns: minmax(0, 1fr); gap: 18px; }
-  .bridge { display: none; }
-  .app-card.indoor .stage { aspect-ratio: 4 / 3; }
-  .app-card.outdoor .stage { aspect-ratio: 3 / 4; }
-  .home .hero .pg-hero { padding: 36px 0 18px; }
-  .home .hero .pg-lead { font-size: 15px; margin-bottom: 18px; }
-  .home .pg-section:not(.hero) { padding-top: 56px; }
-  .flowline { grid-template-columns: minmax(0, 1fr); gap: 18px; justify-items: start; }
-  .flowline li { grid-template-columns: 18px 1fr; justify-items: start; text-align: left; column-gap: 12px; }
-  .flowline li span { grid-column: 2; }
-  .flowline::before { top: 9px; bottom: 9px; left: 7.5px; right: auto; width: 3px; height: auto; background: repeating-linear-gradient(180deg, var(--home-blue) 0 10px, transparent 10px 18px); background-size: 3px 36px; animation-name: dash-y; }
-  @keyframes dash-y { to { background-position: 0 36px; } }
+@media (hover: hover) { .reel-shortcut:hover { background: rgba(13,27,18,.56); } }
+.reel-frame {
+  isolation: isolate;
+  display: grid;
+  align-items: end;
+  padding: 32px var(--reel-gutter) calc(var(--reel-bottom-space) + env(safe-area-inset-bottom));
+  overflow: hidden;
+  background: var(--reel-ink);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 440ms ease, visibility 0s linear 440ms;
+}
+.reel-frame[data-active] { z-index: 1; opacity: 1; visibility: visible; pointer-events: auto; transition-delay: 0s; }
+.reel-photo, .reel-frame::after { position: absolute; inset: 0; }
+.reel-photo {
+  z-index: -2;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: var(--focal, center);
+  transform: scale(1.025);
+  transition: transform 640ms ease-out;
+}
+.reel-frame[data-active] .reel-photo { transform: none; }
+.reel-frame::after {
+  z-index: -1;
+  content: "";
+  background: var(--shade, linear-gradient(0deg, #101811 0%, #1018119e 37%, #10181110 72%));
+}
+.reel-copy, .directory-content {
+  transform: translate(var(--shift-x, 0), var(--shift-y, 16px));
+  transition: transform 560ms ease-out;
+}
+.reel-frame[data-active] :is(.reel-copy, .directory-content) { transform: none; }
+.reel-copy { width: min(100%, 780px); text-shadow: 0 2px 12px rgba(5, 17, 10, .7); }
+.reel h1, .reel h2 {
+  margin: 0;
+  font-size: clamp(35px, 5.8vw, 90px);
+  font-weight: 760;
+  line-height: 1.12;
+  letter-spacing: -.045em;
+  text-wrap: balance;
+}
+.reel-desc {
+  width: min(100%, 39ch);
+  margin: clamp(20px, 3.4vh, 34px) 0 0;
+  font-size: clamp(16px, 1.65vw, 23px);
+  line-height: 1.68;
+  text-wrap: pretty;
+}
+.reel-phrase { display: inline-block; white-space: nowrap; }
+.reel-sentence { display: block; }
+.reel-sentence + .reel-sentence { margin-top: .25em; }
+:lang(zh-Hant) .reel-desc { text-wrap: balance; }
+.wall-intro h2 .reel-phrase { display: block; }
+.reel-app {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  min-height: 48px;
+  margin-top: clamp(10px, 2.7vh, 26px);
+  color: inherit;
+  font-weight: 700;
+  text-decoration: none;
+}
+.reel-app img { display: block; object-fit: contain; }
+.reel a { -webkit-tap-highlight-color: transparent; }
+@media (hover: hover) {
+  .reel-app:hover, .directory-content a:hover { opacity: .86; }
+}
+.reel :is(a, button):focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
+
+.hold-intro { --focal: 52% 50%; --shift-x: 18px; --shift-y: 0; background: #18271d; }
+.friend-intro { --focal: 41% 48%; --shade: linear-gradient(0deg, #101811ec, #10181180 48%, #10181116 80%); --shift-x: -18px; --shift-y: 0; }
+.wall-intro { --focal: 58% 48%; --shade: linear-gradient(90deg, #101811b8, transparent 75%), linear-gradient(0deg, #101811f0, transparent 75%); }
+.wall-intro .reel-copy { width: min(100%, 700px); }
+.crag-intro {
+  --focal: 52% 48%;
+  --shift-x: -18px;
+  --shift-y: 0;
+  /* 第四幕與前後場景一致，採整張背景照片與底部文字區。 */
+  --shade: linear-gradient(0deg, rgba(10, 25, 18, .84) 0%, rgba(10, 25, 18, .46) 40%, rgba(10, 25, 18, .06) 80%);
+  align-items: end;
+}
+.collector-intro { --focal: 66% 50%; --shade: linear-gradient(0deg, #211b13e0, #211b1385 43%, #211b1310 82%); }
+.redpoint-intro { --focal: 62% 53%; --shift-x: 18px; --shift-y: 0; }
+.climbio-intro {
+  --focal: 63% 50%;
+  /* 結尾保留照片：舊版底部 98% 不透明、半屏 85%，手機會看成整片黑底。 */
+  --shade: linear-gradient(0deg, rgba(12, 31, 23, .76) 0%, rgba(13, 32, 24, .50) 39%, rgba(17, 35, 25, .16) 78%, rgba(17, 35, 25, .04) 100%);
+  align-content: end;
+  justify-items: start;
+  gap: clamp(10px, 1.8vh, 20px);
+}
+.climbio-intro .reel-sentence { text-wrap: balance; }
+.climbio-intro :is(h2, .reel-desc, .directory-content) { text-shadow: 0 2px 12px rgba(5, 17, 10, .85); }
+
+.climbio-intro :is(.reel-copy, .directory-content) {
+  grid-area: auto;
+  align-self: end;
+}
+.climbio-intro .reel-copy {
+  width: min(100%, 780px);
+  text-align: start;
+}
+.climbio-intro h2 { font-size: clamp(35px, 5.8vw, 90px); }
+.climbio-intro h2 .reel-phrase { display: block; }
+.climbio-intro .reel-desc {
+  width: min(100%, 46ch);
+  margin: clamp(14px, 2.4vh, 24px) 0 0;
+  font-size: clamp(16px, 1.65vw, 23px);
+  line-height: 1.65;
+}
+.directory-content {
+  width: min(100%, 1010px);
+  text-align: start;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 440ms ease, transform 440ms ease, visibility 0s;
+}
+.climbio-intro[data-active] .directory-content[aria-hidden="true"] {
+  transform: translateY(16px);
+}
+.climbio-intro[data-apps-visible] .directory-content {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition-delay: 120ms, 120ms, 0ms;
+}
+.finale-apps, .finale-labs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(100%, 560px);
+  margin-inline: auto;
+  gap: 4px clamp(4px, 3vw, 30px);
+}
+:is(.finale-apps, .finale-labs) a {
+  color: var(--reel-paper);
+  text-decoration: none;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 5px 8px;
+}
+:is(.finale-apps, .finale-labs) img {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  padding: 5px;
+  border-radius: 9px;
+  background: #f7f9f5;
+  object-fit: contain;
+}
+.finale-apps strong, .finale-labs strong { display: block; font-size: clamp(13px, 1.2vw, 17px); line-height: 1.2; }
+.finale-apps small, .finale-labs small { display: block; margin-top: 3px; color: #fffaf0e0; font-size: clamp(11px, 1vw, 14px); line-height: 1.35; }
+.finale-labs {
+  margin-top: clamp(6px, 1.7vh, 18px);
+  padding-top: clamp(6px, 1.4vh, 15px);
+  border-top: 1px solid #fffaf03d;
+}
+.finale-source { display: grid; place-items: center; width: 44px; height: 44px; margin: 12px auto 0; color: var(--reel-paper); border-radius: 50%; }
+
+.finale-legal { display: flex; justify-content: center; align-items: center; gap: 22px; margin-top: 4px; font-size: 12px; line-height: 1.4; }
+.finale-legal { flex-wrap: wrap; }
+.finale-legal span { color: rgba(255,250,240,.78); }
+.finale-legal a { color: rgba(255,250,240,.78); text-decoration: none; }
+.finale-legal a:hover { color: var(--reel-paper); opacity: .86; }
+.reel-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (min-width: 761px) {
+  /* 岩點貓與其他幕同樣使用完整照片及底部文字 */
+  .crag-intro .reel-copy { width: min(100%, 780px); }
+  .hold-intro h1, .crag-intro h2 { font-size: clamp(39px, 5.6vw, 88px); }
+  .collector-intro, .climbio-intro { justify-items: start; text-align: start; }
+  .collector-intro { align-items: end; }
+  .redpoint-intro { text-align: end; justify-items: end; --shade: linear-gradient(270deg, #101811db, transparent 78%), linear-gradient(0deg, #101811e0, transparent 70%); }
+  .redpoint-intro .reel-copy { width: min(100%, 630px); }
+  .redpoint-intro .reel-desc { margin-inline-start: auto; }
+}
+@media (min-width: 900px) and (min-height: 620px) {
+  .climbio-intro { gap: clamp(22px, 4vh, 40px); }
+  .finale-apps, .finale-labs {
+    width: min(100%, 700px);
+    column-gap: clamp(56px, 8vw, 116px);
+  }
+  .finale-apps { row-gap: clamp(8px, 1.5vh, 16px); }
+  :is(.finale-apps, .finale-labs) a { min-height: clamp(58px, 8vh, 72px); gap: 14px; padding-inline: 16px; }
+  :is(.finale-apps, .finale-labs) img { width: 46px; height: 46px; }
+  .finale-labs { margin-top: clamp(16px, 3vh, 30px); padding-top: clamp(12px, 2vh, 20px); }
+  .finale-source { margin-top: 20px; }
+}
+@media (max-width: 760px) {
+  .reel-frame { padding-top: 26px; }
+  .reel h1, .reel h2 { font-size: clamp(34px, 9vw, 60px); }
+  .collector-intro, .climbio-intro { text-align: start; justify-items: start; }
+  /* 手機直向仍能看見背景，文字靠陰影維持可讀，不用整片黑色遮罩。 */
+  .climbio-intro { --shade: linear-gradient(0deg, rgba(12, 31, 23, .72) 0%, rgba(13, 32, 24, .46) 53%, rgba(17, 35, 25, .14) 85%, rgba(17, 35, 25, .04) 100%); }
+  .collector-intro { align-items: end; --shade: linear-gradient(0deg, #211b13e0, #211b1395 46%, #211b1320 88%); }
+  .crag-intro {
+    --focal: 50% 50%;
+    /* 手機各幕固定靠下，不因第四幕圖像或長文字移動到頂端。 */
+    align-items: end;
+    --shade: linear-gradient(0deg, rgba(10, 25, 18, .86) 0%, rgba(10, 25, 18, .52) 46%, rgba(10, 25, 18, .06) 86%);
+  }
+  .crag-intro .reel-copy { align-self: end; }
+  .climbio-intro h2 { font-size: clamp(34px, 9vw, 60px); }
+  .climbio-intro .reel-desc { font-size: 16px; line-height: 1.55; }
+  .crag-intro .reel-desc { margin-top: clamp(12px, 2.4vh, 24px); }
+  .redpoint-intro { justify-items: end; text-align: end; --focal: 62% 50%; }
+  .redpoint-intro .reel-desc { margin-inline-start: auto; }
+  :is(.finale-apps, .finale-labs) { grid-auto-rows: 48px; }
+  :is(.finale-apps, .finale-labs) a { gap: 6px; padding: 4px; min-height: 0; height: 100%; min-width: 0; }
+  :is(.finale-apps, .finale-labs) a > span { display: block; flex: 1 1 auto; min-width: 0; }
+  :is(.finale-apps, .finale-labs) :is(strong, small) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  :is(.finale-apps, .finale-labs) img { width: 30px; height: 30px; border-radius: 7px; padding: 3px; }
+}
+@media (max-height: 540px) {
+  .reel h1, .reel h2 { font-size: clamp(29px, 5.5vw, 45px); }
+  .reel-desc { font-size: 15px; line-height: 1.55; margin-top: 12px; }
+  .reel-app { margin-top: 6px; }
+}
+@media (orientation: portrait) and (max-height: 620px) {
+  .climbio-intro { padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+}
+@media (orientation: landscape) and (max-height: 480px) {
+  .reel-frame { padding-top: 18px; }
+  .reel h1, .reel h2 { font-size: clamp(28px, 4.5vw, 42px); }
+  .reel-desc { max-width: 50ch; }
+  .climbio-intro { gap: 5px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  .climbio-intro h2 { font-size: clamp(28px, 4.5vw, 42px); }
+  .climbio-intro .reel-desc { max-width: 50ch; margin-top: 10px; font-size: 13px; line-height: 1.55; }
+  :is(.finale-apps, .finale-labs) { grid-auto-rows: 36px; }
+  .finale-apps { row-gap: 2px; }
+  :is(.finale-apps, .finale-labs) a { min-height: 32px; padding-block: 2px; }
+  :is(.finale-apps, .finale-labs) img { width: 28px; height: 28px; }
+  .finale-apps small, .finale-labs small { font-size: 10px; }
+  .finale-labs { margin-top: 4px; padding-top: 4px; }
+  .finale-source { width: 32px; height: 32px; margin-top: 5px; }
+  .finale-legal { font-size: 11px; margin-top: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .mark-live path, .flow-field path, .bridge path, .flow-spine .pulse, .flowline::before { animation: none !important; }
-  .mark-live path, .flow-spine .pulse { display: none; }
-  .app-card.outdoor .stage::after { display: none; }
+  .reel-frame, .reel-photo, .reel-copy, .directory-content { transition: none !important; }
 }
+
+/* 五幕在小螢幕保持相同的文字落點，長標題可以自然換行。 */
+@media (max-width: 760px) {
+  .reel-phrase { white-space: normal; }
+  .reel-copy { max-width: 100%; }
+  .reel-desc { max-width: 39ch; }
+  .climbio-intro .reel-copy { align-self: end; }
+}
+
+
+/* 首頁尺寸規格：照片永遠滿版，桌機文案隨主體位置左右交錯；平板仍保有完整照片。 */
+@media (min-width: 761px) and (min-height: 540px) {
+  .reel-frame:not(.climbio-intro) { align-items: center; }
+  .reel-frame:not(.climbio-intro) .reel-copy { align-self: center; }
+  .reel-frame:not(.climbio-intro) :is(h1, h2) { font-size: clamp(38px, 4.6vw, 78px); line-height: 1.13; }
+  .reel-frame:not(.climbio-intro) .reel-desc { width: min(100%, 39ch); font-size: clamp(16px, 1.35vw, 21px); }
+  /* 德文、法文等長詞及 CJK 字句在窄桌機也能自然換行。 */
+  .reel-phrase { white-space: normal; }
+}
+@media (min-width: 1024px) and (min-height: 600px) {
+  .reel-frame:not(.climbio-intro) {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: 0;
+  }
+  .reel-frame:not(.climbio-intro) .reel-copy {
+    grid-column: var(--copy-column, 1 / span 6);
+    width: min(100%, 680px);
+  }
+  /* 兩幕室內實拍不再重複，也不讓人物被文字蓋住。 */
+  .hold-intro {
+    --copy-column: 7 / span 6;
+    --focal: 52% 50%;
+    --shade: linear-gradient(270deg, rgba(10,19,13,.90) 0%, rgba(10,19,13,.72) 26%, rgba(10,19,13,.12) 75%);
+  }
+  .friend-intro {
+    --copy-column: 1 / span 6;
+    --focal: 62% 50%;
+    --shade: linear-gradient(90deg, rgba(8,21,15,.91) 0%, rgba(8,21,15,.65) 34%, rgba(8,21,15,.05) 78%);
+  }
+  .collector-intro {
+    --copy-column: 1 / span 6;
+    --focal: 63% 52%;
+    --shade: linear-gradient(90deg, rgba(16,14,11,.88) 0%, rgba(16,14,11,.56) 38%, rgba(16,14,11,.09) 82%);
+  }
+  .crag-intro {
+    --copy-column: 7 / span 6;
+    --focal: 47% 50%;
+    --shade: linear-gradient(270deg, rgba(8,18,14,.88) 0%, rgba(8,18,14,.60) 32%, rgba(8,18,14,.10) 78%);
+  }
+}
+@media (min-width: 761px) and (max-width: 1023px) {
+  .reel-frame:not(.climbio-intro) { grid-template-columns: minmax(0, 1fr); }
+  .reel-frame:not(.climbio-intro) .reel-copy { width: min(78%, 630px); }
+  .hold-intro .reel-copy, .crag-intro .reel-copy { justify-self: end; }
+  .friend-intro .reel-copy, .collector-intro .reel-copy { justify-self: start; }
+  .hold-intro, .crag-intro {
+    --shade: linear-gradient(270deg, rgba(8,18,14,.85), rgba(8,18,14,.20) 85%);
+  }
+  .friend-intro, .collector-intro {
+    --shade: linear-gradient(90deg, rgba(8,18,14,.84), rgba(8,18,14,.18) 85%);
+  }
+}
+
+/* 結尾與一般故事幕分開設計：標題 + 對齊的應用清單，不再兩塊內容擠在左下角。 */
+.climbio-intro :is(.finale-apps, .finale-labs) a > span {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.climbio-intro :is(.finale-apps, .finale-labs) :is(strong, small) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.climbio-intro .finale-apps, .climbio-intro .finale-labs { width: 100%; }
+@media (min-width: 1100px) and (min-height: 680px) {
+  .climbio-intro {
+    grid-template-columns: minmax(0, .88fr) minmax(0, 1.12fr);
+    grid-template-rows: minmax(0, 1fr);
+    align-content: center;
+    align-items: center;
+    justify-items: stretch;
+    column-gap: clamp(24px, 4vw, 86px);
+    padding-block: clamp(30px, 5vh, 68px);
+    --shade: linear-gradient(90deg, rgba(10,24,17,.86), rgba(10,24,17,.67) 56%, rgba(10,24,17,.79));
+  }
+  .climbio-intro .reel-copy {
+    grid-column: 1;
+    grid-row: 1;
+    width: 100%;
+    align-self: center;
+  }
+  .climbio-intro h2 { font-size: clamp(36px, 3.6vw, 68px); }
+  .climbio-intro .directory-content {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+    width: 100%;
+    max-width: none;
+  }
+  .climbio-intro :is(.finale-apps, .finale-labs) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: clamp(10px, 2vw, 24px);
+    row-gap: 4px;
+  }
+  .climbio-intro :is(.finale-apps, .finale-labs) a {
+    padding: 6px 8px;
+    min-height: clamp(52px, 6.4vh, 66px);
+    gap: 10px;
+  }
+  .climbio-intro :is(.finale-apps, .finale-labs) img { width: 38px; height: 38px; }
+  .climbio-intro .finale-labs { margin-top: 12px; padding-top: 10px; }
+  .climbio-intro .finale-source { margin-top: 8px; }
+}
+
+/* 中型桌機／低矮筆電：最後一幕改成置中的上下配置。 */
+@media (min-width: 761px) and (max-width: 1099px), (min-width: 761px) and (max-height: 679px) {
+  .climbio-intro {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(8px, 2vh, 22px);
+    padding-block: clamp(18px, 4vh, 44px);
+    --shade: linear-gradient(0deg, rgba(10,24,17,.85), rgba(10,24,17,.60));
+  }
+  .climbio-intro .reel-copy { width: min(100%, 760px); text-align: center; align-self: center; }
+  .climbio-intro h2 { font-size: clamp(29px, 3.8vw, 50px); }
+  .climbio-intro .directory-content { width: min(100%, 720px); align-self: center; }
+  .climbio-intro :is(.finale-apps, .finale-labs) { column-gap: clamp(10px, 3vw, 28px); }
+  .climbio-intro :is(.finale-apps, .finale-labs) a { min-height: 48px; padding: 4px 8px; }
+  .climbio-intro .finale-labs { margin-top: 6px; padding-top: 6px; }
+  .climbio-intro .finale-source { margin-top: 5px; height: 36px; }
+}
+@media (max-width: 760px) {
+  .climbio-intro {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: center;
+    justify-items: stretch;
+    gap: clamp(8px, 1.7vh, 16px);
+  }
+  .climbio-intro .reel-copy, .climbio-intro .directory-content { width: 100%; }
+  .climbio-intro h2 { font-size: clamp(29px, 7.6vw, 48px); }
+  .climbio-intro .directory-content { max-width: 540px; margin-inline: auto; }
+  .climbio-intro :is(.finale-apps, .finale-labs) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: clamp(5px, 2vw, 16px);
+    row-gap: 2px;
+  }
+  .climbio-intro .finale-labs { margin-top: 6px; padding-top: 6px; }
+  .climbio-intro .finale-source { margin-top: 4px; }
+  .climbio-intro .finale-legal { margin-top: 0; }
+}
+@media (max-width: 480px) {
+  .climbio-intro :is(.finale-apps, .finale-labs) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: 42px;
+  }
+  .climbio-intro :is(.finale-apps, .finale-labs) a { gap: 10px; padding: 4px 6px; }
+  .climbio-intro .finale-labs > a[href="project/"] { justify-content: flex-start; }
+  .climbio-intro .directory-content { max-height: calc(100dvh - 140px - env(safe-area-inset-bottom)); overflow-y: auto; scrollbar-width: thin; }
+}
+@media (max-height: 650px) {
+  /* 矮螢幕先看結尾標語，展開目錄後讓出完整空間給可操作清單。 */
+  .climbio-intro[data-apps-visible] .reel-copy { display: none; }
+  .climbio-intro[data-apps-visible] { justify-content: center; align-content: center; }
+  .climbio-intro .directory-content { max-height: calc(100dvh - 44px - env(safe-area-inset-bottom)); overflow-y: auto; scrollbar-width: thin; }
+}
+@media (min-width: 761px) and (max-height: 540px) {
+  .reel-frame:not(.climbio-intro) { align-items: center; }
+  .reel-frame:not(.climbio-intro) .reel-copy { width: min(100%, 800px); }
+  .reel-frame:not(.climbio-intro) :is(h1, h2) { font-size: clamp(28px, 4vw, 48px); }
+}
+
+/* AI Agent participation is a single dedicated entry above the two Lab links. */
+.finale-labs > a[href="project/"] { grid-column: 1 / -1; justify-content: center; }

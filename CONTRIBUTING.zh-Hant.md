@@ -1,5 +1,7 @@
 # 參與貢獻
 
+本文件適用於**外部貢獻者**；兩位維護者在私人 repo 使用獨立的輕量流程。
+
 謝謝你來幫忙。Issue 和 PR 用繁體中文或英文都可以。English: [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## 開始之前
@@ -38,7 +40,7 @@
 - 使用者看得到的文字都放進 `i18n/` 的每一個語言包（key 不一致時檢查會失敗）；產品名稱寫 `Climbio`。
 - 品牌色用 CSS 變數（`--accent` 等），不寫死色碼。
 - 新功能要在沒有伺服器時也能用；需要後端的功能放在 `Backend.caps` 後面，Firebase 專屬的程式放在 `backend/firebase.js`。
-- **授權邊界**：所有程式（包含每個 Kit：`holdkit/`、`routekit/`、`topokit/`、`mapkit/`、`appkit/`、`sourcekit/`）都是 AGPL-3.0。只有 `format/` 和 `docs/route-format.md` 是 Apache-2.0，裡面不能引用或複製 AGPL 的程式或模型。貢獻依你改動的資料夾的授權進來（AGPL-3.0，`format/` 裡是 Apache-2.0）；沒有 CLA，也沒有商業授權。
+- **授權邊界**：所有程式（包含每個 Kit：`holdkit/`、`routekit/`、`topokit/`、`mapkit/`、`wall3dkit/`、`crag3dkit/`、`appkit/`、`sourcekit/`）都是 AGPL-3.0。只有 `format/` 和 `docs/route-format.md` 是 Apache-2.0，裡面不能引用或複製 AGPL 的程式或模型。貢獻依你改動的資料夾的授權進來（AGPL-3.0，`format/` 裡是 Apache-2.0）；沒有 CLA，也沒有商業授權。
 - 不要提交密鑰、服務帳號檔、個人資料，或不是你擁有的照片。
 
 ## 檢查

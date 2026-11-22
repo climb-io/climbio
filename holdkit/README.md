@@ -65,7 +65,7 @@ npm 套件（`@climbio/holdkit`）的 `files` 清單：`holdkit.js`、`index.mjs
 | 名稱 | 簽章 | 說明 |
 |---|---|---|
 | `configure(cfg)` | 回傳目前設定 | 第一次用之前呼叫。`t(key, ...args)` 訊息翻譯（不給用內建英文）；`db` IndexedDB 名稱（預設 `holdkit-sam`）；`cloudUrl`（網址，或回傳網址的函式；空的＝這次不用雲端）、`idToken(forceRefresh?)`、`appCheck(forceRefresh?)` 雲端重描；`base` holdkit 資料夾網址（`samworker.js`、`ort.js` 所在，不給就用載入 `samrefine.js` 的 `<script>` 所在資料夾，打包工具 import 時必須給）；`decoder`、`encoder` 解碼器、編碼器模型網址（預設 `base` 底下 `models/mobilesam-decoder.onnx`、`models/mobilesam-encoder.onnx`）；`modelCache` Cache API 名稱（模型下載完整才存，下次先讀） |
-| `traceWall(src, key, items, status?, { onHolds? })` | `Promise<{ id, poly \| null }[]>` | 整面牆重描：有雲端送雲端；沒有雲端（`cloudUrl` 空的或沒給 `idToken`）或雲端失敗（重試完仍失敗、超過次數）就在 Worker 裡下載編碼器分析照片（存過不再下載），再一顆顆解碼。`src` 是畫布／圖片／ImageBitmap；`key` 是這張照片的識別（例如牆面 id，照片特徵存在 IndexedDB 用它當 key）；`items` ＝ `[{ id, poly, box? }]`（`box` 是提示框，不給用 `poly` 的外框；`items` 為空陣列＝只要照片特徵）。雲端時照片縮成長邊 1024 JPEG 上傳；`onHolds(part)` 每 0.3 秒收到一批；全部描完才 resolve，切不出來的 `poly` 是 `null` |
+| `traceWall(src, key, items, status?, { onHolds?, localFallback? })` | `Promise<{ id, poly \| null }[]>` | 整面牆重描：有雲端送雲端；沒有雲端（`cloudUrl` 空的或沒給 `idToken`）或雲端失敗（重試完仍失敗、超過次數）就在 Worker 裡下載編碼器分析照片（存過不再下載），再一顆顆解碼。`localFallback: false`：有雲端時，雲端失敗就丟錯，不在這台描整面牆（`items` 為空陣列時照舊在這台分析照片）。雲端失敗過的 `key` 在這個頁面開著時不再問雲端（`traceWall`、`refine` 直接在這台分析照片；`localFallback: false` 的整面牆重描丟 `samCloudFailed`），`forget(key)`、`clear()` 或重新載入頁面才再試。`src` 是畫布／圖片／ImageBitmap；`key` 是這張照片的識別（例如牆面 id，照片特徵存在 IndexedDB 用它當 key）；`items` ＝ `[{ id, poly, box? }]`（`box` 是提示框，不給用 `poly` 的外框；`items` 為空陣列＝只要照片特徵）。雲端時照片縮成長邊 1024 JPEG 上傳；`onHolds(part)` 每 0.3 秒收到一批；全部描完才 resolve，切不出來的 `poly` 是 `null` |
 | `refine(src, key, poly, status?, { box?, point? })` | `Promise<Poly \| null>` | 單顆重描（Worker，只跑解碼器）。提示用 `poly` 的外框，或 `box`，或 `point: [x, y]`（沒偵測到的岩點，此時 `poly` 傳 `null`）。這張照片沒有特徵就先向雲端要（沒有雲端就在 Worker 裡分析）。同一張照片、同一個提示共用同一個 Promise。一次只做一顆，照順序排隊 |
 | `warm()` | `void` | 背景下載、載入解碼器，接著編碼器（雲端不能用時在這台分析照片）；失敗不丟錯 |
 | `hasEmb(key)` | `Promise<boolean>` | 有沒有這張照片的特徵 |
@@ -79,7 +79,7 @@ npm 套件（`@climbio/holdkit`）的 `files` 清單：`holdkit.js`、`index.mjs
 - `HoldRefiner: base not configured`：找不到 `base`。
 - 離線：用雲端時 `traceWall` 丟 `samOffline` 訊息；`navigator.onLine === false` 時不送出。沒有雲端時模型存過就不用網路。
 - `retrace: stream cut`、`retrace: no embedding`、`retrace: bad embedding`：雲端回傳不完整或格式不對。
-- HTTP 失敗以 `HTTP <狀態碼>` 的 Error 丟出。`traceWall` 遇到 401 先強制更新權杖重送一次；其他失敗（含 429、500、串流中斷）最多重試 3 次（間隔 3、6、12 秒），`HTTP 400`、`401`、`413` 不重試；已描好的岩點不重送。單次請求逾時 290 秒。
+- HTTP 失敗以 `HTTP <狀態碼>` 的 Error 丟出。`traceWall` 遇到 401 先強制更新權杖重送一次；超過每日次數（429 `{ "error": "quota" }`）不重試，丟 `samQuota` 訊息；其他失敗（含其他 429、500、串流中斷）最多重試 3 次（間隔 3、6、12 秒），`HTTP 400`、`401`、`413` 不重試；已描好的岩點不重送。單次請求逾時 290 秒。
 - 解碼器逾時：`samTimeout` 訊息。
 
 副作用：寫 IndexedDB（照片特徵 int8，約 1 MB／張）、建立 Worker、下載模型、用雲端時對 `cloudUrl` 發 `fetch`。

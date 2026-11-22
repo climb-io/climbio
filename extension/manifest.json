@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "紅點貓收藏",
-  "description": "在 theCrag 的岩場頁按一下，把路線與 Topo 轉成紅點貓的格式，交給電腦上的紅點貓。只在你的瀏覽器裡處理，不經過 Climbio 的伺服器，不用登入。",
-  "version": "0.3.0",
+  "name": "__MSG_extensionName__",
+  "description": "__MSG_extensionDescription__",
+  "version": "0.3.1",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzdLydhwXfEVgDcpmqrif80/WX0Os3tEl8vDBtCJ8u4UbpYW35Af1ug9nsYeF7jmZU/vBdLAiu0sM7ulNSuEvxw/89lpgZILGHJt9zszhF3+9YjVW6iZMFYjwKDVZTcDitwETp+HWrW25kvBsYg73H388VlC+H7S6DVwraDvBwS/REsKDEuLYSK9C+nczm1QLUvkD6VH7yFn+wt9ZCFzmcC663nyIJg002HkvZEQGzJPydeAvYC20Bp7/cM2z85FrV2s2LrnB1KLz+ByBIJeBBv+1gXXUuYIeymL9NPxcC+WNv3EpMEpJFsyCqHTW8NIJW1L+EIpTTCKF+T51jVHuXQIDAQAB",
   "minimum_chrome_version": "116",
   "permissions": [
@@ -35,7 +35,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "紅點貓收藏 v0.3.0",
+    "default_title": "__MSG_extensionName__",
     "default_icon": {
       "16": "icons/redpoint-cat-16.png",
       "32": "icons/redpoint-cat-32.png",
@@ -48,5 +48,6 @@
     "32": "icons/redpoint-cat-32.png",
     "48": "icons/redpoint-cat-48.png",
     "128": "icons/redpoint-cat-128.png"
-  }
+  },
+  "default_locale": "zh_TW"
 }

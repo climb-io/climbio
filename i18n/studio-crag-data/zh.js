@@ -11,7 +11,7 @@ AppKit.i18n.add('studio-crag-data', 'zh', {
   cdAdapted: (own) => `${own} 改編`,
   cdAttrSep: '；',
   // 發佈、儲存
-  cdNoPosition: '沒有岩場位置：照片要有拍攝位置，或在岩場頁填「岩場位置」（緯度, 經度）',
+  cdNoPosition: '沒有岩場位置：照片要有拍攝位置、地圖上要畫岩壁或區域，或在岩場頁填「岩場位置」（緯度, 經度）',
   cdBadFormat: (e) => `格式不對：${e}`,
   cdPackOrtho: '航照',
   cdPackContours: '等高線',
@@ -23,6 +23,9 @@ AppKit.i18n.add('studio-crag-data', 'zh', {
   cdFieldAttribution: '署名',
   cdFieldLicense: '授權',
   cdFieldGrade: '難度系統',
+  cdFieldCountry: '國家',
+  cdNoCountry: '大綱沒寫國家（岩場底下寫「國家：tw」）：紅點貓的世界照國家分組，發佈前要補上',
+  cdCountryBad: (v) => `國家要寫兩個字母的國碼（例如 tw）：「${v}」`,
   cdTableNoHeading: (line) => `第 ${line} 行：表格前面沒有標題，先寫「# 岩場名稱」`,
   cdSecondTop: (line, name) => `第 ${line} 行：「${name}」是第二個最上層的標題；一份大綱是一個岩場，其他用「##」放在它底下`,
   cdImageNoHeading: (line) => `第 ${line} 行：圖片前面沒有標題`,

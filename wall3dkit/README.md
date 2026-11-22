@@ -40,13 +40,14 @@ English: [README.en.md](README.en.md)
 | `loadPack(base)` | 讀資料包的 `wall.json`（`base` 是資料包網址，結尾 `/`） |
 | `openStage(base, pack)` | 下載模型、岩點標籤（成品包另有快照、沿牆鏡頭），建出 `Stage` |
 | `openFront(base, pack)` | 成品包只靠 `wall.json` 和快照先建一面牆（快照當照片、烘好的正面外框當岩點），模型之後再載；舊資料包回 `null` |
+| `openStageWith(pack, get)` | 檔案從別的地方拿（`get(路徑, 是不是 JSON)`）建 `Stage`：例如 Studio 試用剛在瀏覽器裡烘好、還沒發佈的成品 |
 | `openStageFrom(data)` | 資料已在記憶體時建 `Stage`（烘焙也用） |
-| `Stage` | `mount`、`unmount`、`dispose`、`warm`；`setView(view)` 套 2D 視角；`paint({ holds, mode, colors })` 畫路線；`pick(x, y)` 點岩點；`outlines()`、`frontOutlines()` 外框；`snapshot()`、`viewShot()`；`setEdits(edits)` 修點；沿牆鏡頭：`walk(view, at)`、`flyIn`、`frameTo(ids)`、`angle(dx)`、`settle`、`resetTilt` |
-| `WalkCam` | 沿牆鏡頭：`s`、`v`、`d`、`yaw`；`sRange()`、`vRange(s, d)`、`dMax`、`dMin`；`pan`、`zoomAt`、`clamp`、`apply`；`missedHolds(d)` 檢查標準；`calibrate` 實拍校正 |
+| `Stage` | `mount`、`unmount`、`dispose`、`warm`；`setView(view)` 套 2D 視角；`paint({ holds, mode, colors })` 畫路線；`pick(x, y)` 點岩點；`outlines()`、`frontOutlines()` 外框；`snapshot()`、`viewShot()`；`setEdits(edits)` 修點；沿牆鏡頭：`walk(view, at)`、`flyIn`、`frameTo(ids)`（估的位置看不到這些岩點時，沿路線找看得到的位置與角度）、`flyWalk(to)`、`revealAt(x, y)`（重疊、被擋住的岩點：找露出最多顆的位置）、`seenOf(holds)`、`bestPose`、`angle(dx)`、`settle`、`resetTilt` |
+| `WalkCam` | 沿牆鏡頭：`s`、`v`、`d`、`yaw`；過了停點（轉進 cave、側牆）照主牆的左右方向繼續直走、看的點照樣沿牆走（`beyond`），最多走到那段牆最外側的位置，不走進去；`sRange()`、`vRange(s, d)`、`dMax`、`dMin`；`pan`、`zoomAt`、`clamp`、`apply`；`missedHolds(d)` 檢查標準；`calibrate` 實拍校正 |
 | `wallPath`、`profile`、`meshesOf`、`loadGlb` | 從模型算軌道（作者端） |
 | `packWalk`、`unpackWalk`、`tableFor`、`introEnd` | 沿牆鏡頭寫進成品包、讀回、挑畫面比例最接近的邊界表、進定線停的位置 |
 | `bakePack({ doc, glb, faces })` | 工作檔烘焙成成品包，回傳 `{ files: [{ path, bytes }], stats }` |
-| `clipPolygon`、`bakeMesh`、`writeGlb`、`parseGlb`、`sourceTexture` | 烘焙的純函式 |
+| `clipPolygon`、`bakeMesh`、`cutOutlines`（修點外框照描的線切網格）、`writeGlb`、`parseGlb`、`sourceTexture` | 烘焙的純函式 |
 | `packSurfaces`、`goneHolds`、`holdMargin`、`frameTest`、`frameShader`、`packSig` | 工作檔的分面、不在的岩點、裁切 |
 | `hull`、`simplify`、`inside`、`decode`、`inflate`、`u16`、`parseModel` | 小工具 |
 | `STEP`、`YAW_MAX`、`YAW_RATE`、`FRAME_MAX`、`FRAME_BOUNDS` | 常數 |

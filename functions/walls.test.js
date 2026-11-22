@@ -7,7 +7,7 @@ const K1 = '1'.repeat(32), K2 = '2'.repeat(32), PID = 'abcdefgh1234', NOW = 2e12
 const THUMB_LEFTOVER = 'data:image/jpeg;base64,AAAA', PROJECT = 'wallproject00001', SRC = { project: PROJECT, path: `${PID}.json` };
 // Wall 專案發佈的包（projects.js 的索引）：牆的入口在裡面
 const PACKAGE = { owner: '', version: 1, files: ['index.json', `${PID}.json`, 'layer0000001.json'] };   // datasets/{包 id}：公開牆在開放資料集
-const body = (o = {}) => ({ op: 'publish', pid: PID, name: '牆', gym: '原岩萬華#B區', src: SRC, ...o });
+const body = (o = {}) => ({ op: 'publish', source: 'studio', pid: PID, name: '牆', gym: '原岩萬華#B區', src: SRC, ...o });
 
 function setup() {
   const docs = new Map([[`datasets/${PROJECT}`, PACKAGE]]), files = new Map(), calls = [];
@@ -20,17 +20,17 @@ function setup() {
     where: (f, op, v) => ({ limit: () => ({ get: async () => ({ docs: own(name).filter(([, d]) => (op === '<' ? d[f] < v : d[f] === v)).map(([p, d]) => snap(p.split('/')[1], d)) }) }) }),
   });
   const db = { collection: coll, runTransaction: async fn => fn({ get: ref => ref.get(), set: (ref, v) => { ref.set(v); }, delete: ref => { ref.delete(); } }) };
-  let now = NOW, checked = true;
+  let now = NOW, checked = true, owner = false;
   const refreshGym = async pid => { calls.push(['refresh', pid]); };
   // 簽章驗證換成假的：auth.kid 就是這把金鑰（真的驗證在 device-key.test.js）
-  const handler = createHandler({ db, now: () => now, refreshGym, appChecked: async () => checked, verify: (op, b) => b.auth.kid });
+  const handler = createHandler({ db, now: () => now, refreshGym, appChecked: async () => checked, isOwner: async () => owner, verify: (op, b) => b.auth.kid, verifyOwner: (op, id, auth) => auth.kid });
   // who：裝置金鑰（寫線、收回自己的線要簽）；同時當網路來源
   const call = async (b, who = K1) => {
     const res = { statusCode: 200, set() {}, status(c) { this.statusCode = c; return this; }, json(d) { this.data = d; return this; } };
     await handler({ method: 'POST', body: ['put', 'withdraw'].includes(b.op) ? { ...b, auth: { kid: who } } : b, get: k => ({ 'x-forwarded-for': who }[k.toLowerCase()]) }, res);
     return res;
   };
-  return { call, docs, files, calls, refreshGym, tick: ms => { now += ms; }, db, now: () => now, appCheck: v => { checked = v; } };
+  return { call, docs, files, calls, refreshGym, tick: ms => { now += ms; }, db, now: () => now, appCheck: v => { checked = v; }, asOwner: v => { owner = v; } };
 }
 
 test('岩館字串：用 # 分層、最多 30 字、每層不能是空的', () => {
@@ -45,6 +45,12 @@ test('發佈：不登入、不記擁有者，只記索引，Climbio 不存照片
   assert.equal(files.size, 0);
   assert.equal((await call(body({ thumb: THUMB_LEFTOVER, training: { w: 1, h: 1 } }), K2)).statusCode, 200);   // 舊欄位直接忽略，不存；任何人都能再發
   assert.equal(files.size, 0);
+});
+
+test('登記到找牆面：只收 Studio 發佈的牆，岩點貓 App（沒帶 source）一律拒絕', async () => {
+  const s = setup();
+  const r = await s.call(body({ source: undefined }));
+  assert.equal(r.statusCode, 400); assert.equal(r.data.error, 'studio only');
 });
 
 test('發佈：沒有 App Check、格式不對、入口不在已發佈的包裡都拒絕，什麼都不寫', async () => {
@@ -100,7 +106,7 @@ test('put 的檢查：沒簽章、格式不對、太大、一次太多、牆太�
   const { call, docs, tick } = setup();
   await call(body());
   const bad = [{ pid: 'x' }, { routes: [] }, { routes: 'x' }, { routes: [{ id: 'A!', r: route('A!') }] }, { routes: [{ id: 'r1', r: 'not json' }] }, { routes: [{ id: 'r1', r: route('other') }] },
-    { routes: [{ id: 'r1', r: JSON.stringify({ id: 'r1', holds: { a: 's' } }) }] }, { routes: [{ id: 'r1', r: JSON.stringify({ nodes: [{ id: 'r1', type: 'hold' }], marks: [] }) }] }, { routes: [{ id: 'r1', r: route('r1', { x: 'y'.repeat(9000) }) }] },
+    { routes: [{ id: 'r1', r: JSON.stringify({ id: 'r1', holds: { a: 's' } }) }] }, { routes: [{ id: 'r1', r: JSON.stringify({ nodes: [{ id: 'r1', type: 'hold' }], marks: [] }) }] }, { routes: [{ id: 'r1', r: route('r1', { x: 'y'.repeat(25000) }) }] },
     { routes: Array.from({ length: 101 }, (_, i) => ({ id: `r${i}`, r: route(`r${i}`) })) }, { routes: undefined, del: ['A!'] }];
   for (const b of bad) assert.equal((await call({ ...put(['r1']), ...b })).statusCode, 400, JSON.stringify(b).slice(0, 60));
   assert.equal(docs.has(`wallRoutes/${PID}`), false);
@@ -174,4 +180,45 @@ test('登記公開牆：包不記擁有者；任何人都能登記、更新；�
   docs.set('datasets/otherproject0001', { ...PACKAGE, owner: '' });
   assert.equal((await call(body({ src: { project: 'otherproject0001', path: SRC.path } }), K2)).statusCode, 200);   // 別人再登記：指到新的版本
   assert.equal(docs.get(`shared/${PID}`).src.project, 'otherproject0001');
+});
+
+test('3D 牆的線：帶 e（修點）也收；e 不是物件、太多顆就拒絕；單條上限放寬到 24000 字', async () => {
+  const { call, docs } = setup();
+  await call(body());
+  const one = (id, extra) => ({ op: 'put', pid: PID, routes: [{ id, r: route(id, extra) }] });
+  const m3 = { c: [0, 0, 0, 0, 0, 0, 1], p: [[0, 0], [1, 0], [1, 1]] };
+  assert.equal((await call(one('r1', { e: { p1: m3 } }))).statusCode, 200);
+  assert.equal(JSON.parse(docs.get(`wallRoutes/${PID}`).routes.r1.r).e.p1.c.length, 7);
+  for (const e of ['x', null, [m3], Object.fromEntries(Array.from({ length: 201 }, (_, i) => [`p${i}`, m3]))]) assert.equal((await call(one('r2', { e }))).statusCode, 400);
+  assert.equal((await call(one('r3', { pad: 'x'.repeat(20000) }))).statusCode, 200);
+  assert.equal((await call(one('r4', { pad: 'x'.repeat(24000) }))).statusCode, 400);
+});
+
+test('unpublish：只有擁有者身分能下架；拿掉入口和所有人的線，重複呼叫沒事，重新發佈就回來', async () => {
+  const { call, docs, calls, asOwner } = setup();
+  await call(body());
+  docs.set(`wallRoutes/${PID}`, { routes: { r1: { uid: `k:${K1}`, t: 1, r: '{}' } }, t: 1 });
+  assert.equal((await call({ op: 'unpublish', pid: PID })).statusCode, 401);   // 不是擁有者：拒絕
+  assert.ok(docs.get(`shared/${PID}`).src);
+  asOwner(true);
+  assert.deepEqual((await call({ op: 'unpublish', pid: PID })).data, { removed: true });
+  assert.equal(docs.get(`shared/${PID}`).src, undefined);
+  assert.equal(docs.has(`wallRoutes/${PID}`), false);
+  assert.ok(calls.some(c => c[0] === 'refresh' && c[1] === PID));
+  assert.deepEqual((await call({ op: 'unpublish', pid: PID })).data, { removed: false });
+  assert.equal((await call(body())).statusCode, 200);   // 重新發佈
+  assert.ok(docs.get(`shared/${PID}`).src);
+});
+
+test('unpublish：發佈金鑰的擁有者本人能下架，別把金鑰和沒有擁有者的舊牆不行', async () => {
+  const { call, docs } = setup();
+  await call(body());
+  const withOwner = kid => docs.set(`datasets/${PROJECT}`, { ...PACKAGE, ownerKid: kid });
+  assert.equal((await call({ op: 'unpublish', pid: PID, auth: { kid: K1 } })).statusCode, 403);   // 舊牆：沒有擁有者，只有維護者
+  withOwner(K1);
+  const other = await call({ op: 'unpublish', pid: PID, auth: { kid: K2 } });
+  assert.equal(other.statusCode, 403); assert.equal(other.data.error, 'not owner');
+  assert.ok(docs.get(`shared/${PID}`).src);
+  assert.deepEqual((await call({ op: 'unpublish', pid: PID, auth: { kid: K1 } })).data, { removed: true });
+  assert.equal(docs.get(`shared/${PID}`).src, undefined);
 });

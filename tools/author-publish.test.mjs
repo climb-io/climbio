@@ -90,9 +90,13 @@ test('雲端函式：服務沒開（連不上）、暫停（503）、開著；�
   await withCheck(async () => '').files('g', 'guidebook');
   assert.equal(sent[0]['X-Firebase-AppCheck'], 'chk');
   assert.equal('X-Firebase-AppCheck' in sent[1], false);
+  // 擁有者的同步金鑰（代理發佈用）：有就帶在 X-Studio-Key
+  const keyed = [];
+  await createService({ url: 'https://fn.test/projects', studioKey: async () => 'k1', fetchFn: async (u, o) => { keyed.push(o.headers); return json(200, { version: 0, files: [] }); } }).files('g', 'guidebook');
+  assert.equal(keyed[0]['X-Studio-Key'], 'k1');
 });
 
-test('岩場位置：解析貼上的「緯度, 經度」；發佈時照片有拍攝位置用照片，沒有就用岩場節點的 geo', async () => {
+test('岩場位置：解析貼上的「緯度, 經度」；發佈時照片有拍攝位置用照片，沒有就用岩場節點的 geo，再沒有用地圖上岩場形狀的中心', async () => {
   assert.deepEqual(M.parsePosition('25.1349335,121.5147905'), [121.514791, 25.134934]);
   assert.deepEqual(M.parsePosition(' 25.13, 121.51 '), [121.51, 25.13]);
   for (const bad of ['', '25.1', '121.5, 25.1x', '95, 121', '25, 200']) assert.equal(M.parsePosition(bad), undefined, bad);
@@ -118,14 +122,22 @@ test('岩場位置：解析貼上的「緯度, 經度」；發佈時照片有拍
   await run(noShot.state, noShot.images);
   assert.deepEqual(sent.at(-1), [[121.5148, 25.1347]]);
   M.setCragPosition(noShot.state, undefined);
+  // 再沒有就用地圖上岩場形狀（岩壁的牆線）的中心
+  const line = [[121.51, 25.13], [121.53, 25.15]];
+  noShot.state.map.marks = [{ node: M.walls(noShot.state)[0].id, geometry: { type: 'LineString', coordinates: line } }, { geometry: { type: 'LineString', coordinates: [[100, 10], [101, 11]] }, props: { kind: 'road' } }];
+  await run(noShot.state, noShot.images);
+  assert.deepEqual(sent.at(-1), [[121.52, 25.14]]);   // 道路這類底圖不算
+  noShot.state.map.marks = [];
   await assert.rejects(run(noShot.state, noShot.images), (e) => e.code === 'no-position');   // 都沒有：天然岩場不能發佈
 });
 
-test('天然岩場一定要有位置：沒有照片拍攝位置、岩場節點也沒有 geo 就不能發佈；填了岩場位置就可以', async () => {
+test('天然岩場一定要有位置：沒有照片拍攝位置、岩場節點沒有 geo、地圖上也沒有岩場的形狀就不能發佈；填了岩場位置就可以', async () => {
   const { state, a, images } = book();
   const run = () => P.publish({ state, docs: P.publishDocs(state, { validate }), images, dataset: async () => ({ version: 1, url: 'u', project: 'p' }) });
   assert.equal(P.needsPosition(state), false);   // a 有拍攝位置
   delete a.camera;
+  assert.equal(P.needsPosition(state), false);   // 照片算出的牆線還在地圖上：用它的中心
+  state.map.marks = [];
   assert.equal(P.needsPosition(state), true);
   await assert.rejects(run(), (e) => e.code === 'no-position' && e.message === P.NO_POSITION);
   state.book.nodes.push({ id: 'crag1', type: 'crag', name: '測試岩場' });

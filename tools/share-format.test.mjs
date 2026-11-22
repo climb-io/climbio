@@ -172,3 +172,17 @@ test('收一條線也帶回那個人在這面牆的其他線；讀一個圖層�
   await assert.rejects(S.layerRoutes(`${dir}nothere0000001.json`, PID), { gone: true });
 });
 
+
+test('手機精修記錄：改過、手畫、刪掉的岩點各記一筆；最後外框在 final；沒修改回 null', () => {
+  const { S } = make({});
+  const b = [{ id: 'h1', poly: sq(0, 0) }, { id: 'h2', poly: sq(10, 10) }, { id: 'h3', poly: sq(20, 20) }];
+  assert.equal(S.phoneEdits({ pid: PID, base: b, mine: b.map(h => ({ ...h, source: 'detect' })) }), null);
+  const rec = plain(S.phoneEdits({ pid: PID, base: b, mine: [
+    { id: 'h1', poly: sq(1, 1), source: 'edited' }, { id: 'h3', poly: sq(20, 20), source: 'detect' }, { id: 'm1', poly: sq(5, 5), source: 'manual' }] }));
+  assert.deepEqual(rec.deleted, [{ id: 'h2', poly: sq(10, 10) }]);
+  assert.deepEqual(rec.reshaped, [{ id: 'h1', poly: sq(0, 0) }]);
+  assert.deepEqual(rec.added, ['m1']);
+  assert.deepEqual(rec.final, { h1: sq(1, 1), m1: sq(5, 5) });
+  assert.equal(rec.tools.by, 'phone');
+  assert.equal(rec.reviewed, false);
+});

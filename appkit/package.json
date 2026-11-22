@@ -15,5 +15,5 @@
     "./package.json": "./package.json"
   },
   "sideEffects": ["./ui.css", "./components.css"],
-  "files": ["*.js", "*.mjs", "*.d.ts", "*.css", "README.md", "README.en.md", "LICENSE", "NOTICE"]
+  "files": ["*.js", "!share-tools.js", "*.mjs", "*.d.ts", "*.css", "README.md", "README.en.md", "LICENSE", "NOTICE"]
 }

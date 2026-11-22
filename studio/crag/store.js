@@ -2,6 +2,7 @@
 //   <專案>/index.json          這本 Guidebook（組合，type: guidebook）
 //   <專案>/<id>.json           地圖、照片畫面、圖層
 //   <專案>/<照片畫面的 href>    照片（自己拍的是 <id>.jpg，匯入岩場站的照原本的副檔名）
+//   <專案>/source/             轉換路線書的原始檔、最後的大綱 outline.md、轉換紀錄 convert.json（發佈、匯出一起帶，拿來重跑轉換；見 convert.js 的 SOURCE）
 //   <專案>/.studio/            project.json、thumbs/<id>.jpg（縮圖）、images/<id>（只在 Studio 用的圖：示意圖）
 const T = (...a) => AppKit.i18n.t(...a);   // 文字在呼叫時才查語言包（Node 測試、命令列也能用）
 const SS = globalThis.StudioStore;
@@ -15,10 +16,10 @@ const imagePath = (d) => d.href && !/\.json$/.test(d.href) ? d.href : `${SS.PRIV
 const thumbPath = (id) => `${SS.PRIVATE}/thumbs/${id}.jpg`;
 const cragOf = (p) => { if (p.meta.ws !== 'crag') throw new Error(T('cdNotCrag')); return (P = p); };
 
-/** 新的一本：dir 是使用者選的資料夾（StudioStore.claim 過的），沒有就放在瀏覽器裡；docs 是組合和地圖 */
-export async function create(book, docs, dir = null) {
+/** 新的一本：dir 是使用者選的資料夾（StudioStore.claim 過的），沒有就放在瀏覽器裡；docs 是組合和地圖；fromBook：轉換路線書來的（Studio 的路線書頁列它） */
+export async function create(book, docs, dir = null, { fromBook = false } = {}) {
   const ws = 'crag';
-  const meta = book.derivedFrom?.url ? { src: book.derivedFrom.url } : {};   // 匯入的：記來源，同一個岩場再匯入就打開這一本
+  const meta = { ...(book.derivedFrom?.url ? { src: book.derivedFrom.url } : {}), ...(fromBook ? { book: true } : {}) };   // 匯入的：記來源，同一個岩場再匯入就打開這一本
   const p = dir ? await SS.create(dir, ws, book.name, { id: book.id, meta }) : await SS.createLocal(ws, book.name, { id: book.id, meta });
   cragOf(p);
   await saveDocs([book, ...docs]);
@@ -73,6 +74,18 @@ export const saveImage = (doc, image, thumb) => serial(async () => {
 });
 export const getImage = (doc) => SS.read(P.dir, imagePath(doc)).catch(() => null);
 export const getThumb = (id) => SS.read(P.dir, thumbPath(id)).catch(() => null);
+
+/** 轉換路線書來的專案（有轉換紀錄、舊的還沒標記）：標記起來，Studio 的路線書頁才列得到 */
+export const markBook = () => serial(async () => { if (P.meta.book) return; P.meta.book = true; await SS.saveMeta(P); await SS.remember(P); });
+
+/** 原始檔（source/ 底下）：寫一個、讀全部（[{ path: 'source/…', blob }]）、轉換紀錄（沒有是 null） */
+export const saveSource = (name, blob) => serial(() => SS.write(P.dir, `source/${name}`, blob));
+export async function readSource() {
+  const list = (await SS.files(P.dir)).filter(f => f.path.startsWith('source/'));
+  return Promise.all(list.map(async f => ({ path: f.path, blob: await SS.read(P.dir, f.path) })));
+}
+export const readRecord = () => SS.readJson(P.dir, 'source/convert.json').catch(() => null);
+export const saveRecord = (rec) => saveSource('convert.json', new Blob([JSON.stringify(rec, null, 1)], { type: 'application/json' }));
 
 /** 刪掉檔案和它們的圖（照片的副檔名不一定是 .jpg：第一層裡檔名是「id.」開頭的都刪） */
 export const removeDocs = (ids) => serial(async () => {

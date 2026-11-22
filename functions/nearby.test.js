@@ -32,16 +32,21 @@ test('同一個網路互相看得到，不同網路看不到', async () => {
   const a = (await call(h, '1.2.3.4', { op: 'join', app: 'hold', name: '岩點貓1234' })).body;
   const b = (await call(h, '1.2.3.4', { op: 'join', app: 'hold', name: '岩點貓5678' })).body;
   const c = (await call(h, '9.9.9.9', { op: 'join', app: 'hold', name: '岩點貓0000' })).body;
-  assert.deepEqual(b.peers, [{ id: a.id, name: '岩點貓1234' }]);
+  assert.deepEqual(b.peers, [{ id: a.id, name: '岩點貓1234', app: 'hold' }]);
   assert.deepEqual(c.peers, []);
   const pa = (await call(h, '1.2.3.4', { op: 'poll', id: a.id })).body;
-  assert.deepEqual(pa.peers, [{ id: b.id, name: '岩點貓5678' }]);
+  assert.deepEqual(pa.peers, [{ id: b.id, name: '岩點貓5678', app: 'hold' }]);
 });
 
-test('岩點貓和紅點貓互相看不到', async () => {
+test('岩點貓和紅點貓互相看不到；Studio 看得到兩者，也能互傳訊息', async () => {
   const h = createHandler({ db: fakeDb() });
-  await call(h, '1.2.3.4', { op: 'join', app: 'hold', name: 'x' });
-  assert.deepEqual((await call(h, '1.2.3.4', { op: 'join', app: 'redpoint', name: 'y' })).body.peers, []);
+  const x = (await call(h, '1.2.3.4', { op: 'join', app: 'hold', name: 'x' })).body;
+  const y = (await call(h, '1.2.3.4', { op: 'join', app: 'redpoint', name: 'y' })).body;
+  assert.deepEqual(y.peers, []);
+  assert.equal((await call(h, '1.2.3.4', { op: 'send', id: y.id, to: x.id, msg: 1 })).status, 404);
+  const s = (await call(h, '1.2.3.4', { op: 'join', app: 'studio', name: 's' })).body;
+  assert.deepEqual(s.peers.map(p => p.app).sort(), ['hold', 'redpoint']);
+  assert.equal((await call(h, '1.2.3.4', { op: 'send', id: s.id, to: x.id, msg: 1 })).status, 200);
 });
 
 test('訊息只有收件人拿得到，拿過就清掉；不同網路不能傳', async () => {

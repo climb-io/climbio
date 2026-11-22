@@ -39,7 +39,7 @@ function setup({ replies = () => null, timeout = false } = {}) {
     },
   };
   vm.createContext(sandbox);
-  vm.runInContext(sharing + '\nglobalThis.api = { shareRoutes, unshareRoutes, unlistWall, listShared, primeShared, sharePack };', sandbox);
+  vm.runInContext(sharing + '\nglobalThis.api = { shareRoutes, unshareRoutes, unlistWall, listShared, primeShared };', sandbox);
   return { calls, api: sandbox.api };
 }
 const body = (o = {}) => ({ signature: '岩友', pid: PID, gym: '原岩明德', wall: '牆', routes: [{ route: { id: 'r1', t: 3 }, k: 'key' }], photo: async () => 'photo',
@@ -48,22 +48,11 @@ const ops = s => s.calls.map(c => `${c.name}.${c.body.op}`);
 // 這面牆已經公開了
 const published = (name, b) => (b.op === 'routes' ? [200, { published: true, routes: [] }] : null);
 
-test('第一次公開分享（還沒人公開過）：包公開到開放資料集一次（沒有路線的圖層），登記到找牆面，線存在 Climbio；不帶任何登入', async () => {
+test('牆還沒公開（手機自己拍的牆）：什麼都不傳，不上傳照片、不登記、不寫線，丟 code: private', async () => {
   const s = setup();
-  const r = await s.api.shareRoutes(body());
-  assert.deepEqual(plain(r.results), { r1: { ok: true, made: true } });
-  assert.deepEqual(ops(s), ['walls.routes', 'datasets.publishWall', 'walls.publish', 'walls.put']);
-  const pack = await s.api.sharePack(PID), pub = s.calls[1].body, wall = s.calls[2].body, put = s.calls[3].body;
-  assert.match(pack.id, /^[0-9a-f]{16}$/);
-  assert.deepEqual([pub.id, pub.name, pub.licenseAccepted], [pack.id, '牆', true]);
-  assert.deepEqual(pub.files.map(f => f.path), ['index.json', `${PID}.json`, `${PID}.jpg`, `${pack.layer}.json`]);
-  assert.ok(pub.files.every(f => typeof f.b64 === 'string' && f.b64.length));   // 檔案內容 base64
-  assert.deepEqual(plain([wall.pid, wall.name, wall.gym, wall.src, 'n' in wall, 'v' in wall]), [PID, '牆', '原岩明德', { project: pack.id, path: `${pack.layer}.json` }, false, false]);
-  assert.equal('training' in wall || 'thumb' in wall, false);
-  assert.deepEqual(plain([put.pid, put.routes.map(x => x.id)]), [PID, ['r1']]);
-  assert.deepEqual(JSON.parse(put.routes[0].r), { nodes: [{ id: 'r1', type: 'route', t: 3 }], marks: [] });   // 一條線存成圖層的片段
+  await assert.rejects(s.api.shareRoutes(body()), { code: 'private' });
+  assert.deepEqual(ops(s), ['walls.routes']);   // 只問了這面牆有沒有公開
   assert.ok(s.calls.every(c => c.auth === undefined), '沒有帳號，沒有 Authorization');
-  assert.deepEqual(s.calls.map(c => c.appCheck), [undefined, 'app-check', 'app-check', 'app-check'], '公開（datasets）、登記與寫線都要 App Check');
 });
 
 test('牆已經公開了：不再傳包、不登記，只把自己的線存到 Climbio；之後改線、加線、刪線一次 put；牆名改了也不重發包', async () => {
@@ -81,28 +70,17 @@ test('牆已經公開了：不再傳包、不登記，只把自己的線存到 C
   assert.deepEqual(plain((await taken.api.shareRoutes(body())).results), { r1: { ok: false, error: 'taken' } });   // 路線 id 被別人用了
 });
 
-test('別人先公開了不同的內容（資料集回 409）：用現有的包，照樣登記到找牆面、傳自己的線', async () => {
-  const s = setup({ replies: (name, b) => (name === 'datasets' && b.op === 'publishWall' ? [409, { error: 'too many changes' }] : null) });
-  await s.api.shareRoutes(body());
-  assert.deepEqual(ops(s), ['walls.routes', 'datasets.publishWall', 'walls.publish', 'walls.put']);
-});
-
 test('伺服器說的原因直接回給 App：暫停上傳、每天上限、逾時', async () => {
   await assert.rejects(setup({ replies: () => [503, { error: 'uploads paused' }] }).api.shareRoutes(body()), { message: 'uploads paused', code: 'quota' });
   await assert.rejects(setup({ replies: (n, b) => (b.op === 'put' ? [429, { error: 'daily limit' }] : published(n, b)) }).api.shareRoutes(body()), { message: 'shareQuota', code: 'quota', status: 429 });
   await assert.rejects(setup({ timeout: true }).api.shareRoutes(body()), { code: 'timeout' });
 });
 
-test('包 id：只由照片編號算出來，每台裝置、每個人都一樣；不同的牆不同', async () => {
-  const pack = await setup().api.sharePack(PID);
-  assert.equal((await setup().api.sharePack(PID)).id, pack.id);
-  assert.notEqual((await setup().api.sharePack('otherwall123')).id, pack.id);
-});
-
 test('讀公開牆：一次請求拿整面牆的線；沒有公開了就標 published false；好幾面牆一次問完', async () => {
   const frag = (id, t) => JSON.stringify({ nodes: [{ id, type: 'route', t }], marks: [] });
   const routes = [{ rid: 'r1', mine: true, r: frag('r1', 3), t: 10 }, { rid: 'r2', mine: false, r: frag('r2', 4), t: 9 }, { rid: 'bad', mine: false, r: 'not json', t: 1 }, { rid: 'r3', mine: false, r: frag('other', 1), t: 1 }];
-  const s = setup({ replies: (name, b) => (b.op === 'routes' ? [200, b.pids ? { walls: { [PID]: { published: true, routes } } } : { published: true, routes }] : null) });
+  // 替身的 fetch 沒有 /w/<牆 id>/shared.json 這條 GET（CDN 快取讀取），所以每面牆都退回 POST 一次
+  const s = setup({ replies: (name, b) => (b.op === 'routes' ? [200, b.pid === PID ? { published: true, routes } : { published: false, routes: [] }] : null) });
   const got = await s.api.listShared(PID);
   assert.deepEqual(plain(got), [{ rid: 'r1', mine: true, r: '{"id":"r1","t":3}', t: 3 }, { rid: 'r2', mine: false, r: '{"id":"r2","t":4}', t: 4 }]);   // 壞的、路線 id 對不上的略過
   assert.equal(got.published, true);
@@ -112,7 +90,7 @@ test('讀公開牆：一次請求拿整面牆的線；沒有公開了就標 publ
   assert.equal((await s.api.listShared(PID)).length, 2);
   const none = await s.api.listShared('otherwall123');
   assert.deepEqual([plain(none), none.published], [[], false]);   // 這面牆沒有公開（過期、包不見了）
-  assert.deepEqual(s.calls.map(c => [c.body.op, c.body.pids]), [['routes', [PID, 'otherwall123']]]);
+  assert.deepEqual(s.calls.map(c => [c.body.op, c.body.pid]), [['routes', PID], ['routes', 'otherwall123']]);
 });
 
 test('收回：只拿掉自己（這把金鑰）寫的線，整面牆公開了就收不回；沒有金鑰就什麼都不送', async () => {

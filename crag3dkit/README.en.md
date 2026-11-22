@@ -23,7 +23,7 @@ Play and read outdoor 3D crags: take a Gaussian-splat (`.spz`) or mesh (`.glb`) 
 |---|---|
 | `index.js` | Entry: reading, occlusion tables, name/grade pickers and styles are exported directly; `mountCrag3d` loads the player on first call (three.js and Spark, about 3 MB) |
 | `player.js` | The player `mountCrag3d`: camera, gestures, routes and number tags, occlusion, loading and fade-in |
-| `read.js` | `readCrag3d`, `sharedModelId`: find the model, routes, walls with cameras and the overview in v2 documents |
+| `read.js` | `readCrag3d`, `sharedModelId`, `cragModelIds`: find single or segmented models, routes, walls with cameras and the overview in v2 documents |
 | `sight.js` | Occlusion tables: `readSight` (decode), `routeVisibility` (is each point visible from a position) |
 | `text.js` | `pickName`, `pickGrade` (same rules as TopoKit) |
 | `style.js` | The style string `CSS` and `injectStyle` |
@@ -38,10 +38,10 @@ Coordinates are model `[x, y, z]` in metres, y up. Full types in `index.d.ts`.
 
 | Name | Description |
 |---|---|
-| `mountCrag3d(host, options)` | Draw a 3D crag in `host`; returns the player as soon as the opening snapshot (`poster`) is laid down, the model loads in the background. Options: `url` (model URL or a Promise), `mime`, `background` (the splat backdrop for a mesh), `marks`, `sight`, `nodes`, `areas` (in wall order), `start`, `intro` (first visit: the camera of the overview snapshot), `poster`, `sky`, `onPick(route id \| null)`, `onArea(index)` |
+| `mountCrag3d(host, options)` | Draw a 3D crag in `host`; returns the player as soon as the opening snapshot (`poster`) is laid down, the model loads in the background. Options: `url` (model URL or a Promise), `mime`, `background` (the splat backdrop for a mesh), `segments` (ordered array of segmented models; active segment loads first and others preload in background), `marks`, `sight`, `nodes`, `areas` (in wall order), `start`, `intro` (first visit: the camera of the overview snapshot), `poster`, `sky`, `mode` (`free` (default), `fixed` = each area rendered once as a 2D image), `onPick(route id \| null)`, `onArea(index)` |
 | Player | `highlight(id)` lights a route, `go(i)` walks to wall i, `route(id)` walks in front of a route then calls `onPick`, `walk(n)` along the wall forward or back, `area()`, `posterRect()`, `destroy()` |
-| `readCrag3d(docs, modelId, { lang })` | From all the crag's v2 documents find `{ model, layers, marks, sight, nodes, owners, areas, overview }`; `null` if there is no such model view |
-| `sharedModelId(views)` | The model id when every topo is a snapshot of the same model, otherwise `null` |
+| `readCrag3d(docs, modelId, { lang })` | From all the crag's v2 documents find `{ model, models, segments, layers, marks, sight, nodes, owners, areas, overview }` (`modelId` may be a string or an array); `null` if any requested model view is missing |
+| `sharedModelId(views)` / `cragModelIds(views)` | `sharedModelId` returns the id when every topo shares one model; `cragModelIds` returns deduplicated model ids when every topo references a model (supports multi-segment crags) |
 | `readSight(b64)`, `routeVisibility({ table, spec, pts, from, fill, out })` | Decode an occlusion table; is each route point visible from `from` (returns `{ vis, seen }`) |
 | `pickName(name, lang)`, `pickGrade(grade, systems)` | Name and grade pickers |
 | `CSS`, `injectStyle(host)` | Styles; override the line colours with the CSS variables `--c3d-sport`, `--c3d-sport-on`, `--c3d-other`, `--c3d-other-on` |
@@ -53,7 +53,7 @@ The format is described under "3D crags" in [format/VOCABULARY.md](../format/VOC
 - The model view is `surface: model` with `href` pointing at `.spz` (`mime: model/x-spz`) or `.glb` (`mime: model/gltf-binary`); each file at most 25 MB (the Climbio open dataset limit).
 - Routes are `LineString`s in the model layer in model coordinates; an occlusion table must have as many points as its coordinates, and the layer's `props.sight` is the spec. No table means no occlusion.
 - One snapshot per wall (`props.model` holds the model id and camera), ordered by the wall node's `props.order`; the crag (or area) node may carry an overview snapshot, which adds the opening that flies from the whole crag into the first wall.
-- One model per crag: 3D is used only when every topo with routes is a snapshot of the same model (`sharedModelId`).
+- A crag may share one model or split across overlapping segmented models (`cragModelIds`): active segment loads first, neighbors preload in background and swap seamlessly at boundaries.
 
 ## 6. Minimal runnable example
 

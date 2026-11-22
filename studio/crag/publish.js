@@ -2,7 +2,7 @@
 //   每份 JSON 先過 validate；照片畫面的 camera（拍照位置與方向）照原樣公開，第一次發佈的同意畫面會列出有幾張；origin 不是 self／authorized 的畫面不能發佈。
 // 發佈的狀態與設定存在組合的 props「author:publish」（匯出、發佈時拿掉）：{ consent, version, url, link, files, at, sig }；sig 是發佈時內容的指紋（contentSig），內容一樣就不能發下一版（舊的沒有 sig，照 at：發佈時存檔的 t）。
 //   url：公開網址（/p/<id>/index.json，任何 App 讀）；link：分享用的網址（/p/<id>，打開就用紅點貓看）
-import { exportDocs, text, walls, cragPosition } from './model.js';
+import { exportDocs, text, walls, cragPosition, mapPosition } from './model.js';
 import { SOURCES } from '../../mapkit/tiles.js';
 const T = (...a) => AppKit.i18n.t(...a);   // 文字在呼叫時才查語言包（Node 測試、命令列也能用）
 
@@ -57,9 +57,9 @@ export function publishDocs(state, { validate }) {
 
 export const PACK = 'pack.json';
 
-/** 天然岩場的 Guidebook 一定要有位置（世界地圖靠它放圖釘）：照片有拍攝位置，或岩場節點有 geo */
+/** 天然岩場的 Guidebook 一定要有位置（世界地圖靠它放圖釘）：照片有拍攝位置、岩場節點有 geo，或地圖上畫了岩場的形狀（取中心） */
 export const NO_POSITION = globalThis.AppKit?.i18n ? T('cdNoPosition') : '';   // 載入當下查文字（頁面的語言包先載入；沒有 AppKit 的 Node 程式用不到）
-export const needsPosition = (state) => ![...state.photos.values()].some(v => v.camera?.position) && !cragPosition(state);
+export const needsPosition = (state) => ![...state.photos.values()].some(v => v.camera?.position) && !cragPosition(state) && !mapPosition(state);
 
 /**
  * 合併檔（紅點貓匯入不用一個檔案一次請求，見 redpoint/io.js 的 fromUrl）：docs 的第一份是入口，其餘 JSON 全放進 pack.json 的 docs（檔名 → 文件），
@@ -76,19 +76,19 @@ export async function withPack(docs, images) {
 }
 
 /**
- * 發佈一次：docs（publishDocs 的結果）、images（[{ path, blob }]，照片畫面的 href 與圖檔）、
+ * 發佈一次：docs（publishDocs 的結果）、images（[{ path, blob }]，照片畫面的 href 與圖檔）、sources（[{ path: 'source/…', blob }]，轉換路線書的原始檔，原樣附上）、
  * dataset({ id, name, files, locations, onProgress, onFile })（放進開放資料集，見 ../dataset-publish.js），不用 drive。回傳 { version, url, files, manifest?, project? }
  */
-export async function publish({ state, docs: plain, images: plainImages, dataset, onProgress, onFile }) {
+export async function publish({ state, docs: plain, images: plainImages, sources = [], dataset, onProgress, onFile }) {
   const enc = new TextEncoder();
   const { docs, images } = await withPack(plain, plainImages);
   const files = [
     ...docs.map(({ path, doc }) => ({ path, bytes: enc.encode(JSON.stringify(doc)) })),
-    ...await Promise.all(images.map(async ({ path, blob }) => ({ path, bytes: new Uint8Array(await blob.arrayBuffer()) }))),
+    ...await Promise.all([...images, ...sources].map(async ({ path, blob }) => ({ path, bytes: new Uint8Array(await blob.arrayBuffer()) }))),
   ];
-  // 岩場在地圖上的位置：照片的拍攝位置；都沒有拍攝位置（路線書轉的）就用岩場節點的 geo
+  // 岩場在地圖上的位置：照片的拍攝位置；都沒有拍攝位置（路線書轉的）就用岩場節點的 geo，再沒有用地圖上岩場形狀的中心
   const shots = plain.filter(x => x.doc.surface === 'photo' && x.doc.camera?.position).map(x => x.doc.camera.position.slice(0, 2));
-  const locations = shots.length ? shots : [cragPosition(state)].filter(Boolean);
+  const locations = shots.length ? shots : [cragPosition(state) || mapPosition(state)].filter(Boolean);
   if (!locations.length) throw Object.assign(new Error(T('cdNoPosition')), { code: 'no-position' });
   const name = text(state.book.name) || 'Guidebook';
   return dataset({ id: state.book.id, name, files, locations, onProgress, onFile });

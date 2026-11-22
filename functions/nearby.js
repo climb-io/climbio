@@ -1,4 +1,4 @@
-// 附近交換（岩點貓、紅點貓）：同一個網路（同一個對外 IP）的手機互相看得到，只幫忙找人和轉送連線訊息（WebRTC 的 offer、answer、ICE）。
+// 附近交換（岩點貓、紅點貓、Studio）：同一個網路（同一個對外 IP）的手機互相看得到，只幫忙找人和轉送連線訊息（WebRTC 的 offer、answer、ICE）。
 // 資料本身走手機之間的 WebRTC，不經過這裡，也不存起來。
 // join：登記自己（名稱、哪個 App），回自己的代號和附近的人；poll：續命，收訊息、看附近的人（帶 wait 毫秒就保持開著，有人上線／離開或有訊息才回，最長 HOLD_MAX）；send：傳一則訊息給附近的某個人；leave：離開。
 // 房間是對外 IP 的雜湊（IPv6 取前 64 位元）；配對過的裝置另外帶「配對房間」（密鑰的雜湊，只有持有密鑰的人猜得到）：同一個區網但一台走 IPv4、一台走 IPv6 時，IP 房間不同看不到對方，配對房間仍然找得到；只用 Admin SDK 存取 nearby/、nearbyMsgs/，不開放 Firestore 規則。
@@ -6,7 +6,9 @@
 // 超過 TTL 沒有 poll 的人當作離開，由 cleanNearby 每天掃掉。
 const { createHash, randomBytes } = require('node:crypto');
 const ID = /^[0-9a-z]{12}$/;
-const APPS = ['hold', 'redpoint'];
+const APPS = ['hold', 'redpoint', 'studio'];
+// 相容的 App 才互相看得到、能傳訊息：同一種，或其中一邊是 Studio（我的裝置裡 Studio 跟岩點貓、紅點貓同步）；「傳給別人」只用同一種，由客戶端照回傳的 app 篩
+const compatible = (a, b) => a === b || a === 'studio' || b === 'studio';
 const HOLD_MAX = 55e3, TTL = HOLD_MAX + 15e3, MAX_PEERS = 30, MAX_MSG = 16 * 1024, MAX_PENDING = 60;
 const fail = (status, error) => Object.assign(new Error(error), { status });
 const newId = () => [...randomBytes(12)].map(x => (x % 36).toString(36)).join('');
@@ -26,10 +28,10 @@ function createHandler({ db, now = Date.now }) {
   // 附近的人：同一個 IP 房間的，加上跟我有同一個配對房間的（配對過的裝置，不管 IP 房間是不是一樣）
   const around = async (room, id, app, pairRooms = []) => {
     const mine = (await peers.doc(id).get()).data()?.dev || '';
-    const seen = new Map(), ok = d => d.id !== id && d.data().app === app && d.data().seen > now() - TTL && !(mine && d.data().dev === mine);   // 同一台裝置的分身也不算「附近的人」
-    for (const d of (await peers.where('room', '==', room).get()).docs) if (ok(d)) seen.set(d.id, { id: d.id, name: d.data().name });
+    const seen = new Map(), ok = d => d.id !== id && compatible(d.data().app, app) && d.data().seen > now() - TTL && !(mine && d.data().dev === mine);   // 同一台裝置的分身也不算「附近的人」
+    for (const d of (await peers.where('room', '==', room).get()).docs) if (ok(d)) seen.set(d.id, { id: d.id, name: d.data().name, app: d.data().app });
     for (const pr of pairRooms) for (const d of (await peers.where('pairRooms', 'array-contains', pr).get()).docs) if (ok(d)) {
-      const e = seen.get(d.id) || { id: d.id, name: d.data().name };
+      const e = seen.get(d.id) || { id: d.id, name: d.data().name, app: d.data().app };
       seen.set(d.id, { ...e, via: [...(e.via || []), pr] });   // via：是哪個配對房間找到的（配對的裝置，客戶端據此知道是哪一台）
     }
     return [...seen.values()].slice(0, MAX_PEERS);
@@ -96,7 +98,7 @@ function createHandler({ db, now = Date.now }) {
       const self = await me(body.id, room);
       if (!ID.test(body.to || '')) throw fail(400, 'bad id');
       const toSnap = await peers.doc(body.to).get(), to = toSnap.exists ? toSnap.data() : null;
-      if (!to || to.app !== self.app || to.seen < now() - TTL || !(to.room === self.room || shares(self, to))) throw fail(404, 'peer gone');   // 同一個 IP 房間，或有同一個配對房間
+      if (!to || !compatible(to.app, self.app) || to.seen < now() - TTL || !(to.room === self.room || shares(self, to))) throw fail(404, 'peer gone');   // 同一個 IP 房間，或有同一個配對房間
       const text = JSON.stringify(body.msg ?? null);
       if (text.length > MAX_MSG) throw fail(413, 'too large');
       if ((await msgs.where('to', '==', body.to).get()).size >= MAX_PENDING) throw fail(429, 'busy');

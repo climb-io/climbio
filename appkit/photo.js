@@ -229,6 +229,23 @@
       bitmap.close();
     }
   }
+  /** 朋友互傳的方形縮圖：下載／匯入時產生，分享時只讀現成檔；原照不修改。 */
+  async function squareThumb(src, edge = 256) {
+    const owned = src instanceof Blob;
+    const bitmap = owned ? await createImageBitmap(src, { imageOrientation: 'from-image' }) : src;
+    try {
+      const sw = bitmap.width, sh = bitmap.height;
+      if (!sw || !sh) throw new Error('bad image size');
+      const side = Math.min(sw, sh), c = document.createElement('canvas');
+      c.width = c.height = edge;
+      try {
+        const ctx = c.getContext('2d');
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(bitmap, (sw - side) / 2, (sh - side) / 2, side, side, 0, 0, edge, edge);
+        return await jpeg(c, QUALITY.thumb);
+      } finally { c.width = c.height = 0; }
+    } finally { if (owned) bitmap.close(); }
+  }
   /** 照片或畫布 → 縮圖（JPEG） */
   async function thumb(src, edge = THUMB_EDGE) {
     if (src instanceof Blob) {
@@ -257,5 +274,5 @@
   /** 圖片網址（含 blob:、data:）→ 載入好的 Image；載入失敗就丟錯 */
   const load = (src) => new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = src; });
 
-  return { readExif, toCamera, QUALITY, MAX_EDGE, THUMB_EDGE, toCanvas, jpeg, encode, reencode, sha256, load, prepare, thumb, view };
+  return { readExif, toCamera, QUALITY, MAX_EDGE, THUMB_EDGE, toCanvas, jpeg, encode, reencode, sha256, load, prepare, thumb, squareThumb, view };
 });

@@ -3,254 +3,74 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<script src="../host-redirect.js"></script>
+<meta name="theme-color" content="#F7F9FB">
 <title>Climbio Lab</title>
-<meta name="description" content="Climbio Lab：教岩點貓認岩點、教紅點貓認岩壁。你修好的牆和修正的地方公開出來，工具就會越來越準。">
+<meta name="description" content="岩點偵測、外框精修與 3D 岩壁重建。">
 <link rel="canonical" href="https://climbio.app/lab/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Climbio">
 <meta property="og:locale" content="zh_TW">
 <meta property="og:url" content="https://climbio.app/lab/">
 <meta property="og:title" content="Climbio Lab">
-<meta property="og:description" content="Climbio Lab：教岩點貓認岩點、教紅點貓認岩壁。你修好的牆和修正的地方公開出來，工具就會越來越準。">
+<meta property="og:description" content="岩點偵測、外框精修與 3D 岩壁重建。">
 <meta property="og:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Climbio Lab">
-<meta name="twitter:description" content="Climbio Lab：教岩點貓認岩點、教紅點貓認岩壁。你修好的牆和修正的地方公開出來，工具就會越來越準。">
+<meta name="twitter:description" content="岩點偵測、外框精修與 3D 岩壁重建。">
 <meta name="twitter:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
-<meta name="theme-color" content="#F7F9FB">
-<link rel="icon" href="../icons/brand/favicon-64.png">
-<link rel="apple-touch-icon" href="../icons/brand/apple-touch-icon-180.png">
+<link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/lab/">
+<link rel="alternate" hreflang="en" href="https://climbio.app/lab/en/">
+<link rel="icon" href="../icons/brand/favicon-brand.svg" type="image/svg+xml">
+<script src="../host-redirect.js"></script>
 <link rel="stylesheet" href="../css/brand-tokens.css">
-<link rel="stylesheet" href="../appkit/ui.css">
-<link rel="stylesheet" href="../studio/shell.css">
-<style>
-  :root { --radius: 20px; --radius-sm: 14px; --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang TC", "Noto Sans TC", "Segoe UI", sans-serif; }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; min-height: 100%; }
-  body { background: var(--bg); color: var(--text); font: 16px/1.7 var(--font); }
-  a { color: inherit; }
-  [hidden] { display: none !important; }
-  #top { display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
-  #top .grow { flex: 1; }
-  #top nav a { color: var(--muted); font-size: 14px; margin-left: 16px; text-decoration: none; }
-  #top nav a:hover { color: var(--text); }
-  main { width: min(1040px, 100%); margin: 0 auto; padding: 0 20px 72px; }
-  section { padding-top: 64px; }
-  h1, h2, h3, p { margin: 0; }
-  h1 { font-size: clamp(30px, 6vw, 54px); line-height: 1.25; letter-spacing: -.02em; }
-  h1 span { display: inline-block; }
-  h2 { font-size: clamp(24px, 3.4vw, 32px); line-height: 1.3; letter-spacing: -.015em; text-wrap: balance; }
-  .lede { margin-top: 22px; max-width: 34em; color: var(--muted); font-size: 18px; text-wrap: pretty; }
-  .sec-lede { margin-top: 12px; max-width: 36em; color: var(--muted); text-wrap: pretty; }
-
-  .btn { display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 22px; border: 0; border-radius: 999px; background: var(--surface-2); color: var(--text); font: inherit; font-weight: 600; text-decoration: none; white-space: nowrap; }
-  .btn:hover { background: var(--hover); }
-  .btn.primary { background: var(--accent); color: var(--on-accent); }
-  .btn.primary:hover { background: var(--accent-hover); }
-  .acts { display: flex; gap: 10px; flex-wrap: wrap; }
-
-  .hero { padding-top: 56px; }
-  .hero .acts { margin-top: 28px; }
-
-  .labs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 28px; }
-  .lab { display: flex; flex-direction: column; gap: 14px; padding: 26px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
-  .lab img { width: 56px; height: 56px; }
-  .lab .kicker { color: var(--muted); font-size: 14px; font-weight: 600; letter-spacing: .02em; }
-  .lab h3 { font-size: 24px; line-height: 1.3; }
-  .lab p { color: var(--muted); }
-  .lab .acts { margin-top: auto; padding-top: 6px; }
-  .lab .note { font-size: 14px; }
-
-  .loop { list-style: none; margin: 28px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; counter-reset: step; }
-  .loop li { position: relative; padding: 0 18px 0 0; }
-  .loop li::before { counter-increment: step; content: counter(step); display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 15px; }
-  .loop li::after { content: ""; position: absolute; top: 17px; left: 44px; right: 10px; height: 1px; background: var(--line-strong); }
-  .loop li:last-child::after { display: none; }
-  .loop b { display: block; margin: 14px 0 4px; font-size: 17px; line-height: 1.4; }
-  .loop span { display: block; color: var(--muted); font-size: 15px; line-height: 1.65; }
-
-  .cases { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 28px; }
-  .case { padding: 18px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
-  .case svg { display: block; width: 100%; height: auto; border-radius: 10px; background: var(--surface-2); }
-  .case b { display: block; margin-top: 14px; font-size: 17px; }
-  .case p { margin-top: 2px; color: var(--muted); font-size: 15px; line-height: 1.65; }
-  .legend { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 16px; color: var(--muted); font-size: 14px; }
-  .legend i { display: inline-block; width: 22px; height: 0; margin-right: 8px; vertical-align: middle; border-top: 2px dashed var(--muted); }
-  .legend i.solid { border-top: 3px solid var(--accent); }
-
-  .keep { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 28px; }
-  .keep > div { padding: 22px 24px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--surface); }
-  .keep h3 { font-size: 17px; margin-bottom: 10px; }
-  .keep ul { margin: 0; padding-left: 1.2em; color: var(--muted); font-size: 15px; }
-  .keep li + li { margin-top: 4px; }
-  .keep .skip { background: transparent; }
-
-  .open { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 28px; }
-  .open > div { border-top: 2px solid var(--text); padding-top: 14px; }
-  .open b { display: block; font-size: 17px; }
-  .open p { margin-top: 4px; color: var(--muted); font-size: 15px; line-height: 1.65; }
-
-  .status { margin-top: 32px; padding: 20px 24px; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--muted); font-size: 15px; }
-  .status b { color: var(--text); }
-  footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; display: flex; gap: 20px; flex-wrap: wrap; }
-
-  @media (max-width: 800px) {
-    .labs, .keep { grid-template-columns: 1fr; }
-    .cases, .open { grid-template-columns: 1fr; }
-    .loop { grid-template-columns: 1fr; gap: 22px; }
-    .loop li { padding: 0 0 0 50px; }
-    .loop li::before { position: absolute; left: 0; top: 0; }
-    .loop li::after { display: none; }
-    .loop b { margin-top: 0; }
-  }
-  @media (max-width: 560px) { main { padding: 0 16px 56px; } section { padding-top: 48px; } .lab { padding: 20px; } }
-</style>
+<link rel="stylesheet" href="../css/site-nav.css">
+<link rel="stylesheet" href="../css/pages.css">
+<link rel="stylesheet" href="../css/lab.css">
 </head>
-<body>
-<header id="top">
-  <a class="st-brand" href="../"><img src="../icons/brand/climbio-mark.svg" alt="Climbio">Lab</a>
-  <span class="grow"></span>
-  <nav aria-label="相關頁面"><a href="../stats/">資料量</a><a href="../studio/">Studio</a></nav>
+<body class="site-page">
+<header class="site-header">
+  <a class="site-brand" href="../"><picture><source media="(max-width: 600px)" srcset="../icons/brand/climbio-mark.svg"><img src="../icons/brand/climbio-horizontal-light.svg" alt="Climbio" width="110" height="30"></picture></a>
+  <nav class="site-nav" aria-label="網站導覽"><a href="../">首頁</a><a href="../studio/">Studio</a><a href="../lab/" aria-current="page">Lab</a><a href="../guides/">文件</a><a class="site-language" href="en/" hreflang="en" lang="en">English</a></nav>
 </header>
-<main>
-  <section class="hero" aria-labelledby="h-title">
-    <h1 id="h-title"><span>岩點貓偶爾認錯岩點，</span><span>紅點貓還看不懂整面岩壁。</span></h1>
-    <p class="lede">Climbio Lab 是教牠們的地方。你用工具把牆修好，貓原本畫錯的地方就公開出來，下一版的牠們會少錯一點。照片、修正、程式，全部放在大家看得到的地方。</p>
-    <div class="acts">
-      <a class="btn primary" href="../studio/wall/">開啟 Studio Wall</a>
-      <a class="btn" href="../studio/wall3d/">開啟 3D Lab</a>
-    </div>
-  </section>
-
-  <section aria-labelledby="labs-title">
-    <h2 id="labs-title">兩間教室</h2>
-    <div class="labs">
-      <article class="lab" aria-labelledby="hold-title">
-        <img src="../icons/cats/hold-cat.svg" alt="">
-        <div class="kicker">教岩點貓認岩點</div>
-        <h3 id="hold-title">Hold Lab</h3>
-        <p>岩點貓在手機上找岩點，大部分是對的，偶爾會把兩顆連成一顆、漏掉小點，或把外框拉到牆上。在 Hold Lab 你一顆一顆修到對，過程用 SAM2 幫忙，在你自己的電腦上跑，照片不會離開電腦。</p>
-        <p class="note">你修的地方，就是下一版岩點貓要學的地方。</p>
-        <div class="acts">
-          <a class="btn primary" href="../studio/wall/">開啟 Studio Wall</a>
-          <a class="btn" href="../holdscan/browser/example.html">偵測示例</a>
+<main class="pg">
+  <div class="pg-hero"><h1>Climbio Lab</h1><p class="pg-lead">岩點偵測、外框精修與 3D 岩壁重建。</p></div>
+  <div class="lab-grid">
+    <article class="lab" data-climbio-theme="indoor" aria-labelledby="hold-title">
+      <img class="lab-photo" src="../lab/hold-lab/photo.jpg" alt="布滿彩色岩點的室內牆面">
+      <div class="lab-info">
+        <div class="lab-heading"><img src="../icons/cats/hold-cat.svg" alt="" width="40" height="40"><h2 id="hold-title">Hold Lab</h2></div>
+        <p>補上漏掉的岩點、精修外框。SAM2 在自己的電腦上執行。</p>
+        <div class="lab-actions">
+          <a class="pg-btn primary" href="../studio/wall/">開啟 Wall</a>
+          <a class="pg-link" href="../lab/hold-lab/">比較偵測結果</a>
+          <a class="pg-link" href="../holdscan/browser/example.html">偵測範例</a>
         </div>
-      </article>
-      <article class="lab" aria-labelledby="three-d-title">
-        <img src="../icons/cats/redpoint-cat.svg" alt="">
-        <div class="kicker">教紅點貓認岩壁</div>
-        <h3 id="three-d-title">3D Lab</h3>
-        <p>把同一面岩壁的許多張照片重建成立體模型，你在上面標出哪裡是岩壁、哪裡是地面，哪些是岩點、哪些只是懸空的碎片，切掉不屬於牆的部分。紅點貓才知道該看哪裡。</p>
-        <p class="note">記錄的方式跟 Hold Lab 一樣，還在設計。</p>
-        <div class="acts">
-          <a class="btn primary" href="../studio/wall3d/">開啟 3D Lab</a>
-          <a class="btn" href="../3d/">檢視</a>
+      </div>
+    </article>
+    <article class="lab" data-climbio-theme="outdoor" aria-labelledby="three-d-title">
+      <img class="lab-photo" src="../demo/redpoint-dapao.jpg" alt="大砲岩的 3D 岩壁">
+      <div class="lab-info">
+        <div class="lab-heading"><img src="../icons/cats/redpoint-cat.svg" alt="" width="40" height="40"><h2 id="three-d-title">3D Lab</h2></div>
+        <p>在 3D 模型上標記岩壁與地面，裁去不屬於牆面的碎片。</p>
+        <div class="lab-actions">
+          <a class="pg-btn primary" href="../studio/wall3d/">開啟 3D Lab</a>
+          <a class="pg-link" href="../3d/">查看 3D 範例</a>
+          <a class="pg-link" href="../lab/wall3d/">岩點偵測研究</a>
+          <a class="pg-link" href="./crag/">大砲岩</a>
         </div>
-      </article>
+      </div>
+    </article>
+  </div>
+  <section class="pg-section lab-data" aria-labelledby="dataset-title">
+    <h2 id="dataset-title">開放資料集</h2>
+    <p class="pg-sub">私人牆面留在自己的裝置。你可以選擇以 CC BY-SA 4.0 公開牆面照片與岩點修正。公開資料可供任何人下載、用於模型訓練，公開後無法收回。</p>
+    <details class="pg-more"><summary>記錄的修正</summary><p>誤偵測、漏偵測與外框偏差。被修改的岩點會保留原本與修正後的外框。</p></details>
+    <details class="pg-more"><summary>公開的牆面資料</summary><p>移除位置中繼資料的牆面照片、最終外框、低信心的偵測結果、是否完成逐顆檢查，以及工具與模型版本。拖曳與復原紀錄、SAM2 中間候選和單顆岩點的編輯時間不列入資料集。</p></details>
+    <div class="pg-actions lab-data-actions">
+      <a class="pg-btn" href="../stats/">查看資料量</a>
+      <a class="pg-link" href="https://huggingface.co/datasets/climbio/walls">Hugging Face</a>
     </div>
   </section>
-
-  <section aria-labelledby="loop-title">
-    <h2 id="loop-title">你修一面牆之後</h2>
-    <p class="sec-lede">工具先給出牠的答案，你只動牠錯的地方。剩下的事，交給下面這條路。</p>
-    <ol class="loop">
-      <li><b>牠先畫，你改</b><span>偵測、重描都是牠先做。你看過每一顆，錯的修掉。</span></li>
-      <li><b>只留下差別</b><span>我們不存你的每一次拖曳，只存「牠原本畫的」和「你最後畫的」差在哪。</span></li>
-      <li><b>公開出來</b><span>照片、岩點、路線和這份差別放進公開資料集，誰都能下載。公開之後不能收回。</span></li>
-      <li><b>下一版更準</b><span>我們和任何人都能拿它改進偵測。改進後的程式也公開，你下次要修的就更少。</span></li>
-    </ol>
-  </section>
-
-  <section aria-labelledby="cases-title">
-    <h2 id="cases-title">我們只記三種錯</h2>
-    <p class="sec-lede">一面牆上大部分岩點牠畫得沒問題，沒改的就不用記。值得留下來的是牠錯的地方，而且只有三種。</p>
-    <div class="cases">
-      <figure class="case" style="margin:0">
-        <svg viewBox="0 0 220 140" role="img" aria-label="牆上沒有岩點的地方被畫了一圈虛線，被刪掉">
-          <ellipse cx="62" cy="96" rx="24" ry="17" fill="var(--line-strong)"/>
-          <ellipse cx="172" cy="40" rx="20" ry="14" fill="var(--line-strong)"/>
-          <path d="M96 42c14-10 34-4 36 14 2 16-18 26-34 20-14-6-16-26-2-34z" fill="none" stroke="var(--muted)" stroke-width="2.5" stroke-dasharray="6 5"/>
-          <path d="M104 52l22 20M126 52l-22 20" stroke="var(--muted)" stroke-width="2.5" stroke-linecap="round"/>
-        </svg>
-        <b>誤偵測</b>
-        <p>牠畫了一顆，但那裡其實沒有岩點。你刪掉，我們留下牠原本畫的樣子。</p>
-      </figure>
-      <figure class="case" style="margin:0">
-        <svg viewBox="0 0 220 140" role="img" aria-label="牆上有一顆岩點沒被偵測，由人補上實線外框">
-          <ellipse cx="50" cy="90" rx="24" ry="17" fill="var(--line-strong)"/>
-          <path d="M120 50c14-10 36-6 38 12 2 18-20 28-36 22-14-6-16-26-2-34z" fill="var(--line-strong)"/>
-          <path d="M120 50c14-10 36-6 38 12 2 18-20 28-36 22-14-6-16-26-2-34z" fill="none" stroke="var(--accent)" stroke-width="3"/>
-        </svg>
-        <b>漏偵測</b>
-        <p>牠沒看到這顆。你補上，補的外框就是答案。</p>
-      </figure>
-      <figure class="case" style="margin:0">
-        <svg viewBox="0 0 220 140" role="img" aria-label="虛線外框比岩點大，人修成貼合的實線外框">
-          <path d="M92 64c10-26 56-30 70-6 12 22-6 50-38 50-24 0-40-24-32-44z" fill="var(--line-strong)"/>
-          <path d="M70 38c22-22 82-22 100 8 16 28-4 70-48 70S48 66 70 38z" fill="none" stroke="var(--muted)" stroke-width="2.5" stroke-dasharray="6 5"/>
-          <path d="M94 62c10-24 54-28 68-6 12 20-6 48-36 48-24 0-38-22-32-42z" fill="none" stroke="var(--accent)" stroke-width="3"/>
-        </svg>
-        <b>邊界不準</b>
-        <p>岩點找到了，外框卻歪了。你重描，我們把兩個外框都留下來。差得太少的不記。</p>
-      </figure>
-    </div>
-    <div class="legend"><span><i></i>牠畫的</span><span><i class="solid"></i>你修的</span></div>
-  </section>
-
-  <section aria-labelledby="keep-title">
-    <h2 id="keep-title">留什麼，不留什麼</h2>
-    <p class="sec-lede">資料越乾淨，越有用。能從照片重算出來的、對研究沒幫助的過程，我們都不存。</p>
-    <div class="keep">
-      <div>
-        <h3>留下來</h3>
-        <ul>
-          <li>牆的照片，去掉拍攝位置等資料</li>
-          <li>最後的岩點外框</li>
-          <li>牠原本畫的外框，只留被你改過的</li>
-          <li>牠自己沒把握的岩點，不管有沒有被改</li>
-          <li>你有沒有把整面牆逐顆看完</li>
-          <li>用的工具與模型的版本</li>
-        </ul>
-      </div>
-      <div class="skip">
-        <h3>不留</h3>
-        <ul>
-          <li>拖曳頂點的過程、復原、重做</li>
-          <li>平滑、微調這類小修</li>
-          <li>SAM2 的中間候選</li>
-          <li>每顆岩點花了多少時間</li>
-          <li>沒公開的牆，任何東西都不離開你的電腦</li>
-        </ul>
-      </div>
-    </div>
-    <p class="sec-lede" style="margin-top:16px">「有沒有逐顆看完」很重要：沒看完的牆，沒被改的岩點只能算沒看過，不能當標準答案。</p>
-  </section>
-
-  <section aria-labelledby="open-title">
-    <h2 id="open-title">開放到什麼程度</h2>
-    <div class="open">
-      <div>
-        <b>照片與修正：CC BY-SA 4.0</b>
-        <p>可以下載、修改、再散布，包括拿去訓練模型，要保留署名並以相同方式分享。第一次公開前會問你一次。</p>
-      </div>
-      <div>
-        <b>程式：AGPL-3.0、Apache-2.0</b>
-        <p>偵測、外框、工具本身都在 GitHub。自己架一套、換掉名字都可以，不需要我們的伺服器。</p>
-      </div>
-      <div>
-        <b>資料放在哪裡</b>
-        <p>公開的牆放在 Hugging Face 上 Climbio 的開放資料集，任何人不用登入就能下載。要傳給特定的人，用附近交換，不用公開。</p>
-      </div>
-    </div>
-    <div class="status"><b>目前做到哪：</b>Hold Lab 已經能記錄牠的答案、你的修正和「逐顆檢查完了」，也能把牆公開到開放資料集（Hugging Face 上的 climbio/walls）。公開前的東西都只留在你的電腦。</div>
-  </section>
-
-  <footer>
-    <a href="../studio/">Climbio Studio</a>
-    <a href="https://github.com/climb-io/climbio" target="_blank" rel="noopener noreferrer">GitHub</a>
-    <a href="../privacy.html">隱私權政策</a>
-  </footer>
 </main>
 </body>
 </html>

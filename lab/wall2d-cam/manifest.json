@@ -1,0 +1,41 @@
+{
+  "schema": "climbio-2d-tracking/1",
+  "defaultWall": "wanhua",
+  "walls": [
+    {
+      "wall": "wanhua",
+      "name": "原岩萬華 2F",
+      "wallJson": "../../demo/wanhua-wall.json",
+      "routesJson": "../../demo/wanhua-routes.json",
+      "camera": {
+        "url": "camera-wanhua-054fe054d10b.json",
+        "bytes": 147457,
+        "sha256": "054fe054d10b570801337faa0817a64b65321e89d558064404081d91272949dd"
+      },
+      "photoW": 3072,
+      "photoH": 2461,
+      "holds": 254,
+      "routes": 1,
+      "referenceViews": 1,
+      "featurePoints": 1600
+    },
+    {
+      "wall": "demo",
+      "name": "Climbio 示範牆",
+      "wallJson": "../../demo/demo.json",
+      "camera": {
+        "url": "camera-demo-dc4c1f20452d.json",
+        "bytes": 147454,
+        "sha256": "dc4c1f20452d7c4bcae4569c1f46a7e78135fa9904f458d6fea6719ad4cbfe36"
+      },
+      "photoW": 1379,
+      "photoH": 2048,
+      "holds": 94,
+      "routes": 2,
+      "referenceViews": 1,
+      "featurePoints": 1600
+    }
+  ],
+  "containsImages": false,
+  "build": "wall2d-dc1fcd47ddf5"
+}

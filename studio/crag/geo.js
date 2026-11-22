@@ -65,6 +65,12 @@ export function viewWidth(dist, focal = DEFAULT_FOCAL, portrait = false) {
   return (dist * (portrait ? 24 : 36)) / (focal || DEFAULT_FOCAL);
 }
 
+/** 地圖上畫的照片視錐：拍照位置、朝向（度，正北順時針）、水平視角（度）；位置用不上或沒有朝向的不畫（null） */
+export function photoWedge(camera, portrait = false) {
+  if (!located(camera) || camera.heading === undefined) return null;
+  return { position: camera.position.slice(0, 2), heading: camera.heading, fov: (2 * Math.atan(viewWidth(1, camera.focal, portrait) / 2)) / RAD };
+}
+
 /**
  * 從一面岩壁的照片推估牆線：每張照片從拍照點沿鏡頭方向推 dist 公尺，得到拍到的範圍；牆線垂直於平均朝向，蓋住所有範圍。
  * 點的順序照 v2 岩壁線的約定：沿著點前進，岩壁面朝右手邊（就是從照片看過去由左到右）。aspect 是鏡頭方向的反方向。

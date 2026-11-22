@@ -3,5 +3,16 @@
 (function () {
   var q = new URLSearchParams(location.search);
   var app = q.has('topo') ? 'redpoint/' : q.has('p') ? 'hold/' : '';
-  if (app) location.replace(app + location.search + location.hash);
+  if (app) {
+    location.replace(app + location.search + location.hash);
+    return;
+  }
+  // 首頁依瀏覽器首選語言，沒有手動選擇。
+  var supported = ['zh', 'zh-CN', 'en', 'ja', 'fr', 'ko', 'es', 'de'];
+  var preferred = (navigator.languages && navigator.languages[0]) || navigator.language || '';
+  var pick = /^zh[-_](?:hans|cn|sg)(?:$|[-_])/i.test(preferred) ? 'zh-CN'
+    : /^zh/i.test(preferred) ? 'zh'
+    : supported.find(function (x) { return x !== 'zh' && x !== 'zh-CN' && preferred.toLowerCase().startsWith(x); }) || 'en';
+  var route = {"zh":"","zh-CN":"zh-cn/","en":"en/","ja":"ja/","fr":"fr/","ko":"ko/","es":"es/","de":"de/"}[pick];
+  if (route) location.replace(route + location.search + location.hash);
 })();

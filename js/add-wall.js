@@ -3,17 +3,19 @@
 // 事件處理、計時器等之後才執行的程式不受限制。啟動與事件綁定放在最後的 main.js。
 // English: Add a wall: take/pick a photo, crop, erase, photo fixes, analysis screen, detection boxes to hold outlines, whole-wall retrace.
 'use strict';
-  // ---------- 新增牆面：系統選單拍照或選照片 → 裁切 → 偵測 ----------
-  // 首頁「＋」的新增牆面、開場的「開始拍」：iPhone 由系統選單拍照或選照片；Android 的系統只開相簿（沒有相機），先在 App 裡選。
+  // ---------- 新增牆面：拍照或選照片 → 裁切 → 偵測 ----------
+  // 首頁「＋」的新增牆面、開場的「開始拍」：先在 App 裡選拍照或相簿。拍照用 App 自己的相機（16:9，長邊 1920；系統相機不能選 16:9），
+  // 要更高畫質選相簿。
   // 按下就叫醒雲端、在背景下載長按用的解碼器（拍照、選照片的時間剛好蓋過）
-  const isAndroidUa = /Android/.test(navigator.userAgent);
   let addTo = null;   // 「增加照片」：{ wall: 組合裡的任一面牆, side: -1 左／1 右 }；新增牆面（＋）時是 null
-  function addWall() {
+  // 「＋」的拍照、相簿是兩顆按鈕，開場的「開始拍」直接開相機
+  function addWall(library = false) {
     addTo = null;
     warmDetect(); warmRefiner();   // 偵測模型先下載，重描的解碼器（16.5 MB）等它好了再下載，不搶頻寬
-    if (isAndroidUa) openLayer('addSheet'); else $('photoInput').click();
+    if (library === true) $('photoInput').click(); else openCamera();
   }
-  $('addWallBtn').onclick = addWall;
+  $('addWallBtn').onclick = () => addWall();
+  $('addLibraryBtn').onclick = () => addWall(true);
   // ---------- 增加照片：同一面牆的另一張（上攀牆很高、牆很寬，一張拍不完） ----------
   // 新照片是自己的一面牆，跟原本的記上同一個 grp（js/wall.js 的跨照片路線用它）。組合只往一個方向排（axis：h 左右、v 上下），
   // 新照片加在最前（左、上）或最後（右、下）；位置由使用者選，照片並排接上（沒有對齊）
@@ -39,8 +41,8 @@
   function addPhotoTo(w, side) {
     addTo = { wall: w, side };
     warmDetect(); warmRefiner();
-    if (isAndroidUa) { for (const id of LAYERS) $(id).hidden = true; openLayer('addSheet'); }   // 同一層返回
-    else { $('photoInput').click(); dismissMenu(); }
+    for (const id of LAYERS) $(id).hidden = true;
+    openLayer('addSheet');   // 同一層返回
   }
   // 新照片 n 併進 home 所在的組合（沒有組合就新建），放在最前或最後：並排，n 的原點接在鄰居的邊上，照片大小不同就等比縮放成同高（左右）或同寬（上下）
   async function joinGroup(home, n, side) {
@@ -63,21 +65,51 @@
     }
     if (state.wall === n) { renderGrpStrip(n); loadRelays(n); }
   }
-  $('addCamera').onclick = () => { $('cameraInput').click(); dismissMenu(); };
+  // 沒有相機介面的瀏覽器退回系統相機
+  const openCamera = () => { if (navigator.mediaDevices?.getUserMedia) openShotCam(); else { $('cameraInput').click(); dismissMenu(); } };
+  $('addCamera').onclick = openCamera;
   $('addLibrary').onclick = () => { $('photoInput').click(); dismissMenu(); };
   $('addCancel').onclick = dismissMenu;
   $('addSheet').onclick = (e) => { if (e.target === $('addSheet')) dismissMenu(); };
+  // 岩館：pos 是 Promise<位置或 null>
+  const gymOfPos = (pos) => pos.then(gymAt).catch((err) => { console.warn('gymAt', err); return ''; });
+  // ---------- App 自己的相機：16:9 的影片串流，長邊 1920 ----------
+  let shotStream = null;
+  function stopShotCam() {
+    if (shotStream) shotStream.getTracks().forEach(tr => tr.stop());
+    shotStream = null; $('shotVideo').srcObject = null; $('shotCam').hidden = true;
+  }
+  async function openShotCam() {
+    try {
+      shotStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 }, aspectRatio: { ideal: 16 / 9 } }, audio: false });
+      const v = $('shotVideo'); v.srcObject = shotStream; await v.play();
+    } catch (err) { stopShotCam(); $('cameraInput').click(); dismissMenu(); return; }   // 沒授權、不支援：退回系統相機
+    for (const id of LAYERS) $(id).hidden = true;
+    $('shotCam').hidden = false;
+    openOverlay('shotCam', stopShotCam);
+  }
+  $('shotClose').onclick = () => { stopShotCam(); closeOverlay('shotCam'); };
+  $('shotSnap').onclick = async () => {
+    const v = $('shotVideo');
+    if (!v.videoWidth) return;
+    const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight;
+    c.getContext('2d').drawImage(v, 0, 0);
+    stopShotCam();
+    gymNear = gymOfPos(hereNow());   // 人在現場：用目前位置找岩館
+    await closeOverlay('shotCam');
+    openCrop(c); hideWelcome();
+  };
   for (const id of ['photoInput', 'cameraInput']) $(id).onchange = async (e) => {
     const f = e.target.files[0]; e.target.value = '';
     if (!f) return;
-    gymNear = photoGps(f).then(c => c || (id === 'cameraInput' ? hereNow() : null)).then(c => { if (c) gymHere = c; return gymAt(c); }).catch((err) => { console.warn('gymAt', err); return ''; });
+    gymNear = gymOfPos(photoGps(f).then(c => c || (id === 'cameraInput' ? hereNow() : null)));
     try { await startCrop(f); hideWelcome(); } catch (err) { welcomeAgain(); showAlert(t('badPhoto')); }   // 裁切畫面接好才收開場，解碼時不露出空首頁
   };
 
   // 岩館：牆面的 w.gym 是岩館清單（gyms/）的名稱，空的＝其他。用照片裡的拍攝位置（EXIF GPS；
-  // Android 的瀏覽器拿不到，iPhone 拿得到），沒有位置只有 App 選單的「拍照」（人一定在現場）才用目前位置，相簿的照片不猜；GYM_NEAR 公尺內最近的一間就是這面牆的岩館，也當預設牆名；判斷不到就在分析畫面手動選。位置只在這台比對，不送出
-  const GYM_NEAR = 300, GYM_PICK = 30000, GYM_ROWS = 30, GYM_RECENT = 5;
-  let gymNear = null, gymIndex = null, gymHere = null;   // gymHere：上次新增牆面拿到的位置，選岩館時列附近的
+  // Android 的瀏覽器拿不到，iPhone 拿得到），沒有位置只有 App 選單的「拍照」（人一定在現場）才用目前位置，相簿的照片不猜；GYM_NEAR 公尺內最近的一間就是這面牆的岩館，也加在牆名上；判斷不到就不填，不讓使用者選或改（岩點貓的牆多半是朋友互傳，有沒有岩館都不重要）。位置只在這台比對，不送出
+  const GYM_NEAR = 300;
+  let gymNear = null, gymIndex = null;
   // 岩館清單每個國家一個檔（gyms/<國碼>.json，[名稱, 緯度, 經度]），gyms/index.json 是各國岩館的範圍：只載入位置所在的國家
   const gymFiles = new Map();
   const load = (url) => fetch(url).then(r => { if (!r.ok) throw new Error(`${url} ${r.status}`); return r.json(); });
@@ -92,8 +124,7 @@
   }
   const gymLabel = (g) => g || t('gymOther');
   // 沒有定位時的順序：台灣的照檔案順序（從北到南、同系列放一起）排在前面，其他國家照名稱
-  const gymOrder = (a, b) => { const ta = a.cc === 'tw', tb = b.cc === 'tw'; return ta !== tb ? (ta ? -1 : 1) : ta ? a.i - b.i : a.name.localeCompare(b.name, 'zh-Hant'); };
-  function hereNow() {
+    function hereNow() {
     if (!navigator.geolocation) return Promise.resolve(null);
     return new Promise(res => navigator.geolocation.getCurrentPosition(p => res({ lat: p.coords.latitude, lon: p.coords.longitude }), () => res(null), { timeout: 15000, maximumAge: 60000 }));
   }
@@ -108,48 +139,6 @@
     try { const { lat, lng } = AppKit.photo.readExif(await f.slice(0, 131072).arrayBuffer()); return Number.isFinite(lat) && Number.isFinite(lng) && (lat || lng) ? { lat, lon: lng } : null; }
     catch (err) { return null; }   // EXIF 壞掉：當作沒有位置
   }
-  // 選岩館（分析畫面、牆面「⋯」）：目前的岩館在最上面，接著 GYM_PICK 公尺內的依距離排，最後是「其他」；
-  // 搜尋時從全部岩館找名稱（有位置依距離排）。位置用上次新增牆面拿到的，已經允許定位才另外問；沒有位置列目前的、最近牆面用過的岩館（最多 GYM_RECENT 間）和「其他」
-  // 選好了 onPick(名稱，其他是空字串)
-  async function openGymSheet(cur, onPick, { other = true } = {}) {
-    let here = gymHere, near = [], all = null, recent = [];   // all：搜尋時才載入全部國家；recent：沒有位置時列常去的岩館（已有的牆面用過的）
-    if (!here) try { recent = [...new Set((await listMetas()).sort((a, b) => b.createdAt - a.createdAt).map(w => w.gym).filter(Boolean))].slice(0, GYM_RECENT); } catch (err) { /* 不支援 IndexedDB */ }
-    const nearby = async () => { try { near = here ? await gyms(here) : []; } catch (err) { console.warn('gyms', err); } };
-    await nearby();
-    const far = (g) => here ? gymMeters(here, g) : 0;
-    const show = async () => {
-      const q = $('gymFind').value.trim().toLowerCase();
-      if (q && !all) { try { all = await gyms(); } catch (err) { console.warn('gyms', err); all = near; } if (q !== $('gymFind').value.trim().toLowerCase()) return; }
-      const found = (q ? all : near).filter(g => q ? g.name.toLowerCase().includes(q) : here && far(g) <= GYM_PICK)
-        .sort((a, b) => (here ? far(a) - far(b) || a.name.localeCompare(b.name, 'zh-Hant') : gymOrder(a, b))).slice(0, GYM_ROWS).map(g => g.name);   // 有定位近的在前
-      const list = [...new Set([...(cur && !q ? [cur] : []), ...(here || q ? [] : recent), ...found, ...(other && !q ? [''] : [])])];
-      $('gymList').replaceChildren(...list.map(g => {
-        const b = document.createElement('button'); b.className = 'sheet-btn lang-opt'; b.setAttribute('aria-pressed', g === (cur || ''));
-        b.innerHTML = '<span></span><svg><use href="#i-check"/></svg>'; b.firstChild.textContent = gymLabel(g);
-        b.onclick = () => { dismissMenu(); onPick(g); };
-        return b;
-      }));
-    };
-    $('gymFind').value = ''; $('gymFind').oninput = show; show();
-    for (const id of LAYERS) $(id).hidden = true;   // 從牆面選單換過來：共用同一層返回
-    closeCardMenu();
-    openLayer('gymSheet');
-    if (!here && (await navigator.permissions?.query({ name: 'geolocation' }).catch(() => null))?.state === 'granted') {
-      const c = await hereNow();
-      if (c && !$('gymSheet').hidden) { here = gymHere = c; await nearby(); show(); }
-    }
-  }
-  // 改岩館；named：牆名還是預設的「牆面 N」就換成岩館名稱（新增牆面時手動選，跟自動判斷到一樣）
-  async function setWallGym(w, g, named) {
-    if (named && g) {
-      const taken = await takenWallNames(w.id);
-      if (isDefaultWallName(w.name, taken)) w.name = uniqueWallName(g, taken);
-    }
-    w.gym = g;
-    if (state.wall === w) { save(); refreshOpenWall(); }
-    else patchWall(w.id, (r) => { r.gym = w.gym; r.name = w.name; }).catch(() => {});   // 還沒存進這台（剛按完裁切）：等一下存的就是改過的 w
-  }
-
   // 裁切：原圖先縮到長邊 4096（裁完再縮到 MAX_SIDE），框的座標用原圖像素。
   // 畫布佔滿整個區域，照片可以縮放、平移（兩指捏合；電腦用觸控板捏合或 Ctrl＋滾輪，滾輪平移），細部才拉得準：
   // 畫面座標 = 照片座標 × k × view.s ＋ (view.ox, view.oy)；k＝剛好放進去的比例
@@ -329,7 +318,6 @@
     if (join) scanAuto = false;   // 增加照片：偵測完不自動進定線
     const g = join ? join.wall.gym : gym, w = newWallRecord(c, g, undefined, uniqueWallName(g, await takenWallNames()));
     scanWall = w;
-    $('scanGym').hidden = !!g; $('scanGym').textContent = t('gymPick');   // 判斷不到岩館：等偵測的時候手動選
     const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', AppKit.photo.QUALITY.crop));
     try { await putNewWall(w, blob); } catch (err) { /* 存不了也先讓人用 */ }
     if (join) await joinGroup(join.wall, w, join.side).catch((err) => { console.warn('增加照片', err); toast(t('saveFailed')); });
@@ -355,7 +343,7 @@
     HoldCat.stop();
     for (const c of [$('scanCv'), $('scanFx')]) c.getContext('2d').clearRect(0, 0, c.width, c.height);
   }
-  function closeScan() { if ($('scan').hidden) return; $('scan').hidden = $('scanGym').hidden = true; scanWall = null; HoldCat.stop(); }   // 選岩館只在新增牆面時出現（裁切完成時打開）
+  function closeScan() { if ($('scan').hidden) return; $('scan').hidden = true; scanWall = null; HoldCat.stop(); }
   // 偵測到的岩點由上往下帶果凍回彈浮出來，接著幾顆岩點醒來（js/holdcat.js）；已經亮過就直接換成目前的外框
   function scanResult(w) {
     if (!scanOn(w)) return false;
@@ -465,6 +453,7 @@
     state.mode = 'route';
     renderOverview();
     if (detect) detectHolds({ pre });
+    else if (!w.from && w.untraced && !traceFailed.has(w.id)) resumeTrace();   // 上次重描到一半 App 被關掉：補描剩下的
     else if (!w.from && !wallDetected(w)) detectHolds();   // 上次沒偵測成（例如沒網路），打開就再偵測
   }
   // 分析用的縮圖：只有辨識岩點時才用到，需要時才建（收到的牆資料包都算好了就不用建）
@@ -519,18 +508,20 @@
   let downloadTail = Promise.resolve();
   const detectModelJob = {};   // 下載中或已完成的偵測模型（失敗就清掉，下次重試）
   const modelProgress = (pct) => detStatus('detDownload', pct);
-  async function downloadToCache(url, { integrity, onProgress } = {}) {
+  // size：解壓後的大小（約略）。主網壓縮傳輸（br），收到的是解壓後的位元組，標頭的長度對不上，進度改用它算
+  async function downloadToCache(url, { integrity, onProgress, size = 0 } = {}) {
     const cache = self.caches ? await caches.open(MODELS_CACHE).catch(() => null) : null;
     if (!cache || await cache.match(url).catch(() => null)) return;   // 沒有 Cache API：交給 Worker 自己下載
-    const res = await fetch(url, integrity ? { integrity } : {});
+    const res = await fetch(url, { priority: 'low', ...(integrity ? { integrity } : {}) });   // 低優先：背景預先下載時不跟照片、路線搶頻寬
     if (!res.ok) throw new Error(`HTTP ${res.status} ${url}`);
-    const total = res.headers.get('content-encoding') ? 0 : +res.headers.get('content-length') || 0, rd = res.body.getReader(), parts = [];   // 壓縮傳輸的檔案長度跟收到的不同：不算進度、不比長度
+    const total = res.headers.get('content-encoding') ? 0 : +res.headers.get('content-length') || 0, rd = res.body.getReader(), parts = [];   // 壓縮傳輸的檔案長度跟收到的不同：不比長度
+    const of = total || size;
     let got = 0;
     for (;;) {
       const { done, value } = await rd.read();
       if (done) break;
       parts.push(value); got += value.length;
-      if (onProgress && total) onProgress(Math.min(99, Math.floor(got * 100 / total)));
+      if (onProgress && of) onProgress(Math.min(99, Math.floor(got * 100 / of)));
     }
     if (total && got !== total) throw new Error(`incomplete ${url}`);
     await cache.put(url, new Response(new Blob(parts), { headers: { 'Content-Type': res.headers.get('content-type') || 'application/octet-stream' } })).catch(() => {});
@@ -541,7 +532,8 @@
       const run = async () => {
         await loadHoldScan();
         HoldScan.configure({ cache: MODELS_CACHE });   // Worker 先讀這個快取
-        await downloadToCache(new URL('../holdscan/models/freeclimbs.onnx', location.href).href, { onProgress: modelProgress });
+        await downloadToCache(new URL('../holdscan/models/freeclimbs.onnx', location.href).href, { onProgress: modelProgress, size: 12.4e6 });
+        modelProgress(100);   // 下載完：數字位置收掉百分比
         await ShareTools.loadScript('../holdkit/ort.js');
         for (const [url, integrity] of ortFiles()) await downloadToCache(url, { integrity });
       };
@@ -551,10 +543,31 @@
     }
     return detectModelJob.p;
   }
-  // 下載（第一次約 12 MB）並載入模型；打開 App 就在背景做（js/main.js），新增牆面時不用等
+  // 新增牆面時載入偵測模型（下載是打開 App 就在背景做的 prefetchModels，還沒好就接著同一個下載）
   const warmLocalDetect = () => detectModelReady().catch(() => {}).then(() => window.HoldScan?.warm()).catch(() => {});   // 背景下載失敗不打斷操作；腳本已載入時仍讓 Worker 重試，錯誤留到實際偵測時回報
   // 重描的解碼器（16.5 MB）排在偵測模型之後；沒網路、偵測失敗也照樣叫醒（用到時再重試）
-  const warmRefiner = () => { if (window.HoldRefiner) detectModelReady().catch(() => {}).then(() => HoldRefiner.warm()); };
+  // 重描的解碼器（16.5 MB）、編碼器（28 MB，雲端不能用時在這台分析照片）排在偵測模型之後；同時只有一個，失敗可再呼叫重試
+  const refinerModelJob = {};
+  function refinerModelsReady() {
+    if (!refinerModelJob.p) {
+      const run = async () => {
+        await downloadToCache(new URL('../holdkit/models/mobilesam-decoder.onnx', location.href).href);
+        await downloadToCache(new URL('../holdkit/models/mobilesam-encoder.onnx', location.href).href);
+      };
+      refinerModelJob.p = (downloadTail = downloadTail.then(run));
+      downloadTail = downloadTail.catch(() => {});
+      refinerModelJob.p.catch(() => { refinerModelJob.p = null; });
+    }
+    return refinerModelJob.p;
+  }
+  // 打開 App 就在背景預先下載全部模型（js/main.js）：只存進快取，不載入（不佔看線、定線的 CPU 和記憶體）；省流量模式不下載
+  function prefetchModels() {
+    if (navigator.connection?.saveData || navigator.onLine === false) return;
+    detectModelReady().catch(() => {});
+    if (window.HoldRefiner) refinerModelsReady().catch(() => {});
+  }
+  // 新增牆面、進入定線時才載入重描的模型（還在下載就接著同一個下載）
+  const warmRefiner = () => { if (window.HoldRefiner) detectModelReady().catch(() => {}).then(() => refinerModelsReady().catch(() => {})).then(() => HoldRefiner.warm()); };
   async function localDetect(src) {
     await detectModelReady().catch(e => { if (!window.HoldScan) throw e; });   // 腳本沒載入就回報原始下載錯誤；只有模型下載失敗時交給 Worker 重試
     detStatus('detFinding');
@@ -565,7 +578,7 @@
   function detStatus(key, pct) {
     const down = key === 'detDownload' && pct > 0 && pct < 100 && !$('scan').hidden && !$('scan').classList.contains('done');
     $('scanUnit').textContent = t(down ? 'detDownload' : 'holdsUnit');
-    if (down) $('scanN').textContent = pct + '%'; else if (key === 'detFinding' && $('scanN').textContent.endsWith('%')) $('scanN').textContent = SCAN_BLANK;
+    if (down) $('scanN').textContent = pct + '%'; else if ($('scanN').textContent.endsWith('%')) $('scanN').textContent = SCAN_BLANK;
   }
   // opts.pre：已經送出的偵測
   // 偵測（holdscan）→ 依顏色描的外框在掃描畫面亮起，可以開始定線 → 背景整面牆重描，換上最後的外框。
@@ -590,18 +603,12 @@
       }
       w.holds = kept.concat(fresh.map(f => f.h));
       w.base = { holds: [] }; w.baseLocal = 1;   // 原始岩點檔換成這次的結果（在這台算的，算完由這台上傳）
+      w.untraced = Object.fromEntries(fresh.map(({ h, box }) => [h.id, box]));
       save();
       if (scanOn(w)) await pause(SCAN_MIN - (performance.now() - scanT0));
       if (!scanResult(w)) toast(t('found', fresh.length));
       refreshUi(); render();
-      let traceErr = null;
-      if (fresh.length) await traceHolds(w, img, fresh.map(({ h, box }) => ({ id: h.id, poly: h.poly, box }))).catch(e => { traceErr = e; });
-      w.detected = 1;   // 偵測成功過：之後選單不再顯示「重新偵測」
-      if (state.wall !== w) { putWall(w).catch(() => {}); return; }
-      save();
-      scanResult(w);
-      if (traceErr) toast(t('refineFailed') + (traceErr.message || traceErr));
-      refreshUi(); render();
+      await finishDetect(w, img);
     } catch (e) {
       // 沒網路：只說需要網路（不加「偵測失敗：」），網路回來時自動再偵測一次（見下面的 online）
       const offline = (e && e.offline) || navigator.onLine === false;
@@ -618,6 +625,35 @@
     detectHolds();
   });
 
+  // 偵測之後的整面牆重描。w.untraced：{ 岩點 id: 偵測框 }，還沒重描的岩點（每批描好就刪掉、存檔），
+  // App 在中途被關掉的話，下次打開牆面只補描剩下的（resumeTrace）
+  const traceFailed = new Set();   // 這次開著 App 時雲端重描失敗過的牆：打開時不再補描（重開 App 才再試）
+  async function finishDetect(w, img) {
+    const byId = new Map(w.holds.map(h => [h.id, h]));
+    const items = Object.entries(w.untraced || {}).filter(([id]) => byId.get(id)?.source === 'detect').map(([id, box]) => ({ id, poly: byId.get(id).poly, box }));
+    let traceErr = null;
+    if (items.length) await traceHolds(w, img, items).catch(e => { traceErr = e; });
+    if (traceErr) traceFailed.add(w.id); else { delete w.untraced; traceFailed.delete(w.id); }   // 雲端失敗就留著依顏色描的外框，下次開 App 打開這面牆再試雲端；描過、改過的不重描
+    w.detected = 1;   // 偵測成功過：之後選單不再顯示「重新偵測」
+    if (state.wall !== w) { putWall(w).catch(() => {}); return; }
+    // 雲端失敗：不在手機上一顆顆描整面牆（幾百顆要幾分鐘），只在背景分析一次照片，之後按「重描」只要解碼（約 0.6 秒）
+    if (traceErr) HoldRefiner.hasEmb(w.id).then(has => has || HoldRefiner.traceWall(img, w.id, [])).catch(() => { /* 按「重描」時再分析 */ });
+    save();
+    scanResult(w);
+    if (traceErr) toast(t('refineFailed') + (traceErr.message || traceErr));
+    refreshUi(); render();
+  }
+  // 打開牆面時接著補描（不蓋掃描畫面；補完之前跟偵測中一樣不能改岩點）
+  function resumeTrace() {
+    const w = state.wall, img = state.img;
+    if (!w || detectingWall === w) return;
+    detectingWall = w;
+    detectChain = detectChain.then(() => state.wall === w && finishDetect(w, img)).catch(() => {}).finally(() => {
+      if (detectingWall === w) detectingWall = null;
+      if (lockHint === w) { lockHint = null; $('samProg').hidden = true; }
+    });
+  }
+
   // ---------- 整面牆重描輪廓（holdkit 的 HoldRefiner）：照片和這些岩點送雲端（retrace），換上 MobileSAM 描的外框 ----------
   // 照片特徵跟著存在這台（每面牆一份），之後長按改外框只在手機上解碼。items：[{ id, poly, box }]（box＝偵測框）
   // 送出後外框改過的不換
@@ -625,11 +661,14 @@
   async function traceHolds(w, img, items) {
     const sent = new Map(items.map(i => [i.id, JSON.stringify(i.poly)]));
     const byId = new Map(w.holds.map(h => [h.id, h]));
-    await HoldRefiner.traceWall(img, w.id, items, undefined, { onHolds: (part) => {
+    const size = ({ box: [x0, y0, x1, y1] }) => (x1 - x0) * (y1 - y0);   // 大的先描：大岩點、volume 依顏色描的外框最常不對
+    await HoldRefiner.traceWall(img, w.id, items.slice().sort((a, b) => size(b) - size(a)), undefined, { localFallback: false, onHolds: (part) => {
       for (const { id, poly } of part) {
         const h = byId.get(id);
         if (h && poly && poly.length >= 3 && h.source === 'detect' && JSON.stringify(h.poly) === sent.get(id)) h.poly = simplifyPoly(poly);
+        if (w.untraced) delete w.untraced[id];
       }
+      putWall(w).catch(() => {});   // 描到哪存到哪：中途關掉 App，下次只補剩下的
       if (state.wall !== w) return;
       touchGeom(); scanResult(w); render();
     } });

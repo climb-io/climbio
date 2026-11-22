@@ -34,11 +34,28 @@ async function updateGymWall({ db, pid }) {
   const ds = gym && s ? await db.collection('datasets').doc(String(s.project)).get() : null;
   if (!ds || !ds.exists) { await dropGymWall(db, pid); return null; }
   const own = routes.exists ? Object.values(routes.get('routes') || {}) : [];
+  // 3D 牆（Studio 發佈，type wall3d）跟公開牆同一套清單：資料夾直接用資料集索引的 hf.dir（不分版本），m3d 標出是 3D、repo 是它的資料集倉庫
+  const m3d = ds.get('type') === 'wall3d', hf = ds.get('hf') || {};
   const v = { gym, name: String(wall.get('name') || '').slice(0, 60), n: own.length, t: Math.max(Number(wall.get('activeAt')) || 0, Number(wall.get('publishedAt')) || 0, ...own.map(x => x.t || 0)),
-    src: { project: String(s.project), path: String(s.path) }, hf: `walls/${s.project}/v${ds.get('version')}/` };
+    src: { project: String(s.project), path: String(s.path) }, hf: m3d ? String(hf.dir || '') : `walls/${s.project}/v${ds.get('version')}/`, ...(m3d ? { m3d: 1, repo: String(hf.repo || 'walls3d') } : {}) };
   await ref.set(v);
   await refreshGymIndex(db, [gym, old.exists ? old.get('gym') : '']);
   return v;
 }
 
-module.exports = { updateGymWall, dropGymWall, rebuildGymIndex };
+// 資料集的包發佈了新版本（現行版可能換了）：用到這個包的公開牆重算，清單才會指到現行版，不是停在收進清單時的那一版
+async function updateGymWallsOf({ db, project }) {
+  const q = await db.collection('gymWalls').where('src.project', '==', String(project)).get();
+  for (const d of q.docs) await updateGymWall({ db, pid: d.id });
+}
+
+// Studio 發佈 3D 牆：登記到公開牆的清單（shared/{牆 id}，牆 id＝專案 id）。同一面牆（root）的舊版本拿掉入口，清單每面牆只列最新發佈的那一版；沒有岩館的不登記
+async function registerWall3d({ db, id, name, gym, root, now = Date.now }) {
+  if (!gym) return;
+  const olds = (await db.collection('shared').where('root', '==', root).get()).docs.filter(d => d.id !== id && d.get('src'));
+  for (const d of olds) await db.collection('shared').doc(d.id).set({ name: d.get('name') || '' });
+  await db.collection('shared').doc(id).set({ name: String(name).slice(0, 60), gym, src: { project: id, path: 'index.json' }, root, publishedAt: now(), activeAt: now() });
+  for (const pid of [...olds.map(d => d.id), id]) await updateGymWall({ db, pid });
+}
+
+module.exports = { updateGymWall, updateGymWallsOf, dropGymWall, rebuildGymIndex, registerWall3d };

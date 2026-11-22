@@ -4,26 +4,42 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { RouteKit } from './routekit.mjs';
 
-// 圈起來（js/draw.js 的 polyIoU、lassoBox）
+// 圈起來（js/draw.js 的 lassoOutline）：手畫的圈就是外框
 const source = readFileSync(new URL('../js/draw.js', import.meta.url), 'utf8');
 const ctx = vm.createContext({ RouteKit });
 vm.runInContext(source.slice(source.indexOf('  // ---------- 幾何 ----------'), source.indexOf('  // 外框上的細尖')), ctx);
-const sq = (x, y, s) => [[x, y], [x + s, y], [x + s, y + s], [x, y + s]];
+const { inPoly, area } = RouteKit;
+// 圓心 (500, 500)、半徑 100 的圈，每 3 度一點；extra 是繞過起點多畫的度數，wobble 是手抖（像素）
+const circle = (extra = 0, wobble = 0) => Array.from({ length: Math.round((360 + extra) / 3) }, (_, i) => {
+  const a = i * 3 * Math.PI / 180, r = 100 + wobble * Math.sin(i * 2.7);
+  return [500 + r * Math.cos(a), 500 + r * Math.sin(a)];
+});
+const selfCross = (poly) => {
+  const cr = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  const n = poly.length;
+  for (let i = 0; i < n; i++) for (let j = i + 2; j < n; j++) {
+    if (i === 0 && j === n - 1) continue;
+    const a = poly[i], b = poly[(i + 1) % n], c = poly[j], d = poly[(j + 1) % n];
+    if (cr(a, b, c) * cr(a, b, d) < 0 && cr(c, d, a) * cr(c, d, b) < 0) return true;
+  }
+  return false;
+};
 
-test('polyIoU：相同是 1、不相交是 0、錯開一半是 1/3', () => {
-  assert.ok(ctx.polyIoU(sq(0, 0, 100), sq(0, 0, 100)) > 0.999);
-  assert.equal(ctx.polyIoU(sq(0, 0, 50), sq(200, 200, 50)), 0);
-  const half = ctx.polyIoU(sq(0, 0, 100), sq(50, 0, 100));   // 交集 50×100、聯集 150×100
-  assert.ok(Math.abs(half - 1 / 3) < 0.05, String(half));
+test('lassoOutline：繞過起點多畫的一段剪掉，外框不自己交叉', () => {
+  const out = ctx.lassoOutline(circle(40), 1);
+  assert.equal(selfCross(out), false);
+  assert.ok(Math.abs(area(out) - Math.PI * 1e4) / (Math.PI * 1e4) < 0.03, String(area(out)));
 });
 
-test('polyIoU：手畫的圈（縮 15%）跟實際外框重疊約 0.72，貼齊後 > 0.9 才算貼得上', () => {
-  const actual = sq(0, 0, 100), rough = sq(7.5, 7.5, 85);
-  const k = ctx.polyIoU(actual, rough);
-  assert.ok(k > 0.7 && k < 0.75, String(k));
+test('lassoOutline：形狀跟畫的一樣（每個頂點離圓周不到 2 px），手抖平均掉、點數比畫的少', () => {
+  const drawn = circle(0, 1.5), out = ctx.lassoOutline(drawn, 1);
+  assert.ok(out.every(([x, y]) => Math.abs(Math.hypot(x - 500, y - 500) - 100) < 2), JSON.stringify(out));
+  assert.ok(out.length >= 16 && out.length < drawn.length, String(out.length));
+  assert.ok(inPoly(500, 500, out));
 });
 
-test('lassoBox：外接框加 4% 的邊，夾在照片裡', () => {
-  assert.deepEqual([...ctx.lassoBox([[100, 100], [300, 100], [300, 200], [100, 200]], 1000, 1000)], [92, 92, 308, 208]);
-  assert.deepEqual([...ctx.lassoBox([[2, 2], [498, 2], [498, 98]], 500, 100)], [0, 0, 500, 100], '超出照片的邊夾住');
+test('lassoOutline：沒畫回起點也照畫的收起來', () => {
+  const open = circle(-60), out = ctx.lassoOutline(open, 1);
+  assert.equal(selfCross(out), false);
+  assert.ok(area(out) > 0.8 * Math.PI * 1e4 && area(out) < Math.PI * 1e4, String(area(out)));
 });

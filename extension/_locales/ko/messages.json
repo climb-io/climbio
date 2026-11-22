@@ -1,0 +1,8 @@
+{
+  "extensionName": {
+    "message": "레드포인트 캣 컬렉터"
+  },
+  "extensionDescription": {
+    "message": "웹의 암장, 루트, Topo를 레드포인트 캣에 저장하고 오프라인에서 이용하세요."
+  }
+}

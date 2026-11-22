@@ -18,6 +18,14 @@ test('圈圈中心對到包住它的岩點（大岩點上的小點對到小的�
   assert.deepEqual(route, { holds: { a: 's', b: 'h', small: 't' } });
 });
 
+test('圈心偏在岩點外：圈圈範圍內取最近的岩點，範圍外才用圓形外框', () => {
+  // r=1：直徑 45、半徑 22.5。a 的右邊緣在 x=150：圈心 x=160（距 10）對到 a，x=190（距 40）對不到
+  const near = fromCircles([{ x: 16, y: 15.625, t: 'h', r: 1 }], W, H, { holds });
+  assert.deepEqual(near, { holds: { a: 'h' } });
+  const far = fromCircles([{ x: 19, y: 15.625, t: 'h', r: 1 }], W, H, { holds });
+  assert.deepEqual(Object.keys(far.shapes), ['c0']);
+});
+
 test('對不到岩點（或沒給岩點）的用圓形外框放進 shapes，大小照 r', () => {
   const route = fromCircles([{ x: 90, y: 10, t: 'x', r: 3 }], W, H, { holds });
   assert.deepEqual(route.holds, { c0: 'h' });   // 不認得的 t 當手點

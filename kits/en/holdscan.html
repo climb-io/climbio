@@ -22,13 +22,17 @@
 <link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/kits/holdscan.html">
 <link rel="alternate" hreflang="en" href="https://climbio.app/kits/en/holdscan.html">
 <link rel="stylesheet" href="../../css/brand-tokens.css">
+<link rel="stylesheet" href="../../css/site-nav.css">
 <link rel="stylesheet" href="../../css/pages.css">
 </head>
-<body>
-<header class="pg-top"><a class="pg-brand" href="../../en/"><img src="../../icons/brand/climbio-mark.svg" alt=""><span>Climbio</span></a><span class="grow"></span><nav class="pg-nav" aria-label="All kits"><a href="../../en/">Home</a><a href="../../kits/en/">All kits</a><a href="../../kits/holdscan.html" hreflang="zh-Hant" lang="zh-Hant">繁體中文</a></nav></header>
+<body class="site-page">
+<header class="site-header">
+  <a class="site-brand" href="../../en/"><picture><source media="(max-width: 600px)" srcset="../../icons/brand/climbio-mark.svg"><img src="../../icons/brand/climbio-horizontal-light.svg" alt="Climbio" width="110" height="30"></picture></a>
+  <nav class="site-nav" aria-label="Site navigation"><a href="../../en/">Home</a><a href="../../studio/">Studio</a><a href="../../lab/en/">Lab</a><a href="../../en/guides/" aria-current="true">Docs</a><a class="site-language" href="../../kits/holdscan.html" hreflang="zh-Hant" lang="zh-Hant">繁體中文</a></nav>
+</header>
 <main class="pg">
   <div class="pg-hero">
-    <span class="pg-eyebrow">Not published to npm yet · AGPL-3.0</span>
+    <span class="pg-eyebrow">Open Climbio tools</span>
     <h1>HoldScan</h1>
     <p class="pg-lead">Find every hold in a wall photo</p>
     <div class="pg-actions"><a class="pg-btn primary" href="https://github.com/climb-io/climbio/tree/main/holdscan">View source on GitHub</a></div>
@@ -40,26 +44,15 @@
   <section class="pg-section" aria-labelledby="points">
     <h2 id="points">What it does</h2>
     <div class="pg-grid">
-      <article class="pg-card"><span class="pg-num">1</span><h3>Detect on the phone</h3><p>The model runs in the browser: no server and no photo upload.</p></article>
-      <article class="pg-card"><span class="pg-num">2</span><h3>Host it yourself</h3><p>One container is enough, no Firebase needed, and a larger input size catches small holds in busy photos.</p></article>
-      <article class="pg-card"><span class="pg-num">3</span><h3>Offline whole-wall analysis</h3><p>One command turns a photo into hold outlines and route data, ideal for walls a gym manages itself.</p></article>
+      <article class="pg-card"><h3>Detect on the phone</h3><p>The model runs in the browser: no server and no photo upload.</p></article>
+      <article class="pg-card"><h3>Host it yourself</h3><p>One container is enough, no Firebase needed, and a larger input size catches small holds in busy photos.</p></article>
+      <article class="pg-card"><h3>Offline whole-wall analysis</h3><p>One command turns a photo into hold outlines and route data, ideal for walls a gym manages itself.</p></article>
     </div>
   </section>
-  <section class="pg-section" aria-labelledby="install">
-    <h2 id="install">Install</h2>
-    <pre><code>No npm package: copy the holdscan/ folder (the browser build also needs holdkit/ort.js)</code></pre>
-    <h2 id="example">Minimal example</h2>
-    <pre><code>&lt;script src=&quot;holdscan/browser/holdscan.js&quot;&gt;&lt;/script&gt;
-&lt;script&gt;
-  HoldScan.warm();
-  const { boxes } = await HoldScan.detect(canvas);
-  // boxes: [[x0, y0, x1, y1, score], ...]
-&lt;/script&gt;</code></pre>
-  </section>
-  <section class="pg-section" aria-labelledby="notes">
-    <h2 id="notes">License and limits</h2>
-    <p class="pg-note">AGPL-3.0, as the detection model requires: if you run a modified version as a network service you must publish your source. Hold data it produces is not covered by the AGPL; use HoldKit when you only need outline analysis.</p>
-    <p class="pg-muted"><a href="../../kits/en/">All kits</a> · <a href="https://github.com/climb-io/climbio/tree/main/holdscan">GitHub</a> · Machine-readable docs are the README.md files on GitHub</p>
+  <section class="pg-section" aria-labelledby="next">
+    <h2 id="next">Help improve this tool</h2>
+    <p>Want to contribute with your own AI agent? Start with the Climbio GitHub project. Source code, technical requirements and licensing live there.</p>
+    <div class="pg-actions"><a class="pg-btn primary" href="https://github.com/climb-io/climbio/tree/main/holdscan">Explore on GitHub</a><a class="pg-btn" href="../../en/project/">How to join</a></div>
   </section>
   <footer class="pg-foot"><span>Climbio · All kits</span><a href="../../en/">Home</a></footer>
 </main>

@@ -8,6 +8,10 @@
 - **來源與授權**：收藏保留原始來源網址與可取得的作者、授權資訊。不同來源及個別圖片可能有不同授權；使用者應依來源授權決定如何使用或分享。
 - 目前支援：theCrag 的岩場頁（有路線清單的頁面）。**任何在頁面放 `<link rel="climbio" href="入口.json">` 的網站**（入口是 Climbio 公開格式 v2 的組合，https），以及 OpenClimbing、香港攀岩的岩場頁。
 
+## 語言
+
+擴充功能已內建繁體中文、簡體中文、英文、日文、韓文、法文、西班牙文、德文八種語言，不需要另行下載語言包。名稱、說明、收藏進度、區域勾選和完成／失敗提示依 Chrome 的介面語言顯示；不在八種語言內時顯示英文。語言字串在 `i18n.js`，Chrome 擴充資訊在 `_locales/*/messages.json`。切換 Chrome 介面語言後，重新載入擴充功能即可套用。
+
 ## 安裝
 
 說明與下載同時提供於 https://climbio.app/redpoint-collect/ 和 https://climbio-dev.web.app/redpoint-collect/（ZIP 由 `build-site.sh` 從各分支的 `extension/` 打包）。自己開發：

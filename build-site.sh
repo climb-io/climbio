@@ -17,12 +17,37 @@ git -c core.quotepath=off ls-files | LC_ALL=C sort > "$all"
 git -c core.quotepath=off ls-files --cached --ignored --exclude-from=.hostingignore | LC_ALL=C sort > "$skip"
 if grep -q '^"' "$all"; then echo "有檔名需要跳脫，打包不處理：$(grep '^"' "$all" | head -1)" >&2; exit 1; fi
 LC_ALL=C comm -23 "$all" "$skip" | tar -cf - -T - | tar -xf - -C dist
+# 測試站暫存的未公開資料夾（lab/hold-lab/preview/）只放測試站，正式站（climbio）打包時移除
+if [ "$site" = "climbio" ]; then
+  rm -rf dist/lab/hold-lab/preview
+fi
 # 紅點貓收藏：所有網站都提供說明頁和擴充 ZIP；只打包版控裡的 extension/。
-mkdir -p dist/redpoint-collect
 ext_ver=$(sed -nE 's/.*"version": "([0-9.]+)".*/\1/p' extension/manifest.json | head -1)
 [ -n "$ext_ver" ] || { echo "讀不到 extension/manifest.json 的 version" >&2; exit 1; }
-sed -E "s/v[0-9]+\.[0-9]+\.[0-9]+/v$ext_ver/g" redpoint-collect/index.html > dist/redpoint-collect/index.html
+for page in redpoint-collect en/redpoint-collect zh-cn/redpoint-collect ja/redpoint-collect ko/redpoint-collect fr/redpoint-collect es/redpoint-collect de/redpoint-collect; do
+  mkdir -p "dist/$page"
+  sed -E "s/v[0-9]+\.[0-9]+\.[0-9]+/v$ext_ver/g" "$page/index.html" > "dist/$page/index.html"
+done
+# 擴充 ZIP 必須包含八語 Chrome 名稱／說明與面板使用的翻譯。
+for locale in zh_TW zh_CN en ja ko fr es de; do
+  [ -f "extension/_locales/$locale/messages.json" ] || { echo "缺少 Chrome 語言檔：$locale" >&2; exit 1; }
+done
+[ -f extension/i18n.js ] || { echo "缺少擴充多語訊息：extension/i18n.js" >&2; exit 1; }
 git archive --format=zip --prefix=redpoint-collect/ -o dist/redpoint-collect/redpoint-collect.zip HEAD:extension
+# 測試站在打包階段產生有 DEV 標籤的獨立 App 圖示與安裝名稱；正式站不碰正式資產。
+if [ "$site" != "climbio" ]; then
+  python3 tools/dev-app-icons.py dist
+fi
+# 社群分享首頁橫幅：用已公開的真實岩場照片與官方 Logo 產生 1200×630 JPEG。
+python3 tools/social-cover.py dist
+[ -s dist/social/climbio-home.jpg ] || { echo "社群分享圖產生失敗" >&2; exit 1; }
+# 測試站自己的網址被分享時，社群爬蟲也要拿到測試站的封面（正式 canonical 不變）。
+if [ "$site" != "climbio" ]; then
+  for f in dist/index.html dist/zh-cn/index.html dist/en/index.html dist/ja/index.html dist/ko/index.html dist/de/index.html dist/es/index.html dist/fr/index.html; do
+    sed -i.bak "s@https://climbio.app/social/climbio-home.jpg@https://$site.web.app/social/climbio-home.jpg@g" "$f"
+    rm -f "$f.bak"
+  done
+fi
 # 部署的版本號加上 holdkit 版本：只換 holdkit 時版本號也會變，Service Worker 才會清掉舊的模型快取（模型檔名不帶版本）
 hk=v$(sed -nE "s/.*VERSION = '([0-9.]+)'.*/\1/p" holdkit/holdkit.js | head -1)
 [ "$hk" != v ] || { echo "讀不到 holdkit.js 的 VERSION" >&2; exit 1; }
@@ -37,7 +62,7 @@ grep -q 'src="../js/main.js?v=' dist/hold/index.html || { echo "資源網址沒�
 for x in data datasets runs weights tools functions node_modules extension web/models holdkit/functions holdscan/functions; do
   if [ -e "dist/$x" ] || [ -L "dist/$x" ]; then echo "dist 裡不該有 $x" >&2; exit 1; fi
 done
-for f in dist/redpoint-collect/index.html dist/redpoint-collect/redpoint-collect.zip; do
+for f in dist/redpoint-collect/index.html dist/en/redpoint-collect/index.html dist/zh-cn/redpoint-collect/index.html dist/ja/redpoint-collect/index.html dist/ko/redpoint-collect/index.html dist/fr/redpoint-collect/index.html dist/es/redpoint-collect/index.html dist/de/redpoint-collect/index.html dist/redpoint-collect/redpoint-collect.zip; do
   [ -f "$f" ] || { echo "缺少紅點貓收藏檔案：$f" >&2; exit 1; }
 done
 if find dist -type l | grep -q .; then echo "dist 裡有捷徑（符號連結）" >&2; exit 1; fi

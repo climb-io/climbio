@@ -25,7 +25,7 @@ before(async () => {
       await uploadBytes(ref(context.storage(), `walls/alice/privatewall/${file}`), bytes, { contentType: file.endsWith('jpg') ? 'image/jpeg' : 'application/gzip' });
     }
     await uploadBytes(ref(context.storage(), 'bases/publicwall/photo.jpg'), bytes, { contentType: 'image/jpeg' });
-    for (const file of ['public/projects.json', 'public/other.json', 'public/nested/projects.json']) {
+    for (const file of ['public/projects.json', 'public/world.json', 'public/other.json', 'public/nested/projects.json']) {
       await uploadBytes(ref(context.storage(), file), bytes, { contentType: 'application/json' });
     }
     await uploadBytes(ref(context.storage(), 'topos/offtopo1234567890/topo.zip'), bytes, { contentType: 'application/zip' });
@@ -62,10 +62,13 @@ for (const [name, context] of identities) {
     await assertFails(deleteDoc(wall));
   });
   test(`Storage：${name}可讀世界清單，但不可寫入、刪除或列出目錄`, async () => {
-    const st = context().storage(), world = ref(st, 'public/projects.json');
-    assert.deepEqual(new Uint8Array(await assertSucceeds(getBytes(world))), bytes);
-    await assertFails(uploadBytes(world, bytes, { contentType: 'application/json' }));
-    await assertFails(deleteObject(world));
+    const st = context().storage();
+    for (const file of ['public/projects.json', 'public/world.json']) {
+      const world = ref(st, file);
+      assert.deepEqual(new Uint8Array(await assertSucceeds(getBytes(world))), bytes);
+      await assertFails(uploadBytes(world, bytes, { contentType: 'application/json' }));
+      await assertFails(deleteObject(world));
+    }
     await assertFails(listAll(ref(st, 'public')));
   });
   test(`Storage：${name}不可直接讀寫其他公開路徑或舊 Topo`, async () => {

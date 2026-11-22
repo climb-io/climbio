@@ -78,3 +78,23 @@ test('<routekit-viewer src route-id>：圖層有好幾條路線時畫指定的�
   expect(painted.route).toBe('第二條');
   expect(painted.n).toBeGreaterThan(100);
 });
+
+test('RouteEditor 順序模式：undoSeq 一路收回加的手，順便加進來的手點一起拿掉', async ({ page }) => {
+  await page.goto('/routekit/demo.html');
+  await expect.poll(() => page.evaluate(() => !!window.routekitDemo)).toBe(true);
+  const r = await page.evaluate(() => {
+    const { scene, editor, draft } = routekitDemo, hold = scene.holds.find(h => !draft.holds[h.id]), before = { ...draft.holds }, seq0 = draft.seq ? draft.seq.length : 0;
+    editor.setType('n');
+    const b = RouteKit.bbox(hold.poly), mid = [(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2];
+    const hit = () => editor.canvas.dispatchEvent(new MouseEvent('click', { clientX: editor.canvas.getBoundingClientRect().left + (mid[0] * editor.t.k + editor.t.tx) / (editor.canvas.width / editor.canvas.getBoundingClientRect().width), clientY: editor.canvas.getBoundingClientRect().top + (mid[1] * editor.t.k + editor.t.ty) / (editor.canvas.width / editor.canvas.getBoundingClientRect().width), bubbles: true }));
+    hit(); hit();
+    const added = { len: draft.seq.length - seq0, role: draft.holds[hold.id], can: editor.canUndoSeq };
+    const u1 = editor.undoSeq(), u2 = editor.undoSeq(), u3 = editor.undoSeq();
+    return { added, u: [u1, u2, u3], len: draft.seq ? draft.seq.length : 0, seq0, back: JSON.stringify(draft.holds) === JSON.stringify(before), can: editor.canUndoSeq };
+  });
+  expect(r.added).toEqual({ len: 2, role: 'h', can: true });
+  expect(r.u).toEqual([true, true, false]);
+  expect(r.len).toBe(r.seq0);
+  expect(r.back).toBe(true);
+  expect(r.can).toBe(false);
+});

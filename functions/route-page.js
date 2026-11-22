@@ -1,10 +1,12 @@
 // 路線連結 /r/{照片編號}/{路線 id}/（Hosting 轉給雲端函式 routePage）：給 LINE、FB 等的爬蟲一頁帶這條路線預覽圖、標題的 HTML，
 // 人打開就轉進 App 收這條線（/?p=照片編號&r=路線 id）。只用 JavaScript 轉：Facebook 的爬蟲會跟著 meta refresh 走到 App 首頁、拿不到這條路線的預覽圖。
-// 預覽頁的標題用路線的名稱、圖用岩點貓圖示。
+// 預覽頁：標題是路線名稱與難度，說明是岩館、牆、岩點數、定線者（share-preview.js），圖是牆的縮圖；3D 牆的線打開後進 3D 牆。
 // 同一個網址後面接 route.json 是給任何 App 收線的公開資料（不用登入、允許跨網域）：這條路線疊在牆上的圖層（Climbio 公開格式 v2），
 // 圖層的 href 指到開放資料集裡牆的畫面（見 site-data.js）。
 // 站的公開牆面（/climbio.json、/w/**）也由這個函式回，見 site-data.js。
 const { parseDataPath, sendSiteData, routesData } = require('./site-data');
+const { HF_BASE, hfBase } = require('./projects');
+const { routePreview } = require('./share-preview');
 const PID = /^[0-9a-z]{8,40}$/, RID = /^[0-9a-z]{1,40}$/;
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // { pid, rid, file: ''（預覽頁）| 'route.json' }
@@ -38,14 +40,17 @@ ${image.width ? `<meta property="og:image:width" content="${image.width}"><meta 
 <link rel="canonical" href="${esc(url)}">
 </head><body style="background:#0a0a0a"><script>${fetchAhead(files)}${go}</script><noscript><a href="${esc(target)}">Climbio</a></noscript></body></html>`;
 }
-const page = ({ origin, pid, rid, ...rest }) => previewPage({ url: `${origin}/r/${pid}/${rid}/`, target: `${origin}/?p=${pid}&r=${encodeURIComponent(rid)}`, files: routeFiles(origin, pid, rid), ...rest });
+const page = ({ origin, pid, rid, target = `${origin}/?p=${pid}&r=${encodeURIComponent(rid)}`, ...rest }) => previewPage({ url: `${origin}/r/${pid}/${rid}/`, target, files: routeFiles(origin, pid, rid), ...rest });
 
-// 路線的預覽：標題用路線的名稱（wallRoutes 裡那條線的路線節點），圖用岩點貓圖示
+// 路線的預覽：路線節點在 wallRoutes，牆的名稱、岩館、縮圖在 gymWalls；讀不到的欄位省略，不讓預覽失敗
 async function routeMeta({ db, origin, pid, rid }) {
-  const w = await db.collection('wallRoutes').doc(pid).get(), x = w.exists && (w.get('routes') || {})[rid];
-  let title = 'Climbio';
-  if (x) try { const n = (JSON.parse(x.r).nodes || []).find(n => n.id === rid); if (n && n.name) title = String(n.name); } catch (e) { /* 讀不出來用預設標題 */ }
-  return { title, description: 'Climbio', image: { url: `${origin}/icons/cats/hold-cat-512.png` } };
+  const [w, g] = await Promise.all([db.collection('wallRoutes').doc(pid).get(), db.collection('gymWalls').doc(pid).get()]);
+  const x = w.exists && (w.get('routes') || {})[rid];
+  let node = null;
+  if (x) try { node = (JSON.parse(x.r).nodes || []).find(n => n.id === rid) || null; } catch (e) { /* 讀不出來用預設內容 */ }
+  const m3d = g.exists && !!g.get('m3d'), wall = g.exists ? { name: g.get('name') || '', gym: g.get('gym') || '' } : {};
+  const thumb = g.exists ? (m3d ? `${hfBase({ repo: g.get('repo') })}${g.get('hf')}thumb.jpg` : `${HF_BASE}${g.get('hf')}${pid}.thumb.jpg`) : `${origin}/icons/cats/hold-cat-512.png`;
+  return { ...routePreview({ node, wall }), image: { url: thumb }, ...(m3d ? { target: `${origin}/hold/?m3d=${pid}&rid=${encodeURIComponent(rid)}` } : {}) };
 }
 
 // hosts：站台網域（site.js 的 HOSTS），第一個是正式站的主要網址（只有它的 climbio.json 列進總目錄）

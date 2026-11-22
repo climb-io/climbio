@@ -46,6 +46,17 @@ test('連結預覽頁：標題是路線的名稱，圖是岩點貓；沒有這�
   assert.match(await get('/r/abcdefgh1234/r9/'), /og:title" content="Climbio"/);
 });
 
+test('連結預覽頁：說明有岩館、牆、岩點數、定線者，圖是牆的縮圖；3D 牆的線打開後進 3D 牆', async () => {
+  const withWall = { ...docs, 'gymWalls/abcdefgh1234': { name: '主牆', gym: '攀岩館', hf: 'walls/abcdefgh1234/v1/', n: 1 } };
+  const mk = (d) => createPageHandler({ db: { collection: (name) => ({ doc: (id) => ({ get: async () => snap(d[`${name}/${id}`]) }) }) }, hosts: ['climbio.web.app'] });
+  const get = (handler, path) => new Promise(resolve => { const res = { set() { return this; }, status() { return this; }, send: resolve, redirect: (c, u) => resolve(u) }; handler({ path, get: () => 'climbio.web.app' }, res); });
+  const html = await get(mk(withWall), '/r/abcdefgh1234/r1/');
+  assert.ok(html.includes('og:description" content="攀岩館・主牆・1 顆岩點"'));
+  assert.ok(html.includes('og:image" content="https://huggingface.co/datasets/climbio/walls/resolve/main/walls/abcdefgh1234/v1/abcdefgh1234.thumb.jpg"'));
+  const m3 = await get(mk({ ...withWall, 'gymWalls/abcdefgh1234': { name: '3D', gym: '攀岩館', hf: 'walls3d/abcdefgh1234/', repo: 'walls3d', m3d: true } }), '/r/abcdefgh1234/r1/');
+  assert.ok(m3.includes('location.replace("https://climbio.web.app/hold/?m3d=abcdefgh1234&rid=r1")'));
+});
+
 test('連結的網域：設定裡的站用自己的網域，不認得的導回第一個站', async () => {
   const handler = createPageHandler({ db: {}, hosts: ['my-wall.web.app', 'my-wall-dev.web.app'] });
   const go = (host) => new Promise(resolve => handler({ path: '/', get: k => (k === 'host' ? host : undefined) }, { redirect: (status, url) => resolve([status, url]) }));

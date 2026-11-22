@@ -8,7 +8,7 @@
 
 **Climbio Studio 幫你把現有資料轉成可以繼續編輯、分享與更新的數位 Guidebook。** 先讓工具整理，再由你確認重要的部分；不用逐條重新輸入，也不用先學資料格式。
 
-**[開啟 Climbio Studio，試著轉換一份路線書](https://climbio.app/studio/)**　·　**[完整教學：怎麼轉、哪裡要你看一眼](https://climbio.app/studio/convert/)**
+**[開啟 Climbio Studio，試著轉換一份路線書](https://climbio.app/studio/)**　·　**[完整教學：怎麼轉、哪裡要你看一眼](https://climbio.app/guides/convert/)**
 
 轉換的底線是**每張 Topo 上的每條路線，在紅點貓裡都有東西可以點**：照片上畫好的紅線自動描出來；編號不對或少了可以在 Topo 上改；描不出線的路線先放一個記號，你再拖到位置或自己重畫。天然岩場一定要有岩場位置（文字裡的座標會自動抓，沒有就貼上），沒有位置不能發佈。區域圖能轉成 GeoJSON 就轉，不行就直接用原圖。作者原始、沒畫線的照片是轉完之後的選用優化。
 

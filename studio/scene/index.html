@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-Hant" class="st-railed" data-ak-phone="app" data-climbio-theme="studio" data-studio-ws="crag">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="../../host-redirect.js"></script>
+<title>3D 場景 · Climbio Studio</title>
+<meta name="description" content="Climbio Studio 3D 場景：岩場的 3D 模型和每張照片拍的位置，點一張就飛到那個視角。">
+<link rel="canonical" href="https://climbio.app/studio/scene/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Climbio">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:url" content="https://climbio.app/studio/scene/">
+<meta property="og:title" content="3D 場景 · Climbio Studio">
+<meta property="og:description" content="Climbio Studio 3D 場景：岩場的 3D 模型和每張照片拍的位置，點一張就飛到那個視角。">
+<meta property="og:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="3D 場景 · Climbio Studio">
+<meta name="twitter:description" content="Climbio Studio 3D 場景：岩場的 3D 模型和每張照片拍的位置，點一張就飛到那個視角。">
+<meta name="twitter:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<link rel="manifest" href="../manifest.webmanifest">
+<meta name="theme-color" content="#0E0E0F">
+<link rel="icon" href="../../icons/brand/favicon-64.png">
+<link rel="apple-touch-icon" href="../../icons/brand/apple-touch-icon-180.png">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'inline-speculation-rules' 'wasm-unsafe-eval' blob:; connect-src 'self' blob: data: https:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
+<script src="../../appkit/errors.js"></script>
+<link rel="stylesheet" href="../../css/brand-tokens.css">
+<link rel="stylesheet" href="../../appkit/ui.css">
+<link rel="stylesheet" href="../chrome.css">
+<link rel="stylesheet" href="../shell.css">
+<script src="../../appkit/landing.js"></script>
+<style>
+  /* 3D 場景：模型滿版，上面一層 2D canvas 畫照片的視錐（1px 細線）；控制都是浮在畫面上的玻璃工具列 */
+  #stage { position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--bg); touch-action: none; cursor: grab; -webkit-user-select: none; user-select: none; }
+  #stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #lines { pointer-events: none; }
+  .sc-pill { position: absolute; z-index: 3; display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 4px 0 12px; border-radius: 12px;
+    background: color-mix(in srgb, var(--surface) 78%, transparent); -webkit-backdrop-filter: blur(16px) saturate(140%); backdrop-filter: blur(16px) saturate(140%); box-shadow: var(--pop); color: var(--text); font-size: 13px; }
+  #bar { left: 12px; top: 12px; padding-left: 4px; }
+  #bar .st-brand img { width: 22px; height: 22px; }
+  #title { font-weight: 600; padding-right: 6px; }
+  #count { color: var(--muted); font-variant-numeric: tabular-nums; padding-right: 6px; }
+  #home { height: 28px; padding: 0 10px; font-size: 12px; }
+  #viewing { left: 50%; top: 12px; transform: translateX(-50%); padding-right: 12px; }
+  #sources { right: 12px; top: 12px; padding: 4px; gap: 2px; }
+  #sources button { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 11px; border-radius: 8px; color: var(--muted); font-size: 12.5px; font-weight: 500; }
+  #sources button:hover { color: var(--text); }
+  #sources button i { width: 6px; height: 6px; border-radius: 50%; background: var(--ws); }
+  #sources button[aria-pressed="true"] { background: var(--surface-2); color: var(--text); box-shadow: var(--sheen), 0 0 0 1px var(--line-strong); }
+  body:has(#viewing:not([hidden])) #sources { display: none; }   /* 看照片時收起場景切換（#sources 在 #viewing 前面，~ 選不到） */
+  @media (max-width: 600px) { #sources, #viewing { top: 58px; } }   /* 手機：跟左上的膠囊（名稱、整區）疊在一起，換到第二排 */
+  #viewing span { color: var(--muted); }
+  #viewing b { font-weight: 500; }
+  #photo { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; pointer-events: none; opacity: 0; transition: opacity .35s ease; }
+  #photo.on { opacity: 1; }
+  #photoImg { object-fit: cover; box-shadow: 0 0 0 1px var(--accent), 0 30px 80px -20px rgba(0, 0, 0, .8); }
+  #strip { flex: none; display: flex; gap: 6px; overflow-x: auto; padding: 8px 12px calc(8px + var(--safe-b)); border-top: 1px solid var(--line); background: var(--bg); scrollbar-width: thin; }
+  .sc-frame { flex: none; width: 50px; aspect-ratio: 9 / 16; border-radius: 6px; overflow: hidden; border: 1px solid var(--line-strong); padding: 0; background: var(--surface-2); transition: border-color .15s; }
+  .sc-frame img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: .65; transition: opacity .15s; }
+  .sc-frame:hover img, .sc-frame.on img { opacity: 1; }
+  .sc-frame.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  @media (prefers-reduced-motion: reduce) { #photo { transition: none; } }
+</style>
+</head>
+<body>
+<main id="stage">
+  <canvas id="lines" aria-hidden="true"></canvas>
+  <div id="photo" aria-live="polite"><img id="photoImg" alt=""></div>
+  <div id="bar" class="sc-pill">
+    <a class="st-brand" href="../" aria-label="Climbio Studio"><img src="../../icons/brand/climbio-mark.svg" alt=""></a>
+    <span id="title"></span><span id="count"></span>
+    <button id="home" type="button" class="btn" data-i18n="scHome">整區</button>
+  </div>
+  <div id="sources" class="sc-pill" role="group" aria-label="場景" data-i18n-aria="scSources" hidden><button type="button" data-src="mingde" data-studio-ws="gym"><i></i><span data-i18n="scGymShort">岩館</span></button><button type="button" data-src="dapao" data-studio-ws="crag"><i></i><span data-i18n="scCragShort">天然岩場</span></button></div>
+  <div id="viewing" class="sc-pill" hidden><span data-i18n="scViewing">正在看</span><b id="photoName"></b><span id="photoFov"></span></div>
+</main>
+<nav id="strip" aria-label="照片"></nav>
+<script src="../../appkit/i18n.js"></script>
+<script src="../i18n-boot.js" data-packs="studio studio-crag-data studio-scene"></script>
+<script src="../../appkit/ui.js"></script>
+<script src="../../appkit/idb.js"></script>
+<script src="../../appkit/files.js"></script>
+<script src="../../version.js"></script>
+<script src="../shell.js"></script>
+<script src="../store.js"></script>
+<script type="module" src="scene.js"></script>
+</body>
+</html>

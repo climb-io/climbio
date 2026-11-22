@@ -1,7 +1,11 @@
 appkit（Climbio 各 App 共用的一層：語言包載入、加到主畫面、照片與 EXIF、對話框與提示）
 Copyright (c) 2026 Climbio 貢獻者（Climbio contributors）
 
-本資料夾以 GNU AGPL-3.0 授權（見 LICENSE），不含第三方程式、模型或資料。
+本資料夾以 GNU AGPL-3.0 授權（見 LICENSE）。
 它是 Climbio（AGPL-3.0）的一部分，可以單獨拿去用，使用時須遵守 AGPL-3.0。
 
-English: appkit is AGPL-3.0 and contains no third-party code, models or data.
+第三方程式（供附近交換掃描／產生 QR code，見 qr/SOURCE.txt）：
+- qr/qrcode.js：qrcode-generator 1.4.4（Kazuhiko Arase，MIT）
+- qr/jsQR.js：jsQR 1.4.0（Cosmo Wolfe，Apache-2.0）
+
+English: appkit is AGPL-3.0. Bundled QR helpers under qr/: qrcode-generator 1.4.4 (MIT) and jsQR 1.4.0 (Apache-2.0).

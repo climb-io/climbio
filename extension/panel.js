@@ -57,7 +57,7 @@ export function panel(state) {
     </style>
     <div class="card" role="status" aria-live="polite">
       <div class="head"><span class="logo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" aria-hidden="true"><defs><clipPath id="redpoint-cat-cutouts" clipPathUnits="userSpaceOnUse"><path fill-rule="evenodd" d="M0 0H1100V1024H0Z M294 219 L293 173 L373 237 Z M663 167 L689 113 L714 183 Z M544 791a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z"/></clipPath></defs><g clip-path="url(#redpoint-cat-cutouts)"><g transform="translate(55 16)"><path d="M115 389 C142 357 190 323 254 291 L259 180 Q262 143 288 150 L414 230 C464 212 516 197 555 184 L670 68 Q689 51 708 79 L758 208 C795 225 818 265 804 315 C791 357 766 397 736 442 C682 529 647 602 642 684 L646 830 C647 890 618 921 570 921 C518 921 491 890 486 839 L479 715 C476 620 442 563 365 513 C290 477 206 484 144 458 C99 438 88 418 115 389 Z" fill="#2E8CC9"/></g><path d="M115 389 C142 357 190 323 254 291 L259 180 Q262 143 288 150 L414 230 C464 212 516 197 555 184 L670 68 Q689 51 708 79 L758 208 C795 225 818 265 804 315 C791 357 766 397 736 442 C682 529 647 602 642 684 L646 830 C647 890 618 921 570 921 C518 921 491 890 486 839 L479 715 C476 620 442 563 365 513 C290 477 206 484 144 458 C99 438 88 418 115 389 Z M294 219 L293 173 L373 237 Z M663 167 L689 113 L714 183 Z M544 791a32 32 0 1 0 64 0a32 32 0 1 0 -64 0Z" fill="#0B4A6B" fill-rule="evenodd"/><path d="M306 353 C345 304 441 265 533 246 C610 230 690 241 717 288 C733 320 693 396 634 436 C591 466 547 483 475 480 C406 477 334 452 304 419 C280 394 285 375 306 353 Z" fill="#FFFFFF"/><ellipse cx="425" cy="382" rx="22" ry="31" fill="#0B4A6B"/><ellipse cx="594" cy="341" rx="23" ry="31" fill="#0B4A6B"/><path d="M494 373 Q514 366 535 374 Q543 384 520 408 Q510 420 504 406 Q483 385 494 373 Z" fill="#0B4A6B"/></g><circle class="role-tool" cx="867" cy="667" r="47" fill="#FF6B6B"/><circle class="role-tool" cx="867" cy="667" r="17" fill="#FFFFFF"/></svg>
-</span><span>紅點貓收藏<small class="ver"> v0.2.8</small></span><button class="x" aria-label="關閉">×</button></div>
+</span><span><strong class="app-name">紅點貓收藏</strong><small class="ver"></small></span><button class="x" aria-label="關閉">×</button></div>
       <div class="title"></div>
       <div class="bar"><i></i></div>
       <ul></ul>
@@ -72,10 +72,13 @@ export function panel(state) {
     document.body.append(host);
   }
   const root = host.shadowRoot, $ = (s) => root.querySelector(s);
+  const ui = state.ui || {};
+  $('.app-name').textContent = ui.appName || '紅點貓收藏';
+  $('.x').setAttribute('aria-label', ui.close || '關閉');
   clearTimeout(host.__timer);
   $('.card').className = `card ${state.kind}`;
   if (state.version && $('.head .ver')) $('.head .ver').textContent = ` v${state.version}`;
-  $('.title').textContent = state.title || '紅點貓收藏';
+  $('.title').textContent = state.title || ui.appName || '紅點貓收藏';
   $('.bar i').style.width = `${Math.round(Math.min(Math.max(state.progress, 0), 1) * 100)}%`;
   const list = $('ul');
   list.hidden = $('.bar').hidden = !state.steps.length;   // 導引沒有步驟與進度條
@@ -107,17 +110,17 @@ export function panel(state) {
       return row;
     }));
     const go = $('.btn'), count = () => opts.querySelectorAll('input:checked').length;
-    const label = () => { go.textContent = `${state.cta} ${count()} 個`; go.disabled = !count(); };
+    const label = () => { go.textContent = `${state.cta} ${count()} ${ui.countUnit || '個'}`; go.disabled = !count(); };
     opts.onchange = label;
     label();
     go.onclick = () => {
       go.disabled = true;
-      go.textContent = '處理中…';
+      go.textContent = ui.processing || '處理中…';
       chrome.runtime.sendMessage({ type: 'pick', ids: [...opts.querySelectorAll('input:checked')].map((b) => b.value) });
     };
   } else {
     $('.btn').onclick = () => host.remove();
-    $('.btn').textContent = '關閉';
+    $('.btn').textContent = ui.close || '關閉';
     $('.btn').disabled = false;
   }
   const msg = $('.msg'), hint = $('.hint');

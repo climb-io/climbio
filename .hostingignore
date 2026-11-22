@@ -27,3 +27,10 @@
 Dockerfile
 /extension
 /redpoint-collect
+/en/redpoint-collect
+/zh-cn/redpoint-collect
+/ja/redpoint-collect
+/ko/redpoint-collect
+/fr/redpoint-collect
+/es/redpoint-collect
+/de/redpoint-collect

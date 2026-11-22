@@ -1,10 +1,10 @@
 // 路線書大綱：任何格式的路線書先整理成一份 Markdown，再變成一本 Guidebook。只處理文字，不碰狀態與畫面，Node 也能跑。
 //   標題：# 岩場、## 區、### 岩壁（層數不限；底下還有標題的是區，其他是岩壁）
-//   「欄位：值」：來源、署名、授權、難度系統（寫在岩場）、交通、說明、朝向、類型（底下路線的預設類型）、排列（路線表格照照片由右至左或由左至右列，底下的岩壁照這個）；不是欄位的段落當說明
+//   「欄位：值」：來源、署名、授權、難度系統、國家（寫在岩場；國家是兩個字母的國碼，例如 tw，台灣、臺灣也認得）、交通、說明、朝向、類型（底下路線的預設類型）、排列（路線表格照照片由右至左或由左至右列，底下的岩壁照這個）；不是欄位的段落當說明
 //   表格（| 分隔或 Tab 分隔）：路線，欄位跟貼上路線一樣（table.js）；有「岩壁」欄就放進這個標題底下同名的岩壁
 //   圖片 ![說明](檔名或 https 網址)：岩壁的照片（路線書的圖或原始照片）；放在區或岩場底下的是區域圖（配置圖、全景），沒有路線，紅點貓顯示在區域照片
 // 寫法見 docs/guidebook-convert.md；Word、網頁匯出檔自動轉成大綱見 docread.js。
-import { newBook, newId, addRoutes, setCragPosition, LICENSE } from './model.js';
+import { newBook, newId, addRoutes, setCragPosition, LICENSE, COUNTRIES } from './model.js';
 import { parseTable, guessColumns, toRoutes, parseStyle } from './table.js';
 
 export { AI_PROMPT, AI_MAP_PROMPT } from './ai-prompt.js';
@@ -15,13 +15,20 @@ const KEYS = {
   attribution: ['署名', '作者', '編者', 'author', 'attribution'],
   license: ['授權', 'license'],
   grade: ['難度系統', 'gradesystem', 'grading'],
+  country: ['國家', '國別', 'country', 'cc'],
   approach: ['交通', '怎麼到', '前往方式', 'approach', 'access'],
   description: ['說明', '介紹', '描述', '備註', 'description', 'notes', 'note'],
   aspect: ['朝向', '方位', '面向', 'aspect', 'facing'],
   style: ['類型', '攀登方式', 'style', 'type'],
   order: ['排列', '排序', '路線順序', 'order', 'direction'],
 };
-const CRAG_ONLY = { source: () => T('cdFieldSource'), attribution: () => T('cdFieldAttribution'), license: () => T('cdFieldLicense'), grade: () => T('cdFieldGrade') };   // 警告裡的欄位名稱（解析的關鍵字在 KEYS）
+const CRAG_ONLY = { source: () => T('cdFieldSource'), attribution: () => T('cdFieldAttribution'), license: () => T('cdFieldLicense'), grade: () => T('cdFieldGrade'), country: () => T('cdFieldCountry') };
+/** 國家：兩個字母的國碼（紅點貓世界的第一層），台灣、臺灣、Taiwan 也認得；認不得回 ''（不推測） */
+export function parseCountry(value) {
+  const v = String(value || '').trim().toLowerCase();
+  const cc = { 台灣: 'tw', 臺灣: 'tw', taiwan: 'tw' }[v] || v;
+  return COUNTRIES.includes(cc) ? cc : '';
+}   // 警告裡的欄位名稱（解析的關鍵字在 KEYS）
 const norm = (s) => s.toLowerCase().replace(/[\s_\-.]/g, '');
 const KEY_OF = new Map(Object.entries(KEYS).flatMap(([k, list]) => list.map(w => [norm(w), k])));
 const COMPASS = { n: 0, ne: 45, e: 90, se: 135, s: 180, sw: 225, w: 270, nw: 315, 北: 0, 東北: 45, 東: 90, 東南: 135, 南: 180, 西南: 225, 西: 270, 西北: 315 };
@@ -216,6 +223,8 @@ export function fromOutline(src, { t = Date.now(), grade: fallback = 'yds', map 
   }
   const grade = crag.grade || fallback;
   if (crag.grade) book.props['author:grade'] = grade;
+  // 國家：紅點貓世界照它分組，沒有就進「其他」；發佈前一定要有（Studio 擋下、命令列要 --country）
+  if (crag.country) { const cc = parseCountry(crag.country); if (cc) book.props['author:country'] = cc; else warnings.push(T('cdCountryBad', crag.country)); }
   const top = sections.find(s => s.parent === undefined);
   const hasChild = new Set(sections.map(s => s.parent).filter(p => p !== undefined));
   const id = new Map(), images = [], order = new Map(), lines = new Map();

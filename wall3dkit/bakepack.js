@@ -2,8 +2,8 @@
 // 成品：wall-<雜湊>.glb（標準 glTF，已切好）、faces-<雜湊>.bin（每個面第幾顆岩點，deflate）、labels-<雜湊>.bin（貼圖空間的岩點標籤，已套修點，deflate）、
 // walk-<雜湊>.json（沿牆鏡頭的軌道、牆面深度、實拍邊界表）、wall.json（岩點、軌道、授權）。岩點貓不再裁切、套 Studio 的修點、算淡出與軌道（stage.js 的 baked 路徑）。
 // English: bakes the Studio working files into the finished climbio-3d-wall/2 pack that the phone only reads.
-import { openStageFrom, packSurfaces, holdMargin, decode, inflate, parseModel } from './stage.js';
-import { bakeMesh, writeGlb, sourceTexture } from './bake.js';
+import { openStageFrom, packSurfaces, holdMargin, decode, inflate, parseModel, inside } from './stage.js';
+import { bakeMesh, cutOutlines, writeGlb, sourceTexture } from './bake.js';
 import { meshesOf, wallPath, WalkCam, packWalk, introEnd } from './walkcam.js';
 import { Vector3, Scene, WebGLRenderer, PerspectiveCamera } from './vendor/three.js';
 
@@ -25,9 +25,16 @@ export async function bakePack({ doc, glb, faces, progress = () => {} }) {
   const surfaces = await packSurfaces(doc), labels = await inflate(decode(doc.holdLabels.data), 'deflate');
   const work = { ...doc, holds: doc.holds.map(h => ({ ...h })) };   // 套修點會往 holds 加補的岩點，不改工作檔
   const stage = await openStageFrom({ pack: work, glb, faces, labels, surfaces });
+  stage.cleanVolumes();   // 量體的標籤整理成整塊（光暈不挖洞），見 stage.js
   progress('crop');
-  const g = stage.surface.geometry, P = g.attributes.position.array, UV = g.attributes.uv.array, fade = g.attributes.wallFade.array, I = g.index.array;
-  const baked = bakeMesh({ positions: P, uvs: UV, fade, index: I, faceLabels: stage.faceLabels, planes: doc.surfaces.frame.planes, margin: holdMargin(doc) });
+  const g = stage.surface.geometry;
+  // 修過外框的岩點：網格照描的線切開（bake.js 的 cutOutlines），光暈、點選的範圍就是描的線
+  const cut = cutOutlines({ positions: g.attributes.position.array, uvs: g.attributes.uv.array, fade: g.attributes.wallFade.array, index: g.index.array, faceLabels: stage.faceLabels, cuts: outlineCuts(stage), inside });
+  paintInside(stage, cut);
+  const baked = bakeMesh({ positions: cut.positions, uvs: cut.uvs, fade: cut.fade, index: cut.index, faceLabels: cut.faceLabels, planes: doc.surfaces.frame.planes, margin: holdMargin(doc) });
+  const byOld = new Map(), exact = new Map();   // 原本的面編號 → 烘焙後的面編號；修點的外框裡（切好的）的烘焙後面編號，每顆一份
+  baked.origin.forEach((o, f) => { const p = cut.parent[o]; (byOld.get(p) || byOld.set(p, []).get(p)).push(f); const k = cut.inside[o]; if (k) (exact.get(k) || exact.set(k, []).get(k)).push(f); });
+  const fc = stage.holds.map(h => h.faceCount).sort((a, b) => a - b), bigHold = 5 * fc[fc.length >> 1];   // 量體：面數是中位數 5 倍以上（stage.js 同一條）
   // 岩點：補的岩點（修點新增）沒有位置，取它的面的頂點平均；不在的（標成不是岩點、被切掉、在地面上）標 off
   const sum = work.holds.map(() => [0, 0, 0, 0]);
   for (let f = 0; f < baked.faceLabels.length; f++) {
@@ -36,14 +43,23 @@ export async function bakePack({ doc, glb, faces, progress = () => {} }) {
   }
   const holds = stage.holds.map((h, i) => {
     const position = h.position || (sum[i][3] ? sum[i].slice(0, 3).map(x => +(x / sum[i][3]).toFixed(6)) : null);
-    return { id: h.id, position, faceCount: h.faceCount, ...(stage.gone.has(i) || h.off || !position ? { off: 1 } : {}) };
+    const ov = stage.overlays[i], edited = !!(ov && ov.userData.edited);
+    // edited：修過外框（光暈照修的範圍）；fill：修過的量體光暈要填的面（修的外框裡面，烘焙後的面編號），量體上裝的小岩點不挖洞
+    // 修過外框的：光暈填切好的外框裡面（量體上裝的 chip 也蓋過去，不挖洞），邊就是描的線
+    const gl = new Set(ov && ov.userData.guestIds || []), guestFill = edited ? (ov.userData.inPoly || []).filter(f => gl.has(stage.faceLabels[f])).flatMap(f => byOld.get(f) || []) : [];   // chip 從修點的角度看不到的那側也蓋過去
+    const fill = edited ? (exact.has(i + 1) ? [...new Set([...exact.get(i + 1), ...guestFill])] : h.faceCount >= bigHold || ov.userData.guests ? (ov.userData.inPoly || []).flatMap(f => byOld.get(f) || []) : null) : null;
+    return { id: h.id, position, faceCount: h.faceCount, ...(edited ? { edited: 1 } : {}), ...(fill && fill.length ? { fill } : {}), ...(stage.gone.has(i) || h.off || !position ? { off: 1 } : {}) };
   });
   // 每顆岩點的覆蓋網格要用的面（原本的面編號，往外帶幾圈）換成烘焙後的面編號：切開的面變成好幾個、拿掉的不見
-  const byOld = new Map();
-  baked.origin.forEach((o, f) => { (byOld.get(o) || byOld.set(o, []).get(o)).push(f); });
   const offsets = new Uint32Array(work.holds.length + 1), faceList = [];
   stage.overlays.forEach((m, i) => {
-    for (const f of (m.userData.faces || stage.baseFaces[i] || [])) for (const nf of byOld.get(f) || []) faceList.push(nf);
+    if (exact.has(i + 1)) {
+      // 修過外框的：切好的這顆的面（貼圖標籤的鋸齒不會畫到外面），加上修點的鏡頭看不到的這顆原本的面（斜看、背面；照貼圖標籤畫，不然那一側沒有光暈）
+      for (let f = 0; f < baked.faceLabels.length; f++) if (baked.faceLabels[f] === i + 1) faceList.push(f);
+      const near = new Set(m.userData.near || []);
+      for (const f of (m.userData.faces || stage.baseFaces[i] || [])) if (!near.has(f)) for (const nf of byOld.get(f) || []) faceList.push(nf);
+    }
+    else for (const f of (m.userData.faces || stage.baseFaces[i] || [])) for (const nf of byOld.get(f) || []) faceList.push(nf);
     offsets[i + 1] = faceList.length;
   });
   const overlayBin = await deflate(u8(Uint32Array.from([...offsets, ...faceList])));
@@ -78,6 +94,38 @@ export async function bakePack({ doc, glb, faces, progress = () => {} }) {
     files: [{ path: 'wall.json', bytes: new TextEncoder().encode(JSON.stringify(json)) }, { path: names.model, bytes: out }, { path: names.faces, bytes: faceBin }, { path: names.labels, bytes: labelBin }, { path: names.overlay, bytes: overlayBin }, { path: names.snapshot, bytes: snapBin }, { path: names.walk, bytes: walkBin }],
     stats: { tris: baked.index.length / 3, removed: baked.removed, clipped: baked.clipped, glb: out.length },
   };
+}
+
+// 修點的外框換成切網格要的：鏡頭位置、多邊形每個頂點的方向（模型座標）、投影；只切修點時看得到的面（applyEdit 的 near）
+function outlineCuts(stage) {
+  const mw = stage.surface.matrixWorld, inv = mw.clone().invert(), W = stage.snapW, H = stage.snapH, v = new Vector3(), cuts = [];
+  stage.overlays.forEach((m, i) => {
+    const m3 = m.userData.edited && m.userData.m3;
+    if (!m3 || !m3.p || m3.p.length < 3 || stage.gone.has(i)) return;
+    const cam = new PerspectiveCamera(50, m3.a || W / H, 0.005, 100);   // stage.js 的 applyEdit 同一個鏡頭
+    cam.position.fromArray(m3.c, 0); cam.quaternion.fromArray(m3.c, 3); cam.updateMatrixWorld(true); cam.updateProjectionMatrix();
+    const eye = cam.position.clone().applyMatrix4(inv);
+    const rays = m3.p.map(([x, y]) => new Vector3(x * 2 - 1, 1 - y * 2, 0.5).unproject(cam).applyMatrix4(inv).sub(eye).toArray());
+    const project = (p) => { v.fromArray(p).applyMatrix4(mw).project(cam); return v.z > -1 && v.z < 1 ? [(v.x + 1) / 2 * W, (1 - v.y) / 2 * H] : null; };
+    cuts.push({ idx: i + 1, seq: m.userData.seq || 0, faces: m.userData.near || [], eye: eye.toArray(), rays, poly: m3.p.map(([x, y]) => [x * W, y * H]), project, guests: new Set(m.userData.guestIds || []) });
+  });
+  // 照修點套用的先後切（applyEdit 後套的蓋過先套的）：兩個修點的範圍重疊時，切出來的跟修點時的一樣，不會變成岩點編號大的贏
+  return cuts.sort((a, b) => a.seq - b.seq);
+}
+// 切好的外框裡面：貼圖上還空著（標籤 0）的像素補成這顆，邊上不留缺口（外面的像素不在這顆的覆蓋網格上，畫不出來）
+function paintInside(stage, cut) {
+  const L = stage.labels, s = stage.labelSize, U = cut.uvs, I = cut.index;
+  for (let f = 0; f < cut.faceLabels.length; f++) {
+    const idx = cut.inside[f]; if (!idx || cut.faceLabels[f] !== idx) continue;
+    const [a, b, c] = [I[f * 3], I[f * 3 + 1], I[f * 3 + 2]], ua = U[a * 2] * s, va = U[a * 2 + 1] * s, ub = U[b * 2] * s, vb = U[b * 2 + 1] * s, uc = U[c * 2] * s, vc = U[c * 2 + 1] * s;
+    const det = (vb - vc) * (ua - uc) + (uc - ub) * (va - vc); if (Math.abs(det) < 1e-9) continue;
+    for (let ty = Math.max(0, Math.floor(Math.min(va, vb, vc))); ty <= Math.min(s - 1, Math.ceil(Math.max(va, vb, vc))); ty++)
+      for (let tx = Math.max(0, Math.floor(Math.min(ua, ub, uc))); tx <= Math.min(s - 1, Math.ceil(Math.max(ua, ub, uc))); tx++) {
+        const px = tx + 0.5, py = ty + 0.5, w0 = ((vb - vc) * (px - uc) + (uc - ub) * (py - vc)) / det, w1 = ((vc - va) * (px - uc) + (ua - uc) * (py - vc)) / det;
+        if (w0 < -1e-4 || w1 < -1e-4 || 1 - w0 - w1 < -1e-4) continue;
+        const k = ty * s + tx; if (!L[k]) L[k] = idx;
+      }
+  }
 }
 
 // 用烘好的模型算沿牆鏡頭：軌道、牆面深度，每種畫面比例各實拍校正一次（離屏小張渲染，見 WalkCam.calibrate）

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant" data-climbio-theme="outdoor" data-studio-ws="wall">
+<html lang="zh-Hant" class="st-railed" data-climbio-theme="studio" data-studio-ws="wall3d">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -23,26 +23,21 @@
 <meta name="theme-color" content="#0E0E0F">
 <link rel="icon" href="../../icons/brand/favicon-64.png">
 <link rel="apple-touch-icon" href="../../icons/brand/apple-touch-icon-180.png">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://www.google.com; connect-src 'self' blob: data: https:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; frame-src 'self' https://*.web.app https://www.google.com https://recaptcha.google.com; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'inline-speculation-rules' https://www.gstatic.com https://www.google.com; connect-src 'self' blob: data: https:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; frame-src 'self' https://*.web.app https://www.google.com https://recaptcha.google.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <link rel="stylesheet" href="../../css/brand-tokens.css">
 <link rel="stylesheet" href="../../appkit/ui.css">
 <link rel="stylesheet" href="../shell.css">
 <link rel="stylesheet" href="../chrome.css">
+<link rel="stylesheet" href="../report-frame.css">
 <script src="../../appkit/landing.js"></script>   <!-- 手機只顯示介紹頁（下面的 .ak-landing） -->
 <style>
-  /* 跟 Wall 同一套：Studio 頁首與步驟列，照片區（這裡是模型）全幅深色，工具是浮在上面的膠囊（docs/style.md） */
-  * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 -apple-system, "PingFang TC", sans-serif; }
-  body { display: flex; flex-direction: column; }
-  [hidden] { display: none !important; }
-  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; padding: 0; }
+  /* 跟 Wall 同一套：Studio 頁首與步驟列，模型全幅深色，工具是浮在上面的玻璃工具列（docs/style.md）；元件在 shell.css、版面在 chrome.css */
   main { flex: 1; min-height: 0; position: relative; }
-  #top { flex: none; }
-  #wallName { font-weight: 600; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #wallName { font-weight: 500; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #saveState { font-size: 12px; color: var(--muted); }
   #saveState:empty { display: none; }
-  #gate { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
-  #gate button { background: var(--accent); color: var(--on-accent); font-weight: 600; font-size: 16px; padding: 12px 32px; border-radius: 999px; }
+  #gate { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--muted); }
+  #gate button { height: var(--h-lg); padding: 0 18px; border-radius: var(--r); background: var(--accent); color: var(--on-accent); font-weight: 600; font-size: 14px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35); }
   #gate .err { color: var(--danger); }
   #work { position: absolute; inset: 0; background: var(--bg); color: var(--text); }
   #view { position: absolute; inset: 0; background: var(--bg); touch-action: none; }
@@ -50,26 +45,39 @@
   #view.cutting canvas { cursor: crosshair; }
   #view.pick canvas { cursor: pointer; }
   #cutLine { pointer-events: none; }
-  .pill { position: absolute; z-index: 2; display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 999px; background: rgba(14,14,15,.72); color: #fff; }
-  .pill button { height: 36px; min-width: 36px; padding: 0 14px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
-  .pill button:hover:not(:disabled) { background: rgba(255,255,255,.16); }
-  .pill button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
-  .pill button.ok { background: var(--accent); color: var(--on-accent); }
-  .pill button.danger { color: var(--danger); }
+  .pill { position: absolute; z-index: 2; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 12px; background: rgba(18, 18, 21, .78); -webkit-backdrop-filter: blur(16px) saturate(140%); backdrop-filter: blur(16px) saturate(140%); box-shadow: 0 0 0 1px rgba(255, 255, 255, .07), 0 16px 40px -12px rgba(0, 0, 0, .7); color: #EDEDEF; }
+  .pill button { height: 32px; min-width: 32px; padding: 0 12px; border-radius: 8px; font-size: 13px; font-weight: 500; white-space: nowrap; }
+  .pill button:hover:not(:disabled) { background: rgba(255, 255, 255, .08); }
+  .pill button[aria-pressed="true"], .pill button.on { background: rgba(212, 255, 79, .14); color: #D4FF4F; box-shadow: inset 0 0 0 1px rgba(212, 255, 79, .3); }
+  .pill button.ok { background: #D4FF4F; color: #0B0B0D; font-weight: 600; }
+  .pill button.danger { color: #FF5C5C; }
   .pill button:disabled { opacity: .35; cursor: default; }
   /* 版面跟 Wall 編輯器同一套：左上牆資訊、右上復原／重做／存檔、下方中間工具列、選到岩點的動作列浮在工具列上方 */
-  .pill button.on { background: var(--accent); color: var(--on-accent); }
   .pill [hidden] { display: none; }
   #histbar { right: 12px; top: 12px; }
   #toolbar { left: 50%; bottom: 16px; transform: translateX(-50%); }
   #editBar { display: flex; gap: 2px; }
   #bar { left: 50%; bottom: 68px; transform: translateX(-50%); }
-  #holdInfo { position: absolute; left: 12px; top: 12px; z-index: 2; padding: 8px 16px; border-radius: 999px; background: rgba(14,14,15,.72); color: #fff; font-size: 14px; font-variant-numeric: tabular-nums; }
+  /* 試用：回報選項浮在點的地方旁邊，回報清單收在右上 */
+  #tryStage { position: absolute; inset: 0; z-index: 1; background: var(--bg); touch-action: none; }
+  #tryStage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #tryBar { flex-wrap: wrap; max-width: min(360px, calc(100% - 24px)); }
+  #tryChips { display: flex; flex-wrap: wrap; gap: 2px; }
+  #holdInfo[hidden] { display: none; }
+  #tryList { position: absolute; right: 12px; top: 12px; z-index: 2; width: min(220px, 40vw); max-height: 30vh; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
+  #tryList:empty { display: none; }
+  .tryItem { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 10px; background: rgba(18, 18, 21, .78); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: 0 0 0 1px rgba(255, 255, 255, .07); color: #EDEDEF; font-size: 13px; }
+  .tryHead { align-self: flex-end; padding: 6px 12px; border-radius: 999px; background: rgba(18, 18, 21, .78); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: 0 0 0 1px rgba(255, 255, 255, .07); color: #EDEDEF; font-size: 13px; }
+  .tryGo { flex: 1; text-align: left; color: inherit; }
+  .tryDel { color: #FF5C5C; font-size: 12px; }
+  #report { position: absolute; inset: 0; z-index: 3; overflow: auto; padding: 24px; background: var(--bg); color: var(--text); }
+  #report > * { max-width: 1120px; margin-inline: auto; }
+  #holdInfo { position: absolute; left: 12px; top: 12px; z-index: 2; display: flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 10px; background: rgba(18, 18, 21, .78); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: 0 0 0 1px rgba(255, 255, 255, .07); color: #EDEDEF; font-size: 13px; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
 <section class="ak-landing">
-  <header class="ak-ld-bar"><a href="../../"><img src="../../icons/brand/climbio-horizontal-light.svg" width="116" height="32" alt="Climbio"></a></header>
+  <header class="ak-ld-bar"><a href="../../"><img src="../../icons/brand/climbio-horizontal-dark.svg" width="116" height="32" alt="Climbio"></a></header>
   <div class="ak-ld-hero">
     <img src="../../icons/brand/climbio-mark.svg" alt="">
     <h1>Climbio Lab</h1>
@@ -85,7 +93,7 @@
 </section>
 <header id="top">
   <a class="st-brand" href="../"><img src="../../icons/brand/climbio-mark.svg" alt="Climbio">Studio</a>
-  <span class="st-ws">Wall 3D</span>
+  <span class="st-ws">3D Lab</span>
   <b id="wallName"></b>
   <span id="saveState"></span>
   <span class="grow"></span>
@@ -94,23 +102,29 @@
 <main>
 <div id="gate">
   <button id="open" data-i18n="w3OpenFolder">選 3D 牆的資料夾</button>
+  <input id="files" type="file" multiple hidden aria-label="wall files">
   <button id="restore" class="alt" data-i18n="w3Restore" hidden>下載已發佈的版本</button>
   <span id="gateErr" class="err" hidden></span>
 </div>
 <div id="work" data-climbio-theme="indoor" hidden>
   <div id="view"></div>
+  <div id="tryStage" hidden></div>   <!-- 試用：烘好的成品，岩點貓同一個舞台與沿牆鏡頭 -->
   <span id="holdInfo"></span>
   <div id="histbar" class="pill"><button id="undo" data-i18n="w3Undo" disabled>復原</button><button id="redo" data-i18n="w3Redo" disabled>重做</button><button class="ok" id="save" data-i18n="w3Save" disabled>存檔</button></div>
   <div id="toolbar" class="pill">
     <button id="modeCut" data-stage="model" aria-pressed="false" data-i18n="w3Cut">切直線</button>
     <button id="modeAdd" data-stage="holds" aria-pressed="false" data-i18n="w3ToolAdd">新增</button>
     <button id="modeDraw" data-stage="holds" aria-pressed="false" data-i18n="w3ToolDraw">手畫</button>
+    <button id="tryDone" data-stage="try" class="ok" data-i18n="w3TryDone">試用完</button>
   </div>
+  <div id="tryBar" class="pill" hidden><span id="tryChips"></span></div>   <!-- 點了的地方旁邊：兩種問題一點就回報 -->
+  <div id="tryList" hidden></div>
   <div id="bar" class="pill" hidden>
     <button class="ok" id="selEdit" data-i18n="w3EditOutline">修外框</button><button class="danger" id="selDel" data-i18n="w3Delete">刪除</button>
     <span id="editBar" hidden><button class="danger" id="editDel" data-i18n="w3Delete">刪除</button><button class="ok" id="editOk" data-i18n="w3Done">完成</button></span>
   </div>
 </div>
+<section id="report" class="st-page" hidden><ol id="rpSteps"></ol><div id="rpNotes"></div></section>   <!-- 3D 重建流程的量測、AI 逐顆檢查：資料夾裡有 *-summary.json 或 review3d.json 才出現 -->
 </main>
 <script src="../../appkit/i18n.js"></script>
 <script src="../i18n-boot.js" data-packs="studio studio-wall3d"></script>
@@ -118,6 +132,10 @@
 <script src="../../backend/firebase.js"></script>   <!-- 發佈要帶的 App Check 權杖（studio/backend.js 的 appCheck） -->
 <script src="../../version.js"></script>
 <script src="../shell.js"></script>
+<script src="../report-frame.js"></script>
+<script src="report.js"></script>
+<script src="review.js"></script>
+<script src="feedback.js"></script>
 <script type="module" src="app.js"></script>
 </body>
 </html>

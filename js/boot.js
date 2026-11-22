@@ -12,9 +12,9 @@
   } catch (e) { /* 判斷不了就照一般的 App */ } })();
   if (['climbio-dev.web.app', 'climbio-dev.firebaseapp.com', 'climbio-eric.web.app', 'localhost', '127.0.0.1', '[::1]'].includes(location.hostname)) {
     document.documentElement.classList.add('env-dev');
-    document.title = '岩點貓 Beta';
-    document.querySelector('meta[name="apple-mobile-web-app-title"]').content = '岩點貓 Beta';
+    document.title = '岩點貓 DEV';
+    document.querySelector('meta[name="apple-mobile-web-app-title"]').content = '岩點貓 DEV';
     document.querySelector('link[rel="manifest"]').href = 'manifest-dev.webmanifest';
   }
   // 語言包：只載入目前語言（i18n/common、i18n/hold 的 <語言>.js，見 appkit/i18n.js），在主程式之前執行完
-  AppKit.i18n.boot({ app: 'hold', key: 'climbio.lang' });
+  AppKit.i18n.boot({ app: 'hold' });

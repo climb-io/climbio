@@ -11,7 +11,7 @@ AppKit.i18n.add('studio-crag-data', 'en', {
   cdAdapted: (own) => `Adapted by ${own}`,
   cdAttrSep: '; ',
   // Publishing, storage
-  cdNoPosition: 'No crag location: photos need a capture location, or enter the crag location (latitude, longitude) on the Crag page',
+  cdNoPosition: 'No crag location: photos need a capture location, the map needs walls or areas, or enter the crag location (latitude, longitude) on the Crag page',
   cdBadFormat: (e) => `Invalid format: ${e}`,
   cdPackOrtho: 'Aerial photo',
   cdPackContours: 'Contours',
@@ -23,6 +23,9 @@ AppKit.i18n.add('studio-crag-data', 'en', {
   cdFieldAttribution: 'attribution',
   cdFieldLicense: 'license',
   cdFieldGrade: 'grade system',
+  cdFieldCountry: 'country',
+  cdNoCountry: 'The outline has no country (write "國家：tw" under the crag): Redpoint Cat\'s world groups crags by country, so add it before publishing',
+  cdCountryBad: (v) => `The country must be a two-letter code (such as tw): "${v}"`,
   cdTableNoHeading: (line) => `Line ${line}: the table has no heading before it; start with "# Crag name"`,
   cdSecondTop: (line, name) => `Line ${line}: "${name}" is a second top-level heading; an outline is one crag, so put the others under it with "##"`,
   cdImageNoHeading: (line) => `Line ${line}: the image has no heading before it`,

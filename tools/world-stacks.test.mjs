@@ -47,6 +47,8 @@ test('合成：Guidebook 與 OpenClimbing 合成三層樹；樹本身不排格�
   ];
   const items = worldItemsFrom(books, oc);
   assert.equal(items.filter((i) => i.book).length, 2);   // 正本加另一版
+  // 另一版是排第一那版的祖先（同一本書的舊版）→ 不另外列一張卡片
+  assert.equal(worldItemsFrom([{ ...books[0], lineage: ['fr1b'] }]).length, 1);
   assert.equal(items.filter((i) => i.crag).length, 1 + 8 + 3 + 2);
   assert.equal(items[0].area, 'Yzeron');
   assert.equal(items.find((i) => i.crag?.osmId === 1).area, '龍洞');

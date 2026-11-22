@@ -242,11 +242,12 @@ html.welcome-boot #landing[hidden] { display: flex; }
 .sheet-btn svg { width: 20px; height: 20px; color: var(--accent-text); }
 .sheet-cancel { background: var(--surface-2); border-radius: var(--radius); padding: 17px; font-weight: 700; color: var(--muted); }
 /* 裁切 */
-#crop { position: fixed; inset: 0; z-index: 30; background: #000; display: flex; flex-direction: column; }
+#crop, #shotCam { position: fixed; inset: 0; z-index: 30; background: #000; display: flex; flex-direction: column; }
 .crop-bar { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: calc(12px + var(--safe-t)) 12px 8px; }
 .crop-bar .ed-x svg { transform: rotate(45deg); }
 .crop-stage { flex: 1; min-height: 0; display: grid; place-items: center; }
 #cropCv { touch-action: none; display: block; }
+#shotVideo { max-width: 100%; max-height: 100%; display: block; }
 .crop-actions { display: flex; justify-content: center; gap: 16px; padding: 10px 16px calc(20px + var(--safe-b)); }
 
 /* ---------- 牆面頁：照片＋入口 ---------- */
@@ -276,7 +277,6 @@ html.welcome-boot #landing[hidden] { display: flex; }
 .ed-top { align-items: center; gap: 4px; padding: calc(6px + var(--safe-t)) 8px 6px; }
 .ed-title { flex: 1; min-width: 0; font-weight: 600; font-size: 17px; padding-left: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }   /* 沒字也要留著：把右邊的按鈕推到最右 */
 .zoom-v { min-width: 50px; text-align: center; color: var(--muted); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
-#viewPanel .view-row { display: grid; grid-template-columns: 1fr auto auto auto 1fr; align-items: center; }   /* 上一條／下一條置中 */
 .sheet-btn:disabled { opacity: .35; }
 /* 個人攀爬紀錄：路線列表的完攀標示 */
 .log-mark { flex: none; display: inline-flex; align-items: center; gap: 2px; color: var(--accent-text); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -330,16 +330,7 @@ html.welcome-boot #landing[hidden] { display: flex; }
 .swipe-hint.armed { color: var(--accent); }
 @media (prefers-reduced-motion: reduce) { .slide-next, .slide-prev { animation: none; } }
 /* 定線：下方四個類型按鈕；上方難度；看路線圖時名稱直接點了修改 */
-.type-row { gap: 6px; }
 /* 類型：平常只有色點和字，選中的那顆用自己的顏色淡淡鋪底 */
-.type-btn { flex: 1; min-width: 0; height: 40px; border-radius: 999px; background: transparent; color: var(--text); font-weight: 500; font-size: 14px;
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 0; white-space: nowrap; }
-.type-btn span { opacity: .6; }
-.type-btn[aria-pressed="true"] { background: color-mix(in srgb, currentColor 20%, transparent); }
-.type-btn[aria-pressed="true"] span { opacity: 1; font-weight: 600; }
-.type-btn[data-type="s"] { color: var(--start); } .type-btn[data-type="h"] { color: var(--hand); }
-.type-btn[data-type="f"] { color: var(--foot); } .type-btn[data-type="t"] { color: var(--top); }
-.type-btn span { color: var(--text); transition: opacity .15s; }
 /* 難度轉盤：左右滑或點旁邊的難度切換，只看得到目前的和前後一兩個（兩邊淡出），選中的是螢光綠 */
 .grade-dial { flex: none; width: 132px; height: 44px; display: flex; align-items: center; overflow-x: auto; overscroll-behavior: contain;
   scroll-snap-type: x mandatory; scrollbar-width: none; padding: 0 43px;
@@ -434,12 +425,29 @@ html:has(.sheet-backdrop:not([hidden])), html:has(.sheet-backdrop:not([hidden]))
 :is(.vw-base, .st-base)[aria-pressed="true"] { color: var(--accent); }
 
 @keyframes pill-in { from { opacity: 0; transform: translate(-50%, 16px) scale(.9); } }
-.vw-title { position: absolute; left: calc(12px + var(--tb) + var(--tg)); right: calc(12px + 3 * (var(--tb) + var(--tg))); top: calc(15px + var(--safe-t)); display: flex; align-items: baseline; gap: 8px; pointer-events: auto;
+/* 相機看線：整個畫面蓋一層追蹤頁（iframe），左上返回 */
+.cam-view { position: fixed; inset: 0; z-index: 40; background: #000; }
+.cam-view[hidden] { display: none; }
+.cam-view iframe { width: 100%; height: 100%; border: 0; display: block; }
+.cam-close { position: absolute; left: 12px; top: calc(12px + var(--safe-t)); width: var(--tb); height: var(--tb); background: rgba(14,14,15,.55); }
+/* 看路線圖右上：灰階／暗彩圓鈕，旁邊是「⋯」：相機看線（3D 牆）、編輯路線、分享收在選單裡 */
+.vw-more { position: absolute; right: 12px; top: calc(12px + var(--safe-t)); }
+.vw .vw-more, .vw .vw-base { width: var(--tb); height: var(--tb); background: rgba(14,14,15,.35); }
+.vw-base { position: absolute; right: calc(12px + var(--tb) + var(--tg)); top: calc(12px + var(--safe-t)); }
+.vw .vw-base[aria-pressed="true"] { background: rgba(14,14,15,.35); color: var(--accent); }   /* 暗彩亮著：圖示螢光綠、不鋪底 */
+.vw-menu { pointer-events: auto; top: calc(18px + var(--safe-t) + var(--tb)); }
+.vw:has(.vw-menu:not([hidden])) { z-index: 6; }   /* 選單開著時蓋過右邊的縮放（z-index 5） */
+.vw-menu .vw-item { display: flex; align-items: center; gap: 12px; }
+.vw-menu .vw-item[hidden] { display: none; }
+.vw-menu .vw-item svg { width: 20px; height: 20px; flex: none; }
+.vw-title { position: absolute; left: calc(12px + var(--tb) + var(--tg)); right: calc(12px + 2 * (var(--tb) + var(--tg))); top: calc(15px + var(--safe-t)); display: flex; align-items: baseline; gap: 8px; pointer-events: auto;
   color: #fff; text-shadow: 0 1px 8px rgba(0,0,0,.6); }
 .vw-title b { font: italic 700 34px/1 var(--display); flex: none; }
 .vw-mark { flex: none; width: 18px; height: 18px; color: var(--accent); }
 .vw-mark svg { width: 18px; height: 18px; }
 .vw-title #routeTitle { flex: 1; min-width: 0; background: transparent; border: 0; color: #fff; font-size: 15px; font-weight: 600; padding: 4px 0; text-shadow: inherit; pointer-events: none; }
+.vw-feet { flex: none; font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: rgba(0,0,0,.45); color: #fff; }
+.vw-feet[hidden] { display: none; }
 .vw-count { position: absolute; left: 0; top: calc(100% + 6px); font: italic 700 13px/1 var(--display); color: rgba(255,255,255,.6); }   /* 放在難度下面：四位數的條數（1000 條）才不把路線名稱擠掉 */
 @media (prefers-reduced-motion: reduce) { .rarc-btn, .rfab-btn svg { transition: none !important; } }
 
@@ -464,7 +472,7 @@ html:has(.sheet-backdrop:not([hidden])), html:has(.sheet-backdrop:not([hidden]))
    左上 × 取消、旁邊是難度轉盤（定線）或岩點數量（岩點）；右上螢光綠 ✓ 完成；
    下方左邊是類型膠囊（定線）或畫岩點的圓鈕；右下「＋」放不常用的功能；選到岩點時「＋」上方多一顆紅色垃圾桶 */
 #editor:not(.viewing) > .ed-bar { position: absolute; left: 0; right: 0; z-index: 4; background: transparent; pointer-events: none; }
-#editor:not(.viewing) > .ed-bar :is(button, .grade-dial, .type-row) { pointer-events: auto; }
+#editor:not(.viewing) > .ed-bar :is(button, .grade-dial) { pointer-events: auto; }
 #editor:not(.viewing) > .ed-top { top: 0; padding: calc(12px + var(--safe-t)) 12px 0; gap: var(--tg); }
 #editor:not(.viewing) > .ed-bottom { bottom: 0; padding: 0 16px calc(26px + var(--safe-b)) 16px; }
 #editor:not(.viewing) .ed-panel { margin: 0; align-items: flex-start; }
@@ -476,54 +484,39 @@ html:has(.sheet-backdrop:not([hidden])), html:has(.sheet-backdrop:not([hidden]))
 #editor:not(.viewing) #edDelRoute { display: none; }
 #editor:not(.viewing) .ed-title { flex: 1; }
 /* 手機定線：「灰階／暗彩」「顯示所有岩點」放在上方（跟取消、完成一樣的圓鈕），開著（暗彩、顯示所有岩點）時鋪螢光綠 */
-#editor:not(.viewing) :is(#baseBtn, #outlineBtn) { width: var(--tb); height: var(--tb); border-radius: 50%; color: #fff; background: rgba(14,14,15,.35); }
-#editor:not(.viewing) :is(#baseBtn, #outlineBtn) svg { width: 22px; height: 22px; }
-#editor:not(.viewing) #outlineBtn[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
-#editor:not(.viewing) #baseBtn[aria-pressed="true"] { color: var(--accent); }   /* 暗彩是定線的預設：只把圖示換成螢光綠，不鋪底，不搶眼 */
-#editor:not(.viewing) > .ed-top :is(#edCancel, #baseBtn, #outlineBtn, #edDone) { flex: none; }   /* 圓鈕不被擠扁 */
-#editor:not(.viewing) > .ed-top :is(#edCancel, #edDone) { width: var(--tb); height: var(--tb); }
+#editor:not(.viewing) > .ed-top :is(#edCancel) { flex: none; }   /* 圓鈕不被擠扁 */
+#editor:not(.viewing) > .ed-top #edCancel { width: var(--tb); height: var(--tb); }
 #editor:not(.viewing) > .ed-top #edCancel { background: rgba(14,14,15,.35); }
 #editor:not(.viewing) .gd-item { font-size: 30px; text-shadow: 0 1px 8px rgba(0,0,0,.6); }
 #editor:not(.viewing) .gd-item:not(.on) { color: #fff; }
 /* 類型：半透明膠囊，只有色點，選中的才顯示字 */
 /* 手機定線：類型列佔滿整個寬度（下面沒有「＋」了），每顆一樣寬、色點和字都看得到，選中的那顆用自己的顏色鋪底 */
 #routePanel { align-items: stretch; }
-.type-row { align-self: stretch; gap: 4px; padding: 5px; border-radius: 999px; background: rgba(14,14,15,.6); }
-.type-row .type-btn { flex: 1 1 auto; height: 48px; min-width: 0; padding: 0 6px; gap: 5px; font-size: 14px; }
-.type-row .type-btn .sw-slot { transform: scale(1.15); }
 /* 順序的「1」跟其他色點一樣大，數字用實際高度置中 */
-.type-row .sw-slot { display: inline-grid; place-items: center; }   /* 色點不跟著文字基線走，才跟字對齊 */
-.type-row .seq-dot { width: 11px; height: 11px; font-size: 8px; line-height: 1; }
 /* 選中的類型：底下一塊會流動的色塊（js 的 slideTypePill），按鈕本身不換底色 */
-.type-pill { display: none; }
-.type-row { position: relative; --pw: calc((100% - 26px) / 5); --step: calc(var(--pw) + 4px); }
-.type-pill { display: block; position: absolute; top: 5px; bottom: 5px; left: calc(5px + var(--i, 0) * var(--step)); width: var(--pw);
-  border-radius: 999px; background: color-mix(in srgb, currentColor 22%, transparent); pointer-events: none; transition: color .25s; }
 @media (max-width: 400px) {
   #editor:not(.viewing) > .ed-bottom { padding-inline: 10px; }
-  .type-row { gap: 2px; }
-  .type-row .type-btn { padding: 0 4px; gap: 3px; font-size: 12.5px; }
 }
-.type-row .type-btn { position: relative; }
-.type-row .type-btn[aria-pressed="true"] { background: transparent; }
 /* 單點編輯：浮在選到的岩點下方的小膠囊（位置由 js 的 placeHoldActions 設）：復原（用到底變灰）、刪除、完成（螢光綠，跟刪除隔開一點） */
 #holdActions { position: fixed; left: 50%; top: 50%; z-index: 4; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px;
   background: rgba(14,14,15,.6); }
 #holdActions[hidden] { display: none; }
 #holdActions .ha-gap { width: 1px; height: 22px; background: rgba(255,255,255,.18); }
-#holdActions :is(#holdLasso, #holdUndo, #delHold) { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: transparent; }   /* 膠囊本身有深色底，按鈕再疊一層會多出一圈深色圓底 */
+#holdActions :is(#holdLasso, #holdRetrace, #holdUndo, #delHold) { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: transparent; }   /* 膠囊本身有深色底，按鈕再疊一層會多出一圈深色圓底 */
 #holdActions #holdLasso[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+#holdActions #holdLasso[aria-pressed="true"] svg { transform: rotate(45deg); }   /* 圈的時候是「取消」：加號轉 45° 成 × */
+#holdActions #holdLasso[hidden] { display: none; }
 /* 圈起來時膠囊只留「圈」一顆（當離開鈕），放在畫面右下角，其他按鈕收起來，不擋要圈的量體 */
 #holdActions.lassoing > :not(#holdLasso) { display: none; }
-#holdActions #holdUndo:disabled { opacity: .35; }
+#holdActions :is(#holdUndo, #holdRetrace):disabled { opacity: .35; }
+#holdActions #holdRetrace[hidden] { display: none; }
 #holdActions #delHold { color: var(--danger); }
 #holdActions #holdDone { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; margin-left: 8px; }
 /* 類型列從中間撐開、稍微彈一下；單點編輯的膠囊從岩點那邊彈出來 */
 @keyframes capsule-in { from { transform: scale(.55, .8); opacity: 0; } 60% { transform: scale(1.03, .97); opacity: 1; } to { transform: none; } }
 @keyframes pop-in { from { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.06); opacity: 1; } to { transform: none; } }
-.type-row { animation: capsule-in .34s cubic-bezier(.2, .8, .3, 1) both; }
 #holdActions { animation: pop-in .3s cubic-bezier(.2, .8, .3, 1) both; transform-origin: 50% 0; }
-@media (prefers-reduced-motion: reduce) { body :is(.type-row, #holdActions) { animation: none; } }
+@media (prefers-reduced-motion: reduce) { body :is(#holdActions) { animation: none; } }
 #draftBar .vw-btn { flex: none; }
 /* 「＋」展開時，左下的類型膠囊、畫岩點的圓鈕先淡出（不跟 1/4 圓的按鈕疊在一起） */
 #editor > .ed-bottom { transition: opacity .2s; }
@@ -585,7 +578,7 @@ html:has(.sheet-backdrop:not([hidden])), html:has(.sheet-backdrop:not([hidden]))
 #homeAvatar { width: 40px; height: 40px; font-size: 17px; }   /* 首頁右上：跟「登入」膠囊一樣高（上方一排都是 40 px） */
 #homeAvatar svg { width: 22px; height: 22px; }
 /* 首頁選單：三段（帳號、我的紀錄、設定），最底是條款和版本的小灰字 */
-.home-menu { position: fixed; max-height: calc(100dvh - 70px - var(--safe-t)); overflow-y: auto; width: min(320px, calc(100vw - 24px)); padding: 8px; gap: 6px; transform-origin: top right; animation: menu-in .22s var(--spring) both; }
+.home-menu { position: fixed; max-height: calc(100dvh - 70px - var(--safe-t)); overflow-y: auto; width: min(336px, calc(100vw - 20px)); padding: 8px; gap: 6px; transform-origin: top right; animation: menu-in .22s var(--spring) both; }
 @keyframes menu-in { from { opacity: 0; transform: translateY(-6px) scale(.97); } }
 .hm-acct { display: flex; align-items: center; gap: 12px; padding: 8px 6px 8px 8px; }
 .hm-acct[hidden] { display: none; }
@@ -599,9 +592,9 @@ html:has(.sheet-backdrop:not([hidden])), html:has(.sheet-backdrop:not([hidden]))
 .hm-stats small { color: var(--muted); font-size: 12px; font-weight: 600; }
 .hm-stats { cursor: default; }
 .hm-set { display: flex; flex-direction: column; border-top: 1px solid var(--line); padding: 4px 0; margin-top: 4px; }
-.hm-set .menu-row { justify-content: flex-start; gap: 12px; }
+.hm-set .menu-row { justify-content: flex-start; gap: 8px; }
 .hm-set .menu-row svg { width: 20px; height: 20px; color: var(--muted); flex: none; }
-.hm-set .menu-row .menu-val { margin-left: auto; max-width: 50%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+.hm-set .menu-row .menu-val { margin-left: auto; max-width: 52%; flex: 0 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
 
 /* 分析：灰階暗照片＋螢光綠掃描線；結果回來岩點用原本的顏色一顆顆亮起，下方數字跳到 N */
 #scan { position: fixed; inset: 0; z-index: 31; background: #000; display: flex; flex-direction: column; animation: item-in .3s var(--spring) both; }
@@ -622,7 +615,6 @@ html:has(.sheet-backdrop:not([hidden])), html:has(.sheet-backdrop:not([hidden]))
 .scan-count small { color: var(--muted); font-size: 15px; font-weight: 600; }
 .scan-gym { height: 36px; padding: 0 16px; border-radius: 999px; background: var(--surface); color: var(--text); font-size: 14px; font-weight: 600; animation: item-in .35s var(--spring) both; }
 .scan-gym[hidden] { display: none; }
-#gymSheet { z-index: 32; }   /* 分析畫面上也打得開 */
 #find { min-height: 100%; padding-bottom: calc(24px + var(--safe-b)); }
 .find-gym { padding: 4px 16px 10px; }
 .find-gym-btn { height: 36px; padding: 0 16px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 14px; font-weight: 700; }
@@ -767,7 +759,8 @@ html:not(.pcland) .ld-bar .wordmark { width: 191px; height: 41px; }
 .grp-strip img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .wall-hero::after { content: ''; position: absolute; inset: 40% 0 0; background: linear-gradient(transparent, rgba(0,0,0,.7)); pointer-events: none; }
 .wall-hero .wall-name { position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 1; color: #fff; font-size: 22px; font-weight: 700; padding: 4px 8px; text-shadow: 0 1px 8px rgba(0,0,0,.5); }
-.wall-hero .wall-name:hover, .wall-hero .wall-name:focus { background: rgba(0,0,0,.45); }
+.wall-hero .wall-name:hover { background: transparent; }
+.wall-hero .wall-name:focus { background: rgba(0,0,0,.45); }
 .route-tools[hidden], .rf-chips[hidden], .prog-bar[hidden] { display: none; }
 /* 牆面頁：左邊完攀／未完攀篩選、右邊排序，下面一整條跟首頁小卡 .wb 一樣的細進度條 */
 .route-tools { display: grid; grid-template-columns: 1fr auto; align-items: center; row-gap: 8px; }
@@ -794,11 +787,14 @@ html:not(.pcland) .ld-bar .wordmark { width: 191px; height: 41px; }
 #routeList .rc-text { position: absolute; left: 0; right: 0; bottom: 0; padding: 28px 12px 10px; display: flex; flex-direction: row; align-items: baseline; gap: 8px; min-width: 0;
   background: linear-gradient(transparent, rgba(0,0,0,.72)); color: #fff; pointer-events: none; }
 .rc-grade { font: italic 700 24px/1 var(--display); flex: none; }
-#routeList .rc-name { font-size: 13px; font-weight: 600; color: rgba(255,255,255,.8); }
-#routeList .rc-sub { font-size: 12px; color: rgba(255,255,255,.7); margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 定線者的暱稱優先：地方不夠時先縮路線名稱（出現…），暱稱完整顯示（太長才縮，最多佔六成） */
+#routeList .rc-name { flex: 1 1 0; min-width: 0; font-size: 13px; font-weight: 600; color: rgba(255,255,255,.8); }
+#routeList .rc-sub { flex: none; max-width: 60%; font-size: 12px; color: rgba(255,255,255,.7); margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rs-name { font-size: 17px; padding: 15px 16px; }
 /* 公開牆上這次打開 App 後新出現的別人的線；隱藏的線放在清單最後，按了放回來 */
-#routeList .rc-fresh { position: absolute; top: 8px; right: 8px; padding: 3px 8px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 800; }
+/* 短句貼紙：米白膠帶（跟開場畫面、分享圖的標籤同一套），貼歪一點 */
+#routeList .rc-fresh { position: absolute; top: 10px; right: 8px; padding: 3px 10px; background: #f3eee2; color: #1f1c18; font-size: 14px; font-weight: 400; transform: rotate(-3deg);
+  box-shadow: 0 3px 8px rgba(0,0,0,.35); pointer-events: none; }
 .hidden-lines { grid-column: 1 / -1; justify-self: center; margin: 4px 0 8px; padding: 8px 14px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: 13px; font-weight: 600; }
 #routeList .route-more { grid-column: 1 / -1; height: 1px; }
 #routeList .log-mark { position: absolute; top: 8px; left: 8px; height: 26px; min-width: 26px; padding: 0 6px; border-radius: 999px; justify-content: center;
@@ -811,7 +807,7 @@ body.flying { pointer-events: none; }
 @keyframes wall-in { from { opacity: 0; transform: translateY(14px); } }
 @media (prefers-reduced-motion: reduce) { .rc-thumb.in, #wall.entering .overview > * { animation: none; } }
 
-/* ---------- 操作示範（js/tour.js）：上面段落名稱和「跳過」，中間縮小的示範畫面（裡面照手機實際大小排，整個 transform 縮小），下面一句說明 ---------- */
+/* ---------- 單點編輯的膠囊等（原操作示範的樣式；js/tour.js 與教學動畫已移除，這些類別仍在用） ---------- */
 .st { position: fixed; inset: 0; z-index: 45; display: flex; flex-direction: column; padding: calc(8px + var(--safe-t)) 16px calc(14px + var(--safe-b));
   background: #0b0b0c; color: #fff; }
 .st[hidden] { display: none; }
@@ -875,18 +871,6 @@ body.flying { pointer-events: none; }
 /* 換底色（灰階↔暗彩）的轉場：新的底從手指按的地方漫開，邊上一圈淡淡的光環（js 的 baseSwap 每格設位置、大小） */
 .base-swap { pointer-events: none; }
 .base-ring { position: fixed; z-index: 16; border-radius: 50%; border: 2px solid rgba(255,255,255,.55); box-shadow: 0 0 18px rgba(255,255,255,.25), inset 0 0 18px rgba(255,255,255,.15); pointer-events: none; }
-/* 小人提示（真實的 App）：右下「＋」的左上，泡泡在左、小人在右下角靠近「＋」；不擋操作，一碰就收 */
-.app-tip { position: fixed; z-index: 30; display: flex; align-items: flex-end; gap: 2px; pointer-events: none; animation: tip-in .45s cubic-bezier(.2,.8,.3,1.3) both; }
-.app-tip[hidden] { display: none; }
-.app-tip.bye { animation: tip-out .3s ease-in forwards; }
-.app-tip p { margin: 0 0 30px; max-width: 220px; padding: 10px 14px; border-radius: 18px 18px 4px 18px; color: rgba(255,255,255,.9); font-size: 15px; font-weight: 600; line-height: 1.35;
-  background: color-mix(in srgb, var(--surface) 72%, transparent); -webkit-backdrop-filter: blur(20px) saturate(1.4); backdrop-filter: blur(20px) saturate(1.4);
-  border: 1px solid rgba(255,255,255,.08); box-shadow: 0 12px 30px rgba(0,0,0,.4); }
-@keyframes mini-bob { 0%, 100% { rotate: 0deg; translate: 0 0; } 50% { rotate: -6deg; translate: 0 -4px; } }
-.app-tip-mini { flex: none; width: 56px; height: 56px; overflow: visible; animation: mini-bob 1.4s ease-in-out .45s infinite; }
-@keyframes tip-in { from { opacity: 0; transform: translateY(20px) scale(.8); } }
-@keyframes tip-out { to { opacity: 0; transform: translateY(12px) scale(.9); } }
-@media (prefers-reduced-motion: reduce) { .app-tip, .app-tip-mini { animation: none; } }
 /* 說明固定在岩點貓身旁，示範操作時持續顯示。 */
 .st-text { position: absolute; left: 0; top: 0; z-index: 3; max-width: calc(100% - 16px); margin: 0; padding: 10px 16px; border-radius: 18px; text-align: center;
   background: color-mix(in srgb, var(--surface) 72%, transparent); -webkit-backdrop-filter: blur(20px) saturate(1.4); backdrop-filter: blur(20px) saturate(1.4);   /* 跟收線的確認卡同一種毛玻璃 */
@@ -974,7 +958,6 @@ body.flying { pointer-events: none; }
   #routeList { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
   .lt-btn { width: 44px; height: 44px; }
   .ed-panel { max-width: 640px; }
-  .type-btn { height: 48px; }
   #shareDialog .share-card { max-width: 760px; margin: 0 auto; padding-left: 28px; padding-right: 28px; }
   html:not(.pcland) .landing { padding-left: max(32px, env(safe-area-inset-left, 0px)); padding-right: max(32px, env(safe-area-inset-right, 0px)); gap: 20px; }
   html:not(.pcland) .ld-shot { width: min(42vw, 36dvh, 400px); margin-top: 24px; flex-shrink: 0; }
@@ -1067,3 +1050,6 @@ body.flying { pointer-events: none; }
 
 /* 首頁上方的「同步其他裝置」提示（不浮在畫面上，不跟右下的按鈕搶位置） */
 .sync-hint { margin: 4px 16px 12px; box-shadow: none; border: 1px solid var(--line, rgba(128,128,128,.25)); }
+
+/* 定線：上下的按鈕在 kit 的操作介面（RouteKit.EditorUI，routekit/ui.js），頁首整條讓出來 */
+#editor.rk-routing > .ed-top { display: none; }

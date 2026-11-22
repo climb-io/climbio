@@ -52,19 +52,25 @@
     return new Blob([...parts, ...central, end], { type: 'application/zip' });
   }
 
-  /** ZIP 的 Blob → [{ name, blob }]（不壓縮或 deflate；資料夾項目略過，不是 ZIP 就丟錯） */
+  /**
+   * ZIP 的 Blob → [{ name, blob }]（不壓縮或 deflate；資料夾項目略過，不是 ZIP 就丟錯）。
+   * 只讀結尾與目錄，不壓縮的檔案直接切原本的 Blob（slice）：大 ZIP 不用整包讀進記憶體，選來的檔案切出來的仍指著磁碟上的檔（存進 IndexedDB 不用整包序列化）
+   */
   async function unzip(blob) {
-    const u = new Uint8Array(await blob.arrayBuffer()), v = new DataView(u.buffer), dec = new TextDecoder(), out = [];
-    let e = u.length - 22; while (e >= 0 && v.getUint32(e, true) !== 0x06054b50) e--;
+    const bytes = async (a, b) => new Uint8Array(await blob.slice(a, b).arrayBuffer());
+    const tailAt = Math.max(0, blob.size - 65557), tail = await bytes(tailAt, blob.size), tv = new DataView(tail.buffer), dec = new TextDecoder(), out = [];
+    let e = tail.length - 22; while (e >= 0 && tv.getUint32(e, true) !== 0x06054b50) e--;
     if (e < 0) throw new Error('不是 ZIP 檔');
-    let p = v.getUint32(e + 16, true);
-    for (let i = 0, n = v.getUint16(e + 10, true); i < n; i++) {
+    const n = tv.getUint16(e + 10, true), cdSize = tv.getUint32(e + 12, true), cdAt = tv.getUint32(e + 16, true);
+    const u = await bytes(cdAt, cdAt + cdSize), v = new DataView(u.buffer);
+    let p = 0;
+    for (let i = 0; i < n; i++) {
       const method = v.getUint16(p + 10, true), csize = v.getUint32(p + 20, true), nl = v.getUint16(p + 28, true), xl = v.getUint16(p + 30, true), cl = v.getUint16(p + 32, true), lo = v.getUint32(p + 42, true);
       const name = dec.decode(u.subarray(p + 46, p + 46 + nl)); p += 46 + nl + xl + cl;
       if (name.endsWith('/')) continue;
-      const start = lo + 30 + v.getUint16(lo + 26, true) + v.getUint16(lo + 28, true), raw = u.subarray(start, start + csize);
-      const data = method === 0 ? raw : method === 8 ? new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer()) : null;
-      if (data) out.push({ name, blob: new Blob([data]) });
+      const lh = new DataView((await bytes(lo, lo + 30)).buffer), start = lo + 30 + lh.getUint16(26, true) + lh.getUint16(28, true), raw = blob.slice(start, start + csize);
+      if (method === 0) out.push({ name, blob: raw });
+      else if (method === 8) out.push({ name, blob: await new Response(raw.stream().pipeThrough(new DecompressionStream('deflate-raw'))).blob() });
     }
     return out;
   }

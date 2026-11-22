@@ -82,6 +82,8 @@ AppKit.i18n.add('redpoint', 'ja', {
   // ワールド
   world: "ワールド",
   findingCrags: "岩場を探しています…",
+  findCrag: "岩場・地域・国を検索",
+  noResults: "該当する岩場がありません",
   loadFailed: (msg) => `読み込みに失敗しました：${msg}`,
   noPublicCrags: "公開されている岩場はまだありません",
   emptyTitle: "ワールドから最初の岩場を受け取ろう",

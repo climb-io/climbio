@@ -1,113 +1,11 @@
 <!doctype html>
-<html lang="zh-Hant" data-climbio-theme="outdoor">
+<html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#F7F9FB">
-<title>把路線書變成 3D 版｜Climbio Studio</title>
-<meta name="description" content="已經有 2D 路線書的岩場，拍一輪照片，AI 和工具把路線放到 3D 岩壁上，岩友在紅點貓裡沿著岩壁走、點路線。">
-<link rel="canonical" href="https://climbio.app/studio/crag3d/">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="Climbio">
-<meta property="og:locale" content="zh_TW">
-<meta property="og:url" content="https://climbio.app/studio/crag3d/">
-<meta property="og:title" content="把路線書變成 3D 版｜Climbio Studio">
-<meta property="og:description" content="已經有 2D 路線書的岩場，拍一輪照片，AI 和工具把路線放到 3D 岩壁上，岩友在紅點貓裡沿著岩壁走、點路線。">
-<meta property="og:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
-<meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="把路線書變成 3D 版｜Climbio Studio">
-<meta name="twitter:description" content="已經有 2D 路線書的岩場，拍一輪照片，AI 和工具把路線放到 3D 岩壁上，岩友在紅點貓裡沿著岩壁走、點路線。">
-<meta name="twitter:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
-<link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/studio/crag3d/">
-<link rel="alternate" hreflang="en" href="https://climbio.app/en/studio/crag3d/">
-<link rel="icon" href="../../icons/cats/redpoint-cat-192.png">
-<link rel="stylesheet" href="../../css/brand-tokens.css">
-<link rel="stylesheet" href="../../css/pages.css">
-<style>
-  .pg-card.step { margin: 18px 0; }
-  .pg-card.step h3 { margin: 6px 0 8px; }
-  .auto, .check, .you { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
-  .auto { background: #0B4A6B1a; color: #0B4A6B; }
-  .check { background: #e7a01e2e; color: #8a5a00; }
-  .you { background: #c83c3c1f; color: #a82e2e; }
-  .problems { margin: 14px 0 0; border-top: 1px dashed var(--pg-line-strong); padding-top: 12px; font-size: 15px; }
-  .problems b { font-size: 14px; color: var(--pg-muted); }
-  .problems ul, .pg ul.tight { margin: 6px 0; padding-left: 20px; }
-</style>
+<meta name="robots" content="noindex">
+<link rel="canonical" href="https://climbio.app/guides/crag3d.html">
+<meta http-equiv="refresh" content="0; url=../../guides/crag3d.html">
+<title>Climbio</title>
 </head>
-<body>
-<header class="pg-top"><a class="pg-brand" href="../../"><img src="../../icons/brand/climbio-mark.svg" alt=""><span>Climbio</span></a><span class="grow"></span><nav class="pg-nav" aria-label="相關頁面"><a href="../../">首頁</a><a href="../convert/">轉換路線書</a><a href="../../guides/shoot-3d.html">如何拍 3D 照片</a><a href="../">開啟 Studio</a><a href="../../en/studio/crag3d/" hreflang="en" lang="en">English</a></nav></header>
-<main class="pg">
-  <div class="pg-hero">
-    <h1>把 2D 路線書變成 3D 版</h1>
-    <p class="pg-lead">已經有 2D 路線書的岩場，拍一輪照片，AI 和工具把路線放到 3D 岩壁上。岩友在紅點貓裡站在步道上看整面岩壁、沿著岩壁走、點路線。</p>
-    <div class="pg-actions">
-      <a class="pg-btn primary" href="../../guides/shoot-3d.html#crag3d">先看怎麼拍</a>
-      <a class="pg-btn" href="#flow">看流程</a>
-    </div>
-  </div>
-
-  <section class="pg-section" id="goal" aria-labelledby="goal-title">
-    <h2 id="goal-title">轉完會有什麼</h2>
-    <div class="pg-grid three"><article class="pg-card"><span class="pg-num">1 · 沿著岩壁走</span><h3>像在岩場步道上</h3><p>點岩場直接進 3D，一次看整個岩場，左右拖就沿著岩壁走，不是一區一區切換。</p></article><article class="pg-card"><span class="pg-num">2 · 路線在岩壁上</span><h3>編號、難度、說明都在</h3><p>沿用你路線書的編號、難度和說明；點路線，鏡頭走到它前面，浮出說明卡。被岩壁擋住的路線不畫。</p></article><article class="pg-card"><span class="pg-num">3 · 手機離線看</span><h3>一次下載</h3><p>跟其他岩場一樣一次下載、離線可看。手機、電腦都看得到。</p></article></div>
-    <div class="pg-note"><ul class="tight"><li>你原本的路線書照用；3D 只是多一種看法，沒有 3D 的岩場照舊是 2D Topo。</li><li>路線在 3D 上的位置由 AI 找、工具檢查打分，發佈前仍要有人看過。</li><li>只用照片合成：照片沒拍到的地方不會被 AI 猜出來補上，補拍就好。</li></ul></div>
-  </section>
-
-  <section class="pg-section" id="flow" aria-labelledby="flow-title">
-    <h2 id="flow-title">流程</h2>
-    <p class="pg-sub">六步。每步先說誰做什麼，再列可能遇到的狀況。</p>
-    <article class="pg-card step"><span class="pg-num">步驟 1 · 先有 2D 路線書</span>
-      <h3>把路線書整理好</h3>
-      <p><span class="you">你</span> 在 Studio 用<a href="../convert/">轉換路線書</a>整理好：有岩壁、路線與照片，路線在 2D 照片上有線。3D 版是在這本書上加一個模型，路線的編號、難度、說明都沿用。</p>
-    </article>
-
-    <article class="pg-card step"><span class="pg-num">步驟 2 · 拍照</span>
-      <h3>兩套：貼近拍，加退後拍</h3>
-      <p><span class="you">你</span> 同一個岩場拍兩套：貼近拍（建岩壁近處、辨識起攀）和<strong>退後拍</strong>（讓讀者站在步道上看整面岩壁時不蒙霧）。拍法見<a href="../../guides/shoot-3d.html#crag3d">如何拍 3D 照片</a>。現場不必挑照片，也不必標路線。</p>
-      <div class="problems"><b>可能遇到</b><ul><li><strong>只拍了貼近的：</strong>建得出來，但從步道往整面岩壁看會蒙霧、岩頂重影。補一套退後拍。</li></ul></div>
-    </article>
-
-    <article class="pg-card step"><span class="pg-num">步驟 3 · 建 3D 模型</span>
-      <h3>自動建模、裁切、壓小</h3>
-      <p><span class="auto">自動</span> 整理照片、過濾沒用的、建模、裁掉多出來的邊與雜物、壓成手機放得下的大小。<span class="check">看一眼</span> 模型有沒有蒙霧、破洞，沒有就往下。</p>
-      <div class="problems"><b>可能遇到</b><ul><li><strong>某一塊像霧：</strong>那個角度沒有照片。回去在那一側補拍（退後、弧線、高低各一輪）。</li><li><strong>有洞、缺一塊：</strong>通常是被遮住或沒拍到，補拍那一邊。</li><li><strong>岩壁前面被草叢擋住：</strong>調整鏡頭的位置，或拍照時換個高度。</li></ul></div>
-    </article>
-
-    <article class="pg-card step"><span class="pg-num">步驟 4 · 把路線放到 3D 上</span>
-      <h3>AI 用你的 2D 路線找位置</h3>
-      <p><span class="auto">自動</span> AI 看路線書照片上畫好的路線，在 3D 岩壁上找到對應的位置：天然岩壁的內角、岩角正面看不出凹凸，所以用舊照片自己的角度投到模型上；工具再打分（投回舊照片的重疊、多張照片是否一致、是否貼著岩面、是否往上到頂），相鄰路線的起點自動對齊。<span class="check">看一眼</span> 只看低分的。</p>
-      <div class="problems"><b>可能遇到</b><ul><li><strong>線飄在空中、落在隔壁岩塊：</strong>低分會被挑出來，在畫面上把線拖回岩面。</li><li><strong>內角的線在錯的一面：</strong>用左右斜看的畫面對照舊照片。</li><li><strong>起點高低不一：</strong>相鄰路線的起點會自動對齊，仍不對的手動改。</li></ul></div>
-    </article>
-
-    <article class="pg-card step"><span class="pg-num">步驟 5 · 在紅點貓檢查</span>
-      <h3>沿岩壁走一遍</h3>
-      <p><span class="check">看一眼</span> 沿著岩壁走，每條線的位置、編號、難度、起點與終點。被岩壁擋住的線不畫、走近才出現，是正常的；不是漏掉。</p>
-    </article>
-
-    <article class="pg-card step"><span class="pg-num">步驟 6 · 發佈</span>
-      <h3>署名、授權照路線書</h3>
-      <p><span class="you">你</span> 確認署名；公開內容跟其他公開岩場一樣，授權是 CC BY-SA 4.0。發佈到開放資料集後，紅點貓收下就是 3D 版（沒有 3D 模型的書照舊是 2D）。</p>
-    </article>
-  </section>
-
-  <section class="pg-section" id="who" aria-labelledby="who-title">
-    <h2 id="who-title">誰做什麼</h2>
-    <p class="pg-sub">AI 和工具做重複的部分，人只做判斷。</p>
-    <div class="pg-scroll"><table><tr><th>AI／工具</th><th>你</th></tr><tr><td>過濾照片、建模、裁切、壓小</td><td>拍照、補拍（兩套）</td></tr><tr><td>用 2D 路線找 3D 位置、打分、挑出低分</td><td>看一眼模型有沒有蒙霧、破洞；看低分的路線</td></tr><tr><td>相鄰路線起點自動對齊</td><td>署名、發佈</td></tr></table></div>
-    <p class="pg-muted">位置、路線、署名、授權來自你的資料，不由 AI 推測；照片沒拍到的岩面不會被補出來。</p>
-  </section>
-
-  <section class="pg-section" id="status" aria-labelledby="status-title">
-    <h2 id="status-title">現況</h2>
-    <p class="pg-sub">哪些已經能用，哪些還在做。</p>
-    <div class="pg-scroll"><table><tr><th>項目</th><th>現況</th></tr><tr><td>拍照指南</td><td>已有：貼近拍、退後拍（<a href="../../guides/shoot-3d.html#crag3d">如何拍 3D 照片</a>）</td></tr><tr><td>建模</td><td>已用大砲岩做出一個模型（約 24 MB）；之後的岩場照退後拍的標準拍</td></tr><tr><td>路線放到 3D</td><td>現在是用舊照片投影，再人工逐條校對；AI 自動對位與打分、只把低分的給人看，還在做</td></tr><tr><td>Studio 工具</td><td>Studio Crag 已能帶著 3D 模型與路線發佈，並自動對齊相鄰路線的起點；3D 專用的檢查與修正畫面還在整理</td></tr><tr><td>讀者端</td><td>紅點貓已支援：點岩場直接進 3D、沿岩壁走、底部岩壁名稱、路線清單</td></tr><tr><td>範例</td><td><a href="../../p/rw9oa7t1taemt9zj">大砲岩（3D）</a>；紅點貓首頁的「看 3D 岩場範例」</td></tr></table></div>
-  </section>
-
-  <section class="pg-section" id="faq" aria-labelledby="faq-title">
-    <h2 id="faq-title">常見問題</h2>
-    <details class="pg-more"><summary>一定要拍兩套嗎？</summary><p>只想先試試，可以只拍貼近的，建得出來；但讀者從步道看整面岩壁時會蒙霧。想要像在岩場走動的感覺，要有退後拍。</p></details><details class="pg-more"><summary>檔案會很大嗎？</summary><p>大砲岩一個模型約 24 MB，加上每面岩壁一張約 0.5 MB 的快照。紅點貓一次下載、之後離線可看；模型大小會控制在手機放得下。</p></details><details class="pg-more"><summary>沒有 3D 的岩場呢？</summary><p>照舊：岩場頁的岩壁小卡、2D Topo，不受影響。</p></details><details class="pg-more"><summary>拍完要做什麼？</summary><p>把照片交給 Climbio 一起做；Studio 的 3D 專用畫面整理好之後，改成在 Studio 自己做。</p></details>
-  </section>
-  <footer class="pg-foot"><span>Climbio · 把路線書變成 3D 版</span><a href="../../">回首頁</a></footer>
-</main>
-</body>
+<body><a href="../../guides/crag3d.html">把路線書變成</a></body>
 </html>

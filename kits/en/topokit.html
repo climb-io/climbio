@@ -22,13 +22,17 @@
 <link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/kits/topokit.html">
 <link rel="alternate" hreflang="en" href="https://climbio.app/kits/en/topokit.html">
 <link rel="stylesheet" href="../../css/brand-tokens.css">
+<link rel="stylesheet" href="../../css/site-nav.css">
 <link rel="stylesheet" href="../../css/pages.css">
 </head>
-<body>
-<header class="pg-top"><a class="pg-brand" href="../../en/"><img src="../../icons/brand/climbio-mark.svg" alt=""><span>Climbio</span></a><span class="grow"></span><nav class="pg-nav" aria-label="All kits"><a href="../../en/">Home</a><a href="../../kits/en/">All kits</a><a href="../../kits/topokit.html" hreflang="zh-Hant" lang="zh-Hant">繁體中文</a></nav></header>
+<body class="site-page">
+<header class="site-header">
+  <a class="site-brand" href="../../en/"><picture><source media="(max-width: 600px)" srcset="../../icons/brand/climbio-mark.svg"><img src="../../icons/brand/climbio-horizontal-light.svg" alt="Climbio" width="110" height="30"></picture></a>
+  <nav class="site-nav" aria-label="Site navigation"><a href="../../en/">Home</a><a href="../../studio/">Studio</a><a href="../../lab/en/">Lab</a><a href="../../en/guides/" aria-current="true">Docs</a><a class="site-language" href="../../kits/topokit.html" hreflang="zh-Hant" lang="zh-Hant">繁體中文</a></nav>
+</header>
 <main class="pg">
   <div class="pg-hero">
-    <span class="pg-eyebrow">@climbio/topokit · AGPL-3.0</span>
+    <span class="pg-eyebrow">Open Climbio tools</span>
     <h1>TopoKit</h1>
     <p class="pg-lead">View and edit topos on a crag photo</p>
     <div class="pg-actions"><a class="pg-btn primary" href="#demo">See the live demo</a><a class="pg-btn" href="https://github.com/climb-io/climbio/tree/main/topokit">View source on GitHub</a></div>
@@ -40,28 +44,19 @@
   <section class="pg-section" aria-labelledby="points">
     <h2 id="points">What it does</h2>
     <div class="pg-grid">
-      <article class="pg-card"><span class="pg-num">1</span><h3>Automatic label layout</h3><p>Numbers, grades and names avoid each other and the lines, and simplify themselves when routes crowd together.</p></article>
-      <article class="pg-card"><span class="pg-num">2</span><h3>Viewing equals editing</h3><p>What you see while editing is the final result; drawing, bolts, forks and undo/redo all happen on the same image.</p></article>
-      <article class="pg-card"><span class="pg-num">3</span><h3>Standard data in and out</h3><p>Takes a Climbio public-format photo and layers and outputs a layer, with no backend involved.</p></article>
+      <article class="pg-card"><h3>Automatic label layout</h3><p>Numbers, grades and names avoid each other and the lines, and simplify themselves when routes crowd together.</p></article>
+      <article class="pg-card"><h3>Viewing equals editing</h3><p>What you see while editing is the final result; drawing, bolts, forks and undo/redo all happen on the same image.</p></article>
+      <article class="pg-card"><h3>Standard data in and out</h3><p>Takes a Climbio public-format photo and layers and outputs a layer, with no backend involved.</p></article>
     </div>
   </section>
   <section class="pg-section" aria-labelledby="demo">
     <h2 id="demo">Live demo</h2>
     <iframe class="pg-demo" src="../../topokit/demo.html" title="TopoKit · Live demo" loading="lazy"></iframe>
   </section>
-  <section class="pg-section" aria-labelledby="install">
-    <h2 id="install">Install</h2>
-    <pre><code>npm install @climbio/topokit @climbio/format</code></pre>
-    <h2 id="example">Minimal example</h2>
-    <pre><code>import &#39;@climbio/topokit/element&#39;;
-// &lt;climbio-topo view=&quot;topo.json&quot; layers=&quot;routes.json&quot;
-//   bolts style=&quot;height:70vh&quot;&gt;&lt;/climbio-topo&gt;
-// Editing: add mode=&quot;edit&quot;, then el.editor.setTool(&#39;line&#39;)</code></pre>
-  </section>
-  <section class="pg-section" aria-labelledby="notes">
-    <h2 id="notes">License and limits</h2>
-    <p class="pg-note">AGPL-3.0. Browser only; uploads and version history are your app&#39;s job. For indoor hold routes use RouteKit.</p>
-    <p class="pg-muted"><a href="../../kits/en/">All kits</a> · <a href="https://github.com/climb-io/climbio/tree/main/topokit">GitHub</a> · Machine-readable docs are the README.md files on GitHub</p>
+  <section class="pg-section" aria-labelledby="next">
+    <h2 id="next">Help improve this tool</h2>
+    <p>Want to contribute with your own AI agent? Start with the Climbio GitHub project. Source code, technical requirements and licensing live there.</p>
+    <div class="pg-actions"><a class="pg-btn primary" href="https://github.com/climb-io/climbio/tree/main/topokit">Explore on GitHub</a><a class="pg-btn" href="../../en/project/">How to join</a></div>
   </section>
   <footer class="pg-foot"><span>Climbio · All kits</span><a href="../../en/">Home</a></footer>
 </main>

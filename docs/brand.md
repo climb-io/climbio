@@ -47,6 +47,20 @@ Studio 是一個 PWA（範圍 \`/studio/\`，圖示用母品牌），已取代 \
 
 \`<id>\` 為 \`hold-cat\`、\`redpoint-cat\`。原版角色的圖形已由使用者確認，不能因新 Studio 設計而更動。岩點貓保留不規則寬岩點、鏤空耳朵、偏左白臉、五官、螺絲孔與深綠背層；紅點貓保留 Bolt 貓及珊瑚紅點。不得再生成替代角色，也不得以其他示意貓頭充當品牌原稿。
 
+### 測試環境的 App 辨識
+
+- 正式的岩點貓／紅點貓 Logo、SVG、PNG 均維持原稿；**不得為測試版修改正式素材**。
+- `climbio-dev`、`climbio-eric` 打包時由 `tools/dev-app-icons.py` 從原始 PNG 產生帶有橘色 `DEV` 標籤的獨立安裝圖示，輸出到 `dist/icons/dev/`；保留角色圖形與 Android maskable 安全範圍。
+- 測試版 PWA 名稱、iOS 加入主畫面名稱與分頁標題為「岩點貓 DEV／紅點貓 DEV」，兩個 App 內仍顯示「測試版」提示；正式站保持原名稱與圖示。
+- 測試版預覽與正式版不得共用安裝圖示；iOS 已加到主畫面的舊 App 可能需刪除捷徑重新加入，系統才會更新圖示。
+
+### 首頁社群分享封面
+
+- 首頁八種語言共用一張 1200×630 JPG 社群封面，使用首頁現有的真實戶外岩場照片 `demo/reel/crag-guidebook.webp` 與**官方** `icons/brand/climbio-horizontal-dark.svg`，不重畫角色與 Logo。
+- 封面由 `tools/social-cover.py` 在網站打包時產生為 `dist/social/climbio-home.jpg`，**原始照片與正式 App icon 不修改**。部署流程在生成之前準備 Pillow／CairoSVG。
+- `og:image`、`twitter:image` 都使用該 JPEG 的正式絕對 URL；首頁使用 `summary_large_image`，提供 Open Graph 的尺寸、格式與替代文字。翻譯頁共用無語言障礙的主視覺，文字由各頁的 `og:title`／`og:description` 提供。
+- `tools/social-meta.mjs` 必須保留首頁的封面設定，不能被重新產生 meta 的工具覆寫成 512×512 方形 App 圖示。
+
 ## 母品牌明暗模式、網站小圖示與社群頭像
 
 Climbio 母品牌的 Logo 在淺／深模式下都保留**正式綠藍雙岩塊**形狀與顏色；只改背景、語意色與橫式字標的文字版本。色彩以 \`css/brand-tokens.css\` 為唯一來源。
@@ -61,7 +75,7 @@ Climbio 母品牌的 Logo 在淺／深模式下都保留**正式綠藍雙岩塊*
 - **網站小 Logo／favicon**：使用 \`icons/brand/favicon-brand.svg\`，以固定深藍色 \`#0E1722\` 小方形底、官方雙岩塊為圖形，避免瀏覽器分頁在淺色／深色主題下辨識不清。小圖示不加文字，優先測 16／32／64px。
 - **Google／社群帳號頭像**：\`design/brand/icons/social-avatar-dark.svg\`，固定深藍色 \`#0E1722\` 圓形底、原稿等比縮放，輸出 1024×1024 PNG 時保留圓形裁切安全距離。
 - Climbio Studio 沿用母品牌 Logo 與語意色；Crag 為正式工作區，Wall 是 Lab 研究工具。三欄共用 Shell 仍是目標規格，不可視為已實作。
-- **岩點貓維持固定深色**（\`#0E0E0F\`、操作色 \`#D4FF4F\`），**紅點貓維持固定淺色**（\`#F7F9FB\`、深海藍操作色）；兩者不因系統模式切換而改色。
+- **岩點貓維持固定深色**（\`#0E0E0F\`、操作色 \`#D4FF4F\`），**紅點貓維持固定淺色**（\`#F7F9FB\`、深海藍操作色）；**Climbio Studio 固定深色**（跟岩點貓同一組深色，見 studio-design.md）；三者不因系統模式切換而改色。
 - 深色主要操作底可用 \`#0FADEA\` 配 \`#08263A\` 字，需符合 WCAG AA 一般文字對比 4.5:1、重要圖形 3:1；螢光綠仍作品牌點綴，不直接作淺底小字。
 - 驗收涵蓋首頁 light/dark、不同手機寬度、16/32px favicon、圓形帳號頭像，以及兩款 App 不受影響的回歸測試。
 
@@ -84,9 +98,9 @@ Logo 綠與路線類型、起攀、手點、腳點、完攀等語意色分開；
 
 ## 字體與首頁
 
-母品牌字標採正式 SVG path，不依賴線上字體、不提供來源字型檔。首頁用系統字型。首頁始終保持：兩個 Cat Apps ＋ 一個 Climbio Studio ＋ Open Format / Open Kits。
+首頁以六幕照片介紹岩點貓、Studio Wall、Studio Crag、紅點貓收藏、紅點貓和 Climbio。每幕一張照片和一段文字，前五幕各有一個圖示入口。Studio Wall 與 Studio Crag 共用正式 Climbio 圖形。Climbio 圖形也用在結尾的 Studio 入口。Hold Lab、3D Lab 和文件分別用岩點辨識框、立體岩塊和帶書籤的手冊圖形，搭配相同的圓角底色。
 
-首頁的視覺是「一條線流過整頁」（`css/home.css`、`home.js`，中英兩版共用）：首屏深色，母品牌標誌的綠、藍兩塊就是兩款 App，開頁時頁首標誌的兩塊之間流過一條線（只在標誌上疊一段動態，標誌本身不改）；岩點貓卡片用開放格式的示範牆（`format/examples/wall.json`、`wall-routes.json`）現場畫出路線圖：掃出岩點、路線的岩點留彩色、線從起攀流到完攀；兩張卡片之間有一段流動的線；之後的章節是亮色，左側一條線經過每一章的標題，捲到哪裡亮到哪裡；開發者一章用同一條路線並排「給人看」的牆與「給 AI 讀」的 JSON，點岩點 id 兩邊同步亮起。只用自己寫的 SVG、CSS 與少量 JS（CSP 只允許本站的程式）；系統「減少動態效果」時不播動畫，直接顯示完成的樣子。
+首頁依裝置語言進入繁中或英文。第六幕先顯示 Climbio 文案，接著在同一張照片上展開岩點貓、紅點貓、紅點貓收藏、Studio、文件、Hold Lab、3D Lab 和 GitHub 的入口。Studio、Lab、文件沿用紅點貓的淺底、深海藍與圓角介面，共用 `css/site-nav.css` 的導覽。開放格式、路線 JSON 與 RouteKit 範例集中在文件的「開發資源」。
 
 ## 縮放、PWA 安全區與無障礙
 
@@ -103,6 +117,6 @@ Logo 綠與路線類型、起攀、手點、腳點、完攀等語意色分開；
 
 ## Ownership / Review / Exit
 
-產品負責人確認 Climbio Studio 的對外名稱及工作區分工。品牌 reviewer 核對唯一 SVG／字標及現行 App 不受影響；UX reviewer 驗證首頁四章節及 Studio／Lab 分界；工程 reviewer 核對格式、路由及資料保護。
+產品負責人確認 Climbio Studio 的對外名稱及工作區分工。品牌 reviewer 核對唯一 SVG／字標及現行 App 不受影響；UX reviewer 驗證首頁輪播及 Studio／Lab 分界；工程 reviewer 核對格式、路由及資料保護。
 
 **現況（2026-11-12）**：`/studio/` 已有統一入口、manifest 與 Crag、Wall 工作區；Shared Studio Shell 的完整三欄版面仍屬目標設計。

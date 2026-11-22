@@ -1,0 +1,34 @@
+// 產生內嵌頁自給自足的資料夾：把各 Kit 的檔案與 embed/shared/ 複製到 embed/<kit>/v1/kit/，內嵌頁全用相對路徑，
+// 整個資料夾放到任何靜態主機都能跑（見 docs/embed.md）。產物會提交，改了 Kit 或共用程式跑 node tools/build-embed.mjs；
+// --check 只檢查產物有沒有跟上（測試用）。
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const root = new URL('../', import.meta.url);
+/** 每個內嵌頁需要的檔案：[來源, 複製到 kit/ 的檔名]。檔名要跟該頁 index.html 的 <script> 一樣 */
+export const KITS = {
+  routekit: [
+    ['format/format.js', 'format.js'],
+    ...['geometry', 'labels', 'base', 'scene', 'image', 'fit', 'editor', 'viewport', 'viewer', 'ui'].map(n => [`routekit/${n}.js`, `${n}.js`]),
+    ['routekit/format.js', 'routekit-format.js'],
+    ['embed/shared/embed.js', 'embed.js'],
+    ['routekit/LICENSE', 'LICENSE'], ['routekit/NOTICE', 'NOTICE'],
+  ],
+};
+
+export function outputs() {
+  const out = [];
+  for (const [kit, files] of Object.entries(KITS)) for (const [src, name] of files) out.push({ path: `embed/${kit}/v1/kit/${name}`, bytes: readFileSync(new URL(src, root)) });
+  return out;
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const check = process.argv.includes('--check'), stale = [];
+  for (const { path, bytes } of outputs()) {
+    const file = new URL(path, root);
+    if (check) { if (!existsSync(file) || !readFileSync(file).equals(bytes)) stale.push(path); continue; }
+    mkdirSync(new URL('./', file), { recursive: true }); writeFileSync(file, bytes);
+  }
+  if (stale.length) { console.error(`內嵌頁的 kit/ 沒跟上，執行 node tools/build-embed.mjs：\n${stale.join('\n')}`); process.exit(1); }
+  console.log(check ? '內嵌頁的 kit/ 是最新的' : '已產生內嵌頁的 kit/');
+}

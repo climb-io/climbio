@@ -4,3 +4,12 @@ export const enabled = globalThis.SITE?.backend === 'firebase';
 export const SERVICE = enabled ? 'https://asia-east1-firebase-climbio.cloudfunctions.net/datasets' : '';
 /** 發佈要帶的 App Check 權杖：跟岩點貓、紅點貓同一份（backend/firebase.js 的 Backend.appCheckToken），只有 Climbio 網頁拿得到 */
 export const appCheck = async () => (globalThis.Backend?.appCheckToken ? globalThis.Backend.appCheckToken() : '');
+/** 代理用無畫面 Studio 發佈時放進來的同步身分（tools/guidebook.mjs、tools/studio.mjs 的 publish 寫在 localStorage）：只在同一來源（同一個 Firebase 專案）發佈時送，不把自架同步金鑰送給別的後端 */
+export const studioKey = async () => {
+  if (!SERVICE) return '';
+  try {
+    const r = JSON.parse(localStorage.getItem('climbio.studio.remote'));
+    if (!r?.key || !r?.url || new URL(r.url).origin !== new URL(SERVICE).origin) return '';
+    return r.key;
+  } catch { return ''; }
+};

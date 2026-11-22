@@ -1,11 +1,10 @@
-// Climbio Studio 的首頁：新專案（照片、資料夾、ZIP、Google 相簿 → 快速掃描 → 選工作區與要自動處理的項目）、手動輸入、最近的專案。
-// 專案建在工作區頁面：這裡把資料夾、檔案和選項放進收件匣（store.js），轉到 crag/ 接手。
-// Studio 沒有專案同步：專案存在這台電腦（或自己選的資料夾），要換電腦用匯出 ZIP。
+// Climbio Studio 的首頁：Studio 是給 AI 代理做事、人來確認的工作台，所以沒有給人手動新增的入口；首頁教人「交給 AI」（設定代理、交代任務、打開它做好的專案確認），加上最近的專案。
+// 匯入的程式還在、只是人看不到入口：代理的工具在背景用隱藏的 #addInput（tools/guidebook.mjs 收原生的包）與 #import=<網址>（岩場站、Google 相簿）；
+// 內容依種類交給岩館、岩場、路線書、3D 牆，照片先快速掃描、猜工作區。專案建在工作區頁面：這裡把資料夾、檔案和選項放進收件匣（store.js），轉到工作區接手。
+// 專案存在這台電腦（或自己選的資料夾），要換電腦用匯出 ZIP。要人判斷的題目由代理在 AI 對話裡問，首頁不列。
 import { fetchAlbum, isAlbumUrl } from './album.js';
 import { classifyImageData, groupPhotos, STATUS_LABEL } from './classify.js';
 import { WS, OPEN, suggestWs } from './intake/workspaces.js';
-import { renderGroupMap } from './intake/group-map.js';
-import { createLightbox } from './intake/lightbox.js';
 import { located } from './crag/geo.js';
 const { photo: Photo, ui: UI } = globalThis.AppKit;
 const T = globalThis.AppKit.i18n.t;
@@ -17,19 +16,6 @@ const toast = (t) => UI.toast(t, { ms: 4000 });
 const IMG = /\.(jpe?g|png|webp|hei[cf])$/i, TABLE = /\.(csv|tsv|txt)$/i;
 const machine = (n) => /^[0-9a-f]{8}-[0-9a-f]{4}-|^(img|dsc|dscn|pxl|p)[_-]?\d{3,}/i.test(n || '');
 
-// ---- 讀進來的檔案 → [{ dir: 所在資料夾名稱（沒有就是 ''）, file }]；拖進一個資料夾時另外記下它的 handle（專案直接存在那裡） ----
-async function readDrop(dt) {
-  const out = [], entries = [...dt.items].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
-  const handles = SS.canPickDir ? await Promise.all([...dt.items].filter(i => i.kind === 'file').map(i => i.getAsFileSystemHandle ? i.getAsFileSystemHandle().catch(() => null) : null)) : [];
-  const walk = async (entry, dir) => {
-    if (entry.isFile) { await new Promise(res => entry.file(f => { out.push({ dir, file: f }); res(); }, res)); return; }
-    const rd = entry.createReader();
-    for (;;) { const batch = await new Promise(res => rd.readEntries(res, () => res([]))); if (!batch.length) break; for (const e of batch) await walk(e, entry.name); }
-  };
-  for (const e of entries) await walk(e, e.isDirectory ? e.name : '');
-  const dirs = handles.filter(h => h && h.kind === 'directory');
-  return { items: out, dir: entries.length === 1 && dirs.length === 1 ? dirs[0] : null };
-}
 async function withZips(items) {
   const out = [];
   for (const it of items) {
@@ -80,7 +66,6 @@ async function scan(items, onProgress) {
     } catch { /* 讀不到 EXIF：當成沒有位置 */ }
     const info = await inspectThumb(it.file);
     Object.assign(it, info);
-    it.thumbUrl = URL.createObjectURL(it.file);
     if (info.clean) r.clean++; else r.flagged++;
   }
   // 有拍照位置的照片才看紅筆（抽最多 40 張；岩館的牆常有紅色岩點）
@@ -91,184 +76,73 @@ async function scan(items, onProgress) {
   return r;
 }
 
-// ---- 掃描結果：工作區與自動處理的項目 ----
-let pending = null;   // { items, imgs, groups, manualGroup, dir, scan, ws }
-const redrawMap = () => renderGroupMap($('#groupMap'), pending?.groups);
+// ---- 掃描結果：人只確認專案名稱和工作區（岩館／岩場）；分組、挑照片、要做哪些處理都自動 ----
+/** 整理匯入的資料時（掃描、選工作區）收起「交給 AI」和各條線 */
+const flow = (on) => { $('#tasks').hidden = on; $('#aiBox').hidden = on; };
+let pending = null;   // { items, imgs, groups, dir, scan, ws }
 
-function flatGroupItems() {
-  if (!pending?.groups) return [];
-  const list = [];
-  for (const g of pending.groups) for (const it of g.items) list.push({ g, it });
-  return list;
-}
-const lightbox = createLightbox({ items: flatGroupItems, onToggle: () => renderGroups() });
-
-function clearPending() {
-  lightbox.close();
-  if (pending?.imgs) for (const it of pending.imgs) if (it.thumbUrl) URL.revokeObjectURL(it.thumbUrl);
+async function takeIn(items, dir = null, defaultName = '') {
   pending = null;
-}
-
-async function takeIn(items, dir = null, defaultName = '', fromAlbum = false, forcedWs = '') {
-  clearPending();
   items = await withZips(items);
   const imgs = items.filter(i => IMG.test(i.file.name));
   if (!imgs.length) { toast(T('stNoPhotos')); return; }
-  $('#cragDrop').hidden = true; $('#flowStage').hidden = false; $('#scan').hidden = false; $('#result').hidden = true;
+  flow(true); $('#flowStage').hidden = false; $('#scan').hidden = false; $('#result').hidden = true;
   $('#flowStage').scrollIntoView({ behavior: 'smooth', block: 'start' });
   const r = await scan(items, (k, n) => { $('#scanMsg').textContent = T('stScanProgress', k, n); });
-  const ws = forcedWs || suggestWs(r);
-  const groups = groupPhotos(imgs);
-  pending = { items, imgs, groups, manualGroup: false, dir, scan: r, ws, forcedWs };
+  pending = { items, imgs, groups: groupPhotos(imgs), dir, scan: r, ws: suggestWs(r) };
   $('#pjName').value = defaultName || (dir ? dir.name : [...r.dirs][0] && r.dirs.size === 1 ? [...r.dirs][0] : T('stProjectDefault', new Date().toLocaleDateString()));
-  pickWs(ws);
+  pickWs(pending.ws);
+  const sel = imgs.filter(i => i.selected).length;
+  $('#selCount').textContent = T('stSelCount', sel, imgs.length, imgs.length - sel);
   $('#scan').hidden = true; $('#result').hidden = false;
 }
 function pickWs(ws) {
-  if (pending.forcedWs && ws !== pending.forcedWs) return;
   pending.ws = ws;
-  if (!pending.manualGroup) {
-    const prefix = WS[ws].groupPrefix;
-    pending.groups.forEach((g, i) => {
-      if (/^(分區|岩壁|Wall)\s+\d+$/.test(g.name)) g.name = WS[ws].groupName(g) || `${prefix} ${i + 1}`;
-    });
-  }
-  renderGroups();
-  $('#opts').replaceChildren(...WS[ws].options(pending.scan).filter(Boolean).map(o => {
-    const c = el('input', { type: 'checkbox', checked: o.on !== false, value: o.id });
-    if (o.id === 'byTime') c.addEventListener('change', () => {
-      if (!pending.manualGroup) {
-        pending.groups = groupPhotos(pending.imgs, { byTime: c.checked });
-        renderGroups();
-      }
-    });
-    return el('label', { className: 'opt' }, c, el('span', {}, o.label), o.note ? el('small', { textContent: o.note }) : '');
-  }));
+  for (const b of $('#wsPick').querySelectorAll('button')) b.setAttribute('aria-checked', String(b.dataset.ws === ws));
 }
-function updateSelCount() {
-  if (!pending) return;
-  const total = pending.imgs.length;
-  const sel = pending.imgs.filter(i => i.selected !== false).length;
-  const dropped = total - sel;
-  $('#selCount').textContent = T('stSelCount', sel, total, dropped);
-  $('#create').disabled = sel === 0 && !pending.scan.tables && !pending.scan.views;
-}
-function renderGroups() {
-  if (!pending) return;
-  const { groups } = pending;
-  const cards = groups.map((g, gi) => {
-    const nameInput = el('input', { value: g.name, ariaLabel: T('stGroupName'), maxLength: 60 });
-    nameInput.addEventListener('change', () => {
-      g.name = nameInput.value.trim() || g.name;
-      nameInput.value = g.name;
-      pending.manualGroup = true;
-      renderGroups();
-    });
-    const head = el('div', { className: 'ghead' }, nameInput, el('span', { className: 'gnote', textContent: [g.note, T('stActiveCount', g.items.filter(x => x.selected !== false).length, g.items.length)].filter(Boolean).join(' · ') }));
-    const grid = el('div', { className: 'ggrid' }, ...g.items.map(it => {
-      const check = el('input', { type: 'checkbox', className: 'pcheck', checked: it.selected !== false, ariaLabel: T('stInclude') });
-      const badge = el('span', { className: `pbadge ${it.clean ? 'clean' : 'warn'}`, textContent: it.label || STATUS_LABEL.clean });
-      const thumb = el('div', { className: 'thumb' }, check, badge);
-      if (it.thumbUrl) thumb.style.backgroundImage = `url("${it.thumbUrl}")`;
-      const card = el('div', { className: `pcard ${it.selected !== false ? 'on' : 'off'}` });
-      const toggle = (on) => {
-        it.selected = on;
-        check.checked = on;
-        card.className = `pcard ${on ? 'on' : 'off'}`;
-        head.querySelector('.gnote').textContent = [g.note, T('stActiveCount', g.items.filter(x => x.selected !== false).length, g.items.length)].filter(Boolean).join(' · ');
-        updateSelCount();
-        redrawMap();
-      };
-      check.addEventListener('click', (e) => e.stopPropagation());
-      check.addEventListener('change', () => toggle(check.checked));
-      thumb.addEventListener('click', () => lightbox.open(it));
-      const moveSel = el('select', { ariaLabel: T('stMoveToGroup') }, ...groups.map((og, oi) => el('option', { value: String(oi), textContent: og.name, selected: oi === gi })));
-      moveSel.addEventListener('change', () => {
-        const targetIdx = Number(moveSel.value);
-        if (targetIdx === gi || !groups[targetIdx]) return;
-        g.items = g.items.filter(x => x !== it);
-        groups[targetIdx].items.push(it);
-        pending.groups = groups.filter(x => x.items.length > 0);
-        pending.manualGroup = true;
-        renderGroups();
-      });
-      const pname = el('span', { className: 'pname', textContent: it.file.name.replace(/\.[^.]+$/, ''), title: it.file.name });
-      pname.addEventListener('click', () => lightbox.open(it));
-      const meta = el('div', { className: 'pmeta' }, pname, moveSel);
-      card.append(thumb, meta);
-      return card;
-    }));
-    const gcard = el('div', { className: 'gcard' }, head, grid);
-    gcard.dataset.groupIdx = String(gi);
-    return gcard;
-  });
-  $('#groups').replaceChildren(...cards);
-  redrawMap();
-  updateSelCount();
-}
-$('#selectClean').onclick = () => {
-  if (!pending) return;
-  for (const it of pending.imgs) it.selected = !!it.clean;
-  renderGroups();
-};
-$('#selectAll').onclick = () => {
-  if (!pending) return;
-  for (const it of pending.imgs) it.selected = true;
-  renderGroups();
-};
-$('#addGroup').onclick = () => {
-  if (!pending) return;
-  const prefix = WS[pending.ws].groupPrefix;
-  const n = pending.groups.length + 1;
-  pending.groups.push({ id: `g${Date.now()}`, name: `${prefix} ${n}`, style: '', note: T('stManualGroup'), items: [] });
-  pending.manualGroup = true;
-  renderGroups();
-};
-$('#cancel').onclick = () => { clearPending(); $('#flowStage').hidden = true; $('#result').hidden = true; $('#scan').hidden = true; $('#cragDrop').hidden = false; };
+$('#wsPick').onclick = (e) => { const b = e.target.closest('button[data-ws]'); if (b && pending) pickWs(b.dataset.ws); };
+$('#cancel').onclick = () => { pending = null; $('#flowStage').hidden = true; $('#result').hidden = true; $('#scan').hidden = true; flow(false); };
 $('#create').onclick = async () => {
-  const { items, groups, manualGroup, dir, ws } = pending, name = $('#pjName').value.trim() || T('stUntitled');
-  const options = Object.fromEntries([...$('#opts').querySelectorAll('input')].map(c => [c.value, c.checked]));
-  if (manualGroup) options.manualGroup = true;
-  const targetWs = WS[ws].target;
+  const { items, imgs, groups, dir, scan: r, ws } = pending, name = $('#pjName').value.trim() || T('stUntitled');
+  const { target: targetWs, inFolder, groupPrefix, auto } = WS[ws], options = auto(r);
   $('#create').disabled = true;
   try {
     // 拖進來的是一個資料夾（Chrome）：專案直接存在那裡，照片從資料夾讀；寫入權限只能在點擊時要
-    if (dir && !manualGroup && pending.imgs.every(i => i.selected !== false)) {
+    if (dir && inFolder && imgs.every(i => i.selected)) {
       if (await dir.requestPermission({ mode: 'readwrite' }) !== 'granted') throw new Error(T('stNoWriteAccess'));
       location.href = `${targetWs}/#inbox=${await inbox.put({ dir, name, options })}`;
       return;
     }
+    // 自動分組的名稱照工作區（岩壁 1、牆面 1）；資料夾帶來的名稱照舊
     const groupOf = new Map();
-    for (const g of groups) for (const it of g.items) if (it.selected !== false) groupOf.set(it, g.name);
-    const chosen = items.filter(it => !IMG.test(it.file.name) || groupOf.has(it)).map(it => {
-      const gName = groupOf.get(it) ?? it.dir;
-      return { dir: WS[ws].folder(gName, { options, manualGroup }), file: it.file };
-    });
+    const fromDirs = imgs.some(i => i.dir?.trim());
+    groups.forEach((g, i) => { const gName = fromDirs ? g.name : `${groupPrefix} ${i + 1}`; for (const it of g.items) if (it.selected) groupOf.set(it, gName); });
+    const chosen = items.filter(it => groupOf.has(it)).map(it => ({ dir: groupOf.get(it), file: it.file }));
     location.href = `${targetWs}/#inbox=${await inbox.put({ name, items: chosen, options })}`;
   } catch (e) { toast(e.message); $('#create').disabled = false; }
 };
 
 // ---- 拖放、選檔、Google 相簿 ----
-async function takeAlbum(url, forcedWs = '') {
-  $('#cragDrop').hidden = true; $('#flowStage').hidden = false; $('#scan').hidden = false; $('#result').hidden = true;
+async function takeAlbum(url) {
+  flow(true); $('#flowStage').hidden = false; $('#scan').hidden = false; $('#result').hidden = true;
   $('#scanMsg').textContent = T('stAlbumReading');
   try {
     const { title, files } = await fetchAlbum(url, {
       onProgress: (k, n) => { $('#scanMsg').textContent = n ? T('stAlbumProgress', k, n) : T('stAlbumReading'); },
     });
-    await takeIn(files.map(file => ({ dir: '', file })), null, title, true, forcedWs);
+    await takeIn(files.map(file => ({ dir: '', file })), null, title);
   } catch (e) {
-    $('#flowStage').hidden = true; $('#scan').hidden = true; $('#cragDrop').hidden = false;
+    $('#flowStage').hidden = true; $('#scan').hidden = true; flow(false);
     toast(e.message || String(e));
   }
 }
-// ---- 天然岩場：單一入口先辨識來源，不要求先挑「網站／ZIP／路線書」 ----
+// ---- 匯入（代理的工具在背景用）：先辨識來源再交給對的工作區，不要求先挑「岩館／岩場／路線書／3D」 ----
 // ZIP 是容器，不能只看副檔名。原生匯出含 index.json（set/guidebook）與其他文件。
 const CRAG_DOC = /\.(docx|pdf|html?|md|txt|geojson|csv|tsv)$/i;
 const CRAG_IMG = /\.(jpe?g|png|webp|gif|hei[cf])$/i;
-const cragStatus = (msg) => { $('#cragStatus').textContent = msg; };
+const addStatus = (msg) => { $('#addStatus').textContent = msg; };
 const cragPath = (i) => [i.dir, i.file.name].filter(Boolean).join('/').replace(/\\/g, '/');
-const asCragItems = (files) => [...files].map(file => {
+const asItems = (files) => [...files].map(file => {
   const p = (file.webkitRelativePath || file.name).replace(/\\/g, '/').split('/');
   return { dir: p.slice(0, -1).join('/'), file };
 });
@@ -301,16 +175,31 @@ async function nativeCrag(items) {
   }
   return list;
 }
-async function routeCragFiles(items, dir = null) {
+/** 3D 牆的工作檔（wall.json 和它指到的模型、面標籤）：放進瀏覽器私有檔案系統，3D 牆用固定連結打開（同 wall3d/ 的檔案輸入） */
+async function wall3dPack(items) {
+  const wall = items.find(i => i.file.name === 'wall.json');
+  if (!wall) return false;
+  let doc;
+  try { doc = JSON.parse(await wall.file.text()); } catch { return false; }
+  if (!/^[0-9a-z]{16}$/.test(doc?.id || '') || !doc.model || !doc.faces) return false;
+  const byName = new Map(items.map(i => [i.file.name, i.file]));
+  if (!byName.has(doc.model) || !byName.has(doc.faces)) throw new Error(T('stWall3dMissing'));
+  addStatus(T('stOpening'));
+  const dir = await (await navigator.storage.getDirectory()).getDirectoryHandle(`wall3d-${doc.id}`, { create: true });
+  for (const f of byName.values()) { const w = await (await dir.getFileHandle(f.name, { create: true })).createWritable(); await w.write(f); await w.close(); }
+  location.href = `wall3d/#p=${doc.id}`;
+  return true;
+}
+async function routeFiles(items, dir = null) {
   if (!items.length && !dir) return;
-  cragStatus(T('stReading'));
-  $('#cragFiles').disabled = true;
+  addStatus(T('stReading'));
   try {
     if (dir && await SS.metaIn(dir)) {
       const key = await inbox.put({ dir, options: {} });
       location.href = `crag/#inbox=${key}`;
       return;
     }
+    if (await wall3dPack(items)) return;
     const zip = items.filter(i => /\.zip$/i.test(i.file.name));
     let native = await nativeCrag(items), unpacked = null;
     if (!native && zip.length === 1 && items.length === 1) {
@@ -319,79 +208,82 @@ async function routeCragFiles(items, dir = null) {
       native = await nativeCrag(unpacked);
     }
     if (native) {
-      cragStatus(T('stOpening'));
+      addStatus(T('stOpening'));
       const key = await inbox.put({ items: native, sourceKind: 'native' });
       location.href = `crag/#nativeInbox=${key}`;
       return;
     }
     const files = items.map(i => i.file);
-    // Pure photo ZIPs need the photo intake path, not the document converter.
+    // 只有照片的 ZIP 走照片的整理，不是路線書轉換
     if (unpacked?.length && unpacked.every(i => CRAG_IMG.test(i.file.name))) {
-      cragStatus(T('stOrganizing'));
-      await takeIn(unpacked, null, zip[0].file.name.replace(/\.zip$/i, ''), false, 'crag');
+      addStatus('');
+      await takeIn(unpacked, null, zip[0].file.name.replace(/\.zip$/i, ''));
       return;
     }
     if (files.some(f => CRAG_DOC.test(f.name) || /\.zip$/i.test(f.name))) {
-      cragStatus(T('stConverting'));
+      addStatus(T('stConverting'));
       const key = await inbox.put({ items, sourceKind: 'guidebook' });
       location.href = `crag/#bookInbox=${key}`;
       return;
     }
     if (files.every(f => CRAG_IMG.test(f.name))) {
-      cragStatus(T('stOrganizing'));
-      await takeIn(items, dir, '', false, 'crag');
+      addStatus('');
+      await takeIn(items, dir);
       return;
     }
     throw new Error(T('stUnknownData'));
-  } catch (e) { cragStatus(T('stImportFailed', e.message)); }
-  finally { $('#cragFiles').disabled = false; }
+  } catch (e) { addStatus(T('stImportFailed', e.message)); }
 }
-$('#cragFiles').onclick = () => $('#cragInput').click();
-$('#cragInput').onchange = (e) => { const items = asCragItems(e.target.files); e.target.value = ''; routeCragFiles(items); };
-$('#cragDir').onclick = () => $('#cragFolderInput').click();
-$('#cragFolderInput').onchange = (e) => { const items = asCragItems(e.target.files); e.target.value = ''; routeCragFiles(items); };
-$('#cragUrlForm').addEventListener('submit', (e) => {
-  e.preventDefault();
-  const url = $('#cragUrl').value.trim();
+$('#addInput').onchange = (e) => { const items = asItems(e.target.files); e.target.value = ''; routeFiles(items); };
+$('#addFolderInput').onchange = (e) => { const items = asItems(e.target.files); e.target.value = ''; routeFiles(items); };
+function importUrl(url) {
   try {
     const u = new URL(url);
     if (u.protocol !== 'https:' && u.origin !== location.origin) throw new Error(T('stNeedHttps'));
-    if (isAlbumUrl(url)) { takeAlbum(url, 'crag'); return; }
-    cragStatus(T('stReading'));
+    if (isAlbumUrl(url)) { takeAlbum(url); return; }
+    addStatus(T('stReading'));
     location.href = `crag/#site=${encodeURIComponent(url)}`;
-  } catch (err) { cragStatus(err.message); }
-});
-const cragDrop = $('#cragDrop');
-cragDrop.addEventListener('dragover', e => { e.preventDefault(); cragDrop.classList.add('over'); });
-cragDrop.addEventListener('dragleave', e => { if (!cragDrop.contains(e.relatedTarget)) cragDrop.classList.remove('over'); });
-cragDrop.addEventListener('drop', async e => {
-  e.preventDefault(); cragDrop.classList.remove('over');
-  const uri = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
-  if (uri?.trim() && /^(https?:\/\/)/i.test(uri.trim()) && !e.dataTransfer.files.length) {
-    $('#cragUrl').value = uri.trim();
-    $('#cragUrlForm').requestSubmit();
-    return;
-  }
-  const got = await readDrop(e.dataTransfer);
-  await routeCragFiles(got.items, got.dir);
-});
-
-// ---- 手動輸入 ----
-// 新專案：能選資料夾的瀏覽器存在選的資料夾（已經是專案就打開，裡面有照片就一起加進來），否則存在瀏覽器裡
-async function manual(ws) {
-  const { target: targetWs, newProject: { hash, options } } = WS[ws];
-  if (!SS.canPickDir) { location.href = `${targetWs}/${hash}`; return; }
-  try { const dir = await SS.pick(); location.href = `${targetWs}/#inbox=${await inbox.put({ dir, options })}`; }
-  catch (e) { if (e.name !== 'AbortError') toast(e.message); }
+  } catch (err) { addStatus(err.message); toast(err.message); }
 }
-$('#newCrag').onclick = () => manual('crag');
+// ---- 交給 AI：教人設定自己的 AI 代理、交代任務；代理做好的專案資料夾在這裡打開來確認 ----
+// 交代任務的句子：複製給自己的代理（代理照 Climbio 專案的 AGENTS.md 找到對應的工具做）
+for (const b of document.querySelectorAll('[data-copy]')) b.onclick = () => {
+  const text = b.closest('li')?.querySelector('q')?.textContent || '';
+  navigator.clipboard?.writeText(text).then(() => toast(T('stAiCopied')), () => toast(text));
+};
+/** 打開代理做好的專案：選資料夾（是 Studio 專案、或裡面的「Climbio Studio」是），記進最近的專案、進那條線的工作頁 */
+async function openProject() {
+  try {
+    const { dir, meta } = await SS.claim(await SS.pick());
+    if (!meta) { toast(T('stAiNotProject')); return; }
+    const p = await SS.open(dir);
+    location.href = `${p.ws === 'gym' ? 'wall' : 'crag'}/#${p.id}`;
+  } catch (e) { if (e.name !== 'AbortError') toast(e.message); }
+}
+$('#openProject').hidden = !SS.canPickDir;
+$('#openNote').hidden = SS.canPickDir;
+$('#openProject').onclick = openProject;
+// 網址：#ai 捲到「交給 AI」（導覽每頁都有，舊的 #add 也到這裡）；#import=<網址> 匯入岩場站、Google 相簿（代理與測試用）
+function route() {
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (h.startsWith('import=')) { history.replaceState(null, '', location.pathname + location.search); importUrl(h.slice(7)); return; }
+  if (h === 'add' || h === 'ai') $('#aiBox').scrollIntoView({ block: 'start' });
+}
+addEventListener('hashchange', route);
+route();
 
 // ---- 最近的專案（StudioStore 記的，新到舊）----
+/** 專案卡的圖示：跟統一導覽同一組（岩館、岩場） */
+const LIB_ICON = {
+  gym: '<path d="M4 20V4h16v16z"/><circle cx="9" cy="9" r="1.6"/><circle cx="15" cy="11" r="1.6"/><circle cx="10" cy="15.5" r="1.6"/>',
+  crag: '<path d="M3 20l6-12 4 6 3-4 5 10z"/>',
+};
 const fmt = new Intl.DateTimeFormat(AppKit.i18n.lang === 'en' ? 'en' : 'zh-Hant', { dateStyle: 'medium' });
 async function renderRecent() {
   const rows = (await SS.recent().catch(() => [])).filter(r => r.local || SS.canPickDir).slice(0, 24).map(r => {
-    const tag = OPEN[r.ws]?.name || 'Crag';
-    const open = el('button', { className: 'open' }, el('span', { className: 'tag', textContent: tag }), el('b', { textContent: r.name || T('stUntitled') }), el('small', { textContent: [r.local ? T('stThisDevice') : r.dir.name, fmt.format(r.at)].join(' · ') }));
+    const gym = r.ws === 'gym', icon = el('i', { className: 'lib-icon', ariaHidden: 'true' });
+    icon.innerHTML = `<svg viewBox="0 0 24 24">${gym ? LIB_ICON.gym : LIB_ICON.crag}</svg>`;
+    const open = el('button', { className: 'open' }, icon, el('b', { textContent: r.name || T('stUntitled') }), el('small', { textContent: [T(gym ? 'stGym' : 'stCrag'), r.local ? T('stThisDevice') : r.dir.name, fmt.format(r.at)].join(' · ') }));
     open.dataset.studioWs = r.ws === 'gym' ? 'gym' : 'crag';
     open.onclick = () => openRecent(r);
     const li = el('li', {}, open);
@@ -425,4 +317,24 @@ else {
   fetch('shell.js', { cache: 'reload' }).catch(() => {});
 }
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(e => console.warn('Service Worker', e));
+// 主畫面：岩館（原岩明德）和天然岩場（大砲岩）交替；標籤和「打開 3D」跟著換（明德進 3D 牆的固定連結，大砲岩進 3D 場景）
+const HERO = [
+  { kind: 'gym', ws: 'gym', label: 'stHeroGym', href: 'scene/#src=mingde' },
+  { kind: 'crag', ws: 'crag', label: 'stHeroCrag', href: 'scene/' },
+];
+function hero() {
+  const box = $('#hero');
+  if (!box || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  let i = 0;
+  const show = () => {
+    const h = HERO[i];
+    for (const f of box.querySelectorAll('.hero-scene')) f.classList.toggle('on', f.dataset.kind === h.kind);
+    box.querySelectorAll('.hero-dots i').forEach((d, k) => d.classList.toggle('on', k === i));
+    $('#heroOpen').href = h.href;
+    $('#heroOpen').dataset.studioWs = h.ws;
+    $('#heroLabel').textContent = T(h.label);
+  };
+  show();
+  setInterval(() => { if (document.hidden) return; i = (i + 1) % HERO.length; show(); }, 7000);
+}
+hero();

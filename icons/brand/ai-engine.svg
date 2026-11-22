@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Climbio AI Agent 開發參與">
+  <rect width="64" height="64" rx="14" fill="#0E2A1C"/>
+  <path d="M10 38 12 26 22 17 30 22 30 43 23 50 13 46Z" fill="#A4DC2A"/>
+  <path d="M34 20 45 15 53 24 53 38 43 48 34 44Z" fill="#0FADEA"/>
+  <path d="M32 19 35.2 28.8 45 32 35.2 35.2 32 45 28.8 35.2 19 32 28.8 28.8Z" fill="#F7F8F4"/>
+  <circle cx="32" cy="32" r="2.6" fill="#0E2A1C"/>
+</svg>

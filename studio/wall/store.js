@@ -6,7 +6,7 @@
 // 公開的檔案（index.json、分區、各牆）都是從 .studio 的資料產生的。匯出 ZIP、發佈的包另外照每面牆的裁切範圍產生（app.js 的 packageFiles）。
 (function (root) {
   'use strict';
-  const SS = root.StudioStore, { PRIVATE, write, read, readJson, remove } = SS, { rid } = root.AppKit.files, T = root.AppKit.i18n.t;
+  const SS = root.StudioStore, { PRIVATE, write, read, readJson } = SS, { rid } = root.AppKit.files, T = root.AppKit.i18n.t;
   const MAX_SIDE = 3072, THUMB = 360, IMG = SS.IMG;
 
   // 編碼、雜湊、縮圖用 AppKit.photo
@@ -96,8 +96,6 @@
     }
     // 還沒有岩館時（第一次加分區、照片）先建一間，名稱是專案名稱
     gymOrFirst(id) { return (id && this.gym(id)) || this.gyms[0] || this.addGym(this.meta.name); }
-    async renameGym(g, name) { name = String(name || '').trim(); if (!name || name === g.name) return; g.name = name; await this.flush(); }
-    async removeGym(g) { for (const z of this.zones.filter(x => x.gym === g.id)) await this.removeZone(z); this.meta.gyms = this.gyms.filter(x => x !== g); await this.flush(); }
 
     // ---- 分區 ----
     addZone(name, gymId) {
@@ -106,8 +104,6 @@
       this.zones.push(z); this.saveMeta(); return z;
     }
     zoneNamed(name, gymId) { const g = this.gymOrFirst(gymId); return this.zones.find(z => z.name === name && z.gym === g.id) || this.addZone(name, g.id); }
-    async renameZone(z, name) { name = String(name || '').trim(); if (!name || name === z.name) return; z.name = name; await this.flush(); }
-    async removeZone(z) { for (const w of this.walls.filter(x => x.zone === z.id)) await this.removeWall(w); this.meta.zones = this.zones.filter(x => x !== z); await this.flush(); }
 
     // ---- 牆 ----
     async addPhoto(file, zone) {   // 照片縮好、轉正，寫進分區資料夾，排進掃描
@@ -136,12 +132,6 @@
       await this.writeData(w.id); this.saveMeta(); return w;
     }
     renameWall(w, name) { name = String(name || '').trim(); if (!name || name === w.name) return; w.name = name; this.touch(w, { ms: 0 }); return this.flush(); }
-    moveWall(w, zone) { if (w.zone === zone.id) return; w.zone = zone.id; this.touch(w, { ms: 0 }); return this.flush(); }
-    async removeWall(w) {
-      for (const p of [this.path(w, 'jpg'), this.path(w, 'json'), PROGRESS(w.id), THUMBS(w.id)]) await remove(this.dir, p);
-      this.meta.walls = this.walls.filter(x => x !== w); this.cache.delete(w.id);
-      this.saveMeta();
-    }
   }
   const clampTo = (v, max) => Math.round(Math.min(max, Math.max(0, v)) * 10) / 10;
 
@@ -154,7 +144,7 @@
     return { project: wallOf(await SS.create(c.dir, 'gym', dir.name, { meta: NEW })), photos: c.photos.map(p => ({ zone: p.dir || dir.name, file: p.file })) };
   }
   const createLocal = async name => wallOf(await SS.createLocal('gym', name, { meta: NEW }));
-  const reopen = async e => wallOf(await SS.reopen(e));
+  const reopen = async (e, opt) => wallOf(await SS.reopen(e, opt));
 
   const IMG_RE = /\.(jpe?g|png|webp|hei[cf])$/i;
   root.RefineStore = { IMG_RE, openDir, createLocal, reopen, scaled, jpeg, IMG };

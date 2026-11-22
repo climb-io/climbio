@@ -59,11 +59,11 @@ test('沒有後端：收別的站分享的線，圖層帶極小預覽圖時牆�
 
 test('沒有後端：Studio 照 site.js 不登入、不發佈（發佈服務還沒開），照樣能建書、匯出 ZIP，也不連 Firebase', async ({ page }) => {
   await page.goto('/studio/?app');
-  await expect(page.locator('#cragDrop')).toBeVisible();
+  await expect(page.locator('#aiBox')).toBeVisible();
   await expect(page.locator('.st-acct')).toHaveCount(1);   // 選單（語言、版本）：Studio 沒有登入
   await page.locator('.st-avatar').click();
   await expect(page.locator('.st-menu')).not.toContainText(/登入|Sign/);
-  await page.goto('/studio/crag/#book');
+  await page.goto('/studio/crag/#convert');
   await page.locator('#bkInput').setInputFiles([{ name: 'book.md', mimeType: 'text/markdown', buffer: Buffer.from('# 岩場\n交通：入口 25.13473, 121.51491\n## 石頭\n| 名稱 | 難度 |\n|---|---|\n| 甲 | V1 |\n') }]);
   await page.locator('#bkGo').click();
   await expect(page.locator('#bookDlg')).toHaveAttribute('data-step', 'done');

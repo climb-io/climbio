@@ -1,15 +1,15 @@
 // Firebase 後端（主網用）：公開牆（路線與開放資料集的索引）、岩館牆面、統計。不登入、不記擁有者（docs/proposals/open-versions.md）：寫自己的線靠裝置金鑰簽章，公開牆靠 App Check。
 // site.js 的 SITE.backend 是 'firebase' 才啟用，取代 site.js 預設的空後端 window.Backend；跟後端無關的分享工具在 appkit/share-tools.js。
-// 公開的牆放進 Climbio 的開放資料集（Hugging Face，雲端函式 datasets、walls 寫入）；Climbio 的伺服器只記索引。
+// 公開的牆只有 Studio 發佈（放進 Climbio 的開放資料集，Hugging Face，雲端函式 datasets、walls 寫入）；Climbio 的伺服器只記索引。App 不上傳牆。
 // 每個人的線一條一條存在 Climbio 的 wallRoutes（雲端函式 walls），同一張照片大家的線合在一起看，連結 /r/{照片編號}/{路線 id}/；
 // 給身邊的朋友用附近交換（appkit/nearby.js），手機之間直接傳，不經過 Climbio 的伺服器。
 // 不碰使用者的 Google Drive：備份是使用者自己存的檔案。
 //
 // 用法：
-//   const { results } = await Backend.shareRoutes({ pid, gym, wall, routes: [{ route }], photo, base, signature }); await Backend.unshareRoutes(pid, [rid])；await Backend.unlistWall(pid)：收回公開
+//   const { results } = await Backend.shareRoutes({ pid, routes: [{ route }], base }); await Backend.unshareRoutes(pid, [rid])；await Backend.unlistWall(pid)：收回公開
 //   await Backend.listShared(pid)（先 primeShared(pids) 可以一次問好幾面牆）
 //   紅點貓的公開登記用 Backend.projectCall(op, body)（雲端函式 datasets）
-//   const books = await Backend.listGuidebooks()：Climbio Studio 發佈的所有 Guidebook（紅點貓的「世界」）
+//   const books = await Backend.listGuidebooks()：Climbio Studio 發佈的所有 Guidebook；const world = await Backend.loadWorld()：紅點貓「世界」預先合成的三層樹
 // English: Firebase backend for the main site (window.Backend): public walls, gym walls, stats. No sign-in, no owners.
 (() => {
   'use strict';
@@ -44,8 +44,7 @@
 
   // ---------- 公開牆分享（Climbio 的開放資料集，見 docs/sharing.md）：一個人一面牆一個分享包（ShareTools.wallPackage） ----------
   // 公開的登記索引——雲端函式 datasets 記這個包，walls 登記到找牆面。
-  // 公開：沒有擁有者。牆還沒公開時第一個分享的人把牆的照片和畫面放進開放資料集（publish），之後的人只把自己的線存到 Climbio（put）。
-  // 包 id 從照片編號算出來（每台裝置都一樣），不用另外記。單次請求，不進離線佇列；失敗由下次按分享重試
+  // 公開：沒有擁有者。牆由 Studio 發佈；App 的人只把自己的線存到 Climbio（put）。單次請求，不進離線佇列；失敗由下次按分享重試
   // 超過每天的上限（daily limit）、停止上傳（503）都是 quota：前者換成「今天分享太多次了」
   const fnError = (j, r) => Object.assign(new Error(j.error === 'daily limit' ? T('shareQuota') : j.error || `HTTP ${r.status}`), { status: r.status, code: r.status === 503 || j.error === 'daily limit' ? 'quota' : undefined });
   // ---------- 裝置金鑰：岩友在公開牆寫自己的線不登入（雲端函式 walls 的 put、withdraw 驗簽章；設計見 docs/proposals/device-key-routes.md）----------
@@ -102,50 +101,19 @@
     if (!r.ok) throw Object.assign(fnError(j, r), j.error === 'stale' ? { stale: true, now: j.now } : {});
     return j;
   }
-  const hex16 = (text) => AppKit.files.sha(text, 8);
-  // 這面牆的分享包：{ id: 包 id, layer: 路線圖層的 id }；只由照片編號算出來，每台裝置、每個人都一樣
-  async function sharePack(pid) {
-    const id = await hex16(pid);
-    return { id, layer: await hex16(`${id}:routes`) };
-  }
-  const pubSigs = new Map();   // 包 id → 這次打開 App 公開出去的內容簽章
-  const sigOf = async (files) => (await Promise.all(files.map(async f => `${f.path}:${[...new Uint8Array(await crypto.subtle.digest('SHA-256', f.bytes))].map(x => x.toString(16).padStart(2, '0')).join('')}`))).join('|');
-  const b64Of = (bytes) => { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(s); };
-  const wallRegs = new Map();    // 照片編號 → 這次打開 App 登記到找牆面的結果：'guest'（別人先發佈了這面牆）或擁有者登記的內容（牆名、岩館）
-  // 分享同一面牆的線：{ pid, gym, wall: 牆名, routes: [{ route }]（這次要傳的）,
-  //   photo()→照片 JPEG, base()→{ name, w, h, thumb, holds, t }（原始岩點檔）, signature }
-  // 牆的照片和畫面只由第一個發佈這面牆的人（擁有者）公開到開放資料集一次（publishBase，Hugging Face 的 climbio/walls），其他人什麼都不傳；
+  // 分享同一面牆的線：{ pid, routes: [{ route }]（這次要傳的）, base()→{ w, h, holds }（牆的原始岩點檔，用來省掉跟牆一樣的外框） }
+  // 只有 Studio 發佈的公開牆能傳線（牆的照片和岩點只由 Studio 公開到開放資料集 climbio/walls）；手機自己拍的牆丟 code: 'private'，只能朋友互傳。
   //   每個人的線一條一條存在 Climbio 的 wallRoutes（雲端函式 walls 的 put；圖層的片段，每個人只能改自己），讀的人一次拿整面牆（listShared）。
-  // 要先登入 Google（沒登入丟 code: 'signin'，App 帶使用者去登入）；公開牆不碰 Drive。
+  // 要先有裝置金鑰簽章；公開牆不碰 Drive。
   // 回 { results: { 路線 id: { ok, made } } }
   // 公開牆上一條線存成圖層的片段 { nodes, marks }（跟牆上一樣的外框不存，讀的人用牆的原始岩點檔補；規則在 routekit 的 routesLayer）
   const fragmentOf = (pid, route, b) => { const l = RouteKit.routesLayer({ id: pid, pid, href: `${pid}.json`, w: b.w, h: b.h, holds: b.holds, routes: [route], t: 0 }); return JSON.stringify({ nodes: l.nodes, marks: l.marks }); };
-  async function shareRoutes({ pid, gym = '', wall = '', routes, photo, base, signature }) {
+  async function shareRoutes({ pid, routes, base }) {
     needNet();
-    const st = await wallRoutes({ pid });   // { published }：牆還沒公開才把牆放進開放資料集；公開了就只傳自己的線
-    if (!st.published) await publishBase({ pid, gym, wall, photo, base, signature });
+    const st = await wallRoutesPost({ pid });   // { published }：只有 Studio 發佈的公開牆能傳線；手機自己拍的牆不會被傳上去，丟 code: 'private'
+    if (!st.published) throw Object.assign(new Error('這面牆不是公開牆，只能傳給朋友'), { code: 'private' });
     const b = await base(), out = await putRoutes(pid, { routes: routes.map(x => ({ id: x.route.id, r: fragmentOf(pid, x.route, b) })) });
     return { results: Object.fromEntries(routes.map(x => [x.route.id, out.results[x.route.id] === 'ok' ? { ok: true, made: true } : { ok: false, error: out.results[x.route.id] || 'failed' }])) };
-  }
-  // 擁有者的包：照片、牆的畫面、縮圖，不放路線（圖層是空的、內容固定，沒有改就一個檔也不傳）；包裡的圖層檔是找牆面收整面牆的入口。
-  // 登記到找牆面：這次打開 App 第一次、或牆名、岩館改了才送；別人先發佈了（taken）就當訪客
-  async function publishBase({ pid, gym, wall, photo, base, signature }) {
-    const pack = await sharePack(pid), entry = `${pack.layer}.json`;
-    const b = await base(), name = (wall || b.name || 'Climbio').slice(0, 60);
-    const files = await ShareTools.wallPackage({ id: pack.id, layerId: pack.layer, pid, name, gym, w: b.w, h: b.h, thumb: b.thumb, holds: b.holds, routes: [], photo: await photo(),
-      attribution: signature || AppKit.nearby.nickname() || 'Climbio', version: 0, t: b.t || 0 });
-    // 公開的牆放進開放資料集（雲端函式 datasets 寫進 Hugging Face，不經過 Drive）；這次打開 App 傳過同樣的內容就不再傳，函式看到內容一樣也不寫新版本
-    const sig = await sigOf(files);
-    if (pubSigs.get(pack.id) !== sig) {
-      let res;
-      try { res = await fnPost('datasets', { op: 'publishWall', id: pack.id, name, gym, licenseAccepted: true, files: files.map(f => ({ path: f.path, b64: b64Of(f.bytes) })) }, true); }
-      catch (e) { if (e.status !== 409) throw e; res = { same: true }; }   // 別人先公開了不同的內容（尺寸、岩點對不上）：用現有的包，只登記到找牆面、傳自己的線
-      pubSigs.set(pack.id, sig);
-      if (!res.same) wallRegs.delete(pid);
-    }
-    const reg = JSON.stringify([name, gym]);
-    if (wallRegs.get(pid) === reg || wallRegs.get(pid) === 'guest') return;
-    await fnPost('walls', { op: 'publish', pid, name, gym, src: { project: pack.id, path: entry } }, true); wallRegs.set(pid, reg);
   }
   // 公開牆的線（Climbio 的 wallRoutes，一次最多 100 條）：routes: [{ id, r: 片段 JSON 字串 }] 新增或更新，del: [路線 id] 刪除；只能動自己的。回 { results: { 路線 id: 'ok' | 'taken' } }
   async function putRoutes(pid, { routes = [], del = [] }) {
@@ -166,19 +134,42 @@
     await send('routes', routes); await send('del', del);
     return { results };
   }
+  // 3D 牆的一條線（岩點編號、角色、手順，3D 牆另帶修點 e）：牆已經由 Studio 發佈、登記過，這裡只傳線，格式跟 2D 的片段一樣。失敗丟錯（呼叫的人退回把整條線放在連結裡）
+  async function shareRoute3d(pid, id, fragment) {
+    needNet();
+    const out = await putRoutes(pid, { routes: [{ id, r: JSON.stringify(fragment) }] });
+    if (out.results[id] !== 'ok') throw Object.assign(new Error(out.results[id] || 'failed'), { code: out.results[id] });
+    return true;
+  }
+  // 讀 3D 牆上大家的某一條線的原始片段（連結 ?m3d=牆&rid=線）；沒有就回 null
+  async function routeFragment(pid, rid) {
+    needNet();
+    const got = await wallRoutesPost({ pid }), e = (got.routes || []).find(x => x.rid === rid);
+    try { return e ? JSON.parse(e.r) : null; } catch (x) { return null; }
+  }
   // 自己刪了、伺服器上還在的公開線：拿掉
   const unshareRoutes = (pid, rids) => putRoutes(pid, { del: rids });
   // 收回自己在這面牆的線（刪掉公開的牆）：整面牆公開了就收不回（沒有擁有者），只拿掉這把金鑰寫的線
   async function unlistWall(pid) {
     needNet();
-    wallRegs.delete(pid);
     if (knownKid()) await signedPost('walls', 'withdraw', { pid });
   }
   // 公開牆上所有人的線：一次請求拿整面牆（primeShared 可以一次問好幾面牆，最多 50 面）。
   // 回 [{ rid, mine, r: 路線 JSON（外框只帶跟牆上不一樣的）, t }]；mine＝這把裝置金鑰分享的（只有它能改、能刪）。
   // 陣列的 published 是 false＝這面牆沒有公開了（擁有者收回、過期、包不見了）
   const primed = new Map();
-  const wallRoutes = async (body) => fnPost('walls', { op: 'routes', ...body, ...(knownKid() ? { kid: knownKid() } : {}) });
+  const wallRoutesPost = async (body) => fnPost('walls', { op: 'routes', ...body, ...(knownKid() ? { kid: knownKid() } : {}) });
+  // 讀公開牆的線：走 Hosting 的 CDN 快取 GET（/w/<牆 id>/shared.json，一分鐘，全部人共用，不呼叫雲端函式）；讀不到（沒有這個路由的站、離線快取外）才退回 POST。
+  // mine：作者金鑰的雜湊跟自己金鑰算的一樣
+  async function wallRoutes(body) {
+    if (Array.isArray(body.pids)) { const walls = {}; await Promise.all(body.pids.map(async (pid) => { walls[pid] = await wallRoutes({ pid }); })); return { walls }; }
+    try {
+      const r = await fetch(`/w/${body.pid}/shared.json`, { signal: AbortSignal.timeout(10000) });
+      if (!r.ok) throw new Error(`shared.json ${r.status}`);
+      const j = await r.json(), me = knownKid() ? await AppKit.files.sha(`k:${knownKid()}`, 8) : '';
+      return { ...j, routes: (j.routes || []).map(({ u, ...x }) => ({ ...x, mine: !!me && u === me })) };
+    } catch (e) { return wallRoutesPost(body); }
+  }
   async function primeShared(pids) {
     needNet();
     for (let i = 0; i < pids.length; i += 50) {
@@ -187,7 +178,7 @@
     }
   }
   // 一條線的片段 → 只有這條線的圖層（牆的畫面不在這裡，讀的人用自己的原始岩點檔補外框）
-  const layerOfFragment = (pid, f) => ({ climbio: 2, kind: 'layer', id: pid, on: pid, href: `${pid}.json`, t: 0, license: 'CC-BY-SA-4.0', nodes: f.nodes, marks: f.marks });
+  const layerOfFragment = (pid, f) => ({ climbio: 2, kind: 'layer', id: `${pid}routes`, on: pid, href: `${pid}.json`, t: 0, license: 'CC-BY-SA-4.0', nodes: f.nodes, marks: f.marks });
   async function listShared(pid) {
     needNet();
     const got = primed.get(pid) || await wallRoutes({ pid });
@@ -215,22 +206,32 @@
     await fnPost('walls', { op: 'report', pid }, true);
   }
   // Climbio Studio 發佈的所有 Guidebook 與 3D 牆（公開專案）：Storage 上的靜態清單 public/projects.json（雲端函式 datasets 在發佈、下架後和每天重寫，見 functions/projects.js 的 writeWorld），
-  // 不用登入、不經過雲端函式（沒有冷啟動），CDN 留 5 分鐘。紅點貓的「世界」只要 guidebook，岩點貓的 3D 牆只要 wall3d：讀的人自己挑 type
-  async function listProjects(type) {
+  // 不用登入、不經過雲端函式（沒有冷啟動），CDN 留 5 分鐘。紅點貓的「世界」只要 guidebook：讀的人自己挑 type（3D 牆的清單不在這裡，跟 2D 公開牆一起走岩館的牆面清單）
+  async function listProjects(type, { fresh = false } = {}) {   // fresh：不用瀏覽器快取（發佈後確認世界清單重建了）
     needNet();
-    const response = await fetch(`https://firebasestorage.googleapis.com/v0/b/${FIREBASE.storageBucket}/o/public%2Fprojects.json?alt=media`, { signal: AbortSignal.timeout(15000) });
+    const response = await fetch(`https://firebasestorage.googleapis.com/v0/b/${FIREBASE.storageBucket}/o/public%2Fprojects.json?alt=media`, { signal: AbortSignal.timeout(15000), ...(fresh ? { cache: 'no-store' } : {}) });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw Object.assign(new Error(data.error?.message || `projects: ${response.status}`), { status: response.status });
     return (data.projects || []).filter(p => p.type === type);
   }
-  const listGuidebooks = () => listProjects('guidebook');
-  // Climbio Studio 發佈的 3D 牆（type wall3d）：找牆面照岩館列出。[{ id, name, gym, t, thumb? }]，新到舊
-  const listWalls3d = () => listProjects('wall3d');
+  const listGuidebooks = (opt) => listProjects('guidebook', opt);
+  // 同一本書所有的版本，含不列入世界的（世界清單沒有它們）：雲端函式 datasets 的 versions，公開的唯讀查詢；回跟 listGuidebooks 同樣的列（找不到就是 []）
+  async function guidebookVersions(id) {
+    needNet();
+    return (await fnPost('datasets', { op: 'versions', id })).rows || [];
+  }
+  // 紅點貓「世界」預先合成好的三層樹（Storage 的 public/world.json，雲端函式在發佈、下架後和每天重寫，見 functions/world.js）：一次抓完，手機不用再合成
+  async function loadWorld() {
+    needNet();
+    const response = await fetch(`https://firebasestorage.googleapis.com/v0/b/${FIREBASE.storageBucket}/o/public%2Fworld.json?alt=media`, { signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw Object.assign(new Error(`world: ${response.status}`), { status: response.status });
+    return response.json();
+  }
 
   window.Backend = {
     name: 'firebase', caps: { share: true, gyms: true, account: false, guidebooks: true, walls3d: true },
     projectCall: (op, body) => fnPost('datasets', { op, ...body }, true),
-    projectId: FIREBASE.projectId, shareRoutes, unshareRoutes, unlistWall, listShared, primeShared, reportWall, listGuidebooks, listWalls3d,
+    projectId: FIREBASE.projectId, shareRoutes, unshareRoutes, shareRoute3d, routeFragment, unlistWall, listShared, primeShared, reportWall, listGuidebooks, guidebookVersions, loadWorld,
     appCheckToken,
   };
 })();

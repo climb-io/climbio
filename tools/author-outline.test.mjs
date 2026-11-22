@@ -216,6 +216,7 @@ test('命令列 check：印出數量與問題清單（找不到的圖檔、沒�
     assert.equal(out, `岩場：1 區、2 面岩壁、2 條路線、2 張照片
 - 找不到這些圖檔，一起選進來：missing.jpg
 - 沒有找到岩場位置（發佈前一定要有）：在交通寫「入口 緯度, 經度」，或建立後在岩場頁填「岩場位置」
+- 大綱沒寫國家（岩場底下寫「國家：tw」）：紅點貓的世界照國家分組，發佈前要補上
 `);
     writeFileSync(join(dir, 'book.md'), `# 岩場
 交通：入口 25.13473, 121.51491
@@ -276,6 +277,73 @@ test('命令列 apply：局部修正只改點名的路線（其他 id、其他�
     assert.equal(before(photoFile), photoBefore);   // 沒點名的檔案一個字都不動
     writeFileSync(join(dir, 'bad.json'), JSON.stringify([{ op: 'move', routes: [a], to: a }]));
     assert.equal(cli('apply', dir, join(dir, 'bad.json')).status, 2);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('命令列 apply：Studio 畫面能做的都做得到——新增岩壁、區域與路線、改上層、照片換岩壁、地圖的牆線區域步道、照片上畫線放 bolt、刪區域；改完都通過格式驗證', () => {
+  globalThis.AppKit = AppKit;
+  const r = fromOutline(`# 岩場
+交通：入口 25.13473, 121.51491
+## 東壁
+| 名稱 | 難度 |
+|---|---|
+| 甲 | 5.10a |
+| 乙 | 5.11a |
+`);
+  const s = r.state, [east] = M.walls(s).map(w => w.id), [a, b] = M.routes(s).map(n => n.id);
+  const p1 = M.newPhoto({ name: '東壁', w: 800, h: 1000 }), p2 = M.newPhoto({ name: '西壁', w: 600, h: 900 });
+  M.addPhoto(s, p1, east); M.addPhoto(s, p2, east);
+  const dir = mkdtempSync(join(tmpdir(), 'guidebook-'));
+  const at = (x, y) => [121.5 + x / 1e5, 25.1 + y / 1e5];
+  try {
+    for (const { path, doc } of M.exportDocs(s)) writeFileSync(join(dir, path), JSON.stringify(doc));
+    const read = (f) => JSON.parse(readFileSync(join(dir, f), 'utf8'));
+    const run = (ops) => { writeFileSync(join(dir, 'patch.json'), JSON.stringify(ops)); return cli('apply', dir, join(dir, 'patch.json')); };
+    // 新增區域、岩壁（自己給 id）、路線；東壁移進區域
+    let res = run([{ op: 'add', type: 'area', name: '北區', id: 'area0000000000001' }, { op: 'add', type: 'wall', name: '西壁', parent: 'area0000000000001', id: 'wall0000000000001' },
+      { op: 'add', type: 'route', name: '丙', parent: 'wall0000000000001', props: { grade: { yds: '5.9' } }, id: 'rout0000000000001' }, { op: 'set', id: east, parent: 'area0000000000001' }]);
+    assert.equal(res.status, 0, res.out);
+    assert.match(res.out, /新增 route rout0000000000001 丙/);
+    let book = read('index.json');
+    assert.deepEqual(['北區', '西壁', '丙'].map(n => book.nodes.find(x => x.name === n).parent), [book.nodes.find(x => x.type === 'crag')?.parent, 'area0000000000001', 'wall0000000000001']);
+    assert.equal(book.nodes.find(x => x.id === east).parent, 'area0000000000001');
+    // 上層不能是自己底下的
+    assert.equal(run([{ op: 'set', id: 'area0000000000001', parent: east }]).status, 2);
+    // 照片換岩壁、地圖的牆線與區域、步道
+    const line = [at(0, 0), at(30, 0)], ring = [at(-50, -50), at(80, -50), at(80, 50), at(-50, 50), at(-50, -50)];
+    res = run([{ op: 'photo', photos: [p2.id], to: 'wall0000000000001' }, { op: 'shape', node: 'wall0000000000001', geometry: { type: 'LineString', coordinates: line } },
+      { op: 'shape', node: 'area0000000000001', geometry: { type: 'Polygon', coordinates: [ring] } }, { op: 'shape', trail: true, geometry: { type: 'LineString', coordinates: [at(-60, -60), at(0, 0)] } }]);
+    assert.equal(res.status, 0, res.out);
+    book = read('index.json');
+    const photoFile = book.items.find(i => i.id === p2.id).href, mapFile = book.items.find(i => read(i.href).surface === 'map').href;
+    assert.equal(read(photoFile).props.node, 'wall0000000000001');
+    const map = read(mapFile);
+    assert.deepEqual(map.marks.find(m => m.node === 'wall0000000000001').geometry.coordinates, line);
+    assert.equal(map.marks.find(m => m.node === 'area0000000000001').geometry.type, 'Polygon');
+    assert.equal(map.marks.filter(m => m.props?.kind === 'trail').length, 1);
+    // 照片上畫線、放 bolt：這張還沒有圖層就開一個，接在照片後面；超出照片的點擋下
+    assert.equal(run([{ op: 'line', photo: p2.id, route: 'rout0000000000001', points: [[100, 880], [700, 50]] }]).status, 2);
+    res = run([{ op: 'line', photo: p2.id, route: 'rout0000000000001', points: [[100, 880], [140, 400], [160, 50]], bolts: [[120, 700], [140, 400]] }]);
+    assert.equal(res.status, 0, res.out);
+    book = read('index.json');
+    const li = book.items.findIndex(i => i.id === p2.id) + 1, layer = read(book.items[li].href);
+    assert.equal(layer.on, p2.id);
+    assert.deepEqual(layer.marks.filter(m => m.geometry.type === 'LineString').map(m => [m.node, m.props.label]), [['rout0000000000001', '1']]);
+    assert.deepEqual(layer.nodes.map(n => [n.type, n.name, n.parent]), [['bolt', 'B01', 'rout0000000000001'], ['bolt', 'B02', 'rout0000000000001']]);
+    // 改線不動 bolt；拿掉線連 bolt 一起
+    run([{ op: 'line', photo: p2.id, route: 'rout0000000000001', points: [[100, 880], [160, 50]] }]);
+    assert.equal(read(book.items[li].href).nodes.length, 2);
+    run([{ op: 'line', photo: p2.id, route: 'rout0000000000001', points: null }]);
+    assert.deepEqual(read(book.items[li].href).marks, []);
+    // 刪區域：底下的岩壁移到上一層；岩壁上還有照片不能刪
+    assert.equal(run([{ op: 'remove', nodes: ['wall0000000000001'] }]).status, 2);
+    res = run([{ op: 'remove', nodes: ['area0000000000001'] }]);
+    assert.equal(res.status, 0, res.out);
+    book = read('index.json');
+    assert.ok(!book.nodes.some(n => n.id === 'area0000000000001'));
+    assert.equal(book.nodes.find(n => n.id === east).parent, undefined);   // 北區在最上層：東壁跟著回到最上層
+    assert.ok(!read(mapFile).marks.some(m => m.node === 'area0000000000001'));
+    assert.deepEqual(book.nodes.filter(n => n.type === 'route').map(n => n.id).sort(), [a, b, 'rout0000000000001'].sort());
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -405,7 +473,7 @@ test('給 AI 的提示只有 ai-prompt.js 一份（沒有 import，說明頁直�
   assert.equal(out.AI_MAP_PROMPT, mod.AI_MAP_PROMPT);
   assert.match(mod.AI_PROMPT, /緯度, 經度/);
   assert.match(mod.AI_MAP_PROMPT, /GeoJSON/);
-  assert.match(readFileSync(new URL('../studio/convert/convert.js', import.meta.url), 'utf8'), /\.\.\/crag\/ai-prompt\.js/);
+  assert.match(readFileSync(new URL('../guides/convert/convert.js', import.meta.url), 'utf8'), /\.\.\/\.\.\/studio\/crag\/ai-prompt\.js/);
   assert.match(readFileSync(new URL('../studio/crag/index.html', import.meta.url), 'utf8'), /href="\.\.\/convert\/"/);
 });
 

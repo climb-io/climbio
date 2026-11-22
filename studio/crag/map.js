@@ -5,9 +5,12 @@
 // 底圖（航照、等高線、OpenStreetMap）一開始都不開，在左上的底圖選單開，或按 A（航照）、T（等高線）。
 // 編輯的形狀是地圖畫面的標註：岩壁（線）、岩石（多邊形，也是岩壁節點）、區域（多邊形）、步道（線，props.kind trail）；其他（陸地、道路）不能改。
 // 示意圖（例如手畫的岩場配置）是蓋在地圖上的半透明圖片，跟著地圖的平移、縮放、旋轉；對準時拖曳移動、拖右上角旋轉縮放。
+// 照片的視錐（有拍照位置和朝向的照片）畫在上面一層 canvas：1px 細線的扇形，選到的岩壁的照片亮起來；點扇形（沒點到形狀時）發 photo（打開那張照片）。
 // Studio Crag的岩壁節點是 type wall：交給 mapkit 時當成分區（sector）畫，Guidebook 本身不改。
 import { MapEditor, SOURCES, LINE_HIT_PX, segmentDistance, toScreen } from '../../mapkit/index.js';
 import { local } from './geo.js';
+
+const WEDGE_PX = 34, WEDGE_HIT_PX = 16, WEDGE_APEX_PX = 9;
 
 const T = (...a) => globalThis.AppKit.i18n.t(...a);
 
@@ -151,11 +154,18 @@ export class WallMap extends EventTarget {
     this.layersBtn.addEventListener('click', () => { this.menu.hidden = !this.menu.hidden; });
     this.fitBtn.addEventListener('click', () => this.fit());
     this.box.addEventListener('pointerdown', (e) => this.shapeDown(e), { capture: true });
-    host.append(this.box, this.sketchLayer, tools, this.menu, this.editBar);
+    this.shotLayer = Object.assign(document.createElement('canvas'), { className: 'map-shots' });
+    Object.assign(this.shotLayer.style, { position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' });
+    this.shotLayer.setAttribute('aria-hidden', 'true');
+    host.append(this.box, this.shotLayer, this.sketchLayer, tools, this.menu, this.editBar);
   }
 
-  /** map：岩壁地圖（v2 地圖畫面）；nodes：Guidebook 的節點；shots：拍照點 [經度, 緯度]；sketch：沒有 GPS 照片時用示意圖撐開畫布 */
-  setData({ map, nodes, shots, sketch }) {
+  /**
+   * map：岩壁地圖（v2 地圖畫面）；nodes：Guidebook 的節點；shots：拍照點 [經度, 緯度]；sketch：沒有 GPS 照片時用示意圖撐開畫布；
+   * wedges：照片的視錐 [{ id（照片畫面）, wall（岩壁節點）, position, heading, fov }]（geo.js 的 photoWedge）
+   */
+  setData({ map, nodes, shots, sketch, wedges = [] }) {
+    this.wedges = wedges;
     const pts = [...map.marks.flatMap(m => coordsOf(m.geometry)), ...shots];
     if (!pts.length && sketch) pts.push(...this.sketchCorners(sketch));
     if (!pts.length) { this.data = null; this.build(); return; }
@@ -180,6 +190,55 @@ export class WallMap extends EventTarget {
   select(id) {
     this.selected = id;
     this.editor?.set({ selected: id ? { node: id } : undefined });
+    this.drawWedges();
+  }
+
+  /** 照片的視錐在畫面上：頂點和兩條邊的終點（固定像素長，地圖轉了也對：沿朝向走一公尺再換到畫面上量方向） */
+  wedgeShapes() {
+    const ed = this.editor;
+    if (!ed?.getView()) return [];
+    return (this.wedges || []).map(w => {
+      const a = ed.toScreen(w.position), plane = local(w.position);
+      const edge = (deg) => {
+        const r = (deg * Math.PI) / 180, b = ed.toScreen(plane.from([Math.sin(r), Math.cos(r)])), dx = b[0] - a[0], dy = b[1] - a[1], n = Math.hypot(dx, dy) || 1;
+        return [a[0] + (dx / n) * WEDGE_PX, a[1] + (dy / n) * WEDGE_PX];
+      };
+      return { w, a, l: edge(w.heading - w.fov / 2), r: edge(w.heading + w.fov / 2), m: edge(w.heading) };
+    });
+  }
+
+  drawWedges() {
+    const c = this.shotLayer, w = c.clientWidth, h = c.clientHeight, k = Math.min(devicePixelRatio || 1, 2);
+    if (!w || !h) return;
+    if (c.width !== Math.round(w * k) || c.height !== Math.round(h * k)) { c.width = Math.round(w * k); c.height = Math.round(h * k); }
+    const g = c.getContext('2d');
+    g.setTransform(k, 0, 0, k, 0, 0);
+    g.clearRect(0, 0, w, h);
+    const css = getComputedStyle(this.host), line = css.getPropertyValue('--text').trim() || '#fff', on = css.getPropertyValue('--accent').trim() || '#d4ff4f';
+    // 底圖可能是淺色（向量地圖）或深色（航照）：細線底下先描一圈深色的暈，兩種都看得到
+    const path = (s) => {
+      g.beginPath();
+      g.moveTo(s.l[0], s.l[1]); g.lineTo(s.a[0], s.a[1]); g.lineTo(s.r[0], s.r[1]);
+      g.quadraticCurveTo(2 * s.m[0] - (s.l[0] + s.r[0]) / 2, 2 * s.m[1] - (s.l[1] + s.r[1]) / 2, s.l[0], s.l[1]);
+    };
+    for (const s of this.wedgeShapes()) {
+      const hot = !!this.selected && s.w.wall === this.selected;
+      path(s); g.strokeStyle = 'rgba(0, 0, 0, .55)'; g.lineWidth = 3; g.stroke();
+      path(s); g.strokeStyle = hot ? on : line; g.lineWidth = hot ? 1.5 : 1; g.stroke();
+      g.beginPath(); g.arc(s.a[0], s.a[1], 3, 0, 2 * Math.PI); g.fillStyle = 'rgba(0, 0, 0, .55)'; g.fill();
+      g.beginPath(); g.arc(s.a[0], s.a[1], 2, 0, 2 * Math.PI); g.fillStyle = hot ? on : line; g.fill();
+    }
+  }
+
+  /** 點到哪一張照片的視錐：{ id, apex（點在頂點上，就是拍照的位置） }；扇形中間的點或頂點在 WEDGE_HIT_PX 內、最近的；都沒有回 null */
+  hitWedge(p) {
+    let best = null, bd = WEDGE_HIT_PX;
+    for (const s of this.wedgeShapes()) {
+      const mid = [(s.a[0] + s.m[0]) / 2, (s.a[1] + s.m[1]) / 2], da = Math.hypot(s.a[0] - p.x, s.a[1] - p.y);
+      const d = Math.min(da, Math.hypot(mid[0] - p.x, mid[1] - p.y));
+      if (d < bd) { bd = d; best = { id: s.w.id, apex: da <= WEDGE_APEX_PX }; }
+    }
+    return best;
   }
 
   /** 縮放到看得到所有岩壁、步道、區域和拍照點 */
@@ -233,7 +292,10 @@ export class WallMap extends EventTarget {
     const [p0, p1, p3] = this.sketchCorners().map(q => ed.toScreen(q));
     const m = [(p1[0] - p0[0]) / s.w, (p1[1] - p0[1]) / s.w, (p3[0] - p0[0]) / s.h, (p3[1] - p0[1]) / s.h, p0[0], p0[1]];
     Object.assign(this.sketchImg.style, { width: `${s.w}px`, height: `${s.h}px`, transform: `matrix(${m.join(',')})` });
-    Object.assign(this.sketchTurn.style, { left: `${p1[0]}px`, top: `${p1[1]}px` });
+    // 右上角的圓點留在畫面裡（角落移出地圖時也拿得到）：轉動、縮放照指標相對中心算，圓點的位置不影響結果
+    const W = this.sketchLayer.clientWidth, H = this.sketchLayer.clientHeight, k = 20;
+    const at = (v, max) => (max > 2 * k ? Math.min(max - k, Math.max(k, v)) : v);
+    Object.assign(this.sketchTurn.style, { left: `${at(p1[0], W)}px`, top: `${at(p1[1], H)}px` });
   }
 
   point(e) {
@@ -508,12 +570,20 @@ export class WallMap extends EventTarget {
     this.host.classList.toggle('empty', !this.data);
     if (!this.data) return;
     const { view, nodes } = this.data;
-    // 拍照位置是程式用的（照片自動歸岩壁、推估牆線），不畫在地圖上
     const ed = new WallEditor(this.box, { lang: 'zh', basemap: this.basemap, attribution: this.credits(), selected: this.selected ? { node: this.selected } : undefined });
     ed.setData({ view, nodes });
     if (before) ed.setView(before);
     ed.addEventListener('hit', (e) => {
-      if (this.editing) { this.selectShape(this.hitShape(e.detail, false)); return; }
+      // 照片的視錐：點在頂點（拍照的位置）一定打開那張照片；點在扇形其他地方，編輯模式的形狀優先；畫新形狀時不看
+      const photo = this.drawing ? null : this.hitWedge(e.detail);
+      const open = () => queueMicrotask(() => this.dispatchEvent(new CustomEvent('photo', { detail: { id: photo.id } })));
+      if (photo?.apex) { open(); return; }
+      if (this.editing) {
+        const shape = this.hitShape(e.detail, false);
+        if (!shape && photo) { open(); return; }
+        this.selectShape(shape); return;
+      }
+      if (photo) { open(); return; }
       const hit = this.hitShape(e.detail, true);
       queueMicrotask(() => this.dispatchEvent(new CustomEvent('pick', { detail: { id: hit?.mark.node ?? null } })));
     });
@@ -525,8 +595,9 @@ export class WallMap extends EventTarget {
     ed.addEventListener('editstart', () => this.dispatchEvent(new CustomEvent('editstart')));
     ed.addEventListener('editchange', (e) => this.changeShape(e.detail.rings));
     this.editor = ed;
-    ed.onRender = () => this.placeSketch();
+    ed.onRender = () => { this.placeSketch(); this.drawWedges(); };
     this.placeSketch();
+    this.drawWedges();
     if (this.drawing) ed.set({ picking: true, draft: { points: this.drawing.points, closed: this.drawing.closed } });
     this.applyEdit();
     this.syncBar();

@@ -7,7 +7,7 @@ const T = AppKit.i18n.t;
 AppKit.i18n.apply();   // index.html 的 data-i18n
 const S = RefineStore, SS = StudioStore, E = RefineEditor;
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-let view = '';   // 目前的畫面：start、gate、walls（牆面）、review（岩點）、pubs（發佈）
+let view = '';   // 目前的畫面：start、gate、walls（牆面）、review（岩點）、checks（檢查）、pubs（發佈）
 const show = id => { view = id; document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.id === id)); renderSteps(); };
 const holdId = () => 'h' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-3);
 let P = null, cur = null;   // 目前的專案、正在精修的牆 { w }
@@ -48,7 +48,7 @@ async function openPublic(id) {
     const w = await proj.addDone(got.photo, { name: got.base.name || set.name || T('hlUnnamed'), holds: live }, proj.zoneNamed(gym));
     w.pack = { project: set.id, layer: item.href.replace(/\.json$/, ''), pid: item.id, gym, attribution: got.attribution || set.attribution || '' };
     const d = await proj.data(w.id); d.published = Object.fromEntries(all.map(h => [h.id, h.poly])); d.dirty = true;   // 公開時的外框：之後刪掉的岩點用它停用
-    proj.touch(w, { ms: 0 }); await proj.flush();
+    proj.touch(w, { ms: 0 }); w.pubT = w.t; await proj.flush();   // 剛收進來的牆跟公開版一樣：沒改過就不算「有更新」
     try { localStorage.setItem(key, proj.id); } catch (e) { /* 同上 */ }
     await openProject(proj); await openWall(w);
   } catch (e) { console.error(e); $('gateMsg').textContent = openErr(e); }
@@ -56,8 +56,12 @@ async function openPublic(id) {
 async function boot() {
   const pub = /^#p=([0-9a-z]{16})$/.exec(location.hash);
   if (pub) return openPublic(pub[1]);
+  const rep = /^#r=([0-9a-z]{16})$/.exec(location.hash);
+  if (rep) return openPublicReport(rep[1]);
+  const inb = /^#inbox=(.+)$/.exec(location.hash);
+  if (inb) return takeInbox(inb[1]);
   const [pid, wid] = decodeURIComponent(location.hash.slice(1)).split('/');
-  if (!pid) { show('start'); return; }
+  if (!pid) { show('start'); StudioLibrary.render($('start'), { line: 'gym', open: (r) => StudioLibrary.openRecent(r, toast) }); return; }
   try {
     const r = await SS.entry(pid);
     if (!r || r.ws !== 'gym') { location.replace('../'); return; }
@@ -72,15 +76,17 @@ async function openProject(p) {
   renderWalls(); show('walls');
 }
 
-// ---- 步驟列：牆面 → 岩點 → 發佈（跟 Crag 同一種；頂列沒有返回，工作區各自獨立）----
+// ---- 步驟列：牆面 → 岩點 → 檢查 → 報告 → 發佈（跟 Crag 同一種；頂列沒有返回，工作區各自獨立）----
 const doneWalls = () => P ? P.walls.filter(w => w.status === 'done') : [];
 function renderSteps() {
   $('steps').hidden = !P;
   if (!P) return;
-  const ws = doneWalls(), look = ws.reduce((n, w) => n + (w.look || 0), 0), on = view === 'review' ? 'holds' : view === 'pubs' ? 'publish' : 'walls';
+  const ws = doneWalls(), look = ws.reduce((n, w) => n + (w.look || 0), 0), on = view === 'review' ? 'holds' : view === 'pubs' ? 'publish' : view === 'checks' ? 'check' : view === 'report' ? 'report' : 'walls';
   StudioShell.steps($('steps'), [
     { id: 'walls', label: T('hlStepWalls'), note: ws.length ? T('hlNWalls', ws.length) : '' },
     { id: 'holds', label: T('hlStepHolds'), note: look ? T('hlLookN', look) : '' },
+    { id: 'check' },
+    { id: 'report', label: T('hlStepReport') },
     { id: 'publish', label: T('hlStepPublish') },
   ].map(x => ({ ...x, on: x.id === on })), goStep);
 }
@@ -95,6 +101,8 @@ async function goStep(id) {
   if (E.active) await E.close();
   cur = null;
   if (id === 'publish') { renderPubs(); show('pubs'); location.hash = P.id; return; }
+  if (id === 'check') { renderChecks(); show('checks'); location.hash = P.id; return; }
+  if (id === 'report') { show('report'); location.hash = P.id; renderReport(); return; }
   renderWalls(); show('walls'); location.hash = P.id;
 }
 document.querySelector('#top .st-brand').onclick = async e => { e.preventDefault(); if (E.active) await E.close(); if (P) await P.flush().catch(() => {}); location.href = '../'; };
@@ -124,11 +132,13 @@ function card(w) {
 function renderWalls() {
   if (!P) return;
   const box = $('walls'); box.replaceChildren();
-  const add = el('button', 'btn primary', T('hlAddWall')); add.onclick = () => $('addFiles').click();
-  const mine = el('button', 'btn mine', T('hlMineBtn')); mine.onclick = importMine;
-  const sync = el('button', 'btn mine', T('syncDevices')), near = el('button', 'btn mine', T('nearbyTitle'));
-  AppKit.nearby.bind(sync, 'devices', nearbyAdapter, resetNearby); AppKit.nearby.bind(near, 'send', nearbyAdapter, resetNearby);
-  box.append(el('div', 'addbar')); box.firstChild.append(mine, sync, near, add);
+  // 工具列跟 Crag 路線清單同一種（膠囊、圖示鈕）；加入資料＝加牆面照片
+  const bar = el('div', 'tbar list-bar'), add = el('button', 'tbtn');
+  bar.setAttribute('role', 'toolbar');
+  add.id = 'wAdd'; add.title = add.ariaLabel = T('hlAddWall');
+  add.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>';
+  add.onclick = () => $('addFiles').click();
+  bar.append(add); box.append(bar);
   for (const g of P.gyms) {
     const zs = P.zones.filter(z => z.gym === g.id);
     if (!zs.length) continue;
@@ -142,7 +152,10 @@ function renderWalls() {
     }
     box.append(sec);
   }
-  if (box.children.length === 1) box.append(el('div', 'empty', T('hlNoWalls')));
+  if (box.children.length === 1) {   // 還沒有牆：主畫面只有加照片（跟空的 Crag 一樣）
+    const start = el('button', 'btn primary', T('hlAddWall')); start.onclick = () => $('addFiles').click();
+    box.append(el('div', 'start', start));
+  }
 }
 function updateCard(w) { const c = $('walls').querySelector(`.card[data-id="${w.id}"]`); if (!c) return; c.querySelector('.st').textContent = stateText(w); c.querySelector('.st').className = 'st' + (w.look ? ' look' : ''); }
 
@@ -158,77 +171,40 @@ function addOutlines(w, d, canvas) {
 }
 // 自動結果留一份（record.js 的研究記錄拿它跟最後結果比）；人改過的岩點不更新，所以只記自動的最新結果
 const noteBase = (d, h) => { (d.base || (d.base = {}))[h.id] = { poly: h.poly, flags: [...(h.flags || [])] }; };
-// ---- 我的岩點貓牆面：登入 Google，列出自己公開過的牆，帶進來修，修好在發佈步驟更新（同一個包的新版本）----
+// ---- 分享用的程式庫（公開格式、岩點貓分享包）：匯出、發佈時才載入 ----
 const loadScript = src => new Promise((res, rej) => { const e = Object.assign(document.createElement('script'), { src }); e.onload = res; e.onerror = () => rej(new Error(T('hlLibFail'))); document.head.append(e); });
 let libP = null;
 const shareLibs = () => libP || (libP = (async () => { for (const f of ['../../format/format.js', '../../routekit/format.js', '../../appkit/share-tools.js']) await loadScript(f); })().catch(e => { libP = null; throw e; }));
-// 「我的牆」：這台發佈過的 3D 牆（本機記錄；Studio 沒有帳號）。選了跳到 3D 牆工作區（選工作檔資料夾，或下載已發佈的版本）
-async function importMine() {
-  let list;
-  try { list = await (await import('../published.js')).localWalls3d(); } catch (e) { console.error(e); toast(openErr(e)); return; }
-  if (!list.length) { toast(T('hlMineNone')); return; }
-  const pick = await AppKit.ui.ask({ title: T('hlMineTitle'), choices: list.map(x => ({ label: [x.name || T('hlUnnamed'), x.gym, '3D'].filter(Boolean).join(' · '), value: x.pid })), buttons: [{ label: T('cancel') }] });
-  const item = pick && list.find(x => x.pid === pick.button);
-  if (item) location.href = `../wall3d/#${item.wallId}/${item.pid}`;
-}
 
-// ---- 附近交換、同步到其他裝置（appkit/nearby.js，跟岩點貓、紅點貓同一個流程）----
-// 'send'：傳給別人（挑要傳的牆、對方按「收下」才收）；'devices'：我的裝置（跟岩點貓同一組配對，app: 'hold'；自己的裝置自動同步，不用挑）。
-// 收下的牆直接帶進專案（沒有開專案就建一個「從裝置收到」）；Studio 沒有路線，只傳照片和岩點外框
-const hex16 = async text => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))].slice(0, 8).map(b => b.toString(16).padStart(2, '0')).join('');
-const nearbyId = w => w.nearbyPid || w.id;   // 收來的牆沿用對方的牆 id，對方才知道這面我們有
-async function nearbyList() {
-  if (!P) return [];
-  return Promise.all(P.walls.filter(w => w.status === 'done').map(async w => ({ id: nearbyId(w), name: w.name || '', img: '', sub: T('hlHoldsN', w.holds ?? 0), v: w.nearbyV || [String(w.t)] })));
+// Studio 首頁「加資料」交過來的照片（StudioStore 的收件匣）：{ name, items: [{ dir: 分組名稱, file }] }，分組變成分區
+async function takeInbox(key) {
+  const rec = await SS.inbox.take(key);
+  history.replaceState(null, '', location.pathname);
+  if (!rec?.items?.length) { show('start'); return; }
+  await addPhotos(rec.items.map(i => i.file), { name: rec.name, zoneOf: new Map(rec.items.map(i => [i.file, i.dir])) });
+  if (!P) { show('start'); return; }   // 沒加成功（訊息已經跳出）：回到空白的開始畫面
+  if (!location.hash) history.replaceState(null, '', `#${P.id}`);   // 重新整理還在這個專案
 }
-async function nearbyPack(id) {
-  const w = P?.walls.find(x => nearbyId(x) === id);
-  if (!w) throw new Error(T('hlNoWall'));
-  await shareLibs();
-  const d = await P.data(w.id), pid = nearbyId(w), pack = await hex16(`studio:${pid}`), layer = await hex16(`studio:${pid}:layer`);
-  const thumb = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; P.thumb(w).then(b => r.readAsDataURL(b), rej); });
-  return ShareTools.wallBundle({ id: pack, layerId: layer, pid, name: w.name || '', gym: '', w: w.w, h: w.h, thumb, holds: d.holds, routes: [], photo: await P.photo(w), attribution: '', version: Date.now(), t: w.t });
-}
-let nearbyProject = null, nearbyGot = 0;   // 這次交換收進哪個專案、收了幾面
-async function nearbyTake(b) {
-  if (b.entry === 'm3d.json' || !/\.json$/.test(b.entry || '')) return;   // 3D 牆的路線、紅點貓的攀登記錄不是牆
-  await shareLibs();
-  const got = await ShareTools.fetchWall(b.url, b.id), v = got.routes.map(r => `${r.id}:${r.t || 0}`);
-  nearbyProject ||= P || await S.createLocal(T('hlNearbyProject'));
-  const have = nearbyProject.walls.find(w => w.nearbyPid === b.id);
-  if (have) { have.nearbyV = v; nearbyProject.touch(have, { ms: 0 }); return; }   // 收過了：不覆蓋這裡編輯的
-  const w = await nearbyProject.addDone(got.photo, { name: got.base.name || b.name || T('hlUnnamed'), holds: got.base.holds || [] }, nearbyProject.zoneNamed(got.gym || T('hlZoneWall')));
-  w.nearbyPid = b.id; w.nearbyV = v;
-  nearbyProject.touch(w, { ms: 0 }); await nearbyProject.flush();
-  nearbyGot++;
-}
-const nearbyAdapter = {
-  app: 'hold', label: 'Studio', list: () => nearbyList(), pack: nearbyPack, take: nearbyTake, sharePair: async () => ({}), takePair: async () => {},
-  onClose: async () => {
-    if (!nearbyGot || !nearbyProject) return;
-    await nearbyProject.flush();
-    if (!P) await openProject(nearbyProject); else { renderWalls(); renderSteps(); }
-    nearbyProject = null; nearbyGot = 0;
-  },
-};
-const resetNearby = () => { nearbyProject = null; nearbyGot = 0; };   // 每次打開重新算這次收進哪個專案
-
-// 加牆面照片：沒有專案就先建一個；每張照片 HoldScan 偵測加 HoldKit 外框，偵測不到岩點的牆留空白（在岩點步驟用 SAM2 或手畫補）
-async function addPhotos(files) {
+// 加牆面照片：沒有專案就先建一個（name：專案名稱；zoneOf：照片 → 分區名稱）；每張照片 HoldScan 偵測加 HoldKit 外框，偵測不到岩點的牆留空白（在岩點步驟用 SAM2 或手畫補）
+async function addPhotos(files, { name = '', zoneOf = null } = {}) {
   const list = [...files].filter(f => f && S.IMG_RE.test(f.name));
   if (!list.length) { toast(T('hlPickImage')); return; }
   const b = StudioShell.busy(T('hlAddingTitle'));
   let p = P, last = null, empty = 0;
   try {
-    p = p || await S.createLocal(list[0].name.replace(/\.[^.]+$/, ''));
-    const zone = p.zones[0] || p.addZone(T('hlZoneWall'));
+    p = p || await S.createLocal(name || list[0].name.replace(/\.[^.]+$/, ''));
+    const first = () => p.zones[0] || p.addZone(T('hlZoneWall'));
     for (const [i, f] of list.entries()) {
       b.step(T('hlAddingPhoto'), i + 1, list.length);
+      const zn = zoneOf?.get(f), zone = zn ? p.zoneNamed(zn) : first();
       const w = await p.addBlank(f, zone);
       b.step(T('hlDetecting'), i + 1, list.length);
       const c = await photoCanvas(p, w), { boxes } = await HoldScan.detect(c), d = await p.data(w.id);
+      // 偵測到的岩點在過場上亮起來（最後一張等它亮完再關）
+      const shown = b.show(c, boxes.map(([x0, y0, x1, y1]) => [(x0 + x1) / 2, (y0 + y1) / 2]));
       if (boxes.length) { d.boxes = boxes; addOutlines(w, d, c); counts(w, d); } else empty++;
       p.touch(w, { ms: 0 }); last = w;
+      if (i === list.length - 1) await shown;
     }
     await p.flush();
   } catch (e) { console.error(e); toast(openErr(e)); }
@@ -238,16 +214,8 @@ async function addPhotos(files) {
   if (empty) toast(T('hlNoHolds'));
   if (list.length === 1) await openWall(last);
 }
-$('startPick').onclick = () => $('startFiles').click();
-$('startMine').onclick = () => importMine();
-AppKit.nearby.bind($('startSync'), 'devices', nearbyAdapter, resetNearby);
-AppKit.nearby.bind($('startNear'), 'send', nearbyAdapter, resetNearby);
-$('startFiles').onchange = e => { const f = [...e.target.files]; e.target.value = ''; addPhotos(f); };
+// 還沒有專案：新的一律從 Studio 的「加資料」進（照片照內容交給岩館、岩場）
 $('addFiles').onchange = e => { const f = [...e.target.files]; e.target.value = ''; addPhotos(f); };
-const sd = $('startDrop');
-sd.addEventListener('dragover', e => { e.preventDefault(); sd.classList.add('over'); });
-sd.addEventListener('dragleave', () => sd.classList.remove('over'));
-sd.addEventListener('drop', e => { e.preventDefault(); sd.classList.remove('over'); addPhotos(e.dataTransfer.files); });
 
 // ---- 精修一面牆 ----
 async function photoCanvas(p, w) {
@@ -289,11 +257,17 @@ addEventListener('beforeunload', e => { if (P && P.timers.size) { P.flush(); e.p
 const TOOLS = () => ({ holdkit: HoldKit.VERSION, detector: 'holdscan', sam: 'sam2.1-hiera-base-plus' });
 const DATASET_URL = 'https://huggingface.co/datasets/climbio/walls/tree/main/walls/';
 const enc = o => new TextEncoder().encode(JSON.stringify(o));
-// 新的牆：照片、畫面（只算裁切範圍裡的岩點）、研究記錄
-async function wallJob(w, d) {
+// 研究記錄（只算裁切範圍裡的岩點）：發佈時寫進 <牆 id>.edits.json，報告也從它算
+function recordOf(w, d) {
   const inCrop = h => centerIn(polyBox(h.poly), w.crop), holds = d.holds.filter(inCrop), base = Object.fromEntries(Object.entries(d.base || {}).filter(([, b]) => inCrop(b)));
   const record = RefineRecord.buildRecord({ id: w.id, sha256: w.sha, license: P.meta.license, reviewed: w.reviewed, tools: TOOLS(), base, holds, w: w.w, h: w.h });
-  return { id: w.id, gym: '', files: [
+  return { record, holds };
+}
+// 新的牆：照片、畫面、研究記錄
+async function wallJob(w, d) {
+  const { record } = recordOf(w, d);
+  const z = P.zones.find(x => x.id === w.zone), gym = ((z && P.gym(z.gym)) || P.gyms[0] || { name: P.meta.name }).name;   // 公開牆一定有岩館名稱（分區所屬的那間）
+  return { id: w.id, gym, files: [
     { path: `${w.id}.jpg`, bytes: new Uint8Array(await (await P.photo(w)).arrayBuffer()) },
     { path: `${w.id}.json`, bytes: enc(P.view(w, d)) },
     ...(record ? [{ path: `${w.id}.edits.json`, bytes: enc(record) }] : []),
@@ -308,19 +282,19 @@ async function packJob(w, d) {
   const files = await ShareTools.wallPackage({ id: k.project, layerId: k.layer, pid: k.pid, name: w.name, gym: k.gym, w: w.w, h: w.h, thumb, holds: [...d.holds, ...retiredOf(d)], routes: [], photo: await P.photo(w), attribution: k.attribution, version: 0, t: Date.now() });
   return { id: k.project, gym: k.gym, files };
 }
-let pubUI = null, pubOk = null, pubW = null;   // pubW：正在發佈的牆
+let pubUI = null, pubOk = null, pubClaim = null, pubW = null;   // pubW：正在發佈的牆
 async function publishUi() {
   if (pubUI) return pubUI;
   const [{ createPublishUI }, pub] = await Promise.all([import('../publish-ui.js'), import('../publisher.js')]);
   pubOk = Object.assign(document.createElement('input'), { type: 'checkbox' });
-  const claim = Object.assign(document.createElement('label'), { className: 'check' });
-  claim.append(pubOk, T('hlPubClaim'));
+  pubClaim = Object.assign(document.createElement('label'), { className: 'check' });
+  pubClaim.append(pubOk, T('hlPubClaim'));
   pubUI = createPublishUI({
-    title: T('hlPubTitle'), visibility: false, after: [claim],
+    title: T('hlPubTitle'), visibility: false, after: [pubClaim],
     onCopy: () => { $('saveState').textContent = T('hlCopiedUrl'); },
     async onGo() {
-      if (!pubOk.checked) throw new Error(T('hlPubNeedClaim'));
       const w = pubW;
+      if (!w.pack && !pubOk.checked) throw new Error(T('hlPubNeedClaim'));   // 已公開的牆（精修）早就聲明過，不再問
       await P.flush();        // 公開的是存好的岩點
       const d = await P.data(w.id), job = w.pack ? await packJob(w, d) : await wallJob(w, d);
       pubUI.run.open({ name: w.name, tiles: [], cover: false });
@@ -329,17 +303,17 @@ async function publishUi() {
       finally { pubUI.run.close(); }
       w.pubv = res.version; if (w.pack) d.published = { ...d.published, ...Object.fromEntries(d.holds.map(h => [h.id, h.poly])) };   // 發佈出去的外框，之後刪掉的岩點用它停用
       P.touch(w, { ms: 0 }); w.pubT = w.t; renderPubs();   // 發佈後的編輯才算「有更新」
-      pubUI.set({ link: `${DATASET_URL}${job.id}/v${res.version}`, summary: null, message: T('hlPubDone', res.version), go: { text: T('hlPubAgain') }, canDown: false });
+      pubUI.set({ link: `${DATASET_URL}${job.id}/v${res.version}`, summary: null, message: T('hlPubDone', res.version), go: { hidden: true }, canDown: false });
     },
   });
   return pubUI;
 }
 async function openPublish(w) {
   pubW = w;
-  const ui = await publishUi(), d = await P.data(w.id);
-  pubOk.checked = false;
+  const ui = await publishUi(), d = await P.data(w.id), on = globalThis.SITE?.backend === 'firebase';
+  pubOk.checked = false; pubClaim.hidden = !!w.pack || !on;
   ui.set({
-    message: '', go: { text: w.pubv || w.pack ? T('hlPubUpdate') : T('hlPubGo'), disabled: false }, canDown: false,
+    message: on ? '' : T('stPubOff'), go: { text: w.pubv || w.pack ? T('hlPubUpdate') : T('hlPubGo'), hidden: false, disabled: !on }, canDown: false,
     summary: w.pack ? { intro: T('hlPubPackIntro'), items: [T('hlPubPackItemWall'), T('hlPubPackItemRoutes')] } : { intro: T('hlPubIntro'), items: [
       T('hlPubItemPhoto'),
       d.base && Object.keys(d.base).length ? T('hlPubItemEdits') + (w.reviewed ? '' : T('hlPubNotReviewed')) : T('hlPubItemNoBase'),
@@ -348,18 +322,91 @@ async function openPublish(w) {
   });
   ui.open();
 }
-// 發佈步驟：每面牆一列，寫發佈到第幾版、之後有沒有改過
+// 匯出一面牆（不公開）：畫面 <牆 id>.json（Climbio 公開格式 v2，只含裁切範圍裡的岩點）和照片 <牆 id>.jpg 打成 ZIP，
+// 就是內嵌頁、別的 App 要的資料（見 docs/embed.md）
+async function exportWall(w) {
+  try {
+    await P.flush();   // 匯出的是存好的岩點
+    await shareLibs();
+    const d = await P.data(w.id), view = P.view(w, d), errs = ClimbioFormat.validate(view);
+    if (errs.length) throw new Error(errs[0]);
+    const zip = await AppKit.files.zip([
+      { name: `${w.id}.json`, blob: new Blob([JSON.stringify(view, null, 1)], { type: 'application/json' }) },
+      { name: `${w.id}.jpg`, blob: await P.photo(w) },
+    ]);
+    const url = URL.createObjectURL(zip), a = Object.assign(document.createElement('a'), { href: url, download: `${(w.name || w.id).replace(/[\\/:*?"<>|]/g, '_')}.zip` });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    toast(T('hlExported'));
+  } catch (e) { console.error(e); toast(T('hlExportFail', e.message)); }
+}
+// 發佈步驟：每面牆一列，寫發佈到第幾版、之後有沒有改過；右邊是匯出，和（尚未發佈或有更新時）發佈
+// 手動下架：拿掉找牆面入口和所有人在這面牆的路線；資料集已公開的檔案留著，重新發佈就回來。只有擁有者（發佈金鑰）或維護者能下架
+async function unpublishUi(w) {
+  if (!(await AppKit.ui.confirm(T('hlPubUnpublishAsk', w.name), { ok: T('hlPubUnpublish'), danger: true }))) return;
+  try { await (await import('../publisher.js')).unpublishWall(w.pack ? w.pack.pid : w.id); toast(T('hlPubUnpublished')); }
+  catch (e) { toast(T('hlPubUnpublishFail', e.status === 403 || e.status === 401 ? T('hlPubNotOwner') : e.message)); }
+}
 function renderPubs() {
   if (!P) return;
-  const box = $('pubs'); box.replaceChildren();
-  for (const w of doneWalls()) {
-    const row = el('div', 'prow'), pic = el('div', 'pic'), info = el('div', 'info'), stale = w.t > (w.pubT || 0), live = !!(w.pubv || w.pack);
-    const st = w.pubv ? [stale ? T('hlPubStale', w.pubv) : T('hlPubAt', w.pubv), stale ? 'look' : 'ok'] : w.pack ? [stale ? T('hlPubPackStale') : T('hlPubPackSame'), stale ? 'look' : 'ok'] : [T('hlPubNone'), ''];
-    info.append(el('div', 'nm', w.name), el('div', 'st ' + st[1], st[0]));
-    const go = el('button', !live || stale ? 'btn primary' : 'btn', live ? T('hlPubUpdate') : T('hlPubGo')); go.onclick = () => openPublish(w);
-    row.append(pic, info, go); box.append(row); setThumb(w, pic);
+  StudioShell.pubList($('pubs'), doneWalls().map(w => {
+    const stale = w.t > (w.pubT || 0), live = !!(w.pubv || w.pack);
+    const { status, tone } = w.pack && !w.pubv ? { status: stale ? T('hlPubPackStale') : T('hlPubPackSame'), tone: stale ? 'look' : 'ok' } : StudioShell.pubStatus(w.pubv, stale);
+    const actions = [{ label: T('hlReport'), onClick: () => { rpWall = w.id; goStep('report'); } }, { label: T('hlExportZip'), onClick: () => exportWall(w) }];
+    if (!live || stale) actions.push({ label: live ? T('hlPubUpdate') : T('hlPubGo'), primary: true, onClick: () => openPublish(w) });   // 發佈過、之後沒改：不給發佈鈕
+    if (live) actions.push({ label: T('hlPubUnpublish'), onClick: () => unpublishUi(w) });
+    return { id: w.id, name: w.name, status, tone, actions, thumb: pic => setThumb(w, pic) };
+  }), T('hlNoWalls'));
+}
+// 檢查步驟：還有待確認岩點、還沒逐顆檢查完、處理失敗的牆；點了打開那面
+function renderChecks() {
+  if (!P) return;
+  const items = [];
+  for (const w of P.walls) {
+    if (w.status === 'failed') items.push({ title: w.name, note: T('hlWallFailed', w.err), tone: 'bad' });
+    else if (w.status !== 'done') continue;
+    else if (w.look) items.push({ title: w.name, note: T('hlLookOf', w.look, w.n), onClick: () => openWall(w) });
+    else if (!w.reviewed) items.push({ title: w.name, note: T('hlNotReviewed'), onClick: () => openWall(w) });
   }
-  if (!box.children.length) box.append(el('div', 'empty', T('hlNoWalls')));
+  StudioShell.checks($('checks'), items);
+}
+
+// ---- 報告：每一步的外框跟最後的岩點比（report.js 算、report-view.js 畫），跟已公開的牆、Lab 的 Hold Lab 頁同一個畫面 ----
+// 發佈前：從這面牆的精修記錄算（跟發佈時寫進 <牆 id>.edits.json 的是同一份），所以公開後看到的報告跟這裡一樣
+let rpView = null, rpWall = null;
+const reportView = () => rpView || (rpView = ClimbioReportView.mount($('rpBox'), T));
+async function renderReport() {
+  const ws = doneWalls(), head = $('rpHead'), v = reportView();
+  head.innerHTML = '';
+  if (!ws.length) { v.message(T('hlNoWalls')); return; }
+  const w = ws.find(x => x.id === rpWall) || ws[0];
+  rpWall = w.id;
+  head.append(el('h1', '', w.name));
+  if (ws.length > 1) {
+    const seg = el('div', 'seg'); seg.setAttribute('role', 'radiogroup');
+    for (const x of ws) { const b = el('button', '', x.name); b.type = 'button'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', x === w); b.onclick = () => { rpWall = x.id; renderReport(); }; seg.append(b); }
+    head.append(seg);
+  }
+  v.message(T('rpLoading'));
+  await P.flush();
+  const d = await P.data(w.id);
+  if (view !== 'report' || rpWall !== w.id) return;
+  const { record, holds } = recordOf(w, d);
+  await v.show({ photo: await P.photo(w), w: w.w, h: w.h, stages: ClimbioReport.fromRecord(record, holds) });
+}
+// 已公開的牆 #r=<牆 id>：不用專案，從開放資料集讀（精修記錄或各步比對資料）；上面有到 Studio Wall 接著精修的連結（#p=）
+async function openPublicReport(id) {
+  show('report'); const v = reportView(), head = $('rpHead');
+  try {
+    const row = (await ClimbioReport.walls()).find(x => x.id === id);
+    if (!row) throw new Error(T('hlPubNotWall'));
+    head.innerHTML = '';
+    const edit = el('a', 'btn', T('hlReportEdit')); edit.href = `#p=${id}`; edit.onclick = () => setTimeout(() => location.reload(), 0);
+    head.append(el('h1', '', row.name || id), edit);
+    $('pName').textContent = row.name || id;
+    const r = await ClimbioReport.loadPublished(row);
+    await v.show(r);
+  } catch (e) { console.error(e); v.message(openErr(e)); }
 }
 
 // ---- SAM2 重描整面牆：裁切範圍裡每個偵測框重描，換掉對應岩點的外框（岩點 id 不變，路線不受影響；手畫、改過的岩點不動）----

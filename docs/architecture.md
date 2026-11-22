@@ -10,8 +10,10 @@
 
 | 網址 | 內容 |
 |---|---|
-| `/`（`index.html`、`entry.js`、`home.js`、`css/home.css`） | Climbio 首頁四章節：兩款 App、岩場資料、Studio 與開發者；Lab 是研究工具入口；`home.js` 用開放格式的示範牆畫路線圖、整頁的線與開發者的「人看／AI 讀」對照（見 [brand.md](brand.md) 的「字體與首頁」）。帶著 App 的參數進來（路線連結轉來的 `?p=`）時，`entry.js` 在畫面出來前依內容轉進對應的 App（`?topo=` 給紅點貓，其他給岩點貓） |
-| `/en/`、`/en/guides/` | 首頁與使用說明的英文版（手寫，內容對應中文版；兩邊頁首有互連的語言連結與 hreflang）；`/kits/en/` 由 `tools/build-kits.mjs` 產生 |
+| `/`（`index.html`、`entry.js`、`home-reel.js`、`css/home.css`） | 單一視窗滿版輪播。每幕用一張照片和一段文字，前五幕各有對應入口。第六幕的文案先出現，接著原地展開應用、Studio、文件、Lab 和 GitHub 的入口。文件頁集中開發工具與岩場資料。帶著 App 參數進來時，`entry.js` 在畫面出來前依內容轉進對應的 App（`?topo=` 給紅點貓，路線連結的 `?p=` 給岩點貓） |
+| `/lab/`、`/lab/en/` | 岩點精修、3D 重建與開放資料集。Hold Lab 比較工具在 `/lab/hold-lab/`（岩點報告跟 Studio Wall 共用，見 docs/studio-wall.md 的「岩點報告」） |
+| `/guides/`、`/en/guides/` | 文件索引、App 操作手冊、Studio 指南及開發資源；`/kits/` 與 `/kits/en/` 由 `tools/build-kits.mjs` 產生 |
+| `/en/` | 英文首頁，首頁依裝置語言自動選擇繁中或英文，文件頁依瀏覽器語言自動導向 |
 | `/hold/` | 岩點貓（室內手機）：`hold/index.html`、`hold/sw.js`、`hold/manifest*.webmanifest`；程式、樣式和其他共用的檔案在網站根目錄 |
 | `/studio/` | Climbio Studio（電腦、平板；手機只匯入岩場站、接著編 Crag）：一個 PWA（`studio/manifest.webmanifest`、`studio/sw.js`，範圍 `/studio/`）。首頁 `studio/index.html`（新專案、手動輸入、最近的專案）；正式工作區 `/studio/crag/`（戶外岩場，ES module，見 [studio-crag.md](studio-crag.md)）；專案資料夾 `studio/store.js`、共用外殼 `studio/shell.js`、`shell.css`（見 [studio-design.md](studio-design.md)）；Wall 與 3D 牆現由 `/lab/` 對外介紹為研究工具，相關舊技術入口仍可開啟；Wall 手機也能用（`ak-handset` 換手機版面：底部面板，見 [studio-wall.md](studio-wall.md)）；首頁和 Crag 在手機照常打開，`html` 加 `ak-handset` 換手機版面 |
 | `/redpoint/` | 紅點貓（戶外手機，見 [redpoint.md](redpoint.md)）：`redpoint/` 裡是自己的頁面、程式（ES module）、`sw.js`、manifest |
@@ -25,9 +27,9 @@
 背景預載失敗會保留目前畫面與離線快取，下次預載或實際偵測時重試；偵測腳本本身沒載入時回報下載錯誤。`appkit/recover.js` 只在有網路時修復，不因可重試的非同步腳本失敗而清快取、重載。預設只處理必要靜態腳本的載入失敗。頁面在 script 標籤加上 `data-boot`（紅點貓為 8000 毫秒）時另開開機看門狗：開機完成前，自家網域腳本的下載失敗、語法或執行錯誤，以及主程式沒在時限內呼叫 `akBooted()`，都算開機失敗。失敗時若有等待中的新版 Service Worker 就送 `SKIP_WAITING` 讓它接手再重新整理；沒有就解除 Service Worker、刪掉 `data-cache` 指定前綴的快取（紅點貓是 `redpoint-cat`）再重新整理。只清快取，不動 IndexedDB。十分鐘內最多自動修復一次。
 
 - **開 App 網路優先**：導覽請求先問網路，網路慢過 3 秒或沒網路才用存好的頁面。有網路時打開就是最新版，不先閃舊版、不自動重新載入；岩館沒訊號時 3 秒內也開得起來。
-- **資源網址帶版本**：部署時 `tools/stamp-assets.mjs`（`build-site.sh` 呼叫）把 `hold/index.html` 裡本站的 `<script src>`、樣式表 `<link href>` 加上 `?v=<版本>`，語言包也跟著（`appkit/i18n.js` 沿用自己的後綴）。帶版本的網址快取優先，頁面和資源永遠同一版，不必靠重新載入對齊。沒帶版本的資源（圖示、Worker、示範牆）網路優先。本機開發沒經過部署、不帶後綴，永遠是最新的。
+- **資源網址帶版本**：部署時 `tools/stamp-assets.mjs`（`build-site.sh` 呼叫）把 `hold/index.html`、`3d/index.html` 和 Studio 各頁（首頁、`wall/`、`crag/`、`wall3d/`、`scene/`、`work/`）裡本站的 `<script src>`、樣式表 `<link href>` 加上 `?v=<版本>`，語言包也跟著（`appkit/i18n.js` 沿用自己的後綴）。帶版本的網址快取優先，頁面和資源永遠同一版，不必靠重新載入對齊。模組互相 `import` 的網址沒有後綴：頁面已經用帶版本的網址載入過 Service Worker 這一版時，它要的程式、樣式也照這一版的快取（`appkit/sw.js`），頁面是別版的照網路優先，不混版。其他沒帶版本的資源（圖示、Worker、資料）網路優先。資料夾網址（`/studio/wall/` 這類）的頁面一律 `no-cache`（`firebase.json` 的 `**/`），瀏覽器不留舊頁。本機開發沒經過部署、不帶後綴，永遠是最新的。
 - **岩點貓預先快取整版**（`hold/sw.js` 的 `SHELL`）：install 時存成帶版本的網址，一個都不能少；新的 Service Worker 裝好就接手，啟用時清掉別版。大檔模型另存只跟 holdkit 版本走的 `MODELS` 快取，網址不帶 `?v=`。Climbio Studio 沒有預先快取，用到才存。
-- **大檔下載由頁面排序**（`js/add-wall.js`）：首頁畫好後（第一次打開還要等開場的清晰示範照片載完）先下載偵測模型和它的 onnxruntime，存進 `MODELS` 快取（名稱同 `hold/sw.js`），Worker 先讀快取；重描解碼器（`holdkit/samworker.js`）排在偵測模型之後，下載完整才存。第一次造訪還沒被 Service Worker 控制也只下載一次，快取被清掉（iPhone 久沒開）就自動重新下載；點「開始拍」時還沒好就接著同一個下載，掃描畫面顯示百分比，失敗有訊息可重試。
+- **大檔下載由頁面排序**（`js/add-wall.js`）：首頁畫好後（第一次打開還要等開場的清晰示範照片載完）在背景依序預先下載偵測模型和它的 onnxruntime、重描的解碼器和編碼器（低優先的 fetch，省流量模式不下載），存進 `MODELS` 快取（名稱同 `hold/sw.js`），下載完整才存；這時只存不載入，Worker 等新增牆面時才建（不佔看線、定線的 CPU 和記憶體），先讀快取。主網的模型是壓縮傳輸，進度用解壓後的大小算。第一次造訪還沒被 Service Worker 控制也只下載一次，快取被清掉（iPhone 久沒開）就自動重新下載；點「開始拍」時還沒好就接著同一個下載，掃描畫面顯示百分比，失敗有訊息可重試。
 - **第一次開場不等大照片**（`js/mobile.js`）：示範牆資料（`js/boot.js` 只在開場時先 preload，含 323 px 縮圖）一到就用縮圖放大的預覽演開場，`demo.jpg`（低優先）載好後換成清晰版。
 - **開著不動**：`js/main.js` 回到前景、恢復網路時（至少間隔 1 分鐘）抓 `version.js?check=`，版本不同就顯示「有新版本　更新」，按了才 `location.reload()`，不自動打斷。
 - 紅點貓的 Service Worker 仍是整版預先快取、離線優先（見 [redpoint.md](redpoint.md)），沒有套用這一套。
@@ -56,7 +58,7 @@
 | `js/sync.js` | 分享：分享路線、分享畫面、接收分享、公開牆 |
 | `js/draw.js` | 繪製：編輯畫面（岩點外框、把手、選擇）、路線底的模式（灰階／暗彩）、岩點檔與路線外框的整理；路線圖本身用 RouteKit |
 | `js/export.js` | 輸出：分享的路線圖（Climbio 版面：難度、名稱、署名） |
-| `js/mobile.js`、`js/tour.js` | 手機介面；操作示範與小人提示 |
+| `js/mobile.js` | 手機介面 |
 | `js/wall3d.js`、`wall3dkit/` | 3D 牆（載入、繪製、沿牆鏡頭、烘焙在 Wall3DKit）：私人連結下載成一面牆、牆頁底圖換成模型、路線連結（見 [3D 牆](3d-wall.md)） |
 | `js/main.js` | 啟動與事件綁定、導覽、開著不動時的版本檢查 |
 | `site.js` | 站台設定：用哪個後端（`SITE.backend`）、雲端加速、App 網址；主網網域接主網的後端，其他網域和本機預覽自動不接（自架站不用改；瀏覽器測試用 localStorage 的 `climbio.site.main` 接回）；預設的空後端 `window.Backend` |
@@ -65,7 +67,7 @@
 | `backend/firebase.js` | 主網站的可替換後端（`window.Backend`）：公開資料集的索引（`datasets`／`walls`）、找牆面及舊版相容的 Storage 路徑；分享貢獻數由 App 在本機計算 |
 | `functions/` | 主網站的雲端函式（codebase `climbio`）：目前主要負責 `datasets` 公開索引、`walls` 圖層索引、`routePage` 路線連結與公開牆資料、總目錄、選用雲端服務等。部署見 [deploy.md](deploy.md) |
 | `gyms/`、`tools/gyms.mjs`、`tools/gyms/` | 岩館清單（每個國家一個檔），由 `tools/gyms.mjs` 產生，不要手改 `gyms/`（見 docs/gyms.md） |
-| `i18n/<app>/<語言>.js`、`i18n/common/<語言>.js` | 語言包（中、英、日、法、韓、西、德）：每個 App 一組（岩點貓 `hold/`、紅點貓 `redpoint/`，語言選擇共用 `climbio.lang`），共用名詞（確定、取消、加到主畫面的說明）一組；頁面只載入目前語言（`AppKit.i18n`） |
+| `i18n/<app>/<語言>.js`、`i18n/common/<語言>.js` | 語言包（中、英、日、法、韓、西、德）：每個 App 一組（岩點貓 `hold/`、紅點貓 `redpoint/`，語言只跟瀏覽器語言），共用名詞（確定、取消、加到主畫面的說明）一組；頁面只載入目前語言（`AppKit.i18n`） |
 | `firestore.rules`、`storage.rules`、`storage-cors.json` | Firebase 規則與 Storage 的 CORS |
 | `fonts/` | 難度、數字字型 Barlow Condensed；段級用的 M PLUS 1 Black（只留用到的字）；都是 SIL OFL，授權在 `fonts/` |
 | `hold/sw.js`、`hold/manifest.webmanifest`、`version.js`、`appkit/sw.js` | 岩點貓的 PWA（範圍 `/hold/`）；版本號部署時自動寫入；`appkit/sw.js` 是三個 App 共用的 Service Worker 核心 |
@@ -86,7 +88,7 @@
 3. **岩點資料**（`holdkit/`）：框 → 依顏色描外框（`HoldKit.boxToPoly`），組成岩點 `{ id, poly, source: 'detect' }`；設了 `SITE.cloud.retrace` 再在背景用 MobileSAM 整面重描（`HoldRefiner`，雲端串流回傳），外框一批一批換上。三份岩點資料（原始岩點檔 `w.base`、我的岩點檔 `w.holds`、路線自帶外框 `r.shapes`）誰能改見 [hold-data.md](hold-data.md)。
 4. **定線、看線**（`js/edit.js`、`routekit/`）：路線 `{ id, holds: { 岩點 id: 角色 }, shapes, grade, name, t, … }` 存在 `w.routes`。畫路線圖、點岩點的規則在 `RouteKit`，它只從參數拿資料（照片和岩點包成 `RouteScene`，打開的牆是 `state.scene`），不碰 App 的狀態。
 5. **儲存**（`js/app.js`）：`putWall(w)`／`putNewWall(w, blob)` 寫進 IndexedDB `climbio-db`。存檔前 `settleWall`（`js/draw.js`）整理原始岩點檔和路線外框；一面牆拆成 `walls`、`holds`、`routes`、`images` 幾筆，只寫這份物件改過的記錄。
-6. **同步、分享**（`js/sync.js` → `window.Backend`）：按分享批次傳送的線 `pushWall`（公開：照片、岩點經雲端函式 `datasets`（`publishWall`） 公開到開放資料集、線傳到 Climbio）、讀公開牆 `pullWall`，都經過 `Backend`（主網是 `backend/firebase.js`，沒有後端時是 `site.js` 的空後端）。收線 `fetchShared`（`appkit/share-tools.js`）直接讀連結指到的路線圖層（分享包的圖層，或那台伺服器的 `route.json`）和它疊的牆，不經過後端；圖層轉成 App 的路線用 routekit 的 `fromFormat`。規則見 [sharing.md](sharing.md)，格式見 [route-format.md](route-format.md)。
+6. **同步、分享**（`js/sync.js` → `window.Backend`）：按分享批次傳送的線 `pushWall`（只限 Studio 發佈的公開牆：只把線傳到 Climbio，不上傳牆的照片與岩點；手機自己拍的牆只走附近交換）、讀公開牆 `pullWall`，都經過 `Backend`（主網是 `backend/firebase.js`，沒有後端時是 `site.js` 的空後端）。收線 `fetchShared`（`appkit/share-tools.js`）直接讀連結指到的路線圖層（分享包的圖層，或那台伺服器的 `route.json`）和它疊的牆，不經過後端；圖層轉成 App 的路線用 routekit 的 `fromFormat`。規則見 [sharing.md](sharing.md)，格式見 [route-format.md](route-format.md)。
 
 ## 狀態：哪些可以改、改了要做什麼
 

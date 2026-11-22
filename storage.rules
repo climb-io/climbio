@@ -1,11 +1,11 @@
 rules_version = '2';
-// 沒有登入：App 不直接讀寫 Storage；只有世界的清單 public/projects.json 誰都能讀
+// 沒有登入：App 不直接讀寫 Storage；只有世界的清單 public/projects.json 和預先合成的世界 public/world.json 誰都能讀
 service firebase.storage {
   match /b/{bucket}/o {
     // 其他路徑沒有規則＝App 不能直接讀寫（雲端函式用 Admin SDK）
-    // 世界的清單 public/projects.json：所有公開專案的靜態清單，誰都能讀（不用登入）；只有雲端函式 datasets（Admin SDK）能寫
+    // public/projects.json（所有公開專案的靜態清單）、public/world.json（紅點貓世界的三層樹）：誰都能讀（不用登入）；只有雲端函式（Admin SDK）能寫
     match /public/{file} {
-      allow read: if file == 'projects.json';
+      allow read: if file == 'projects.json' || file == 'world.json';
     }
   }
 }

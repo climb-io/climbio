@@ -17,6 +17,17 @@
     if (g.getImageData(W >> 1, H >> 1, 1, 1).data[3] === 0) return null;
     return c.toDataURL('image/jpeg', AppKit.photo.QUALITY.thumb);
   }
+  // 「傳給朋友」專用 256×256 方形縮圖，與首頁 4:3 縮圖分開保存。
+  function nearbyThumb(src, sw, sh) {
+    const S = 256, side = Math.min(sw, sh), c = document.createElement('canvas');
+    c.width = c.height = S;
+    const g = c.getContext('2d'); g.imageSmoothingQuality = 'high';
+    g.drawImage(src, (sw - side) / 2, (sh - side) / 2, side, side, 0, 0, S, S);
+    if (!g.getImageData(S >> 1, S >> 1, 1, 1).data[3]) { c.width = c.height = 0; return null; }
+    const url = c.toDataURL('image/jpeg', AppKit.photo.QUALITY.thumb);
+    c.width = c.height = 0;
+    return url;
+  }
   // 做好的縮圖記這個（照片換過就重做）
   const hiKey = (blob) => `v2:${blob.size}`;
   // 沒有高解析縮圖（或照片換過，用照片檔大小判斷）就在背景一面一面補做，做好直接換掉畫面上的圖
@@ -26,13 +37,13 @@
     try {
       for (const w of walls) {
         const blob = await getImage(w.id).catch(() => null);
-        if (!blob || (w.thumbHi && w.thumbHiKey === hiKey(blob))) continue;
+        if (!blob || (w.thumbHi && w.thumbHiKey === hiKey(blob) && w.nearbyThumb && w.nearbyThumbKey === hiKey(blob))) continue;
         // 先整張畫到畫布（跟打開牆面同一條路）再裁：iPad 直接從 ImageBitmap 裁一塊畫，每次都是空白
         let c; try { c = await blobToCanvas(blob); } catch (e) { continue; }
-        const url = hiThumb(c, c.width, c.height); c.width = c.height = 0;   // 用完馬上放掉：iOS 畫布記憶體很少
-        if (!url && !w.thumbHi) continue;
+        const url = hiThumb(c, c.width, c.height), nearby = nearbyThumb(c, c.width, c.height); c.width = c.height = 0;   // 用完馬上放掉：iOS 畫布記憶體很少
+        if (!url && !nearby && !w.thumbHi && !w.nearbyThumb) continue;
         // 做不出來：拿掉舊的（可能是全黑的），先用小縮圖，下次再做
-        const x = await patchWall(w.id, (r) => { if (url) { r.thumbHi = url; r.thumbHiKey = hiKey(blob); } else delete r.thumbHi; }).catch(() => null);
+        const x = await patchWall(w.id, (r) => { if (url) { r.thumbHi = url; r.thumbHiKey = hiKey(blob); } else delete r.thumbHi; if (nearby) { r.nearbyThumb = nearby; r.nearbyThumbKey = hiKey(blob); } else delete r.nearbyThumb; }).catch(() => null);
         if (!x) continue;
         for (const img of document.querySelectorAll(`img[data-wid="${w.id}"]`)) img.src = url || x.thumb;
         await AppKit.timing.wait(30);   // 讓畫面有空檔，不要一次卡住
@@ -44,7 +55,9 @@
     const tc = document.createElement('canvas'), s = 480 / Math.max(c.width, c.height);
     tc.width = Math.round(c.width * s); tc.height = Math.round(c.height * s);
     tc.getContext('2d').drawImage(c, 0, 0, tc.width, tc.height);
-    return { thumb: tc.toDataURL('image/jpeg', AppKit.photo.QUALITY.tiny), thumbHi: hiThumb(c, c.width, c.height) };
+    const result = { thumb: tc.toDataURL('image/jpeg', AppKit.photo.QUALITY.tiny), thumbHi: hiThumb(c, c.width, c.height), nearbyThumb: nearbyThumb(c, c.width, c.height) };
+    tc.width = tc.height = 0;
+    return result;
   }
   // 預設牆名：有岩館叫「岩館名」，同名已有就加流水號（岩館名 2）；沒有岩館叫「牆面 N」。取最小的沒被用掉的號碼
   const wallNameAt = (gym, k) => gym ? (k > 1 ? `${gym} ${k}` : gym) : t('defaultWall', k);
@@ -152,7 +165,6 @@
   }
   // 完攀後，畫面中間壓下一個大爪印，路線岩點跟著震（js/holdcat.js）
   function celebrate(r, w) {
-    tipHide(); $('appTip').hidden = true;
     buzz(12);
     if (state.wall !== w || state.routeId !== r.id || $('editor').hidden || state.mode !== 'route' || !state.routeView) return;
     const sr = $('stage').getBoundingClientRect(), cr = cv.getBoundingClientRect();
@@ -188,7 +200,7 @@
     const own = (await listWalls().catch(() => [])).filter(w => !isDemoPid(w.pid));   // 3D 牆也算（只留在這台，但是自己的牆）
     return { walls: own.length, routes: own.reduce((n, w) => n + w.routes.length, 0), set: own.reduce((n, w) => n + w.routes.filter(mineRoute).length, 0) };
   }
-  // 看路線圖：右上編輯路線、分享；右下的 ✓ 只管記錄（按一下完攀，再按一下取消）
+  // 看路線圖：右上「⋯」選單裡有編輯路線、分享（js/main.js）；右下的 ✓ 只管記錄（按一下完攀，再按一下取消）
   $('vwFab').onclick = () => toggleSent();
   $('vwEdit').onclick = () => enterRouteEdit();
   $('vwBack').onclick = () => history.back();

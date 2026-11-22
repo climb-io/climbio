@@ -14,7 +14,7 @@ Climbio 各 App（岩點貓、紅點貓、Climbio Studio）共用的一層：語
 - AGPL-3.0（`LICENSE`、`NOTICE`）。它是 Climbio 的一部分，採同一份授權。內附 `qr/` 的第三方檔案（jsQR 1.4.0 Apache-2.0、qrcode-generator 1.4.4 MIT，見 `qr/SOURCE.txt`、`qr/LICENSE-*`）。
 - 可以 import：瀏覽器內建、本資料夾的檔案。檔案之間用全域 `AppKit` 互相看到（例如 `ui.js` 用 `AppKit.i18n.t`，沒載入時退回 key 本身），沒有 `import` 相依。
 - 不可以 import：`js/`、`holdscan/`、其他 kit（kit 彼此獨立）。不依賴任何 App 的 `state`、元素 id、品牌。
-- 例外（只有 Climbio repo 內能完整使用，不屬於獨立可用的部分）：`share-tools.js` 會載入 `../appkit/qr/…` 並讀 `self.climbioT`；`nearby.js` 依賴全域 `ShareTools`。這兩個檔案不在 `index.js` 的匯出裡。
+- 例外（只有 Climbio repo 內能完整使用，不屬於獨立可用的部分）：`share-tools.js` 會載入 `../appkit/qr/…` 並讀 `self.climbioT`；`nearby.js` 依賴全域 `ShareTools`。這兩個檔案不在 `index.js` 的匯出裡；`share-tools.js` 也不進 npm 套件（`package.json` 的 `files` 排除）。
 
 ## 3. 檔案地圖
 
@@ -28,8 +28,9 @@ Climbio 各 App（岩點貓、紅點貓、Climbio Studio）共用的一層：語
 | `photo.js` | `AppKit.photo`：`readExif`、`toCamera`、`load`（圖片網址 → Image）、`prepare`（匯入一張照片）、`toCanvas`、`jpeg`、`encode`、`reencode`、`thumb`、`sha256`、`view`（v2 照片畫面） |
 | `files.js` | `AppKit.files`：`zip`（不壓縮的 ZIP）、`unzip`（含 deflate）、`rid`（隨機 id）、`safeName`（安全檔名）、`sha`（SHA-256 取前 N 位元組的 hex）、`hash53`（cyrb53，數字）、`base64`（Blob 轉 base64） |
 | `ui.js` | `AppKit.ui`：`ask`、`close`、`confirm`、`alert`、`prompt`、`toast`、`hideToast`、`configure`（接 App 的返回紀錄）、`svg`（建 SVG 元素）、`reducedMotion`（使用者要求減少動態）；載入時自己追蹤 `visualViewport`（`--vv-top`、`--vv-h`） |
-| `account.js` | `AppKit.account`：`avatar(target, user)` 共用頭像、`summary(target, values)` 兩欄統計、`stats(metrics)`、`detail({ title, metrics, note, groups })` 個人資料卡、`footer(target, { version, sourcesHref?, versionButton?, showUpdateStatus? })` 共用帳號選單底部；各 App 負責操作 |
+| `account.js` | `AppKit.account`：`avatar(target, user)` 共用頭像、`summary(target, values)` 兩欄統計、`stats(metrics)`、`detail({ title, metrics, note, groups })` 個人資料卡、`footer(target, { version, sourcesHref?, versionButton?, showUpdateStatus?, root? })` 共用帳號選單底部（root：網站根目錄，頁面不在第一層時給）；各 App 負責操作 |
 | `share.js` | `AppKit.share`：`sendLink`（系統分享連結，不行就複製）、`sendFile`（系統分享檔案，不行就下載）、`download`、`canShareFiles` |
+| `share-image.js` | `AppKit.shareImage`：分享用的風格圖片（限時動態、貼文；滿版、卡片）。App 畫好照片與路線的底圖，`make` 負責版面、字型、署名與 logo（`symbolLogo`、`imageLogo`） |
 | `store.js` | `AppKit.store`：`get(key, fallback)`、`set(key, value)`（回傳存成與否）、`remove(key)`；localStorage 的 JSON 讀寫，私密模式、空間滿了、資料壞掉都不丟例外 |
 | `gesture.js` | `AppKit.gesture`：`longPress(target, { item, onHold, ms, slop, vibrate, rightClick })`（長按；放開的 click 不往下傳；`rightClick` 開著時滑鼠右鍵也呼叫 `onHold`） |
 | `timing.js` | `AppKit.timing`：`wait(ms)`、`timeoutSignal(ms)`、`fetchTimeout(url, options, ms)`（舊版 iOS 沒有 AbortSignal.timeout 時自動退回） |
@@ -63,9 +64,7 @@ npm 套件（`@climbio/appkit`）的 `files`：`*.js`、`*.mjs`、`*.d.ts`、`*.
 | `lang` | 目前的語言（getter） |
 | `add(app, lang, dict)` | 語言包檔案呼叫；值是字串、字串陣列，或帶參數的函式 |
 | `detect(langs?, nav?)` | 依瀏覽器語言挑：`zh` 開頭是中文，其他有語言包的照語言碼，沒有的英文（只有中文的 App 一律中文） |
-| `setting()` | 這台選的語言（存在 localStorage 的 `key`）；沒選過是 `'auto'` |
-| `boot({ app, key?, langs?, base? })`（`app` 可以是一串資料夾名，依序找 key） | 開頁時在 `<head>` **同步**呼叫（要在主程式之前）：決定語言、`document.write` 共用名詞與 App 的語言包，回傳語言。`key`：記住使用者選擇的 localStorage key；`langs`：這個 App 有的語言（預設七種）；`base`：`i18n/` 的相對網址（預設 `../i18n/`）。載入 `i18n.js` 的網址帶 `?v=…` 時，語言包用同一個後綴 |
-| `use(choice)` | `Promise<string>`：換語言（`'auto'` 跟瀏覽器），沒載入過的語言包才去抓；有 `key` 時記住選擇；回傳實際的語言 |
+| `boot({ app, langs?, base? })`（`app` 可以是一串資料夾名，依序找 key） | 開頁時在 `<head>` **同步**呼叫（要在主程式之前）：決定語言、`document.write` 共用名詞與 App 的語言包，回傳語言。`key`：記住使用者選擇的 localStorage key；`langs`：這個 App 有的語言（預設七種）；`base`：`i18n/` 的相對網址（預設 `../i18n/`）。載入 `i18n.js` 的網址帶 `?v=…` 時，語言包用同一個後綴 |
 | `t(key, ...args)` | App 的語言包 → 共用名詞 → key 本身（看得出漏翻）；值是函式就帶參數呼叫 |
 | `apply(scope?)` | 換掉 `data-i18n`（文字）、`data-i18n-aria`、`data-i18n-title`、`data-i18n-ph`（placeholder）、`data-i18n-content`（meta 的 content）、`data-i18n-html`（語言包裡固定的 HTML，只放自己寫的字串） |
 | `cacheList(app, base?, langs?)` | Service Worker 要快取的語言包網址（全部語言，離線時也能切換）；Service Worker 裡 `importScripts('../appkit/i18n.js')` 後呼叫 |
@@ -165,12 +164,12 @@ Node 只用得到 `readExif`、`toCamera`、`view`（其餘需要 `createImageBi
 | `AppKit.nearby.open({ app, endpoint, label, mode, list, pack, take, sharePair, takePair })` | 見下面；`mode`：`'send'`（傳給別人）或 `'devices'`（我的裝置） |
 | `AppKit.nearby.start(mode, { app, label, suggested?, list, pack, take, sharePair?, takePair?, onClose? })` | 入口的共用接線（岩點貓、紅點貓、Studio 都用它）：確認暱稱（`suggested` 是建議的暱稱，字串或函式）→ `open`，`endpoint` 取自站台設定 `SITE.cloud.nearby`，`label` 可以是回傳字串的函式 |
 | `AppKit.nearby.bind(button, mode, adapter, before?)` | 把入口按鈕接上 `start`：不支援 WebRTC 就藏起來，按了先做 `before`（例如收起選單） |
-| `AppKit.nearby.nickname()`、`setNickname(暱稱)`、`ensureNickname({ edit?, suggested? })`、`deviceName()`、`paired(app)` | 兩個 Viewer 共用暱稱；分享／備份首用必填；裝置名稱自動加裝置類型，只在配對後交換；已配對幾台 |
+| `AppKit.nearby.nickname()`、`setNickname(暱稱)`、`ensureNickname({ edit?, suggested? })`、`deviceName()`、`paired()`、`compatible(a, b)` | 兩個 Viewer 共用暱稱；分享／備份首用必填；裝置名稱自動加裝置類型，只在配對後交換；已配對幾台（所有 App 共用一份配對）；兩個 App 能不能在「我的裝置」同步（同一種，或其中一邊是 `studio`） |
 | `AppKit.nearby.supported()`、`MAX_BYTES` | 有 WebRTC 才有；一次最多 150 MB（收的人也有同樣的上限） |
 | `AppKit.landing.isPhone({ touch, coarse, w, h })`、`boot()` | 見下面 |
 | `AppKit.sw(options)` | 見下面 |
 
-**附近交換**（`nearby.open`）：`list: async (trusted) => [{ id, name, sub?, v, t? }]`（我可以給的東西；`v` 是內容字串陣列，對方有同一個 `id` 而且 `v` 涵蓋我的就預設不選；有 `t`（修改時間）的雙方都有就比 `t`，只送比較新的；`trusted`：對方是配對過的自己的裝置）；`pack: async (id, trusted) => ({ name, entry, files: [{ path, bytes: Uint8Array }] })`（打包一項，`entry` 是入口檔）；`take: async (bundle, trusted) => {}`（收下一項，`bundle = { id, name, entry, url, files }`，`url` 是 `mem://…`，用 `ShareTools.open` 讀）；`pairing: true` 開啟「記住這台」（永久配對，配對過的裝置同一個網路自動連線、自動互傳、自動收下，見 docs/sharing.md）；`sharePair`、`takePair`：配對時各給一份、各收一份的資料；回傳 `{ close() }`。找人和轉送連線訊息靠雲端函式 `nearby`（只轉訊息、不碰資料），資料走手機之間的 DataChannel；沒有 `endpoint`（自架的站、後端 none、連不上）時只剩掃 QR code：一方顯示 offer，另一方掃了再顯示 answer，第一方掃回去就連上，完全不用伺服器。瀏覽器不支援 WebRTC 就用不了，App 不顯示入口（看 `supported()`）。文字在共用語言包的 `nearby*`，沒載入時用繁體中文。樣式 `.ak-nearby`。
+**附近交換**（`nearby.open`）：`app` 是 `'hold'`、`'redpoint'` 或 `'studio'`；配對所有 App 共用（`localStorage` 的 `climbio.nearby.pairs`），「我的裝置」只連相容的 App（同一種，或其中一邊是 Studio），「傳給別人」只有同一種 App。`list`、`pack`、`take` 的最後一個參數是對方的 App（`peerApp`），Studio 依它決定交換什麼。`list: async (trusted, peerApp) => [{ id, name, sub?, v, t? }]`（我可以給的東西；`v` 是內容字串陣列，對方有同一個 `id` 而且 `v` 涵蓋我的就預設不選；有 `t`（修改時間）的雙方都有就比 `t`，只送比較新的；`trusted`：對方是配對過的自己的裝置）；`pack: async (id, trusted, peerApp) => ({ name, entry, files: [{ path, bytes: Uint8Array }] })`（打包一項，`entry` 是入口檔）；`take: async (bundle, trusted, peerApp) => {}`（收下一項，`bundle = { id, name, entry, url, files }`，`url` 是 `mem://…`，用 `ShareTools.open` 讀）；`pairing: true` 開啟「記住這台」（永久配對，配對過的裝置同一個網路自動連線、自動互傳、自動收下，見 docs/sharing.md）；`sharePair`、`takePair`：配對時各給一份、各收一份的資料；回傳 `{ close() }`。找人和轉送連線訊息靠雲端函式 `nearby`（只轉訊息、不碰資料），資料走手機之間的 DataChannel；沒有 `endpoint`（自架的站、後端 none、連不上）時只剩掃 QR code：一方顯示 offer，另一方掃了再顯示 answer，第一方掃回去就連上，完全不用伺服器。瀏覽器不支援 WebRTC 就用不了，App 不顯示入口（看 `supported()`）。文字在共用語言包的 `nearby*`，沒載入時用繁體中文。樣式 `.ak-nearby`。
 
 **手機介紹頁**（`landing`）：電腦版工具在 `<head>` 同步載入 `landing.js`（CSP 不允許內嵌程式）：手機（有觸控而且螢幕短邊小於 600，轉橫也一樣；iPad mini、折疊機內螢幕算平板，照常打開）打開時在 `html` 加 `ak-phone`，App 的畫面整個藏起來，只顯示 `body` 裡的 `.ak-landing`；從主畫面打開的照常打開；本機（localhost、127.0.0.1）不判斷，加 `?phone` 看；手機測試加 `?app` 強制打開工具（記在 sessionStorage）。手機上同時拿掉 `link[rel=manifest]`，瀏覽器不會提示安裝。沒有「還是要打開」。手機也能用的工具在 `html` 加 `data-ak-phone="app"`：不顯示介紹頁，同樣的判斷改在 `html` 加 `ak-handset`，頁面自己換手機版面、藏起手機不適合的功能。`[data-ak-url]` 顯示這頁的網址，`[data-ak-copy]` 按了複製網址（屬性值是複製後的提示）。介紹頁的內容由 App 寫在自己的頁面裡：
 
@@ -207,6 +206,8 @@ Node 只用得到 `readExif`、`toCamera`、`view`（其餘需要 `createImageBi
 - **v2 照片畫面**（`photo.view` 的輸出）：`{ climbio: 2, kind: 'view', surface: 'photo', id, t, license, attribution, author?, origin?, href: '<id>.jpg', w, h, mime: 'image/jpeg', name?, sha256?, camera? }`；`origin` 只有 `'self'` 或省略，省略表示不能分享出去。
 - **camera**：`{ position: [lng, lat] 或 [lng, lat, alt], accuracy?, heading?（0–360，正北）, pitch?（±90）, t?, focal?, model? }`；`position` 必填，經緯度取 7 位、高度取 1 位小數。
 - **ZIP**：`zip` 不壓縮（照片本來就是 JPEG），檔名 UTF-8；`unzip` 支援不壓縮與 deflate。
+- **附近交換保護陌生人隱私**：`nearby.js` 的 `join` 和 WebRTC `who` 只傳每次開啟生成的「App 名稱＋匿名代號」；自訂裝置名稱只在雙方確認配對的 `pair/paired` 訊息或密鑰驗證成功的 `name` 訊息傳送。配對前不顯示真實裝置名稱，未驗證的 `name` 不寫入配對記錄；岩點貓、紅點貓共用同一實作。
+- **共用元件自足**：輸入框、按鈕、改名、確認對話框優先用 `AppKit.ui`，排版、字級、邊框、焦點樣式在 `ui.css` 自足，不依賴某一款 App 的私有 CSS；改了至少在岩點貓、紅點貓各開一次同一個互動。
 - **toast／對話框**：同時只有一個對話框；toast 只有一個，新的取代舊的。
 - **history**：`backstack` 每個打開的對話框、彈窗一層 `history.pushState`；`close` 用 `history.go(-k)` 退，退完才 resolve。
 - `idb.packBlob` 的格式：`{ $blob: true, buf: ArrayBuffer, type }`。
@@ -262,7 +263,7 @@ Node 只用得到 `readExif`、`toCamera`、`view`（其餘需要 `createImageBi
 
 ```js
 AppKit.i18n.add('demo', 'zh', { greet: (n) => `你好 ${n}` });   // 語言包檔案裡的呼叫
-AppKit.i18n.boot({ app: 'demo', key: 'demo.lang' });             // 在 <head> 同步呼叫
+AppKit.i18n.boot({ app: 'demo' });             // 在 <head> 同步呼叫
 const t = AppKit.i18n.t;                                          // t('greet', 'A')
 const inst = AppKit.install.track({ dismissedKey: 'my.installDismissedAt', installedKey: 'my.installed', onChange: render });
 bar.hidden = !inst.offer;

@@ -4,12 +4,13 @@
 //   2. publish：JSON 直接帶在請求裡（b64），照片只帶 sha256 與大小；伺服器一次 commit：改過的 JSON、照片指標、拿掉的檔案、目錄。沒改的不送。
 // 三種開放資料集（專案 type 對到倉庫）：guidebook → climbio/crags（天然岩場）、wall3d → climbio/walls3d（室內 3D 牆）、crag3d → climbio/crags3d（天然岩場的 3D 模型，格式同 3D 牆）；專案 type 維持單數，倉庫跟 walls、crags 一樣用複數。
 // 資料夾 {dir}{id}/ 網址固定（紅點貓收過的岩場回來檢查更新用同一個網址），不分版本，歷史在 git。
+// 轉換路線書的岩場另有 source/：轉換時選的原始檔（路線書、原圖、區域圖）、最後的大綱與轉換紀錄（convert.json），拿它們可以重跑轉換；App 不讀，不算進照片數。
 const { createHash } = require('node:crypto');
 
 const LICENSE = 'CC-BY-SA-4.0';
 /** type → { repo（Hub 倉庫）, name（專案文件 hf.repo 的簡稱）, dir（倉庫裡的資料夾）, index（目錄檔）, file/total（單檔與整包的上限，位元組） }；3D 模型很大，上限放寬（照片、模型都由瀏覽器直接傳給 Hub） */
 const KINDS = {
-  guidebook: { repo: 'climbio/crags', name: 'crags', dir: 'crags/', index: 'crags.jsonl', file: 25e6, total: 600e6 },
+  guidebook: { repo: 'climbio/crags', name: 'crags', dir: 'crags/', index: 'crags.jsonl', file: 25e6, total: 1.5e9, source: 100e6 },
   wall3d: { repo: 'climbio/walls3d', name: 'walls3d', dir: 'walls3d/', index: 'walls3d.jsonl', file: 400e6, total: 1.5e9, bin: true },
   crag3d: { repo: 'climbio/crags3d', name: 'crags3d', dir: 'crags3d/', index: 'crags3d.jsonl', file: 400e6, total: 1.5e9, bin: true },
 };
@@ -19,6 +20,11 @@ const kindOf = type => KINDS[type] || null;
 const sha1 = s => createHash('sha1').update(s).digest('hex');
 const isText = mime => mime === 'application/json';
 const isImage = path => /\.(jpe?g|png|webp)$/i.test(path);
+/** 原始檔（只有 kind.source 的類型）：source/ 底下一層，檔名規則同其他檔案；種類是路線書、圖、區域圖、大綱、路線表 */
+const SOURCE = /^source\/[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
+const SOURCE_MIME = { docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', pdf: 'application/pdf', zip: 'application/zip', html: 'text/html', htm: 'text/html', md: 'text/markdown', txt: 'text/plain', csv: 'text/csv', tsv: 'text/tab-separated-values', geojson: 'application/geo+json', json: 'application/json', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', heic: 'image/heic', heif: 'image/heif' };
+const isSource = path => path.startsWith('source/');
+const sourceMime = path => SOURCE_MIME[(path.match(/\.([a-z0-9]+)$/i) || [])[1]?.toLowerCase()];
 
 /** 檢查並整理發佈的檔案清單（要有入口、路徑、種類、sha256、大小；JSON 要帶內容）：回 [{ path, mime, sha256, size, text, bytes? }]；fail(status, msg) 由呼叫的人給 */
 function checkHfFiles(files, { fail, mimeOf, PATH, SHA, ENTRY, maxFiles, kind = KINDS.guidebook }) {
@@ -27,13 +33,14 @@ function checkHfFiles(files, { fail, mimeOf, PATH, SHA, ENTRY, maxFiles, kind = 
   let total = 0;
   const out = files.map(f => {
     const path = f && f.path;
-    if (typeof path !== 'string' || !PATH.test(path) || path.includes('..') || seen.has(path)) throw fail(400, `bad path ${path}`);
+    const src = !!kind.source && typeof path === 'string' && SOURCE.test(path);
+    if (typeof path !== 'string' || !(src || PATH.test(path)) || path.includes('..') || seen.has(path)) throw fail(400, `bad path ${path}`);
     seen.add(path);
-    const mime = mimeOf(path);
+    const mime = src ? sourceMime(path) : mimeOf(path);
     if (!mime || (mime === 'application/octet-stream' && !kind.bin)) throw fail(400, `bad type ${path}`);   // 3D 的成品有 .bin（面標籤、岩點標籤、疊圖），岩場照片沒有
     if (!SHA.test(f.sha256 || '')) throw fail(400, `bad sha256 ${path}`);
     const size = f.size, text = isText(mime);
-    if (!Number.isInteger(size) || size < 1 || size > (text ? MAX.json : kind.file)) throw fail(400, `bad size ${path}`);
+    if (!Number.isInteger(size) || size < 1 || size > (text ? MAX.json : src ? kind.source : kind.file)) throw fail(400, `bad size ${path}`);
     total += size;
     let bytes;
     if (f.b64 !== undefined) {
@@ -56,12 +63,14 @@ function planChanges(files, old) {
   return { fresh, gone };
 }
 
-/** 目錄的一行（crags.jsonl）：圖片檔數不含每張照片的縮圖（<名>.thumb.jpg） */
-function cragRow({ id, name, t, version, files, locations, attribution, origin, gym, cc, kind = KINDS.guidebook }) {
+/** 目錄的一行（crags.jsonl）：圖片檔數不含每張照片的縮圖（<名>.thumb.jpg）；原始檔（source/）另外算在 source（檔數、位元組），有才寫 */
+function cragRow({ id, name, t, version, files: all, locations, attribution, origin, gym, cc, kind = KINDS.guidebook }) {
   const thumb = p => p.endsWith('.thumb.jpg');
+  const files = all.filter(f => !isSource(f.path)), source = all.filter(f => isSource(f.path));
   return { id, name, t, version, dir: `${kind.dir}${id}/`, ...(gym ? { gym } : {}), ...(cc ? { cc } : {}), files: files.length, bytes: files.reduce((a, f) => a + f.size, 0),
     photos: files.filter(f => isImage(f.path) && !thumb(f.path)).length, at: locations && locations[0] ? locations[0] : null,
-    license: LICENSE, attribution: attribution || '', origin: origin || '', thumbs: files.filter(f => thumb(f.path) && f.path !== 'thumb.jpg').length };
+    license: LICENSE, attribution: attribution || '', origin: origin || '', thumbs: files.filter(f => thumb(f.path) && f.path !== 'thumb.jpg').length,
+    ...(source.length ? { source: { files: source.length, bytes: source.reduce((a, f) => a + f.size, 0) } } : {}) };
 }
 const upsertRow = (text, row) => {
   const rows = String(text || '').split('\n').filter(Boolean).map(l => JSON.parse(l)).filter(r => r.id !== row.id);

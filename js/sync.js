@@ -28,11 +28,11 @@
   function closeShare() { $('shareDialog').hidden = true; shareCtx = null; previewVersion++; routeBase = null; return closeOverlay('shareDialog'); }
   const BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';   // 透明的 1×1，給還沒有內容的 img
   // 分享畫面只有一頁：路線圖預覽、兩顆分享目標（圖片、連結）；尺寸、風格由路線自動決定。
-  // 圖片只在本機產圖，不上傳；連結要把這面牆的線公開傳出去（找牆面）：沒同意過條款、沒有簽名就先出現簽名面板，填好才傳。
+  // 圖片只在本機產圖，不上傳；連結只給 Studio 公開牆，要把自己的線公開傳出去：沒同意過條款、沒有簽名就先出現簽名面板，填好才傳。
   // 左上是 × 離開
   // 舊版內建範例牆僅允許本機圖片分享；3D 牆由 W3D 產生不需伺服器的路線連結。
-  const CONSENT_KEY = 'climbio.shareOk';   // 第一次分享在設定畫面說明（公開牆放進開放資料集、不能收回）並請使用者同意
-  const pendingRoutes = w => !w || localOnly(w) ? [] : w.routes.filter(r => mineRoute(r) && routeReady(r) && r.pub !== pubSig(r));
+  const CONSENT_KEY = 'climbio.shareOk';   // 第一次分享路線連結在設定畫面說明（公開的路線進開放資料集、不能收回）並請使用者同意
+  const pendingRoutes = w => !isPublic(w) ? [] : w.routes.filter(r => mineRoute(r) && routeReady(r) && r.pub !== pubSig(r));
   async function pendingShares(id = null) {
     const walls = new Map((await listWalls()).map(w => [w.id, w]));
     if (state.wall) walls.set(state.wall.id, state.wall);
@@ -103,20 +103,20 @@
   const nearbyAdapter = {
     app: 'hold', label: () => t('app'), suggested: '',
     list: async (trusted) => (await listWalls()).filter(w => (trusted ? !isDemoPid(w.pid) : !localOnly(w)) && w.base && w.base.holds).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
-      .map(w => ({ id: w.pid, name: w.name || '', img: w.thumb || '', sub: t('routesN', w.routes.filter(routeReady).length), v: w.routes.filter(routeReady).flatMap(r => [`${r.id}:${r.t || 0}`, ...(trusted && isSent(r) ? [`${r.id}:sent`] : [])]) })),   // 內容＝可傳的路線（id:修改時間）；配對的裝置另外帶完攀（id:sent），對方沒有就補傳
+      .map(w => ({ id: w.pid, name: w.name || '', img: w.nearbyThumb || w.thumbHi || w.thumb || '', sub: t('routesN', w.routes.filter(routeReady).length), v: w.routes.filter(routeReady).flatMap(r => [`${r.id}:${r.t || 0}`, ...(trusted && isSent(r) ? [`${r.id}:sent`] : [])]) })),   // 內容＝可傳的路線（id:修改時間）；配對的裝置另外帶完攀（id:sent），對方沒有就補傳
     pack: nearbyPack, take: nearbyTake, sharePair, takePair,
   };
   const openNearby = (mode = 'send') => AppKit.nearby.start(mode, nearbyAdapter);   // 'send'：傳給別人；'devices'：我的裝置（配對、自動同步）
   AppKit.nearby.bind($('findNearby'), 'send', nearbyAdapter);
   AppKit.nearby.bind($('hmSync'), 'devices', nearbyAdapter, () => { $('homeMenu').hidden = true; });
   // 同意過條款（簽名是同意時填的，沒簽名就用 Google 名稱）：連結可以直接傳，不用再問
-  const setupDone = () => !!lsGet(CONSENT_KEY, false) && !!AppKit.nearby.nickname();
+  const setupDone = () => !!AppKit.nearby.nickname();   // 條款寫在授權裡（CC BY-SA 4.0），不再另外同意；只要有暱稱（出線者署名）
   // ctx：{ kind: 'wall', id: 牆 id, route: 路線 id }＝分享路線；{ setup: true, … }＝分享路線前先填簽名
   async function openShare(ctx) {
     const sharingWall = state.wall && state.wall.id === ctx.id ? state.wall : null;
-    const m3d = !!ctx.route && !!sharingWall?.m3d;   // 3D 牆：路線壓在連結裡，不經過伺服器（js/wall3d.js）
-    // 舊版留在本機的範例牆不得公開；只顯示分享圖片，不再給指向 App 首頁的假連結。
-    const linkable = !!ctx.route && (m3d || (!!sharingWall && !localOnly(sharingWall) && can('share')));
+    const m3d = !!ctx.route && !!sharingWall?.m3d;   // 3D 牆：路線跟 2D 一樣傳到 Climbio、連結很短；傳不上去（沒網路、不能分享）退回把整條線壓在連結裡（js/wall3d.js）
+    // 路線連結只給 Studio 發佈的公開牆（牆已經在開放資料集，連結只傳這條線）和 3D 牆；手機自己拍的牆、舊版範例牆只有圖片，要給朋友走附近交換。
+    const linkable = !!ctx.route && (m3d || isPublic(sharingWall));
     const ask = !!ctx.setup;
     shareCtx = ctx; shareLink = '';
     closeRadials(); $('edMenu').hidden = true; $('homeMenu').hidden = true;
@@ -132,7 +132,7 @@
     $('shSend').hidden = !linkable;   // 兩顆分享目標一直都在；後端不能分享路線連結的站只有圖片
     if (ask) return sharePanel();
     if (m3d) {   // 3D 牆的路線連結整條線都在網址裡
-      const r = state.wall.routes.find(v => v.id === ctx.route), url = r && await W3D.link(state.wall, r);
+      const r = state.wall.routes.find(v => v.id === ctx.route), url = r && (setupDone() ? await share3d(state.wall, r) : await W3D.link(state.wall, r));   // 簽名、條款還沒好：先給長連結，按分享時才問
       if (url && shareCtx === ctx) shareLink = url;
       return;
     }
@@ -156,16 +156,15 @@
     if (shareCtx) openShare({ ...shareCtx, setup: false });
   };
 
-  // 分享一面牆：這面牆裡自己的待分享路線（新建或改了）一次送出（Backend.shareRoutes：只傳這幾條線到 Climbio，牆的照片只由第一個發佈的人放進公開資料集）。
+  // 分享一面牆：這面牆裡自己的待分享路線（新建或改了）一次送出（Backend.shareRoutes：只傳這幾條線到 Climbio，只限 Studio 發佈的公開牆）。
   // 不比對路線是否一樣；回傳第一個失敗（沒有就 null）。
   // 牆面卡片右上的地球：公開的牆（自己公開分享過，或收來的公開牆；只在手機的不標）
   const sharedPublic = (w) => !!w && !localOnly(w) && !!w.pub;
-  // Backend.shareRoutes 的參數
-  const shareBody = (w) => ({ signature: signName(), pid: w.pid, gym: w.gym || '', wall: w.from ? '' : w.name,
-    photo: async () => asJpeg(await getImage(w.id)), base: async () => ({ name: w.name, w: w.w, h: w.h, thumb: w.thumb || '', t: w.createdAt || 0, ...w.base }) });
+  // Backend.shareRoutes 的參數：牆的照片和岩點不傳（牆只由 Studio 發佈），只帶原始岩點檔給路線片段省掉跟牆一樣的外框
+  const shareBody = (w) => ({ pid: w.pid, base: async () => ({ name: w.name, w: w.w, h: w.h, thumb: w.thumb || '', t: w.createdAt || 0, ...w.base }) });
   async function pushWall(id, rids) {
     const w = await liveWall(id);
-    if (!w || localOnly(w) || !can('share')) return null;
+    if (!isPublic(w)) return null;   // 不是 Studio 的公開牆：不傳（手機自己拍的牆不會上傳）
     const list = [];
     let failed = null;
     for (const r of w.routes) {
@@ -186,20 +185,37 @@
     });
     return failed;
   }
-  // 新增、修改與重新命名只存在本機；公開分享必須由使用者按連結明確觸發。
+  // 公開牆上定好的線（有起攀、完攀）就公開：存線後等一下自動傳（沒網路、沒暱稱就先留著，下次存線或開牆再傳）；自己的線隨時可以刪，刪了就從公開牆拿掉（dropLine）。
+  let autoTimer = 0;
+  function autoShare(id) {
+    clearTimeout(autoTimer);
+    autoTimer = setTimeout(async () => {
+      try {
+        if (navigator.onLine === false || !AppKit.nearby.nickname()) return;
+        const w = await liveWall(id);
+        if (!w || !isPublic(w) || shareBusy) return;
+        const rids = pendingRoutes(w).map(r => r.id);
+        if (rids.length) await pushWall(id, rids);
+      } catch (e) { console.warn('公開牆上的線沒傳上去', e); }
+    }, 2500);
+  }
+  self.climbioAutoShare = autoShare;
+  addEventListener('online', () => { if (state.wall) autoShare(state.wall.id); });   // 連上網就補傳
+  // 新增、修改與重新命名先存本機；公開牆上定好的線由 autoShare 自動公開。
   // 刪除：記刪除紀錄；自己傳過的公開線馬上從公開牆拿掉
   function dropLine(w, r) {
     buryRoute(w, r);
     if (isPublic(w) && r.pub && mineRoute(r)) Backend.unshareRoutes(w.pid, [r.id]).catch(e => console.warn('公開牆上的線沒拿掉', e));
+    else if (w.m3d && r.shared3) Backend.unshareRoutes(w.pid, [r.id]).catch(e => console.warn('3D 牆上傳過的線沒拿掉', e));
   }
-  // 復原：放回本機，之後由使用者主動分享才傳送最新版本
+  // 復原：放回本機，下次存線時自動公開最新版本
   function keepLine(w, r) {
     r.got = Date.now(); delete r.pub;
   }
-  // 沒網路：不傳路線連結、不重試（圖片照樣可以分享），連上後使用者自己再按分享
+  // 沒網路：不傳路線連結（圖片照樣可以分享），連上後下次存線再自動公開
   function waitNet() { hideToast(); shStatus(t('shareOffline')); }
   const netFail = (e) => e && (e.code === 'offline' || e.code === 'storage/retry-limit-exceeded');
-  // 使用者進入分享畫面後才準備公開連結；新增／修改路線不在背景傳送。
+  // 使用者進入分享畫面時準備連結；公開牆上的線存線後自動傳（autoShare）。
   // 公開分享要先登入 Google：沒登入要先問，按了才跳 Google 的視窗（瀏覽器只讓點擊時跳）：
   // 背景傳碰到就先停著，等使用者按連結（interactive＝true）再問；公開牆上別人的線不需要登入，不會問
   async function ensureShared(ctx, interactive = false) {
@@ -226,6 +242,17 @@
       else if (e.code === 'quota' || e.code === 'timeout') shStatus(e.message);
       else shStatus(t('publishFailed') + (e.message || e));
     } finally { shareBusy = false; }
+  }
+  // 3D 牆的一條線傳到 Climbio（跟 2D 公開牆的線同一個地方，每天匯出到開放資料集），回短連結；傳不上去就回整條線在網址裡的長連結
+  async function share3d(w, r) {
+    if (can('share') && Backend.shareRoute3d && navigator.onLine !== false) {
+      try {
+        await Backend.shareRoute3d(w.pid, r.id, W3D.fragment(w, r));
+        patchWall(w.id, (x) => { const y = x.routes.find(v => v.id === r.id); if (y) y.shared3 = 1; });
+        return W3D.shortLink(w, r);
+      } catch (e) { console.warn('3D 路線沒傳到 Climbio，改用長連結', e); }
+    }
+    return W3D.link(w, r);
   }
   async function renderShare() {
     const ctx = shareCtx; if (!ctx) return;
@@ -274,17 +301,20 @@
   $('shSend').onclick = async () => {
     const ctx = shareCtx, w = ctx && await liveWall(ctx.id), r = w && w.routes.find(v => v.id === ctx.route);
     if (!r) return;
-    const direct = !!w.m3d;   // 3D 牆連結直接由模型建立，不上傳
+    const direct = !!w.m3d && !can('share');   // 3D 牆不能分享的站：連結直接由模型建立，不上傳
     if (!direct && !setupDone(w)) return openShare({ ...ctx, setup: true });
     let waited = false;
     if (!shareLink && !direct) {
       waited = true;
-      await ensureShared(ctx, true);
-      if (shareCtx !== ctx) return;
+      if (w.m3d) { shareLink = await share3d(w, r); if (shareCtx !== ctx) return; }
+      else {
+        await ensureShared(ctx, true);
+        if (shareCtx !== ctx) return;
+      }
     }
+    if (!shareLink && w.m3d) shareLink = await W3D.link(w, r);
     if (!shareLink) return;
-    const url = shareLink, line = inviteLine(r);
-    const how = await AppKit.share.sendLink(url, { text: line, strictGesture: waited });
+    const how = await AppKit.share.sendLink(shareLink, { strictGesture: waited });   // 連結分享只送連結，內容由預覽頁呈現；個人化只在圖片
     if (how === 'blocked') toast(t('shareReady'));
     else if (how === 'copied') toast(t('shareCopied'));
   };
@@ -471,7 +501,7 @@
   // 泡泡大小是牆面數，離手機近的在前（沒有定位：台灣的岩館從北到南、同系列放一起〔gyms/tw.json 的順序〕，其他的最新的在前）；手機 300 公尺內有牆的岩館直接展開
   const find = { gym: '', index: [], all: null, after: 0, done: false, busy: false, gen: 0, seq: 0, q: '', tw: new Map(), dist: new Map(), key: '' };
   const FIND_FLAT_MAX = 12, FIND_FLAT_GYMS = 6, FIND_WALL_SEARCH_MAX = 20;   // 全部牆不超過 12 面：不放泡泡，直接攤開；搜尋到 6 間以內也攤開；找牆名最多讀 20 間
-  // 岩館目錄 + 台灣順序檔（泡泡的排序）：兩份同時讀、不等 Firebase 的 3D 牆清單；按下後同時讀（5 分鐘內再進來直接用）
+  // 岩館目錄 + 台灣順序檔（泡泡的排序）：兩份同時讀；按下後同時讀（5 分鐘內再進來直接用）
   let findPre = null;
   const FIND_CACHE = 'climbio.findBase';   // 上次讀到的岩館目錄：下次打開先用它畫，同時重讀（目錄的冷請求要 2、3 秒）
   const loadFindBase = async () => {
@@ -481,7 +511,7 @@
     return { index, tw };
   };
   const preloadFind = () => (findPre = { t: Date.now(), p: loadFindBase().catch((e) => { findPre = null; throw e; }) });
-  // 不在開頁時偷偷先讀：沒按「找牆面」就不連外（沒有後端的站、省流量）；按了之後兩份同時讀，5 分鐘內再進來直接用
+  // 有「找牆面」按鈕的站，開啟後閒下來先讀（js/main.js）；沒讀好就按了，按下去時才讀。5 分鐘內再進來直接用
   // 泡泡順序：有定位就離得近的在前；沒有：台灣的岩館從北到南、同系列放一起（gyms/tw.json 的順序），其他的最新的在前
   function sortFind() {
     const rank = (x) => find.tw.get(x.gym.split('#')[0]) ?? Infinity, far = (x) => find.dist.has(x.gym) ? find.dist.get(x.gym) : Infinity;
@@ -582,11 +612,7 @@
       $('findMsg').hidden = false; $('findMsg').textContent = e.message || String(e);
     } finally { if (gen === find.gen) find.busy = false; }
   }
-  // Studio 發佈的 3D 牆（索引 type wall3d，資料在 Climbio 的公開資料集）：跟各站的公開牆面一起列，點了照 3D 牆的連結收下（js/wall3d.js）；沒有這項功能的後端沒有 3D 牆
-  let walls3d = null;
-  const published3d = () => walls3d || (walls3d = (Backend.caps.walls3d && W3D.enabled ? Backend.listWalls3d() : Promise.resolve([])).then(list => list.filter(w => w.gym))
-    .catch((e) => { walls3d = null; console.warn('3D 牆清單讀不到', e); return []; }));
-  // 有牆的岩館：總目錄和這個站自己的一起讀、合起來（總目錄讀不到、還沒收這個站時，至少看得到自己的牆），再加上 Studio 發佈的 3D 牆
+  // 有牆的岩館：總目錄和這個站自己的一起讀、合起來（總目錄讀不到、還沒收這個站時，至少看得到自己的牆）；Studio 發佈的 3D 牆跟 2D 的公開牆同一份清單
   async function findGyms(full = true) {
     const home = ShareTools.homeSite(), self = { url: home, name: '' };
     const [dir, mine] = await Promise.allSettled([SITE.directory ? ShareTools.directoryGyms(SITE.directory) : [], ShareTools.siteGyms(home)]);
@@ -598,37 +624,31 @@
       else if (!x.sites.some(s => s.url === home)) { x.sites.push(self); x.n += g.n; x.t = Math.max(x.t, g.t); }
     }
     // 同一面牆（照片編號相同）可能在兩個站都有：有一個以上的站時，牆數照列表的算法（同編號只算一面）
-    if (!full) return [...byGym.values()];   // 第一次畫泡泡：不等多站牆數與 3D 牆清單，這兩項回來再補
+    if (!full) return [...byGym.values()];   // 第一次畫泡泡：不等多站牆數，回來再補
     const multi = new Set([...byGym.values()].filter(x => x.sites.length > 1).map(x => x.gym));
     await Promise.all([...multi].map(async (gym) => {
       const x = byGym.get(gym);
       try { x.n = (await gymWallsFrom(x.sites, gym)).length; } catch (e) { multi.delete(gym); console.warn('牆數讀不到', gym, e); }
     }));
-    for (const w of await published3d()) {
-      const x = byGym.get(w.gym) || { gym: w.gym, n: 0, t: 0, sites: [] };
-      if (!multi.has(w.gym)) x.n++;
-      x.t = Math.max(x.t, w.t); byGym.set(w.gym, x);
-    }
     return [...byGym.values()];
   }
-  // 有這間岩館的站一起問；一站讀不到不影響其他站。同一面牆（照片編號相同）出現在兩個站，留比較新的；也列 Studio 發佈的 3D 牆
+  // 有這間岩館的站一起問；一站讀不到不影響其他站。同一面牆（照片編號相同）出現在兩個站，留比較新的
   async function gymWallsFrom(sites, gym) {
-    const own = (await published3d()).filter(w => w.gym === gym).map(w => ({ pid: w.id, name: w.name, thumb: w.thumb || '', n: 0, t: w.t, gym, m3d: 1 }));
     const lists = await Promise.allSettled(sites.map(s => ShareTools.gymWalls(s.url, gym).then(ws => ws.map(w => ({ ...w, gym, n: w.routes, site: s.url, siteName: s.name })))));
-    if (lists.length && lists.every(r => r.status === 'rejected') && !own.length) throw lists[0].reason;
-    const byPid = new Map(own.map(w => [w.pid, w]));
-    for (const w of lists.flatMap(r => (r.status === 'fulfilled' ? r.value : []))) if (!byPid.has(w.pid) || byPid.get(w.pid).t < w.t) byPid.set(w.pid, w);
+    if (lists.length && lists.every(r => r.status === 'rejected')) throw lists[0].reason;
+    const byPid = new Map();
+    for (const w of lists.flatMap(r => (r.status === 'fulfilled' ? r.value : []))) if ((!w.m3d || W3D.enabled) && (!byPid.has(w.pid) || byPid.get(w.pid).t < w.t)) byPid.set(w.pid, w);
     return [...byPid.values()].sort((a, b) => b.t - a.t);
   }
   // 卡片：照片、牆名、公開路線數（別的站的牆加上站名）；已經有這面牆就寫「已收下」，點了直接打開
   function findCard(x, have) {
     const b = document.createElement('button'); b.className = 'wall-card'; b.dataset.id = x.pid;
-    const img = document.createElement('img'); img.alt = ''; img.draggable = false; if (x.thumb) img.src = x.thumb;
+    const img = document.createElement('img'); img.alt = ''; img.draggable = false; img.loading = 'lazy'; img.decoding = 'async'; if (x.thumb) img.src = x.thumb;   // 一次排 30 張：畫面外的縮圖不先下載、解碼不擋主執行緒
     const meta = document.createElement('span'); meta.className = 'meta';
     const name = document.createElement('span'); name.className = 'name';
     const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = x.name; name.append(nm);
     const sub = document.createElement('span'); sub.className = 'sub';
-    sub.textContent = have ? t('findHave') : x.m3d ? '3D' : x.siteName && x.site !== ShareTools.homeSite() ? `${t('routesN', x.n)} · ${x.siteName}` : t('routesN', x.n);   // 3D 牆沒有路線數：標「3D」，一眼分得出
+    sub.textContent = have ? t('findHave') : x.siteName && x.site !== ShareTools.homeSite() ? `${t('routesN', x.n)} · ${x.siteName}` : t('routesN', x.n);
     meta.append(name, sub); b.append(img, meta);
     b.onclick = () => have ? openWall(x.pid) : x.m3d ? W3D.receive(`${location.origin}${location.pathname}?m3d=${x.pid}`) : recvWall(x);
     return b;
@@ -727,8 +747,8 @@
         $('rvBox').classList.add('titled');
         const more = (wall.routes || []).length - (route ? 1 : 0);
         const cap = before ? t('rvUpdated', added) : route && more > 0 ? t('rvMore', more) : (() => { const p = t('capOpen'); return p[Math.floor(Math.random() * p.length)]; })();
-        loadFonts(STYLES.full, '', cap);
-        $('rvTape').textContent = cap; $('rvTape').style.fontFamily = `"cb ${capFont()[1]}", var(--font)`;
+        AppKit.shareImage.loadFonts('full', '', cap, lang);
+        $('rvTape').textContent = cap; $('rvTape').style.fontFamily = `"cb ${AppKit.shareImage.capFont(lang)[1]}", var(--font)`;
         await pause(skip ? 0 : 350);
         $('rvBox').classList.add('taped'); buzz([12, 40, 18]);
         $('rvGo').textContent = t(route ? 'rvGoRoute' : 'rvGoWall'); $('rvGo').hidden = false;
@@ -782,7 +802,10 @@
       ...(snap.owned && snap.pack ? { pack: snap.pack, share: 'public' } : {}) };
     const jpeg = await asJpeg(photo);
     // 首頁小卡的高解析縮圖收下時就做好：不然回首頁才在背景補做，小卡會先是糊的小縮圖再換一次
-    try { const c = await blobToCanvas(jpeg), url = hiThumb(c, c.width, c.height); c.width = c.height = 0; if (url) { w.thumbHi = url; w.thumbHiKey = hiKey(jpeg); } }
+    try { const c = await blobToCanvas(jpeg), url = hiThumb(c, c.width, c.height), nearby = nearbyThumb(c, c.width, c.height);
+      c.width = c.height = 0;
+      if (url) { w.thumbHi = url; w.thumbHiKey = hiKey(jpeg); }
+      if (nearby) { w.nearbyThumb = nearby; w.nearbyThumbKey = hiKey(jpeg); } }
     catch (e) { /* 做不出來就交給首頁背景補做（fillHiThumbs） */ }
     await putNewWall(w, jpeg);
     return w;
@@ -805,7 +828,8 @@
     const live = liveIn((w.deleted && w.deleted.routes) || {}), local = new Map(w.routes.map(r => [r.id, r]));
     const mineOnServer = docs.some(d => d.mine);   // 自己的圖層在公開牆上：才拿伺服器的當準（私人的牆、收回公開的，自己的線不在上面）
     const out = [], hidden = [], gone = [], fresh = [], onServer = new Set(), base = new Map(((w.base && w.base.holds) || []).map(h => [h.id, h]));
-    for (const d of docs) {
+    // 清單的順序是「舊到新」（預設排序再倒過來變成新的在前）；伺服器回來的是新的在前，所以照路線時間由舊到新排好再合進來
+    for (const d of [...docs].sort((a, b) => (a.t || 0) - (b.t || 0))) {
       let s; try { s = JSON.parse(d.r); } catch (e) { continue; }
       if (!s || !s.holds || typeof s.holds !== 'object') continue;
       const shapes = { ...(s.shapes || {}) };   // 圖層只帶跟牆上不一樣的外框：其他用這面牆的原始岩點檔補
@@ -910,11 +934,12 @@
   async function readPublic(only, { force = false } = {}) {
     if (!can('share') || navigator.onLine === false) return;
     const ws = (only ? [await liveWall(only).catch(() => null)].filter(Boolean) : await listWalls().catch(() => []))
-      .filter(w => (watchable(w) || (subsOf(w).length && !localOnly(w))) && (force || Date.now() - (pulledAt.get(w.id) || 0) >= 5 * 60 * 1000));
+      .filter(w => (watchable(w) || (subsOf(w).length && !localOnly(w))) && (force || Date.now() - (pulledAt.get(w.id) || 0) >= 60 * 1000));   // 讀的是 CDN 快取的 GET（一分鐘，全部人共用），一分鐘讀一次不增加雲端函式呼叫
     if (ws.filter(isPublic).length > 1) await Backend.primeShared(ws.filter(isPublic).map(w => w.pid)).catch(e => console.warn('公開牆的索引沒讀到', e));   // 好幾面牆：一次問完哪些圖層有變
     for (const w of ws) {
       pulledAt.set(w.id, Date.now());
       await pullWall(w.id).catch(e => { pulledAt.delete(w.id); console.warn('公開牆沒讀到', e); });
+      if (isPublic(w)) autoShare(w.id);   // 之前定好、還沒公開的線（舊版要按分享、當時沒網路或沒暱稱）：開牆讀完就補傳
     }
   }
   // 顯示隱藏的別人的線：比刪除晚，放回來

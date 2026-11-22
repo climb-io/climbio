@@ -82,6 +82,8 @@ AppKit.i18n.add('redpoint', 'es', {
   // Mundo
   world: "Mundo",
   findingCrags: "Buscando escuelas…",
+  findCrag: "Buscar escuelas, regiones o países",
+  noResults: "No hay escuelas que coincidan",
   loadFailed: (msg) => `Error al cargar: ${msg}`,
   noPublicCrags: "Aún no hay escuelas públicas",
   emptyTitle: "Consigue tu primera escuela del mundo",

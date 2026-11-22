@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>RouteKit embed</title>
+<style>
+  :root { --bg: #0f1412; --fg: #9aa39c; color-scheme: dark; }   /* 照片畫面：固定深色底，不跟外層的明暗 */
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--bg); overflow: hidden; }
+  #box { position: absolute; inset: 0; overflow: hidden; }
+  canvas { display: block; width: 100%; height: 100%; }
+  #src { position: fixed; right: max(6px, env(safe-area-inset-right)); bottom: max(4px, env(safe-area-inset-bottom)); font: 11px/1 system-ui, sans-serif; color: var(--fg); text-decoration: none; opacity: .7; }
+</style>
+</head>
+<body>
+<div id="box"><canvas id="cv"></canvas></div>
+<a id="src" href="https://github.com/climb-io/climbio/tree/main/routekit" target="_blank" rel="noopener">AGPL-3.0 · Source</a>
+<script src="kit/format.js"></script>
+<script src="kit/geometry.js"></script>
+<script src="kit/labels.js"></script>
+<script src="kit/base.js"></script>
+<script src="kit/scene.js"></script>
+<script src="kit/image.js"></script>
+<script src="kit/fit.js"></script>
+<script src="kit/editor.js"></script>
+<script src="kit/viewport.js"></script>
+<script src="kit/viewer.js"></script>
+<script src="kit/ui.js"></script>
+<script src="kit/routekit-format.js"></script>
+<script src="kit/embed.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

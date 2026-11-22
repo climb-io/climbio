@@ -193,5 +193,37 @@
     c.restore();
   }
 
-  return { THEME, typeLabels, drawTypeLabels, seqBadges, drawSeq, strokeRouteHold };
+  // 粉紅 → 洋紅：避開類型的綠藍黃紅和選取的黃框；k＝熱度（heatLevel），a＝基本透明度
+  const heatColor = (k, a) => `rgba(255,${Math.round(190 - 150 * k)},${Math.round(240 - 30 * k)},${Math.max(+a, 0.6 + 0.4 * k).toFixed(2)})`;
+  // 一顆岩點的外框（顯示所有岩點）：沒用過是白色細框，用過的照次數粉紅到洋紅、越多越粗；選到的只畫黃框。
+  // viewScale＝目前放大倍數（沒放大時細細淡淡的，放大到 4 倍才是完整粗細）；big＝大螢幕加粗倍數（手機 1，最多 1.5）；L(螢幕像素)→照片單位
+  function strokeHoldOutline(c, poly, { k = 0, sel = false, viewScale = 1, big = 1, L }) {
+    const zf = Math.min(1, 0.4 + 0.6 * (viewScale - 1) / 3), wa = (0.55 + 0.3 * zf).toFixed(2), f = sel ? 1 : zf;
+    if (!sel) { c.strokeStyle = `rgba(0,0,0,${(0.25 + 0.2 * zf).toFixed(2)})`; strokeOutside(c, poly, L((3 + 1.5 * k) * big * f)); }
+    c.strokeStyle = sel ? 'rgba(250,204,21,0.95)' : k ? heatColor(k, wa) : `rgba(255,255,255,${wa})`;
+    strokeOutside(c, poly, L((sel ? 3 : 2 + 1.5 * k) * big * f));
+  }
+  // 重疊岩點的選擇：候選以外調暗，候選換回照片原本的顏色，每顆一個顏色畫框，各自會選到的地方放一個同色圓點；
+  // 路線上已經選的岩點，類型的框畫在壓暗的上面。vis＝畫面看得到的照片範圍 { x0, y0, x1, y1 }；L(螢幕像素)→照片單位
+  const PICK_COLORS = ['#fff', '#c6ff3d', '#5ee0ff', '#ff9be6'];
+  function drawOverlapPick(c, { img, holds, spots, vis, L, routeHolds = [], route = null, theme }) {
+    c.save();
+    for (const h of holds) { c.beginPath(); c.rect(vis.x0, vis.y0, vis.x1 - vis.x0, vis.y1 - vis.y0); G.tracePoly(c, h.poly); c.clip('evenodd'); }
+    c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(vis.x0, vis.y0, vis.x1 - vis.x0, vis.y1 - vis.y0);
+    c.restore();
+    c.save(); c.beginPath(); for (const h of holds) G.tracePoly(c, h.poly); c.clip('nonzero'); c.drawImage(img, 0, 0); c.restore();
+    if (route) for (const h of routeHolds) strokeRouteHold(c, h.poly, route.holds[h.id], (s) => L(s), theme);
+    c.save(); c.lineJoin = 'round';
+    holds.forEach((h, i) => {
+      const col = PICK_COLORS[i % PICK_COLORS.length], s = spots.get(h);
+      c.beginPath(); G.tracePoly(c, h.poly);
+      c.lineWidth = L(5); c.strokeStyle = 'rgba(0,0,0,0.5)'; c.stroke();
+      c.lineWidth = L(2.6); c.strokeStyle = col; c.stroke();
+      if (s.anchor) { c.beginPath(); c.moveTo(...s.anchor); c.lineTo(s.x, s.y); c.lineWidth = L(1.5); c.strokeStyle = col; c.stroke(); }
+      c.beginPath(); c.arc(s.x, s.y, L(10), 0, Math.PI * 2);
+      c.fillStyle = col; c.fill(); c.lineWidth = L(3); c.strokeStyle = 'rgba(0,0,0,0.55)'; c.stroke();
+    });
+    c.restore();
+  }
+  return { THEME, typeLabels, drawTypeLabels, seqBadges, drawSeq, strokeRouteHold, heatColor, strokeHoldOutline, drawOverlapPick };
 });

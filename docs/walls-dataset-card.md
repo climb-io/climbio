@@ -52,10 +52,15 @@ walls/<牆包 id>/v<版本>/
   <牆 id>.jpg                    照片
   <牆 id>.thumb.jpg              縮圖
   <牆 id>.json                   Climbio Format v2 的牆（kind: view）：照片大小 w、h，nodes 裡 type 為 hold 的是岩點，帶外框多邊形
-  <牆 id>.edits.json             Wall 精修記錄（只有 Wall 公開的牆有）
+  <牆 id>.edits.json             精修記錄（Studio Wall 或岩點貓公開的牆，有修改才有）
   <圖層 id>.json                 路線圖層（岩點貓公開的牆有；內容固定、不含路線）
   index.json                     這個包的入口
 walls/<牆包 id>/routes.json      大家在岩點貓定的路線（每天更新一次；不分版本；不含帳號）
+research/hold-lab/<牆包 id>/       同一張照片各處理步驟（手機偵測、MobileSAM、SAM2、人工修正）的岩點外框與跟人工答案的比較；只有做過這項比較的牆才有
+  stages.json                    各步驟的岩點外框，每顆外框的好壞（可用、切掉一角、外框太大、多認、漏掉），以及每 100 顆真實岩點裡外框可直接用幾顆；人工做了什麼（沒動、微調、重畫、手畫、刪除）
+  photo.jpg                      比較用的照片（長邊 1600）
+  summary.json                   有哪些步驟
+                                 Hold Lab 展示頁（https://climbio.app/lab/hold-lab/）與 Studio Wall 的報告讀各步外框，數字自己重算
 ```
 
 版本只增不減：同一面牆再發佈就是新的 `v<版本>/`，舊的留著。要最新的看 `walls.jsonl` 的 `dir`。
@@ -83,6 +88,7 @@ walls/<牆包 id>/routes.json      大家在岩點貓定的路線（每天更新
 - `flagged`：`{ 岩點 id: 旗標 }`，自動結果標為「要看」的岩點，沒改的也留著，用來校準信心。
 - **`reviewed` 為 true 的牆，沒被改的岩點才能當正確答案**；沒有 `reviewed` 的牆，沒改的岩點只代表「沒人看過」。
 - `tools` 記偵測與 SAM 模型版本，`sha256` 是照片雜湊。
+- **手機精修**（岩點貓已不再上傳牆，只有以前公開的牆有這種記錄；現在的牆都由 Studio 發佈）：從岩點貓公開的牆，作者自己改過、手畫、刪掉的岩點也記成 edits.json（`tools.by` 是 `phone`，`reviewed` 一定是 false）。這種牆的 `<牆 id>.json` 維持自動結果，不是最後結果：`deleted` 帶自動外框，`reshaped` 的 `poly` 是自動外框，`added` 是手畫岩點 id，`final` 是 `{ 岩點 id: 最後外框 }`（改過的和手畫的）。
 
 ## 資料的來源與保管
 

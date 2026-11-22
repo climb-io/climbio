@@ -24,9 +24,12 @@ export function entryOf(url) {
   return u.searchParams.get('topo') || u.href;
 }
 
-/** 兩個來源是不是同一個岩場：Climbio 發佈的看 /p/<id>/（開發版、正式版、climbio.app 都一樣），其他看網址 */
+/** Climbio 發佈的 Guidebook 網址 → 專案 id：網站的 /p/<id>/…，或開放資料集裡的 crags/<id>/…（同一份檔案，兩種網址都認）；不是就回空字串 */
+export const publishedId = (u) => /\/(?:p|crags)\/([0-9a-z]{16})\//.exec(u || '')?.[1] || '';
+
+/** 兩個來源是不是同一個岩場：Climbio 發佈的看專案 id（開發版、正式版、開放資料集的網址都一樣），其他看網址 */
 export function sameSource(a, b) {
-  const key = (u) => /\/p\/([0-9a-z]{16})\//.exec(u)?.[1] ?? u;
+  const key = (u) => publishedId(u) || u;
   return key(a) === key(b);
 }
 

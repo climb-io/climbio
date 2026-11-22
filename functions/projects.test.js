@@ -116,8 +116,8 @@ test('公開牆（岩點貓）：資料夾由 datasets 文件的版本推出，/
 
 test('固定分享網址 /p/{id}：Guidebook 回連結預覽頁（書名、preview.jpg），轉到紅點貓收這本並帶 at', async () => {
   const previewPage = (o) => JSON.stringify(o);
-  const { get, docs } = fileSetup({ hosts: HOSTS, previewPage });
   const base = `${HF_CRAGS}crags/${GID}/`;
+  const { get, docs } = fileSetup({ hosts: HOSTS, previewPage, readJson: async () => null });
   for (const path of [`/p/${GID}`, `/p/${GID}/`]) {
     const r = await get(path, 'GET', { 'x-forwarded-host': 'climbio-dev.web.app' });
     assert.equal(r.statusCode, 200);
@@ -220,4 +220,27 @@ test('下載計數：只數不認人類型的整份載入檔（3D 牆 wall.json�
   assert.equal(counted[0][1], counted[2][1], '同一台機器同一天的雜湊一樣');
   assert.notEqual(counted[0][1], counted[1][1]);
   assert.match(counted[0][1], /^[0-9a-f]{64}$/);
+});
+
+test('固定分享網址的預覽內容：岩場有路線數，分享 Topo 時標題是那張 Topo；讀不到索引也只退回名稱', async () => {
+  const set = { name: { 'zh-Hant': '龍洞' }, items: [{ href: 'topo.json', id: 'photo0000000001' }], nodes: [{ id: 'c', type: 'crag', name: '龍洞' }, { id: 'r1', type: 'route' }, { id: 'r2', type: 'route' }] };
+  const readJson = async (url) => (url.endsWith('/index.json') ? set : url.endsWith('/topo.json') ? { name: '騙人的牆' } : null);
+  const previewPage = (o) => JSON.stringify(o);
+  const { get } = fileSetup({ hosts: HOSTS, previewPage, readJson });
+  const crag = JSON.parse((await get(`/p/${GID}`)).body), topo = JSON.parse((await get(`/p/${GID}?at=photo0000000001`)).body);
+  assert.deepEqual([crag.description, topo.title, topo.description], ['龍洞・2 條路線・紅點貓 Topo', '騙人的牆', '熱海岩場・2 條路線・紅點貓 Topo']);
+  const bare = JSON.parse((await fileSetup({ hosts: HOSTS, previewPage, readJson: async () => null }).get(`/p/${GID}`)).body);
+  assert.equal(bare.description, '紅點貓 Topo');
+});
+
+test('世界的清單：同一本書最新的一版排第一（就算舊的下載比較多），舊的放 others', async () => {
+  const { db, docs } = fakeDb();
+  const A = 'aaaaaaaaaaaaaaaa', B = 'bbbbbbbbbbbbbbbb';
+  docs.set(`datasets/${A}`, project({ t: NOW - 5e8, hf: { dir: `crags/${A}/` } }));
+  docs.set(`datasets/${B}`, project({ t: NOW - 1e8, hf: { dir: `crags/${B}/` }, origin: A, root: A, lineage: [A] }));
+  const rows = await listPublic({ db, now: () => NOW });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].id, B);
+  assert.deepEqual(rows[0].others.map(o => o.id), [A]);
+  assert.equal(rows[0].official, undefined);
 });

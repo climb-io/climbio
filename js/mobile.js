@@ -36,7 +36,7 @@
     } else {
       const f = routeFit(r), k = view.bw * f.s / state.w;   // 下一條用它自己的路線視角，換頁後直接就位
       g.setTransform(dpr * k, 0, 0, dpr * k, dpr * f.tx, dpr * f.ty);
-      RouteKit.drawRoute(g, state.scene, r, holdsOf(r), { unit: labelUnit(r), mode: baseMode(), hands: true });
+      RouteKit.drawRoute(g, state.scene, r, holdsOf(r), { unit: labelUnit(r), mode: baseMode(), tint: baseMode() !== 'dim', hands: true, tape: baseMode() !== 'dim', glow: baseMode() === 'dim' ? { roles: r.holds, colors: RouteKit.THEME.colors, dpr, outline: false } : undefined });
     }
     swipePages.set(d, page); stageEl.append(page);
   }
@@ -118,11 +118,11 @@
   let gesture = null;      // { mode: 'pan'|'pinch', ... }
   let holdLoupeFrame = 0;
   function followHoldLoupe(g) {
-    if (gesture !== g || state.mode !== 'holds' || !state.selected) { $('loupe').hidden = true; return; }
+    if (gesture !== g || state.mode !== 'holds' || !state.holdSub) { $('loupe').hidden = true; return; }
     const r = cv.getBoundingClientRect(), k = r.width / state.w;
     // 手指移開後放大鏡改看手指下面（放開時改編輯那一點），外框跟著換成那裡的岩點
     if (g.aim) { g.x = (g.cx - r.left) / k; g.y = (g.cy - r.top) / k; }
-    const under = g.aim ? pressHold(g.x, g.y) : state.selected;
+    const under = g.aim ? pressHold(g.x, g.y) : state.selected;   // 長按在沒有岩點的地方：放大鏡只看位置
     showLoupe(g.cx, g.cy, g.x, g.y, under ? under.poly : [], k);
     holdLoupeFrame = requestAnimationFrame(() => followHoldLoupe(g));
   }
@@ -135,7 +135,7 @@
       if (state.lassoPts) { state.lassoPts = null; render(); }
     }
     if (gesture &&(gesture.mode === 'vertex' || gesture.mode === 'hold' || gesture.mode === 'lasso')) return;   // 單點操作時忽略第二根手指
-    if (state.lasso && state.mode === 'holds' && state.holdSub && state.selected && pts.size === 0) {   // 圈起來：一根手指畫一圈，不拖照片、不拖頂點
+    if (state.lasso && state.mode === 'holds' && state.holdSub && pts.size === 0) {   // 圈起來：一根手指畫一圈，不拖照片、不拖頂點
       pts.set(e.pointerId, local(e));
       try { stageEl.setPointerCapture(e.pointerId); } catch (err) { /* 合成事件沒有真的指標 */ }
       const r = cv.getBoundingClientRect(), k = r.width / state.w, clamp = (v, m) => Math.min(m, Math.max(0, v));
@@ -160,35 +160,23 @@
         gesture = { mode: 'turn3d', id: e.pointerId, sx: p.x, sy: p.y, lx: p.x, ly: p.y, moved: false };
       } else gesture = { mode: 'pan', sx: p.x, sy: p.y, tx: view.tx, ty: view.ty, moved: false };
       const canPress = e.pointerType !== 'mouse' || (e.button === 0 && !e.shiftKey && !e.altKey);
-      // 定線長按：觸控或滑鼠左鍵按住就補點、辨識；拖曳後不啟動，修飾鍵與右鍵留給移動照片、旋轉模型。
+      // 定線長按：觸控或滑鼠左鍵按住就進單點編輯（見 enterHoldEdit）；拖曳後不啟動，修飾鍵與右鍵留給移動照片、旋轉模型。
       if (state.mode === 'route' && !state.routeView && canPress) {
         const g0 = gesture, cx = e.clientX, cy = e.clientY;
         const still = () => gesture === g0 && !g0.moved && pts.size === 1 && state.wall && state.mode === 'route' && !state.routeView;
         const at = () => { const rect = cv.getBoundingClientRect(); return { x: (cx - rect.left) * (state.w / rect.width), y: (cy - rect.top) * (state.h / rect.height) }; };
         const inside = ({ x, y }) => !!state.w3d || (x >= 0 && y >= 0 && x <= state.w && y <= state.h);   // 照片外面不算（3D 牆轉角度後畫面會超出正面快照，照射線判斷）
-        setTimeout(() => { if (!still()) return; const p = at(); if (inside(p)) prefetchHoldTrace(p.x, p.y); }, 150);   // 先在背景重描，長按成立時就好了
         setTimeout(() => {
           if (!still()) return;
           const { x, y } = at();
           if (!inside({ x, y })) return;
           g0.moved = true; suppressClick = true;   // 放開時不算點擊
           if (holdLocked()) return;   // 背景還在描外框：還不能改岩點
+          const pressed = pressHold(x, y);
+          if (pressed && state.addType === 'n' && route() && route().seq && route().seq.includes(pressed.id)) { seqHoldAsk(pressed); return; }   // 順序模式長按有編號的岩點：選插入位置
           const g = gesture = { mode: 'hold', id: e.pointerId, sx: cx, sy: cy, cx, cy, x, y, moved: true };
-          enterHoldEdit(pressHold(x, y), x, y);
+          enterHoldEdit(pressed, x, y);
           followHoldLoupe(g);
-        }, 500);
-      }
-      // 單點編輯時再長按這一顆：重新跑一次重描（150 ms 先在背景算）
-      if (state.mode === 'holds' && state.holdSub && state.selected && canPress) {
-        const g0 = gesture, cx = e.clientX, cy = e.clientY, h = state.selected;
-        const at = () => { const rect = cv.getBoundingClientRect(); return { x: (cx - rect.left) * (state.w / rect.width), y: (cy - rect.top) * (state.h / rect.height) }; };
-        const still = () => gesture === g0 && !g0.moved && pts.size === 1 && state.mode === 'holds' && state.selected === h && onSelected(at().x, at().y);
-        setTimeout(() => { if (still()) prefetchHoldTrace(at().x, at().y, h); }, 150);
-        setTimeout(() => {
-          if (!still()) return;
-          suppressClick = true;
-          gesture = { mode: 'press', id: e.pointerId, moved: true };   // 放開時不算點擊、不拖照片
-          retraceAgain(at().x, at().y);
         }, 500);
       }
       // 看路線圖、沒比路線視角放大時可以左右滑；螢幕左右邊緣起滑的留給系統的返回手勢
@@ -308,6 +296,13 @@
       if (gesture.moved && over) setView(view.s, gesture.tx + dx, gesture.ty + dy);
     }
   });
+  // 電腦版 Esc：取消圈起來（畫到一半先丟掉這一圈；沒在畫就離開圈起來）
+  addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || state.mode !== 'holds' || !state.holdSub || !state.lasso || document.querySelector('.ak-dialog')) return;
+    e.preventDefault();
+    if (gesture && gesture.mode === 'lasso') { pts.clear(); gesture = null; state.lassoPts = null; render(); return; }
+    cancelLasso();
+  });
   const endPointer = (e) => {
     if (!pts.has(e.pointerId)) return;
     if (pinchFrame) { cancelAnimationFrame(pinchFrame); applyPinch(); }
@@ -392,10 +387,10 @@
   }, { passive: false });
   // iOS Safari 的手勢事件：擋掉整頁縮放
   for (const t of ['gesturestart', 'gesturechange']) document.addEventListener(t, (e) => e.preventDefault(), { passive: false });
-  const STEPS = [1, 1.5, 2, 3, 4, 6, 8, 10];
+  const STEPS = RouteKit.ZOOM_STEPS;   // 縮放鈕的檔位（kit 的同一份）
   const center = () => [stageEl.clientWidth / 2, stageEl.clientHeight / 2];
   $('zoomIn').onclick = () => zoomAt(STEPS.find(z => z > view.s + 0.01) || maxScale(), ...center());
-  $('zoomOut').onclick = () => zoomAt([...STEPS].reverse().find(z => z < view.s - 0.01) || 1, ...center());
+  $('zoomOut').onclick = () => zoomAt([...STEPS].reverse().find(z => z < view.s - 0.01) || zoomFloor(), ...center());
   // 照片框大小變了就重排（保留縮放）：視窗大小、手機網址列收合，還有切換岩點頁／路線頁時下方面板高度不同。
   // 照片框大小變了就重排（例如打開岩點頁時面板變高），不然 100% 的照片下緣會超出框又拖不動
   const relayout = () => {
@@ -432,7 +427,7 @@
     dismissedKey: 'climbio.installDismissedAt', installedKey: 'climbio.installed', onChange: () => renderInstall(),
     // 重新安裝（Android 刪除主畫面 App 不會清除資料；iPhone 會）：一次性情境提示重新開始。收到的牆保留（點朋友的連結、再裝 App 要看得到）
     // 裝好了，請從主畫面打開
-    onInstalled: () => { tourReset(); $('ldDone').hidden = false; $('ldInstall').hidden = true; },
+    onInstalled: () => { $('ldDone').hidden = false; $('ldInstall').hidden = true; },
   });
   const { ios: isIos, android: isAndroid, inApp } = inst;
   let openHref = '';   // 點朋友的連結進來時的網址（js/main.js 記下來）
@@ -689,7 +684,7 @@
     welcomeBoot({ again: true });
   }
   // 「開始拍」：新增牆面（系統選單拍照或選照片），選好照片才關開場（新增牆面那裡）
-  $('ldPlay').onclick = addWall;
+  $('ldPlay').onclick = () => addWall();
   // 使用者取消拍照或選檔後留在開場，可再次拍照或改用「找牆面」。
   // 「找牆面」：還沒有牆的人先看別人公開的牆，收一面下來就有牆了；返回回到開場畫面（js/wall.js 的 popstate）
   $('ldFind').hidden = !(can('gyms') || SITE.directory);
@@ -709,7 +704,7 @@
   // 首頁下方的「加到主畫面」和安裝說明的內容
   // 同步自己的其他裝置：出過路線後在首頁提示一次（可關閉）；配對過、不支援、或正在顯示「加到主畫面」時不顯示。入口一直在「更多」選單（hmSync）
   function renderSyncHint() {
-    $('syncHintBar').hidden = PCLAND || !lsGet(MADE_KEY, false) || lsGet('climbio.syncHintX', false) === true || AppKit.nearby.paired('hold') > 0 || !AppKit.nearby.supported() || !$('instBar').hidden;
+    $('syncHintBar').hidden = PCLAND || !lsGet(MADE_KEY, false) || lsGet('climbio.syncHintX', false) === true || AppKit.nearby.paired() > 0 || !AppKit.nearby.supported() || !$('instBar').hidden;
   }
   $('syncHintGo').onclick = () => { lsSet('climbio.syncHintX', true); renderSyncHint(); openNearby('devices'); };
   $('syncHintBtnX').onclick = () => { lsSet('climbio.syncHintX', true); renderSyncHint(); };

@@ -22,13 +22,17 @@
 <link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/kits/wall3dkit.html">
 <link rel="alternate" hreflang="en" href="https://climbio.app/kits/en/wall3dkit.html">
 <link rel="stylesheet" href="../css/brand-tokens.css">
+<link rel="stylesheet" href="../css/site-nav.css">
 <link rel="stylesheet" href="../css/pages.css">
 </head>
-<body>
-<header class="pg-top"><a class="pg-brand" href="../"><img src="../icons/brand/climbio-mark.svg" alt=""><span>Climbio</span></a><span class="grow"></span><nav class="pg-nav" aria-label="所有元件"><a href="../">首頁</a><a href="../kits/">所有元件</a><a href="../kits/en/wall3dkit.html" hreflang="en" lang="en">English</a></nav></header>
+<body class="site-page">
+<header class="site-header">
+  <a class="site-brand" href="../"><picture><source media="(max-width: 600px)" srcset="../icons/brand/climbio-mark.svg"><img src="../icons/brand/climbio-horizontal-light.svg" alt="Climbio" width="110" height="30"></picture></a>
+  <nav class="site-nav" aria-label="網站導覽"><a href="../">首頁</a><a href="../studio/">Studio</a><a href="../lab/">Lab</a><a href="../guides/" aria-current="true">文件</a><a class="site-language" href="../kits/en/wall3dkit.html" hreflang="en" lang="en">English</a></nav>
+</header>
 <main class="pg">
   <div class="pg-hero">
-    <span class="pg-eyebrow">@climbio/wall3dkit · AGPL-3.0</span>
+    <span class="pg-eyebrow">Climbio 開放元件</span>
     <h1>Wall3DKit</h1>
     <p class="pg-lead">室內 3D 牆的載入、繪製、沿牆鏡頭與烘焙</p>
     <div class="pg-actions"><a class="pg-btn primary" href="https://github.com/climb-io/climbio/tree/main/wall3dkit">在 GitHub 看原始碼</a></div>
@@ -40,26 +44,15 @@
   <section class="pg-section" aria-labelledby="points">
     <h2 id="points">能做什麼</h2>
     <div class="pg-grid">
-      <article class="pg-card"><span class="pg-num">1</span><h3>定線跟 2D 一樣簡單</h3><p>模型畫在 2D 的定線畫面下面，縮放、平移照舊；點岩點用射線，被擋住的岩點也點得到，岩點外框投回正面存檔。</p></article>
-      <article class="pg-card"><span class="pg-num">2</span><h3>沿著牆走的鏡頭</h3><p>左右拖沿牆走、上下拖升降、捏合靠近，轉角處鏡頭平順地轉。範圍只看模型和岩點：每顆岩點都點得到，其餘地方四邊都是牆，每種螢幕比例各自算。</p></article>
-      <article class="pg-card"><span class="pg-num">3</span><h3>烘焙成標準檔案</h3><p>作者端把裁切、隱藏、修點、鏡頭軌道都做進成品：標準 glTF 2.0 加岩點標籤，手機只讀不算，別的檢視器也打得開。</p></article>
+      <article class="pg-card"><h3>定線跟 2D 一樣簡單</h3><p>模型畫在 2D 的定線畫面下面，縮放、平移照舊；點岩點用射線，被擋住的岩點也點得到，岩點外框投回正面存檔。</p></article>
+      <article class="pg-card"><h3>沿著牆走的鏡頭</h3><p>左右拖沿牆走、上下拖升降、捏合靠近，轉角處鏡頭平順地轉。範圍只看模型和岩點：每顆岩點都點得到，其餘地方四邊都是牆，每種螢幕比例各自算。</p></article>
+      <article class="pg-card"><h3>烘焙成標準檔案</h3><p>作者端把裁切、隱藏、修點、鏡頭軌道都做進成品：標準 glTF 2.0 加岩點標籤，手機只讀不算，別的檢視器也打得開。</p></article>
     </div>
   </section>
-  <section class="pg-section" aria-labelledby="install">
-    <h2 id="install">安裝</h2>
-    <pre><code>npm install @climbio/wall3dkit</code></pre>
-    <h2 id="example">最小範例</h2>
-    <pre><code>import { loadPack, openStage } from &#39;@climbio/wall3dkit&#39;;
-const pack = await loadPack(base);
-const stage = await openStage(base, pack);
-stage.mount(host);
-stage.setView({ s: 1, tx: 0, ty: 0, bw: stage.snapW });
-const id = stage.pick(x, y);</code></pre>
-  </section>
-  <section class="pg-section" aria-labelledby="notes">
-    <h2 id="notes">授權與限制</h2>
-    <p class="pg-note">AGPL-3.0（內含 three.js、three-mesh-bvh，MIT）。只讀資料包、只烘焙，不從照片建模；需要 WebGL。戶外的 3D 岩場請用 Crag3DKit，2D 照片的牆請用 RouteKit。</p>
-    <p class="pg-muted"><a href="../kits/">所有元件</a> · <a href="https://github.com/climb-io/climbio/tree/main/wall3dkit">GitHub</a> · 給 AI 讀的說明在 GitHub 的 README.md</p>
+  <section class="pg-section" aria-labelledby="next">
+    <h2 id="next">一起改善這項工具</h2>
+    <p>想讓自己的 AI Agent 加入開發？把 Climbio GitHub 專案交給它，技術規格、授權和工作規則都從原始碼取得。</p>
+    <div class="pg-actions"><a class="pg-btn primary" href="https://github.com/climb-io/climbio/tree/main/wall3dkit">查看 GitHub 專案</a><a class="pg-btn" href="../project/">了解怎麼參與</a></div>
   </section>
   <footer class="pg-foot"><span>Climbio · 所有元件</span><a href="../">首頁</a></footer>
 </main>

@@ -79,14 +79,14 @@
     const id = opt.id || rid();
     return create(await (await localRoot()).getDirectoryHandle(id, { create: true }), ws, name, { ...opt, id, local: true });
   }
-  async function open(dir, local = false) {
+  async function open(dir, local = false, { quiet = false } = {}) {   // quiet：不記進最近的專案（同步時讀一下，不改「繼續編輯」的順序）
     const meta = await readJson(dir, PROJECT), p = { id: meta.id, ws: meta.ws, dir, meta, local };
-    await remember(p);
+    if (!quiet) await remember(p);
     return p;
   }
   const saveMeta = p => writeJson(p.dir, PROJECT, p.meta);
-  // 最近的專案：{ id, ws, name, at, local, src } 加資料夾的 handle（local 的照 id 在 OPFS 找）；src 是匯入的來源網址（同一個來源不重複匯入）
-  const remember = p => tx('recent', 'readwrite', s => s.put({ id: p.id, ws: p.meta.ws, name: p.meta.name, at: Date.now(), ...(p.local ? { local: true } : { dir: p.dir }), ...(p.meta.src ? { src: p.meta.src } : {}) }, p.id));
+  // 最近的專案：{ id, ws, name, at, local, src, book（轉換路線書來的岩場專案） } 加資料夾的 handle（local 的照 id 在 OPFS 找）；src 是匯入的來源網址（同一個來源不重複匯入）
+  const remember = p => tx('recent', 'readwrite', s => s.put({ id: p.id, ws: p.meta.ws, name: p.meta.name, at: Date.now(), ...(p.local ? { local: true } : { dir: p.dir }), ...(p.meta.src ? { src: p.meta.src } : {}), ...(p.meta.book ? { book: true } : {}) }, p.id));
   const recent = async () => (await tx('recent', 'readonly', s => s.getAll()) || []).sort((a, b) => b.at - a.at);
   const entry = id => tx('recent', 'readonly', s => s.get(id));
   const forget = id => tx('recent', 'readwrite', s => s.delete(id));
@@ -115,27 +115,38 @@
   }
   // 最近的專案的資料夾（不打開、不改最近的順序）；沒授權的資料夾照樣給，用之前先 granted
   async function dirOf(e) { return e.local ? (await localRoot()).getDirectoryHandle(e.id) : e.dir; }
-  async function reopen(e) {
-    if (e.local) return open(await (await localRoot()).getDirectoryHandle(e.id), true);
+  async function reopen(e, opt) {
+    if (e.local) return open(await (await localRoot()).getDirectoryHandle(e.id), true, opt);
     if (!(await granted(e)) && await e.dir.requestPermission({ mode: 'readwrite' }) !== 'granted') throw new Error(T('stNoFolderAccess'));
-    return open(e.dir);
+    return open(e.dir, false, opt);
   }
 
   // ---- 收件匣：首頁掃描過、選好要自動處理的項目，交給工作區頁面接手（檔案、資料夾 handle 都能存）----
-  // 照片存成 ArrayBuffer：Safari 從 IndexedDB 取回存進去的 File，換頁後讀到的內容是空的
+  // 檔案存成 ArrayBuffer：Safari 從 IndexedDB 取回存進去的 File，換頁後讀到的內容是空的。
+  // 每個檔案各存一筆（<id>/<序號>）：一筆有大小上限（Chrome 約 130 MB），整包原始檔放在同一筆會存不進去
   const inbox = {
     async put(rec) {
-      const id = rid(8);
-      const items = rec.items && await Promise.all(rec.items.map(async i => ({ dir: i.dir, name: i.file.name, type: i.file.type, buf: await i.file.arrayBuffer() })));
-      await tx('inbox', 'readwrite', s => s.put({ ...rec, ...(items ? { items } : {}), t: Date.now() }, id));
+      const id = rid(8), { items, ...rest } = rec;
+      for (const [i, it] of (items || []).entries()) {
+        const one = { dir: it.dir, name: it.file.name, type: it.file.type, buf: await it.file.arrayBuffer() };
+        await tx('inbox', 'readwrite', s => s.put(one, `${id}/${i}`));
+      }
+      await tx('inbox', 'readwrite', s => s.put({ ...rest, ...(items ? { n: items.length } : {}), t: Date.now() }, id));
       return id;
     },
     async take(id) {
       const rec = await tx('inbox', 'readonly', s => s.get(id));
       if (!rec) return null;
-      await tx('inbox', 'readwrite', s => s.delete(id));
-      if (rec.items) rec.items = rec.items.map(i => ({ dir: i.dir, file: new File([i.buf], i.name, { type: i.type }) }));
-      return rec;
+      const { n, ...out } = rec;
+      if (n != null) {
+        out.items = [];
+        for (let i = 0; i < n; i++) {
+          const it = await tx('inbox', 'readonly', s => s.get(`${id}/${i}`));
+          out.items.push({ dir: it.dir, file: new File([it.buf], it.name, { type: it.type }) });
+        }
+      }
+      await tx('inbox', 'readwrite', s => { s.delete(id); for (let i = 0; i < (n || 0); i++) s.delete(`${id}/${i}`); });
+      return out;
     },
   };
 

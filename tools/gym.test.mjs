@@ -9,7 +9,7 @@ const source = readFileSync(new URL('../js/add-wall.js', import.meta.url), 'utf8
 const file = (url) => JSON.parse(readFileSync(new URL(url, new URL('../hold/', import.meta.url)), 'utf8'));   // 從岩點貓的頁面讀 ../gyms/index.json、../gyms/<國碼>.json
 const AppKit = { photo: createRequire(import.meta.url)('../appkit/photo.js') };
 const ctx = vm.createContext({ AppKit, fetch: async (url) => ({ ok: true, json: async () => file(url) }), t: (k) => k, DataView, String, Number, Math, Map, Set, Promise, Error });
-vm.runInContext(source.slice(source.indexOf('  const GYM_NEAR'), source.indexOf('  // 選岩館（分析畫面')), ctx);
+vm.runInContext(source.slice(source.indexOf('  const GYM_NEAR'), source.indexOf('  // 裁切：原圖先縮到長邊')), ctx);
 const gps = (buf) => ctx.photoGps({ slice: () => ({ arrayBuffer: async () => buf }) });   // 像照片檔：只讀開頭
 
 // 做一張只有 EXIF 的 JPEG：IFD0 只有 GPS 指標，GPS IFD 有南北、緯度、東西、經度

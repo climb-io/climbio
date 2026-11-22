@@ -16,6 +16,8 @@
 
 ## 文件
 
+[網站文件](https://climbio.app/guides/) 提供一般使用者操作說明與 Studio 指南；[專案頁](https://climbio.app/project/) 說明進度與如何用 AI Agent 把 Climbio 放進現有的岩館 App。技術規格、安裝方式與工作文件統一以本 GitHub 倉庫的 `AGENTS.md`、`docs/` 和各 Kit README 為準。
+
 產品規格見 [docs/README.md](docs/README.md)；路線書轉換也能不開 Studio、用命令列 `tools/guidebook.mjs` 做（讀檔、檢查、建立、局部修正、驗證，每一步產生同一份問題清單 `report.json`；AI 代理也用這個），見 [docs/guidebook-convert-format.md](docs/guidebook-convert-format.md) 的「命令列」，`npm run eval:convert` 比較 `tests/convert/` 的固定案例；程式架構（檔案分工、資料流）見 [docs/architecture.md](docs/architecture.md)；開發與測試見 [docs/development.md](docs/development.md)。
 
 ## 開發
@@ -50,12 +52,13 @@ npm run test:smoke                                                              
 - `routekit/`（AGPL-3.0）：看線、定線、輸出路線圖，見 [routekit/README.md](routekit/README.md)。
 - `mapkit/`（AGPL-3.0）：岩場的向量地圖，看圖與編輯（地圖畫面＋圖層進、圖層出），原生 SVG、不用建置，見 [mapkit/README.md](mapkit/README.md)。
 - `topokit/`（AGPL-3.0）：戶外 Topo 的看圖與編輯（照片畫面＋路線圖層進、圖層出），原生 SVG、不用建置，見 [topokit/README.md](topokit/README.md)。
+- `wall3dkit/`、`crag3dkit/`（AGPL-3.0）：室內 3D 牆與戶外 3D 岩場檢視器，見 [wall3dkit/README.md](wall3dkit/README.md)、[crag3dkit/README.md](crag3dkit/README.md)。
+- `sourcekit/`、`appkit/`（AGPL-3.0）：第三方資料匯入與 App 共用元件（含語言包、對話框、朋友互傳與分享圖）。
+- `embed/`（AGPL-3.0）：供外部網站以 `<iframe>` 嵌入的獨立靜態頁，見 [docs/embed.md](docs/embed.md)。
 - `format/`（Apache-2.0）：公開格式 v2（畫面、圖層、組合，室內戶外通用）的 JSON Schema 與驗證器，詞彙見 [format/VOCABULARY.md](format/VOCABULARY.md)，規格見 [format/README.md](format/README.md)。
 
 ## 授權
 
-GNU AGPL-3.0（見 [LICENSE](LICENSE)），包含 `holdkit/`、`routekit/`、`topokit/`、`mapkit/`、`appkit/` 等所有程式；只有 `format/`（格式規格與驗證器）和路線格式規格是 Apache-2.0，讓任何 App 都能照著實作。其他元件見 [NOTICE](NOTICE)，開源規劃見 [docs/open-source.md](docs/open-source.md)。Climbio 的 Logo 與貓咪角色以 CC BY 4.0 授權（見 [design/brand/LICENSE](design/brand/LICENSE)），「Climbio」名稱的使用請求見 [TRADEMARKS.md](TRADEMARKS.md)。
-
-實機測試僅操作已明確登記 UDID 的指定 iPhone，接上其他手機不會啟動。設定見 [開發與驗證](docs/development.md#指定-iphone-測試機)。
+GNU AGPL-3.0（見 [LICENSE](LICENSE)），包含 `holdkit/`、`routekit/`、`topokit/`、`mapkit/`、`wall3dkit/`、`crag3dkit/`、`appkit/`、`sourcekit/` 等所有程式；只有 `format/`（格式規格與驗證器）和路線格式規格是 Apache-2.0，讓任何 App 都能照著實作。其他元件見 [NOTICE](NOTICE)，開源規劃見 [docs/open-source.md](docs/open-source.md)。Climbio 的 Logo 與貓咪角色以 CC BY 4.0 授權（見 [design/brand/LICENSE](design/brand/LICENSE)），「Climbio」名稱的使用請求見 [TRADEMARKS.md](TRADEMARKS.md)。
 
 岩點貓與紅點貓左上使用各自的貓圖案加 Climbio 向量字，開場與首頁一致。

@@ -272,7 +272,7 @@
     const url = `${site}/w/gym/${encodeURIComponent(gym)}.json?read=project`, d = await getDoc(url, 'set');
     return (d.items || []).filter(x => PID_RE.test(x.id || '')).map(x => {
       const thumb = x.props && typeof x.props.thumb === 'string' ? x.props.thumb : '';
-      return { pid: x.id, name: nameOf(x.name), thumb: !thumb || /^data:image\//.test(thumb) ? thumb : resolve(thumb, url), routes: count(x, 'routes'), t: x.t || 0, href: resolve(x.href, url) };
+      return { pid: x.id, name: nameOf(x.name), thumb: !thumb || /^data:image\//.test(thumb) ? thumb : resolve(thumb, url), routes: count(x, 'routes'), t: x.t || 0, href: resolve(x.href, url), ...(x.props && x.props.model === '3d' ? { m3d: 1 } : {}) };
     });
   });
   // 收整面牆：href 是路線圖層（再讀它疊的牆）或直接是牆
@@ -335,5 +335,18 @@
     fetch(`${dir}/dir/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: homeSite() }) }).catch(() => {});
   }
 
-  window.ShareTools = { T, open, memPut, memDrop, needNet, offlineError, cancelledError, loadScript, qrDataURL, scan, PID_RE, RID_RE, fetchShared, layerRoutes, wallPackage, wallBundle, gzip, gunzip, linkFrom, homeSite, siteGyms, gymWalls, fetchWall, fetchHolds, wallPhotos, directoryGyms, registerSite };
+  // 手機精修的記錄，格式同開放資料集的 edits.json（docs/walls-dataset-card.md）：base 是原始岩點檔，mine 是我的岩點檔（source：detect、edited、manual）。
+  // 公開的牆畫面維持原始岩點檔；final 帶改過、手畫的岩點的最後外框。沒有任何修改回 null。
+  function phoneEdits({ pid, base = [], mine = [], license = 'CC-BY-SA-4.0' }) {
+    const at = new Map(base.map(h => [h.id, h])), now = new Set(mine.map(h => h.id));
+    const deleted = base.filter(h => !now.has(h.id)).map(h => ({ id: h.id, poly: h.poly })), reshaped = [], added = [], final = {};
+    for (const h of mine) {
+      if (h.source === 'manual' && !at.has(h.id)) { added.push(h.id); final[h.id] = h.poly; }
+      else if (h.source === 'edited' && at.has(h.id)) { reshaped.push({ id: h.id, poly: at.get(h.id).poly }); final[h.id] = h.poly; }
+    }
+    if (!deleted.length && !reshaped.length && !added.length) return null;
+    return { holdlab: 1, wall: pid, license, reviewed: false, tools: { by: 'phone' }, flagged: {}, deleted, reshaped, added, final, sam: {} };
+  }
+
+  window.ShareTools = { T, open, memPut, memDrop, needNet, offlineError, cancelledError, loadScript, qrDataURL, scan, PID_RE, RID_RE, fetchShared, layerRoutes, wallPackage, wallBundle, phoneEdits, gzip, gunzip, linkFrom, homeSite, siteGyms, gymWalls, fetchWall, fetchHolds, wallPhotos, directoryGyms, registerSite };
 })();

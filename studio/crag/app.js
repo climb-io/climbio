@@ -1,23 +1,24 @@
 // Climbio Studio 的 Crag 工作區：一本 Guidebook（左邊岩壁地圖、右邊岩壁、照片與路線）、畫 Topo（一張照片）；首頁（專案清單）在 ../。
 // 步驟列：岩場資訊 → 區域圖 → 路線清單（grid.js）→ 路線圖 → 發佈。
-// 網址的 #<組合 id> 是打開的那本，#<組合 id>/<照片畫面 id> 是在畫那張照片的 Topo；#new 在瀏覽器裡開新的一本、#site 匯入岩場站（#site=<網址> 直接匯入那個網址）、#inbox=<id> 接手首頁交過來的資料夾或照片（../store.js 的收件匣）。
+// 網址的 #<組合 id> 是打開的那本，#<組合 id>/<照片畫面 id> 是在畫那張照片的 Topo；#new 在瀏覽器裡開新的一本、#site 匯入岩場站（#site=<網址> 直接匯入那個網址）、#edit=<岩場 id> 打開那本最新的一版、#inbox=<id> 接手首頁交過來的資料夾或照片（../store.js 的收件匣）。
 // 資料放在專案資料夾（store.js）。
 import * as M from './model.js';
 import { $, el } from './dom.js';
 import * as store from './store.js';
 import { fields, parseTable, guessColumns, toRoutes, decodeText, COLUMNS, shownColumns, cellText, cellPatch, STYLE_LABEL, GRADES, gradeSysOf } from './table.js';
 import { Grid } from './grid.js';
-import { SITES, crawl, fromV2, checkUrl, entryOf, sameSource } from './site.js';
+import { SITES, crawl, fromV2, checkUrl, entryOf, sameSource, publishedId } from './site.js';
 import { fromOutline, AI_PROMPT, AI_MAP_PROMPT } from './outline.js';
-import { readBookFiles, BOOK_IMAGE, assetKey, findAsset } from './convert.js';
-import { outlineReport } from './report.js';
+import { readBookFiles, BOOK_IMAGE, assetKey, findAsset, sourceName, newRecord, OUTLINE } from './convert.js';
+import { outlineReport, bookReport, reasonText } from './report.js';
 import { TopoScreen } from './topo.js';
 import { traceBlob, traceDiffBlobs } from './trace.js';
 import { findOriginals } from './pair.js';
 import { WallMap } from './map.js';
-import { located } from './geo.js';
+import { located, photoWedge } from './geo.js';
 import { features as analyze } from './match.js';   // 找原圖用的特徵點
 import * as P from './publish.js';
+import * as V from './versions.js';
 import { createPublishUI } from '../publish-ui.js';
 import * as K from '../publisher.js';
 const newProjectId = () => [...crypto.getRandomValues(new Uint8Array(16))].map(b => '0123456789abcdefghijklmnopqrstuvwxyz'[b % 36]).join('');
@@ -161,6 +162,16 @@ function closeMenu() { document.querySelector('.menu')?.remove(); document.remov
 // 頂列只有返回和名稱；匯入照片、路線、發佈、匯出、設定都在步驟裡（路線圖的照片條、路線清單的工具列、發佈、岩場資訊）
 const BOOK_BUTTONS = ['bookName'];
 const home = () => { location.replace('../'); };
+/** 岩場頁（沒有打開哪一本）：岩場的作品清單（studio/library.js，路線書轉換來的也在這裡）；新增在首頁的「加資料」 */
+function showLibrary() {
+  closeBook();
+  state = null;
+  $('#steps').hidden = true;
+  for (const k of BOOK_BUTTONS) $(`#${k}`).hidden = true;
+  for (const v of document.querySelectorAll('.view')) v.classList.toggle('on', v.id === 'lib');
+  document.title = `${T('stCrag')} · Climbio Studio`;
+  StudioLibrary.render($('#lib'), { line: 'crag', open: (r) => StudioLibrary.openRecent(r, toast) });
+}
 
 /** 開一本新的（name）並打開：dir 是首頁選的資料夾，沒有就放在瀏覽器裡 */
 const SKETCH_LABEL = T('cgSketch');
@@ -208,7 +219,12 @@ async function showBook(id) {
   // 線尾在兩顆確保站之間橫走的（舊資料、描紅線），打開時就停在確保站中間
   const fixed = [...state.layers.values()].filter(l => M.endAtAnchors(l)).map(l => l.id);
   if (fixed.length) await persist([], fixed);
+  if (await store.readRecord()) store.markBook();   // 路線書轉換來的：岩場清單上標「路線書」
+  if (P.publishState(state).fromSig === 'open') { P.setPublishState(state, { fromSig: sigNow() }); await persist([], [], state.book.t); }   // 匯入的那一版的內容指紋（開檔的整理做完之後）
+  await applyAdopt();
+  $('#lib').classList.remove('on');
   $('#book').classList.add('on');
+  $('#stepPage').classList.remove('on');
   for (const k of BOOK_BUTTONS) $(`#${k}`).hidden = false;
   $('#steps').hidden = false;
   $('#book').dataset.focus = step === 'map' ? 'map' : step === 'info' ? 'info' : 'side';
@@ -217,6 +233,7 @@ async function showBook(id) {
   wallMap = new WallMap($('#map'));
   wallMap.sketchBtn.title = wallMap.sketchBtn.ariaLabel = SKETCH_LABEL;
   wallMap.addEventListener('pick', (e) => setActive(e.detail.id, true));
+  wallMap.addEventListener('photo', (e) => { location.hash = `${state.book.id}/${e.detail.id}`; });   // 點地圖上照片的視錐：打開那張的路線圖
   // 區域圖（編輯模式）：改形狀前記復原點，改好的存起來；刪掉、畫新的、復原會動到節點，整個重畫
   wallMap.addEventListener('editstart', () => remember());
   wallMap.addEventListener('shape', async (e) => { M.setShape(state, e.detail.mark); await persist(); renderWalls(); });
@@ -447,7 +464,13 @@ function renderListBar() {
 }
 $('#lUndo').addEventListener('click', () => undoMap());
 $('#lAdd').addEventListener('click', () => addRoute());
-$('#lPaste').addEventListener('click', () => openPaste());
+// 這本加資料：照片、貼上路線表（手機都沒有）；新的一本、路線書、岩場站從 Studio 的「加資料」進
+$('#lImport').hidden = handset;
+$('#lImport').addEventListener('click', async () => {
+  const pick = (await UI.ask({ title: T('cgImport'), choices: [{ label: T('cgImportPhotos'), value: 'photos' }, { label: T('cgPasteTable'), value: 'table' }], buttons: [{ label: T('cancel') }] }))?.button;
+  if (pick === 'photos') $('#fileInput').click();
+  else if (pick === 'table') openPaste();
+});
 if (handset) $('#walls').addEventListener('click', (e) => { const tr = e.target.closest('tr.route'); if (tr && !document.body.classList.contains('row-drag')) openRoute(tr.dataset.row); });
 $('#pasteCsv').addEventListener('click', () => $('#csvInput').click());
 $('#lDel').addEventListener('click', () => deleteRows());
@@ -764,6 +787,7 @@ function renderMap() {
     map: state.map,
     nodes: state.book.nodes,
     shots: [...state.photos.values()].filter(p => located(p.camera)).map(p => p.camera.position.slice(0, 2)),
+    wedges: [...state.photos.values()].map(p => { const w = photoWedge(p.camera, p.h > p.w); return w && { id: p.id, wall: p.props?.node, ...w }; }).filter(Boolean),
     sketch: M.sketchOf(state),
   });
   wallMap.select(activeWall);
@@ -851,7 +875,7 @@ function renderWalls() {
     b.addEventListener('click', () => { bigArea = t.id; renderWalls(); list.scrollTop = 0; });
     return b;
   })));
-  list.replaceChildren(...start, head, looseCard, tree, fresh);
+  list.replaceChildren(...start, ...(start.length ? [] : [head, looseCard]), tree, fresh);   // 空的專案：主畫面只有匯入（工具列的新增照樣能直接打路線）
   applySearch();
   sortable();
   grid.paint();
@@ -1073,7 +1097,7 @@ async function importFiles(files, { byTime: timeOk = true, walls: wallNames = nu
   const book = state.book.id;
   const { declination } = M.settings(state);
   let failed = 0, noGps = 0, byTime = 0, swapped = 0, last;
-  const added = [];
+  const added = [], raws = new Map();
   const wallByName = new Map();
   try {
     for (const [i, file] of images.entries()) {
@@ -1089,6 +1113,7 @@ async function importFiles(files, { byTime: timeOk = true, walls: wallNames = nu
       const targetWall = wName ? (wallByName.get(wName) || wallByName.set(wName, M.addWall(state, wName)).get(wName)) : undefined;
       last = M.addPhoto(state, view, targetWall);
       added.push(view.id);
+      raws.set(view.id, file);
       await persist([view.id]);
       render();
     }
@@ -1096,7 +1121,7 @@ async function importFiles(files, { byTime: timeOk = true, walls: wallNames = nu
       byTime = M.placeByTime(state, added);
       if (byTime) { await persist(added); render(); }
     }
-    swapped = await takeOriginals(added);
+    swapped = await takeOriginals(added, raws);
     if (last && state?.photos.get(added[added.length - 1])) setActive(state.photos.get(added[added.length - 1]).props.node, true);
     wallMap?.fit();
   } finally {
@@ -1112,8 +1137,8 @@ async function importFiles(files, { byTime: timeOk = true, walls: wallNames = nu
  * 補上的原圖：換掉同一次快門、已經畫好 Topo 的照片（通常是路線書的圖），Topo 照對位搬過去。回傳換了幾張。
  * 還沒畫 Topo 的不換：路線可能還沒建，等「從照片描路線」拿它跟原圖相減再換
  */
-async function takeOriginals(added) {
-  const up = await upgradeOriginals(added, { drawnOnly: true });
+async function takeOriginals(added, raws) {
+  const up = await upgradeOriginals(added, { drawnOnly: true, raws });
   if (up.swapped) render();
   return up.swapped;
 }
@@ -1123,7 +1148,7 @@ async function takeOriginals(added) {
  * 小的已經畫了 Topo：圖層照對位搬到原圖上；還沒畫：兩張對齊相減取出作者的筆跡（線、bolt、確保站），回傳在 diffs 讓呼叫的人照順序配給路線。
  * involve：只找跟這些照片有關的配對（匯入時是新的照片）；notGuides：只能當原圖的照片（預設就是 involve：匯入的照片只拿來換別張）；drawnOnly：只換已經畫了 Topo 的。回傳 { swapped（換了幾張）, diffs: Map<換上的原圖 id, 相減描出的線（搬了圖層的是空的）> }
  */
-async function upgradeOriginals(involve, { drawnOnly = false, notGuides = involve } = {}) {
+async function upgradeOriginals(involve, { drawnOnly = false, notGuides = involve, raws = null } = {}) {
   const book = state.book.id, photos = state.book.items.map(i => state.photos.get(i.id)).filter(v => v && !M.isOverview(state, v));
   const none = { swapped: 0, diffs: new Map() };
   if (photos.length < 2) return none;
@@ -1144,9 +1169,36 @@ async function upgradeOriginals(involve, { drawnOnly = false, notGuides = involv
     }
     layers.push(...M.takeOriginal(state, p.guide.id, p.original.id, p.H));
   }
+  await recordOriginals(pairs, raws);
   await persist(pairs.map(p => p.original.id), layers);
   await dropPhotos(pairs.map(p => p.guide.id));
   return { swapped: pairs.length, diffs };
+}
+
+/**
+ * 轉換來的書（有轉換紀錄）換原圖時記下來：路線書那張存成 source/fig-…（對照用）、對位 H 記進 topos；
+ * 後來才加的原圖（raws：照片 id → 選的檔案）照原樣存進 source/，重跑時一起選
+ */
+async function recordOriginals(pairs, raws) {
+  const rec = await store.readRecord();
+  if (!rec) return;
+  const taken = new Set(rec.files.map(f => f.path.slice('source/'.length).toLowerCase()));
+  for (const p of pairs) {
+    const img = await store.getImage(p.guide);
+    if (img) {
+      const figure = `fig-${(p.guide.sha256 || p.guide.id).slice(0, 16)}.${/png/.test(img.type) ? 'png' : 'jpg'}`;
+      await store.saveSource(figure, img);
+      rec.topos = [...rec.topos.filter(x => x.photo !== p.original.sha256), { photo: p.original.sha256, name: M.text(p.original.name), figure: `source/${figure}`, H: p.H }];
+    }
+    const raw = raws?.get(p.original.id);
+    if (raw && !rec.files.some(f => f.name === raw.name && f.size === raw.size)) {
+      const name = sourceName(raw.name, taken);
+      await store.saveSource(name, raw);
+      rec.files.push({ path: `source/${name}`, name: raw.name, size: raw.size });
+    }
+  }
+  rec.counts = { ...rec.counts, swapped: rec.topos.length };
+  await store.saveRecord(rec);
 }
 
 /** 照片的特徵點（studio/crag/match.js）：找原圖用，同一張照片（sha256 和寬）不重算 */
@@ -1182,10 +1234,6 @@ function renderInfo() {
   for (const r of document.querySelectorAll('#setNumbering input')) r.checked = r.value === M.settings(state).numbering;
   const shown = new Set(columnKeys());
   $('#setCols').replaceChildren(...COLUMNS.filter(c => c.key !== 'name' && c.key !== 'number').map(c => el('label', {}, el('input', { type: 'checkbox', value: c.key, checked: shown.has(c.key) }), c.label)));
-  const derived = M.originAttribution(state) !== undefined;
-  $('#setRemix').checked = M.remix(state);
-  $('#setRemix').disabled = derived;
-  $('#setRemixNote').textContent = M.noDerivs(state) ? T('cgNoDerivsShort') : '';   // 改編別人的：照原作者的授權，勾選不能改
   const pack = new Set(M.settings(state).pack);
   // 只列授權允許打包的底圖（OpenStreetMap 不允許，不列出來）
   $('#setPack').replaceChildren(el('span', { className: 'lead', textContent: T('cgPackAria') }), ...Object.entries(P.PACKABLE).filter(([, x]) => x.ok).map(([k, x]) => el('label', { title: T('cgPackTitle', x.license, x.credit) },
@@ -1197,7 +1245,6 @@ async function saveInfo() {
   M.setAttribution(state, $('#setAuthor').value.trim());
   if (!M.setSource(state, $('#setSource').value.trim())) { toast(T('cgSourceHttps')); $('#setSource').value = M.sourceOf(state); }
   M.setApproach(state, $('#setApproach').value.trim());
-  M.setRemix(state, $('#setRemix').checked);
   const columns = [...$('#setCols').querySelectorAll('input:checked')].map(i => i.value);
   M.setSettings(state, {
     grade: $('#setGrade').value,
@@ -1213,13 +1260,6 @@ async function saveInfo() {
   renderSteps();
 }
 $('#info').addEventListener('change', (e) => { if (e.target.closest('input, select, textarea')) saveInfo(); });
-$('#regen').addEventListener('click', async () => {
-  remember();
-  M.regenerate(state);
-  await persist();
-  render();
-  toast(T('cgRegenDone'));
-});
 
 /** 匯出、發佈的圖檔 [{ path, blob }]：照片、合成預覽圖（上面入口照片 4:3、720×540，下面每張照片的小圖；紅點貓收這本時下載照片前先看，卡片和圖釘也用它，不另存縮圖） */
 /** onStep(i, n, v, img)：第 i 張開始整理（發佈的過場畫面用；沒給就用提示條） */
@@ -1271,17 +1311,18 @@ function drawFit(g, bmp, x, y, w, h) {
 }
 // ---- 發佈的畫面：共用的發佈對話框與過場（studio/publish-ui.js），這裡只放 Guidebook 自己的欄位 ----
 const pubBlocked = el('div', { id: 'pubBlocked', hidden: true }, el('p', { textContent: T('cgBlockedPhotos') }), el('ul'));
-const pubWho = el('div', { id: 'pubWho' }, el('p', { id: 'pubOrigin', className: 'origin', hidden: true }), el('label', { className: 'dk-field' }, el('span', { id: 'pubAuthorLabel', textContent: T('cgAuthor') }), el('input', { id: 'pubAuthor', className: 'field', maxLength: 80 })));
-const pubRemixRow = el('label', { id: 'pubRemixRow', className: 'check' }, el('input', { id: 'pubRemix', type: 'checkbox' }), T('cgRemix'));
+const pubWho = el('div', { id: 'pubWho' }, el('p', { id: 'pubOrigin', className: 'origin', hidden: true }), el('label', { className: 'dk-field' }, el('span', { id: 'pubAuthorLabel', textContent: T('cgAuthor') }), el('input', { id: 'pubAuthor', className: 'field', maxLength: 80 })),
+  // 不列入世界：世界地圖、清單、資料集目錄都沒有，只有拿到連結的人打得開（檔案照樣在開放資料集）；寫在組合的 props.unlisted，別人接著改的下一版預設照舊
+  el('label', { id: 'pubUnlistedRow' }, el('input', { type: 'checkbox', id: 'pubUnlisted' }), el('span', {}, T('cgUnlisted'), el('small', { textContent: T('cgUnlistedHint') }))));
 const pubUI = createPublishUI({
-  text: K.publishText(), extras: [pubBlocked, pubWho], after: [pubRemixRow], visibility: false,   // 發佈就是公開（要私下給人用匯出 ZIP 或備份）
-  actions: [el('button', { id: 'pubExport', className: 'dk-btn', textContent: T('cgExportZip') }), el('button', { id: 'pubEditLink', className: 'dk-btn', hidden: true, textContent: T('cgCopyEditLink') })],
+  text: K.publishText(), extras: [pubBlocked, pubWho], visibility: false,   // 發佈就是公開（要私下給人用匯出 ZIP 或備份）
+  actions: [el('button', { id: 'pubFix', className: 'dk-btn', hidden: true }), el('button', { id: 'pubEditLink', className: 'dk-btn', hidden: true, textContent: T('cgCopyEditLink') })],
   onGo: () => afterPublish(runPublish),
   onCopy: () => toast(T('cgCopied')),
 });
 
-// ---- 匯出（發佈對話框的「匯出 ZIP」）：ZIP（index.json、各畫面的 JSON、照片、小圖、入口照片），每份都先過 validate ----
-$('#pubExport').addEventListener('click', async () => {
+// ---- 匯出（發佈頁的「匯出 ZIP」）：ZIP（index.json、各畫面的 JSON、照片、小圖、入口照片），每份都先過 validate ----
+async function exportZip() {
   let pack;
   try { pack = await packImages(); } catch (e) { toast(T('cgExportFailed', e.message)); return; }
   const docs = M.exportDocs(state);
@@ -1289,42 +1330,81 @@ $('#pubExport').addEventListener('click', async () => {
   if (errors.length) { console.error(errors); toast(T('cgExportFailed', errors[0])); return; }
   const files = docs.map(({ path, doc }) => ({ name: path, blob: new Blob([JSON.stringify(doc, null, 1)], { type: 'application/json' }) }));
   for (const { path, blob } of pack.images) files.push({ name: path, blob });
+  for (const { path, blob } of await store.readSource()) files.push({ name: path, blob });
   const url = URL.createObjectURL(await AppKit.files.zip(files));
   const a = el('a', { href: url, download: `${(state.book.name || 'guidebook').replace(/[\\/:*?"<>|]/g, '_')}.zip` });
   document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
-  pubUI.close();   // 匯出完不停在發佈的畫面
   toast(T('cgExported'));
-});
+}
 
 
 /** 發佈、下架做完（或失敗）都重畫對話框的狀態；訊息先清掉 */
 async function afterPublish(fn) {
   pub.msg = '';
-  try { await fn(); } finally { if (state) renderPublish(); }
+  try { await fn(); } finally { if (state) { renderPublish(); if (step === 'publish') renderPubPage(); } }
 }
 // ---- 發佈：公開放進開放資料集 climbio/crags、網址 /p/<專案 id>（publish.js、../publisher.js）；第一次列出會公開的內容，之後不再問 ----
 const pub = { status: 'checking', msg: '' };
 const STATUS_MSG = { checking: '', off: T('cgPubOff'), paused: T('cgPubPaused') };
 
+/**
+ * 發佈前一定要對、不對就擋下的（回要改什麼，都對回 ''）。Studio 打開書時不自己補資料，在這裡擋：
+ *   國家（紅點貓世界的第一層，沒有就進最後的「其他」）、署名不重複（「楊礎豪；楊礎豪 改編」，按「整理署名」改）、
+ *   自己的書要開放改編（公開資料集一律 CC BY-SA 4.0，按「改成開放改編」改）
+ */
+function mustFix() {
+  if (!M.settings(state).country) return T('cgNeedCountry');
+  if (M.tidyAttribution(state.book.attribution) !== (state.book.attribution || '')) return T('cgAttrDup', state.book.attribution, M.tidyAttribution(state.book.attribution));
+  if (M.originAttribution(state) === undefined && !M.remix(state)) return T('cgNeedRemix');
+  // 大改發成新的一本：名稱要跟原本那本不同，世界裡才分得出來
+  if (pub.big?.reasons.length && M.text(state.book.name).trim() === pub.big.name.trim()) return T('cgBigRename', bigWhy(pub.big.reasons), pub.big.name);
+  return '';
+}
+/** 大改的理由給人看：刪 5 條路線、少 4 張照片 */
+const bigWhy = (reasons) => reasons.map(r => T({ routes: 'cgVerRoutesDel', walls: 'cgVerWallsDel', photos: 'cgVerPhotosDel' }[r.kind], r.n)).join('、');
+/**
+ * 打開發佈對話框時跟上一版比（versions.js 的 bigChange）：一次刪很多就是大改，發成新的一本。
+ * 上一版：自己上一次發佈的，沒有就是匯入的那一版；都沒有（新建的書）不用比。讀不到上一版（離線）照小改，發佈本來就要連線
+ */
+async function checkBig() {
+  pub.big = null;
+  const ps = P.publishState(state), from = ps.project || publishedId(state.book.derivedFrom?.url);
+  if (!from) return;
+  try {
+    const docs = P.publishDocs(state, { validate: ClimbioFormat.validate });
+    const base = await loadVersion({ id: from });
+    pub.big = { reasons: V.bigChange(base, { root: docs[0].doc, docs: new Map(docs.slice(1).map(d => [d.path, d.doc])) }), name: M.text(base.root.name) || '' };
+  } catch (e) { console.warn('比不到上一版', e); }
+}
+/** 有沒有可以發佈的修改：發佈過的跟上一次發佈比；從公開版本匯入、還沒發佈過的跟匯入的那一版比；自己新建的都算 */
+function hasChanges(ps) {
+  if (!ps.version) return !(ps.fromSig && ps.fromSig !== 'open' && ps.fromSig === sigNow());
+  return ps.sig ? sigNow() !== ps.sig : !ps.at || state.book.t > ps.at;   // 舊的沒有指紋：看組合的 t
+}
 /** 內容指紋（P.contentSig）：同一次存檔只算一次（發佈時進度訊息會一直重畫） */
 let sigMemo = { id: '', t: -1, sig: '' };
 function sigNow() {
   if (sigMemo.id !== state.book.id || sigMemo.t !== state.book.t) sigMemo = { id: state.book.id, t: state.book.t, sig: P.contentSig(state) };
   return sigMemo.sig;
 }
-/** 改編連結：打開就匯入公開網址那本、接著編（跟發佈的站同一個網域） */
-const editLink = (url) => `${ShareTools.homeSite()}/studio/crag/#site=${encodeURIComponent(url)}`;
+/** 編輯連結：/studio/crag/#edit=<這本書的 root>，打開就是這本最新的一版（fromEditLink；跟發佈的站同一個網域） */
+// 這個站的根目錄：Crag 在 /studio/crag/，往上兩層（ShareTools.homeSite 是往上一層，給 /hold/ 這類 App 用）；本機測試照它接開發版
+const siteRoot = () => (/^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? ShareTools.homeSite() : new URL('../../', location.href).href.replace(/\/$/, ''));
+const editLink = (id) => `${siteRoot()}/studio/crag/#edit=${id}`;
 
 function renderPublish() {
   const ps = P.publishState(state), bad = P.blocked(state), sum = P.summary(state);
   pubBlocked.hidden = !bad.length;
   pubBlocked.querySelector('ul').replaceChildren(...bad.map(b => el('li', { textContent: b.name })));
-  // 開放改編而且發佈過：多一個「複製改編連結」，貼給別人打開就匯入這本接著編（/studio/crag/#site=<公開網址>）
+  // 開放改編而且發佈過：多一個「複製改編連結」，貼給別人打開就匯入這本接著編（/studio/crag/#edit=<岩場 id>，點開是最新的一版）
   $('#pubEditLink').hidden = !(ps.url && M.remix(state));
-  // 開放其他人改編：自己的才能選；匯入的照原作者，原作者不開放改編就不能發佈
-  pubRemixRow.hidden = M.originAttribution(state) !== undefined;
-  $('#pubRemix').checked = M.remix(state);
+  // 擋下的是署名重複、沒開放改編：給一顆按鈕，人按了才改（國家要到岩場資訊選）
+  const fix = !M.settings(state).country ? '' : M.tidyAttribution(state.book.attribution) !== (state.book.attribution || '') ? 'attr' : M.originAttribution(state) === undefined && !M.remix(state) ? 'remix' : '';
+  $('#pubFix').hidden = !fix;
+  $('#pubFix').dataset.fix = fix;
+  $('#pubUnlisted').checked = !!state.book.props?.unlisted;
+  $('#pubFix').textContent = fix === 'attr' ? T('cgAttrFix') : fix === 'remix' ? T('cgRemixFix') : '';
   const base = {
     link: ps.link || ps.url || '',
     summary: { hidden: ps.consent, intro: T('cgPubIntro'), items: [
@@ -1333,14 +1413,13 @@ function renderPublish() {
     ] },
   };
   if (M.noDerivs(state)) { pubUI.set({ ...base, go: { hidden: true }, message: T('cgNoDerivsMsg') }); return; }
-  // 公開資料集（climbio/crags）一律 CC BY-SA 4.0：自己的 Guidebook 關了「開放其他人改編」（CC BY-ND）就不能發佈，要發佈請先打開，或改匯出 ZIP 自己託管
-  if (!M.remix(state)) { pubUI.set({ ...base, go: { hidden: true }, message: T('cgNdPublishMsg') }); return; }
   // 發佈後內容沒改過（指紋跟發佈時一樣；舊的沒有指紋，看組合的 t）就沒有下一版可以發。開檔、同步、存檔沒改內容都不算
-  const changed = !ps.version || (ps.sig ? sigNow() !== ps.sig : !ps.at || state.book.t > ps.at);
+  const changed = hasChanges(ps);
   pubUI.set({
     ...base,
-    go: { hidden: !changed, disabled: bad.length > 0 || P.needsPosition(state) || pub.status !== 'ok', text: ps.version ? T('cgPublishVer', ps.version + 1) : T('cgPublish') },
-    message: (P.needsPosition(state) && P.NO_POSITION) || pub.msg || STATUS_MSG[pub.status] || (ps.version ? (changed ? T('cgCurrentVer', ps.version) : T('cgVerUnchanged', ps.version)) : ''),
+    go: { hidden: !changed, disabled: bad.length > 0 || P.needsPosition(state) || !!mustFix() || pub.status !== 'ok', text: ps.version && !pub.big?.reasons.length ? T('cgPublishVer', ps.version + 1) : T('cgPublish') },
+    // 發佈前一定要對的（mustFix）：國家、署名不重複、自己的書開放改編；Studio 不在背景自己改，擋下來說要改什麼
+    message: (P.needsPosition(state) && P.NO_POSITION) || pub.msg || STATUS_MSG[pub.status] || mustFix() || (changed && pub.big?.reasons.length ? T('cgBigNew', bigWhy(pub.big.reasons), pub.big.name) : '') || (ps.version ? (changed ? T('cgCurrentVer', ps.version) : T('cgVerUnchanged', ps.version)) : changed ? '' : T('cgSameAsSource')),
   });
 }
 
@@ -1349,7 +1428,7 @@ async function openPublish() {
   authorField('pub');
   renderPublish();
   pubUI.open();
-  pub.status = await K.getService().ping();
+  [pub.status] = await Promise.all([K.getService().ping(), checkBig()]);
   renderPublish();
 }
 
@@ -1386,14 +1465,16 @@ async function publishing(book) {
     if (map && packed.tiles.length) { map.props = { ...map.props, tiles: packed.tiles }; images.push(...packed.files); }
   }
   // 不認人（docs/proposals/crag-open-versions.md）：每次發佈是新的專案 id，origin 指到上一版（自己上一次發佈的，沒有就是收下的那一版），root 是這本書的第一版；已發佈的 id 不能再改
-  const ps = P.publishState(state), pubId = newProjectId(), version = (ps.version || 0) + 1;   // 這本書的第幾版（伺服器的每個專案都是第 1 版）
-  const originId = ps.project || (/\/p\/([0-9a-z]{16})\//.exec(state.book.derivedFrom?.url || '') || [])[1] || '';
-  const root = ps.root || state.book.props?.root || originId || pubId;
+  // 大改（checkBig）：不接在原本那本後面，沒有 origin、自己是 root，從第 1 版算起；署名的來源（derivedFrom）照舊留著
+  const ps = P.publishState(state), pubId = newProjectId(), big = !!pub.big?.reasons.length;
+  const version = big ? 1 : (ps.version || 0) + 1;   // 這本書的第幾版（伺服器的每個專案都是第 1 版）
+  const originId = big ? '' : ps.project || publishedId(state.book.derivedFrom?.url);
+  const root = big ? pubId : ps.root || state.book.props?.root || originId || pubId;
   docs[0].doc.props = { ...docs[0].doc.props, root };   // 紅點貓靠它找「這本書現在最好的版本」
-  const country = M.settings(state).country;
-  const meta = { attribution: state.book.attribution || '', ...(country ? { cc: country } : {}), ...(originId ? { origin: originId } : {}) };
+  const country = M.settings(state).country, unlisted = !!state.book.props?.unlisted;
+  const meta = { attribution: state.book.attribution || '', listed: !unlisted, ...(country ? { cc: country } : {}), ...(originId ? { origin: originId } : {}) };
   const res = await P.publish({
-    state, docs, images,
+    state, docs, images, sources: await store.readSource(),
     dataset: (o) => K.publishAnonymous({ ...o, id: pubId, type: 'guidebook', meta }),   // 照片直接傳給 Hub，檔案放開放資料集
     onProgress: (n, total) => (n < total ? run.step(T('cgUpload'), n, total) : run.step(T('cgRegister'))),
     onFile: (path) => run.sent(path),
@@ -1401,12 +1482,15 @@ async function publishing(book) {
   run.step(T('cgMakeLink'));
   if (!state || state.book.id !== book) return;
   // 分享網址：固定網址 /p/<專案 id>（發佈完就有，每一版都一樣，打開是紅點貓收這本）
-  const link = `${ShareTools.homeSite()}/p/${res.project}`;
+  const link = `${siteRoot()}/p/${res.project}`;
   if (!state || state.book.id !== book) return;
   const t = Date.now();   // 發佈的時間跟存檔的 t 一樣：之後有改（t 變大）才能發下一版
   P.setPublishState(state, { version, url: res.url, link, files: res.files, manifest: res.manifest, project: res.project, root, at: t, sig: P.contentSig(state) });
+  pub.big = null;
   await persist([], [], t);
-  pub.msg = T('cgPublishedVer', version);   // 對話框換成連結（發佈鈕藏起來，沒改過就沒有下一版）
+  pub.msg = big ? T('cgPublishedNew') : T('cgPublishedVer', version);
+  if (unlisted) pub.msg = `${pub.msg} ${T('cgPublishedUnlisted')}`;
+  else checkWorld(res.project, country, pub.msg);   // 背景確認世界清單重建了、這一版在對的國家底下   // 對話框換成連結（發佈鈕藏起來，沒改過就沒有下一版）
 }
 
 // 署名每次發佈都看得到、改了就存（算一次修改，才有下一版可以發）
@@ -1417,8 +1501,161 @@ $('#pubAuthor').addEventListener('change', async () => {
   await persist([...state.photos.keys()], [...state.layers.keys()]);
   renderPublish();
 });
-$('#pubRemix').addEventListener('change', async () => { M.setRemix(state, $('#pubRemix').checked); await persist([...state.photos.keys()], [...state.layers.keys()]); renderPublish(); });
-$('#pubEditLink').addEventListener('click', () => { navigator.clipboard?.writeText(editLink(P.publishState(state).url)).then(() => toast(T('cgEditLinkCopied')), () => {}); });
+$('#pubUnlisted').addEventListener('change', async () => {
+  const props = { ...state.book.props };
+  if ($('#pubUnlisted').checked) props.unlisted = true; else delete props.unlisted;
+  state.book.props = props;   // 換列不列入算一次修改，才有下一版可以發
+  await persist([], []);
+  renderPublish();
+});
+$('#pubFix').addEventListener('click', async () => {
+  const fix = $('#pubFix').dataset.fix;
+  if (fix === 'attr') { M.tidyBookAttribution(state); await persist([], []); authorField('pub'); }
+  else if (fix === 'remix') { M.setRemix(state, true); await persist([...state.photos.keys()], [...state.layers.keys()]); }
+  renderPublish();
+});
+$('#pubEditLink').addEventListener('click', () => { navigator.clipboard?.writeText(editLink(P.publishState(state).root || P.publishState(state).project)).then(() => toast(T('cgEditLinkCopied')), () => {}); });
+
+// ---- 版本紀錄（studio/crag/versions.js）：這本書所有已發佈的版本，每一版跟它的上一版差在哪裡；可以從任何一版開始改 ----
+const idOfUrl = publishedId;
+/** 這本書跟公開版本有關的 id：自己發佈過的（最新那版、第一版）、匯入來源 */
+function versionIds() { const ps = P.publishState(state); return [ps.project, ps.root, state.book.props?.root, idOfUrl(state.book.derivedFrom?.url)]; }
+const verCache = new Map();   // id → Promise<{ root, docs }>：發佈過的版本不會再改，讀過就留著
+function loadVersion(v) {
+  if (!verCache.has(v.id)) {
+    const url = v.url || `${siteRoot()}/p/${v.id}/index.json`;
+    const getJson = async (at) => { const r = await fetch(at, { cache: 'force-cache' }); if (!r.ok) throw new Error(`${r.status} ${at}`); return r.json(); };
+    verCache.set(v.id, crawl(url, getJson, { self: location.origin }).then(({ root, docs }) => ({ root, docs })).catch((e) => { verCache.delete(v.id); throw e; }));
+  }
+  return verCache.get(v.id);
+}
+/** 一句話的摘要：+3 條路線 · 改 2 條路線 · 4 條線 · 岩壁地圖 1 處 */
+function verSummary(c) {
+  const parts = [];
+  for (const [k, key] of [['routes', 'Routes'], ['walls', 'Walls'], ['areas', 'Areas']]) {
+    const [a, r, m] = c[k];
+    if (a) parts.push(T(`cgVer${key}Add`, a));
+    if (r) parts.push(T(`cgVer${key}Del`, r));
+    if (m) parts.push(T(`cgVer${key}Mod`, m));
+  }
+  if (c.photos[0]) parts.push(T('cgVerPhotosAdd', c.photos[0]));
+  if (c.photos[1]) parts.push(T('cgVerPhotosDel', c.photos[1]));
+  if (c.lines) parts.push(T('cgVerLines', c.lines));
+  if (c.map) parts.push(T('cgVerMap', c.map));
+  if (c.info) parts.push(T('cgVerInfo'));
+  return parts.join(' · ');
+}
+/** 改了什麼的明細：岩場資訊、新增／刪掉／改了的節點（改的列欄位前後）、照片、線 */
+function verDetail(d) {
+  const types = T('cgVerTypes'), labels = T('cgVerFields');
+  const who = (n) => `${types[n.type] || n.type} ${n.name || ''}`.trim();
+  const field = (f) => el('span', { className: 'chg' }, `${labels[f.key] || f.key}：`, el('del', { textContent: V.show(f.from) }), ` → ${V.show(f.to)}`);
+  const out = [];
+  const sec = (title, items) => { if (items.length) out.push(el('h4', { textContent: title }), el('ul', {}, ...items)); };
+  sec(T('cgVerInfo'), d.info.map(f => el('li', {}, field(f))));
+  sec(T('cgVerAdded'), d.nodes.added.map(n => el('li', { textContent: who(n) })));
+  sec(T('cgVerRemoved'), d.nodes.removed.map(n => el('li', { textContent: who(n) })));
+  sec(T('cgVerChanged'), d.nodes.changed.map(n => el('li', {}, `${who(n)}　`, ...n.fields.flatMap((f, i) => (i ? ['、', field(f)] : [field(f)])))));
+  sec(T('cgVerPhotos'), [...d.photos.added.map(p => el('li', { textContent: `+ ${p.name}` })), ...d.photos.removed.map(p => el('li', { textContent: `− ${p.name}` }))]);
+  const line = (sign) => (l) => el('li', { textContent: `${sign} ${T('cgVerLineOn', l.name || l.route, l.photo)}` });
+  sec(T('cgVerLineHead'), [...d.lines.added.map(line('+')), ...d.lines.changed.map(line('~')), ...d.lines.removed.map(line('−'))]);
+  return out;
+}
+
+async function openVersions() {
+  const dlg = $('#verDlg'), list = $('#verList'), msg = $('#verMsg');
+  list.replaceChildren(); msg.hidden = true;
+  $('#verTitle').textContent = T('cgVerTitle', M.text(state.book.name) || 'Guidebook');
+  dlg.showModal();
+  const say = (text) => { msg.textContent = text; msg.hidden = false; };
+  const rows = await bookRows(versionIds());
+  if (!rows) { say(T('cgVerOffline')); return; }
+  const g = V.versionsOf(rows, versionIds());
+  if (!g) { say(T('cgVerNone')); return; }
+  const mine = P.publishState(state).project, from = idOfUrl(state.book.derivedFrom?.url);
+  const byId = new Map(g.versions.map(v => [v.id, v]));
+  const items = [...g.versions].reverse().map((v) => {
+    const sum = el('span', { className: 'sum', textContent: T('cgVerLoading') });
+    const tag = v.id === mine ? T('cgVerThis') : v.id === from && !mine ? T('cgVerBase') : '';
+    const origin = byId.get(v.origin);
+    const meta = [new Date(v.t).toLocaleString(), origin ? T('cgVerFrom', origin.n) : T('cgVerFirst'), T('cgVerDl', v.dl)].join(' · ');
+    const head = el('button', { type: 'button', className: 'ver-head' }, el('b', { textContent: T('cgVerN', v.n) }), el('span', { className: 'meta', textContent: meta }), tag ? el('span', { className: 'tag', textContent: tag }) : el('span'), sum);
+    head.setAttribute('aria-expanded', 'false');
+    const body = el('div', { className: 'ver-body', hidden: true });
+    const li = el('li', {}, head, body);
+    head.onclick = () => { body.hidden = !body.hidden; li.classList.toggle('open', !body.hidden); head.setAttribute('aria-expanded', String(!body.hidden)); };
+    return { v, origin, li, sum, body, mine: v.id === mine };
+  });
+  list.replaceChildren(...items.map(x => x.li));
+  // 新到舊一版一版比（讀過的版本留著，比下一版時不用再讀）；視窗關了就停
+  for (const x of items) {
+    if (!dlg.open) return;
+    try {
+      const [b, a] = await Promise.all([loadVersion(x.v), x.origin ? loadVersion(x.origin) : null]);
+      const d = V.diffVersions(a, b), c = V.counts(d);
+      const same = !!x.origin && V.isEmpty(c);
+      x.sum.textContent = same ? T('cgVerSame') : verSummary(c);
+      x.sum.classList.toggle('same', same);
+      const view = el('a', { className: 'btn', href: `${siteRoot()}/p/${x.v.id}`, target: '_blank', rel: 'noopener', textContent: T('cgVerView') });
+      const edit = el('button', { type: 'button', className: 'btn primary', textContent: T('cgVerEdit'), hidden: x.mine });
+      // 從這一版開始改：匯入那一版成新專案（同一版匯入過就打開那本，見 importSite）；網址用開放資料集的（每一版都讀得到）
+      edit.onclick = () => { dlg.close(); pubUI.close(); location.hash = `site=${encodeURIComponent(x.v.url || `${siteRoot()}/p/${x.v.id}/index.json`)}`; };
+      x.body.replaceChildren(...(x.origin ? verDetail(d) : []), el('div', { className: 'acts' }, view, edit));   // 第一版全部是新增：摘要就夠，不列每一條
+    } catch (e) {
+      console.warn('版本讀不到', x.v.id, e);
+      x.sum.textContent = T('cgVerFail');
+    }
+  }
+}
+$('#verClose').addEventListener('click', () => $('#verDlg').close());
+
+/** 發佈後確認世界清單（public/projects.json，發佈時伺服器重寫）有這一版、國家對：等最多約 1 分鐘，結果接在發佈訊息後面 */
+async function checkWorld(id, cc, base) {
+  const name = countryName.of(cc.toUpperCase());
+  for (let i = 0; i < 12; i++) {
+    await new Promise(r => setTimeout(r, 5000));
+    let rows = null;
+    try { rows = await globalThis.Backend?.listGuidebooks?.({ fresh: true }); } catch { rows = null; }
+    const row = rows?.find(p => p.id === id || (p.others || []).some(o => o.id === id));
+    if (row) { pub.msg = `${base} ${row.cc === cc ? T('cgWorldOk', name) : T('cgWorldWrong', row.cc || '—')}`; break; }
+    if (i === 11) pub.msg = `${base} ${T('cgWorldLate')}`;
+  }
+  if (P.publishState(state)?.project === id) renderPublish();
+}
+
+/** 公開清單，加上不列入世界的這本：清單裡找不到 ids 的書，就問伺服器這本所有的版本（Backend.guidebookVersions）；都讀不到回 null */
+async function bookRows(ids, opt) {
+  let rows = null;
+  try { rows = await globalThis.Backend?.listGuidebooks?.(opt); } catch { rows = null; }
+  const id = ids.find(Boolean);
+  if (!id || (rows && V.versionsOf(rows, ids))) return rows;
+  try { return [...(rows || []), ...((await globalThis.Backend?.guidebookVersions?.(id)) || [])]; } catch { return rows; }
+}
+/**
+ * 編輯連結 #edit=<id>（任何一版的 id，通常是第一版 root）：從公開清單找這本最新的一版；這台已經有那一版的專案就打開，沒有就匯入（#site=）。
+ * 連結一直有效，之後有人發新版，點開就是新版；清單讀不到（離線、剛發佈還沒重建）就照 id 那一版
+ */
+async function fromEditLink(id) {
+  history.replaceState(null, '', location.pathname + location.search);
+  if (!/^[0-9a-z]{16}$/.test(id)) { showLibrary(); return; }
+  const rows = await bookRows([id], { fresh: true });
+  const v = rows && V.versionsOf(rows, [id])?.versions.at(-1);
+  const have = v && await globalThis.StudioLibrary?.localOf?.([v.id]);
+  if (have) { location.hash = have; return; }
+  location.hash = `site=${encodeURIComponent(v?.url || `${siteRoot()}/p/${v?.id || id}/index.json`)}`;
+}
+/**
+ * 命令列發佈（tools/guidebook.mjs publish）更新已發佈的書：匯入資料包之前放 { project, root }，下一本打開的書就接在那一版後面
+ * （發佈時 origin 是它；一次刪很多照樣算大改、要改名發成新的一本，見 checkBig）
+ */
+async function applyAdopt() {
+  const KEY = 'climbio.studio.adopt';
+  let p = null;
+  try { p = JSON.parse(sessionStorage.getItem(KEY) || 'null'); sessionStorage.removeItem(KEY); } catch { p = null; }
+  if (!/^[0-9a-z]{16}$/.test(p?.project || '') || !/^[0-9a-z]{16}$/.test(p?.root || '')) return;
+  P.setPublishState(state, { project: p.project, root: p.root });
+  await persist([], [], state.book.t);
+}
 
 // ---- 路線：逐條新增與編輯 ----
 const EDITABLE = ['grade', 'style', 'length', 'pitches', 'bolts', 'description', 'fa', 'setter', 'code'];
@@ -1621,9 +1858,10 @@ $('#csvInput').addEventListener('change', async (e) => {
 // 其他照片找紅筆。線照照片在這本裡的順序配給路線
 async function autoTrace({ quiet = false, originals } = {}) {
   const book = state.book.id;
-  if (!state.photos.size) { toast(T('cgNoPhotosYet')); return ''; }
+  const none = { msg: '', drawn: 0, stubs: 0 };
+  if (!state.photos.size) { toast(T('cgNoPhotosYet')); return none; }
   const up = await upgradeOriginals(undefined, { notGuides: originals });
-  if (!state || state.book.id !== book) return '';
+  if (!state || state.book.id !== book) return none;
   const photos = state.book.items.map(i => state.photos.get(i.id)).filter(v => v && !M.isOverview(state, v)), traced = [];
   for (const [i, v] of photos.entries()) {
     if (up.diffs.has(v.id)) { traced.push([v.id, up.diffs.get(v.id)]); continue; }
@@ -1631,7 +1869,7 @@ async function autoTrace({ quiet = false, originals } = {}) {
     const img = await store.getImage(v);
     if (!img) continue;
     try { traced.push([v.id, await traceBlob(img, v.w, v.props.routes?.length)]); } catch (err) { console.warn('描線', v.name, err); }
-    if (!state || state.book.id !== book) return '';
+    if (!state || state.book.id !== book) return none;
   }
   UI.hideToast();
   const res = M.autoTopo(state, traced);
@@ -1641,7 +1879,7 @@ async function autoTrace({ quiet = false, originals } = {}) {
   const stub = res.stubs ? T('cgStubs', res.stubs) : '';
   const msg = (res.drawn ? T('cgTraced', res.drawn, pairs, res.left ? T('cgTraceLeft', res.left) : '') : up.swapped ? T('cgSwappedNoLines', up.swapped) : T('cgNoLines')) + stub;
   if (!quiet) toast(msg);
-  return msg;
+  return { msg, drawn: res.drawn, stubs: res.stubs };
 }
 // 在 Guidebook 裡直接貼上圖片（設為場館配置圖／示意圖）或貼上表格（不在輸入框裡：打開貼上路線）
 document.addEventListener('paste', (e) => {
@@ -1841,6 +2079,7 @@ async function finishSite(job) {
   try {
     const meta = $('#siteBox .meta');
     meta.textContent = T('cgSavingDevice');
+    P.setPublishState(s, { fromSig: 'open' });   // 從公開版本匯入：第一次打開時記下內容指紋，沒改就不能發佈（不然只是把同一份再發一次）
     await store.create(s.book, [s.map, ...s.extras.values(), ...s.photos.values(), ...s.layers.values()]);
     for (const [i, im] of images.entries()) {
       meta.textContent = T('cgSavingTo', i + 1, images.length);
@@ -1862,6 +2101,7 @@ async function finishSite(job) {
 const BK_IMG = BOOK_IMAGE;
 let bkAssets = new Map();   // 選的檔案裡的圖：路徑、檔名（小寫）→ Blob
 let bkMap = null;   // 一起選的岩壁地圖（.geojson，或 ZIP 裡的）：建立時放進地圖畫面
+let bkSrc = [];   // 轉換時選的所有檔案：建立時照原樣存進 source/（重跑轉換用）
 let bkLoose = [];   // 直接選的照片檔（不在 Word、ZIP 裡）：大綱沒用到的也收進來（例如作者的原圖，建立時配對換上）
 const bkKey = assetKey;
 const bkAsset = (src) => findAsset(bkAssets, src);
@@ -1904,7 +2144,7 @@ function bkProgress(i, total) {
 }
 
 function openBookDlg() {
-  bkAssets = new Map(); bkLoose = []; bkMap = null;
+  bkAssets = new Map(); bkLoose = []; bkSrc = []; bkMap = null;
   $('#bkText').value = ''; $('#bkFiles').textContent = '';
   $('#bkPos').value = ''; delete $('#bkPos').dataset.manual;
   $('#bkAdv').open = false;
@@ -1918,6 +2158,7 @@ async function bkRead(files) {
   $('#bkFiles').textContent = T('cgReading');
   try {
     const got = await readBookFiles(files);
+    bkSrc.push(...files);
     for (const [k, v] of got.assets) bkAssets.set(k, v);
     if (got.map) bkMap = got.map;
     bkLoose.push(...files.filter(f => BK_IMG.test(f.name)));
@@ -1964,12 +2205,25 @@ $('#bookDlg').addEventListener('click', (e) => {
   const b = e.target.closest('#bkGo, #bkBack, #bkPublish, #bkLook, .bk-x');
   if (!b) return;
   if (b.id === 'bkGo') createFromBook();
-  else if (b.id === 'bkPublish') { $('#bookDlg').close(); openPublish(); }
+  else if (b.id === 'bkPublish') { $('#bookDlg').close(); goStep('publish'); openPublish(); }
   else if (b.id === 'bkLook') $('#bookDlg').close();
   else if ($('#bkGo').dataset.busy) return;
   else if (b.id === 'bkBack') openBookDlg();
   else { $('#bookDlg').close(); if (!state) home(); }
 });
+
+/** 轉換的原始檔存進專案的 source/：選的檔案、按建立時的大綱、轉換紀錄（outline：大綱的數字；換原圖時 recordOriginals 補 topos） */
+async function saveSources(outline, photos) {
+  const taken = new Set(), files = [];
+  for (const f of bkSrc) {
+    const name = sourceName(f.name, taken);
+    await store.saveSource(name, f);
+    files.push({ path: `source/${name}`, name: f.name, size: f.size });
+  }
+  await store.saveSource(OUTLINE, new Blob([$('#bkText').value], { type: 'text/markdown' }));
+  const position = $('#bkPos').dataset.manual ? $('#bkPos').value.trim() : '';
+  await store.saveRecord(newRecord({ files, position, counts: { files: bkSrc.length, ...outline, photos } }));
+}
 
 async function createFromBook() {
   const btn = $('#bkGo'), label = btn.textContent;
@@ -1980,6 +2234,7 @@ async function createFromBook() {
     const typed = M.parsePosition($('#bkPos').value);
     if (typed) M.setCragPosition(r.state, typed);   // 自己填的位置優先
     const s = r.state, prepared = [], extras = bkExtra(r), total = r.images.length + extras.length;
+    const n = (type) => s.book.nodes.filter(x => x.type === type).length, outline = { images: r.images.length, areas: n('area'), walls: n('wall'), routes: n('route') };   // 大綱的數字（之後一起選的原圖會各開岩壁，先算）
     for (const [i, img] of r.images.entries()) {
       bkProgress(i + 1, total);
       let blob = bkAsset(img.src);
@@ -1988,7 +2243,7 @@ async function createFromBook() {
       const file = bkKey(img.src).split('/').pop();
       let p;
       try { p = await Photo.prepare(new File([blob], file, { type: blob.type || `image/${/png$/.test(file) ? 'png' : 'jpeg'}` })); } catch (err) { console.warn('轉換路線書的圖', img.src, err); continue; }
-      const view = M.newPhoto({ name: img.alt || file.replace(/\.[^.]+$/, ''), w: p.w, h: p.h, sha256: p.sha256, raw: p.raw, attribution: s.book.attribution, origin: null });
+      const view = M.newPhoto({ name: img.alt || file.replace(/\.[^.]+$/, ''), w: p.w, h: p.h, sha256: p.sha256, raw: p.raw, attribution: s.book.attribution, origin: 'authorized' });   // 轉換路線書＝使用者聲明有權利（來源與授權由使用者負責）
       M.addPhoto(s, view, img.wall);   // 區域圖（img.overview）掛在區或岩場上：沒有路線，不描線
       if (img.routes) view.props.routes = img.routes;
       prepared.push([view, p]);
@@ -2003,13 +2258,20 @@ async function createFromBook() {
       M.addPhoto(s, view);
       prepared.push([view, p]);
     }
-    await store.create(s.book, [s.map, ...s.photos.values()]);
+    await store.create(s.book, [s.map, ...s.photos.values()], null, { fromBook: true });
     for (const [view, p] of prepared) await store.saveImage(view, p.image, p.thumb);
+    await saveSources(outline, prepared.length - extras.length);
     const extraIds = prepared.slice(prepared.length - extras.length).map(([v]) => v.id);
     history.replaceState(null, '', '#' + s.book.id);
     await route();
     let msg = '';
-    if (prepared.length) { $('#bkProg').textContent = T('cgTracingProg'); msg = await autoTrace({ quiet: true, originals: extraIds }); }
+    if (prepared.length) {
+      $('#bkProg').textContent = T('cgTracingProg');
+      const done = await autoTrace({ quiet: true, originals: extraIds });
+      msg = done.msg;
+      const rec = await store.readRecord();
+      if (rec) await store.saveRecord({ ...rec, counts: { ...rec.counts, traced: done.drawn, stubs: done.stubs, swapped: rec.topos.length } });
+    }
     // 一起選的照片是拿來換路線書的圖的：沒配到的不留（不然每張開一面空的岩壁）
     const loose = extraIds.filter(id => state.photos.has(id) && !outlineWalls.has(state.photos.get(id).props.node));
     if (loose.length) {
@@ -2116,6 +2378,7 @@ async function openTopo(photoId) {
   const url = URL.createObjectURL(img);
   topo = { url, photo: photoId };
   $('#book').classList.remove('on');
+  $('#stepPage').classList.remove('on');
   $('#topo').classList.add('on');
   activeWall = photo.props.node;
   renderSteps();
@@ -2161,7 +2424,7 @@ function closeTopo(back = true) {
   topo = null;
   $('#topo').classList.remove('on');
   if (back && state) {
-    $('#book').classList.add('on');
+    showPage();
     render();
   }
 }
@@ -2173,45 +2436,87 @@ async function route() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (h === 'new') { await newBook(T('cgNewGuidebook')); $('#bookName').focus(); $('#bookName').select(); return; }
   if (h === 'site') { openSiteDlg(); return; }   // 首頁的「匯入岩場站」
+  if (h.startsWith('edit=')) return fromEditLink(h.slice(5));   // 編輯連結 #edit=<岩場 id>：打開這本最新的一版
   if (h.startsWith('site=')) { openSiteDlg(); $('#siteUrl').value = h.slice(5); importSite(h.slice(5)); return; }   // 分享的連結：直接匯入那個岩場，匯入完打開來編
-  if (h === 'book') { openBookDlg(); return; }   // 首頁的「轉換路線書」
+  if (h === 'book') { history.replaceState(null, '', location.pathname); showLibrary(); return; }   // 舊的路線書頁網址：路線書併進岩場了
+  if (h === 'convert') { openBookDlg(); return; }
   if (h.startsWith('bookInbox=')) return fromBookInbox(h.slice(10));
   if (h.startsWith('nativeInbox=')) return fromNativeInbox(h.slice(12));
   if (h.startsWith('inbox=')) return fromInbox(h.slice(6));
   const [id, photo] = h.split('/');
-  if (!id) { home(); return; }
+  if (!id) { showLibrary(); return; }
   if (state?.book.id !== id) await showBook(id);
   if (state?.book.id !== id) return;
   if (photo) await openTopo(photo); else closeTopo();
 }
 addEventListener('hashchange', route);
 
-// 首頁掃描過的照片：開一本新的、匯入照片，再照選的項目自動處理（沒有位置的照拍攝時間歸岩壁、描路線、匯入路線表）
+// 首頁掃描過的照片：開一本新的、匯入照片（沒有位置的照拍攝時間歸岩壁），有紅筆的照片描路線（options.trace：首頁照掃描結果決定，人不勾）
 async function fromInbox(key) {
   const rec = await StudioStore.inbox.take(key);
   if (!rec) { home(); return; }
-  const opt = rec.options || {};
-  let items = (rec.items || []).filter(i => !/\.(csv|tsv|txt)$/i.test(i.file.name));
   let files = (rec.items || []).map(i => i.file);
   if (rec.dir) {   // 首頁選的資料夾（Chrome）：已經是 Crag 專案就打開，不是就把這本建在那裡，裡面的照片一起匯入
     const c = await StudioStore.claim(rec.dir);
     if (c.meta) { await store.openDir(c.dir); location.replace('#' + c.meta.id); return; }
     files = c.photos.map(p => p.file);
-    items = c.photos;
     await newBook(rec.name || rec.dir.name, c.dir);
   } else await newBook(rec.name);
-  const usePresetWalls = !!(opt.manualGroup && items.some(i => i.dir));
-  await importFiles(items.map(i => i.file), { byTime: opt.byTime !== false, walls: usePresetWalls ? items.map(i => i.dir) : null });
-  if (opt.sketch) await applySketchFile(opt.sketch);
-  if (opt.trace) await autoTrace();
-  const table = opt.table && files.find(f => /\.(csv|tsv|txt)$/i.test(f.name));
-  if (table) openPaste(decodeText(new Uint8Array(await table.arrayBuffer())));
+  await importFiles(files);
+  if (rec.options?.trace) await autoTrace();
 }
 
-// ---- 步驟列：岩場資訊 → 區域圖（改地圖、畫新的）→ 路線清單（含岩點合成）→ 路線圖 → 發佈 ----
+// ---- 步驟列：岩場資訊 → 區域圖（改地圖、畫新的）→ 路線清單（含岩點合成）→ 路線圖 → 檢查 → 發佈 ----
+const PAGES = ['check', 'publish'];
+/** 書的畫面或檢查、發佈頁（照 step） */
+function showPage() {
+  const page = PAGES.includes(step);
+  $('#book').classList.toggle('on', !page);
+  $('#stepPage').classList.toggle('on', page);
+  if (step === 'check') renderChecks(); else if (step === 'publish') renderPubPage();
+  renderSteps();
+}
+/** 檢查：發佈前要處理的（沒有位置、來源不能公開的照片）和路線的問題（沒分到岩壁、沒畫線），同一面岩壁同一種問題併成一列 */
+function renderChecks() {
+  const rep = bookReport({ book: state.book, layers: [...state.layers.values()], photos: [...state.photos.values()], map: state.map });
+  const items = rep.issues.map(i => ({ title: i.message, tone: 'bad', onClick: () => goStep('info') }));
+  for (const b of P.blocked(state)) items.push({ title: b.name, note: T('cgBlockedNote'), tone: 'bad' });
+  const groups = new Map();
+  for (const r of rep.routes) for (const code of r.reasons.slice(0, 1)) {   // 一條路線只算最先要處理的（沒分到岩壁就先不管線）
+    const key = `${r.wall}\u0000${code}`;
+    if (!groups.has(key)) groups.set(key, { wall: r.wall, code, ids: [] });
+    groups.get(key).ids.push(r.id);
+  }
+  for (const g of groups.values()) items.push({
+    title: g.wall || T('cgUnassigned'), note: `${reasonText(g.code)}：${T('cgNRoutes', g.ids.length)}`,
+    onClick: () => {
+      const wall = nodeOf(g.ids[0])?.parent, photo = g.code !== 'unassigned' && [...state.photos.values()].find(v => v.props?.node === wall);
+      if (photo) location.hash = `${state.book.id}/${photo.id}`; else goStep('walls');
+    },
+  });
+  StudioShell.checks($('#stepPage'), items);
+}
+/** 發佈頁：這本書一列（狀態、匯出 ZIP、發佈） */
+function renderPubPage() {
+  const ps = P.publishState(state), changed = hasChanges(ps);
+  const cover = state.book.items.map(i => state.photos.get(i.id)).find(Boolean);
+  const actions = [{ id: 'pubExport', label: T('cgExportZip'), onClick: () => exportZip() }];
+  if (versionIds().some(Boolean)) actions.unshift({ id: 'pubHistory', label: T('cgVersions'), onClick: () => openVersions() });   // 發佈過、或從公開版本匯入的：看這本書的每一版
+  if (changed) actions.push({ id: 'pubOpen', label: ps.version ? T('cgPublishVer', ps.version + 1) : T('cgPublish'), primary: true, onClick: () => openPublish() });   // 發佈過、之後沒改：沒有下一版
+  StudioShell.pubList($('#stepPage'), [{
+    id: state.book.id, name: M.text(state.book.name) || T('cgUntitled'),
+    ...(!ps.version && !changed ? { status: T('cgSameAsPublic'), tone: 'ok' } : StudioShell.pubStatus(ps.version, changed)),   // 從公開版本匯入、還沒改：不是「尚未發佈」
+    actions, thumb: async (pic) => { const b = cover && await store.getThumb(cover.id); if (b) pic.style.backgroundImage = `url("${URL.createObjectURL(b)}")`; },
+  }]);
+}
 let step = 'walls';
 function renderSteps() {
   if (!state) return;
+  // 頁首的 3D 場景（studio/scene/）：這本有 3D 模型、有照片記著在這個模型上的鏡頭（props.model）才出現
+  const model = [...state.extras.values()].find(d => d.surface === 'model');
+  const has3d = !!model && [...state.photos.values()].some(p => p.props?.model?.id === model.id && p.props.model.camera);
+  $('#sceneLink').hidden = !has3d;
+  if (has3d) $('#sceneLink').href = `../scene/#crag=${state.book.id}`;
   const walls = M.walls(state).length, areas = state.book.nodes.filter(n => n.type === 'area').length, routes = M.routes(state), drawn = M.drawn(state), topoN = routes.filter(r => drawn.has(r.id)).length;
   const on = topo ? 'topo' : step;
   StudioShell.steps($('#steps'), [
@@ -2219,11 +2524,16 @@ function renderSteps() {
     { id: 'map', label: T('cgStepMap'), note: [areas && T('cgNAreas', areas), T('cgNWallsShort', walls)].filter(Boolean).join(' · ') },
     { id: 'walls', label: T('cgStepList'), note: routes.length ? T('cgRoutesN', routes.length) : '' },
     { id: 'topo', label: T('cgTopo'), note: importNote || (routes.length ? `${topoN}/${routes.length}` : '') },
+    { id: 'check' },
     { id: 'publish', label: T('cgPublish') },
   ].map(x => ({ ...x, on: x.id === on })), goStep);
 }
 function goStep(id) {
-  if (id === 'publish') { openPublish(); return; }
+  if (PAGES.includes(id)) {   // 檢查、發佈是一整頁；從路線圖過來先回到書（closeTopo 照 step 打開這一頁）
+    step = id;
+    if (topo) location.hash = state.book.id; else showPage();
+    return;
+  }
   if (id === 'topo') {   // 先開還有路線沒畫的照片
     const photos = state.book.items.map(i => state.photos.get(i.id)).filter(Boolean);
     if (!photos.length) { if (!handset) $('#fileInput').click(); return; }   // 還沒有照片：直接選照片（手機不加照片）
@@ -2232,6 +2542,7 @@ function goStep(id) {
     return;
   }
   step = id;
+  showPage();
   if (state?.book?.id) {
     try { sessionStorage.setItem(`climbio.studio.step.${state.book.id}`, id); } catch {}
   }

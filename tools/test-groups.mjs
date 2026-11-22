@@ -16,23 +16,23 @@ export const PRODUCTS = {
   },
   redpoint: {
     label: '紅點貓（/redpoint/）與收藏擴充功能：收岩場、Topo、世界、OpenClimbing',
-    unit: [u('redpoint-.+|openclimbing.*|thecrag-.+|world-stacks|extension-.+|sourcekit')],
+    unit: [u('redpoint-.+|openclimbing.*|thecrag-.+|world-stacks|world-data|extension-.+|sourcekit')],
     e2e: [e('redpoint|redpoint-.+|nearby-redpoint')],
   },
   studio: {
     label: 'Climbio Studio（/studio/）：Crag、轉換路線書、發佈',
-    unit: [u('author.*|studio-modes|dataset-publish')],
-    e2e: [e('author|author-(publish|routes|topo)|wall-phone|phone-landing')],
+    unit: [u('author.*|studio-modes|studio-work|studio-scene|studio-wall-cli|studio-wall-report|studio-lab-reports|studio-handoff|dataset-publish|studio-start|wall-owner')],
+    e2e: [e('author|author-(publish|routes|topo)|studio-scene|wall-phone|phone-landing')],
   },
   kits: {
     label: '開源元件（format、routekit、topokit、mapkit 的資料格式、Viewer、Editor）',
-    unit: [u('kit-packages|kit-pages|format|format-placement|route-.+|foot-label|sequence-label|topokit-render|wall-files')],
-    e2e: [e('routekit|topokit|mapkit|topokit-demo|mapkit-demo|kit-external|holdscan-external')],
+    unit: [u('kit-packages|kit-pages|embed|format|format-placement|route-.+|foot-label|sequence-label|topokit-render|wall-files')],
+    e2e: [e('routekit|embed|topokit|mapkit|topokit-demo|mapkit-demo|kit-external|holdscan-external')],
   },
   shared: {
     label: '共用層（appkit、站台設定、登入、品牌）與跨產品的入口、同步',
-    unit: [u('appkit|appkit-share|appkit-idb|manual-backup|brand-.+|site|sign|auth')],
-    e2e: [e('entry|sync|sync-hint|backend-none|environment|pc-landing|nickname')],
+    unit: [u('appkit|appkit-share|appkit-idb|manual-backup|brand-.+|site|sign|auth|consumer-entry-links|site-content|social-cover')],
+    e2e: [e('entry|sync|sync-hint|backend-none|environment|pc-landing|nickname|home-reel-responsive|static-parity')],
   },
   backend: {
     label: '後端：雲端函式與它的資料規則',
@@ -41,13 +41,13 @@ export const PRODUCTS = {
   },
   tooling: {
     label: '開發工具：交付、部署、測試執行器、改名、版本',
-    unit: [u('delivery|deploy-current|deploy-verified|e2e-runner|iphone|stamp-assets|rebrand|test-groups|public-boundary')],
+    unit: [u('delivery|deploy-current|deploy-verified|e2e-runner|iphone|issue|stamp-assets|rebrand|test-groups|public-boundary')],
     e2e: [e('boot-smoke')],
   },
   wall3d: {
-    label: '3D 牆實驗（只在內部 dev，公開版不含）',
-    unit: [u('tracking3d')],
-    e2e: [],
+    label: '3D／2D 牆相機追蹤（3D 牆與 2D 牆的相機比對；實驗頁在 Lab）',
+    unit: [u('tracking(2d|3d)')],
+    e2e: [e('cam-view|tracking3d|lab-(crag|wall2d-cam)')],
   },
 };
 

@@ -11,7 +11,7 @@
 3. **Storage（舊版相容用途）** 用專案的預設儲存區（雲端函式自動用它，不用設定）；瀏覽器要直接下載照片和資料包，CORS 照 `storage-cors.json` 設：`gcloud storage buckets update gs://<儲存區> --cors-file=storage-cors.json`。
 4. **Authentication** 不用開：沒有登入、沒有帳號，公開牆的寫入靠裝置金鑰簽章與 App Check，發佈靠 App Check 與網路來源的每日上限。
 5. `backend/firebase.js` 的 `FIREBASE` 換成自己專案的網頁設定（含 `authDomain`、`storageBucket`）；`APP_CHECK_KEY` 留空（要用見下面的 App Check）。
-5b. **Studio 的第二份設定**：`studio/backend.js` 仍有一份 `asia-east1-firebase-climbio` 雲端函式網址（`fn()`），自架時換成自己的專案；否則公開發佈請求會連到官方後端。
+5b. **Studio 的第二份設定**：`studio/backend.js` 仍有一份 `asia-east1-firebase-climbio` 雲端函式網址（`SERVICE`），自架時換成自己的專案；否則公開發佈請求會連到官方後端。
 5c. **雲端函式的 Secret 與資料集倉庫**：`functions/` 需要 `HF_TOKEN`（Hugging Face 寫入權杖）Secret（`firebase functions:secrets:set`）；`functions/crags-dataset.js`、`functions/walls-dataset.js` 的 `repo` 寫的是官方組織（`climbio/crags`、`climbio/walls` 等），自架要改成自己有寫入權限的倉庫，否則發佈會失敗。
 6. `site.js` 的 `MAIN` 列表和 `url` 改成自己的網域；`cloud` 的網址填自己部署的函式，或留空不用。
 7. **內容安全政策**：依 `hold/index.html` 的 `Content-Security-Policy` 設定 Firebase App Check、reCAPTCHA 與必要資源允許來源；自架網域須與後端允許來源一致。`index.html` 不放內嵌程式，啟動程式放在 `js/boot.js`。
@@ -20,11 +20,12 @@
 
 ## 部署
 
-- **網站**：`./build-site.sh && npx firebase-tools deploy --only hosting --project web`。`build-site.sh` 只打包版控裡的檔案（雲端函式和只在雲端用的模型不打包），版本號加上 holdkit 版本，換 holdkit 時 Service Worker 才會清掉舊模型；再由 `tools/stamp-assets.mjs` 把 `hold/index.html` 裡本站的程式、樣式表網址加上 `?v=版本`（見 architecture.md 的「更新與離線」）。沒經過 `build-site.sh` 的站不帶後綴，照常能用，只是資源都走網路優先。參數是目標網站（`climbio` 或 `climbio-dev`，沒給是 `climbio`）：開發版會額外打包紅點貓收藏頁 `/redpoint-collect/` 與 `extension/` 的 zip，正式版不放。`firebase.json` 的 `site` 換成自己的 Hosting 網站名稱。部署前跑 `node tools/bump-version.mjs`，版本號沒變，已安裝的 App 不會更新。
+- **網站**：`./build-site.sh && npx firebase-tools deploy --only hosting --project web`。`build-site.sh` 只打包版控裡的檔案（雲端函式和只在雲端用的模型不打包），版本號加上 holdkit 版本，換 holdkit 時 Service Worker 才會清掉舊模型；再由 `tools/stamp-assets.mjs` 把 `hold/index.html`、`3d/index.html` 和 Studio 各頁裡本站的程式、樣式表網址加上 `?v=版本`（見 architecture.md 的「更新與離線」），並一併打包 `/redpoint-collect/` 與 `extension/` 的 zip。沒經過 `build-site.sh` 的站不帶後綴，照常能用，只是資源都走網路優先。`firebase.json` 的 `site` 換成自己的 Hosting 網站名稱。部署前跑 `node tools/bump-version.mjs`，版本號沒變，已安裝的 App 不會更新。
 - **規則**：`npx firebase-tools deploy --only firestore:rules,storage --project web`。
-- **雲端函式**（`firebase.json` 分三個 codebase，地區 asia-east1，可以改）：
+- **雲端函式**（`firebase.json` 分兩個 codebase，地區 asia-east1，可以改）：
   - `climbio`（`functions/`）：每日清理、路線連結的預覽頁 `routePage`（`/r/**`、`/climbio.json`、`/w/**` 轉址要它先上線）、附近交換 `nearby`（`site.js` 的 `SITE.cloud.nearby`；不部署就留空，附近交換只剩掃 QR code 連線）、預算開關、總目錄。`cd functions && npm install && cd .. && npx firebase-tools deploy --only functions:climbio --project web`。
-  - `holdscan`（`holdscan/functions`，偵測 `detect`）、`holdkit`（`holdkit/functions`，重描 `retrace`）：`npm install --prefix holdscan/functions && npx firebase-tools deploy --only functions:holdscan --project web`（holdkit 同樣）。部署後對函式網址送 POST 要回 401。
+  - `climbio` 裡的 Studio 同步服務 `studioSync` 和發佈的 `datasets`（擁有者的代理用同步金鑰代替 App Check；選用的 `STUDIO_GITHUB_REPO` 讓某個 repo 的協作者用自己的 GitHub 權杖代替金鑰，見 studio-work.md）要 Secret `STUDIO_KEY`（`functions:secrets:set STUDIO_KEY`；沒設定時整個 `functions:climbio` 部署會失敗）。只要同步服務的人只部署它：`--only functions:climbio:studioSync`，見 [studio-work.md](studio-work.md) 的「同步」。
+  - `holdkit`（`holdkit/functions`，重描 `retrace`）：`npm install --prefix holdkit/functions && npx firebase-tools deploy --only functions:holdkit --project web`。部署後對函式網址送 POST 要回 401。
 - 網站、規則、雲端函式各自部署；同一個專案的開發站和正式站共用規則與函式。
 
 ## 防濫用

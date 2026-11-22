@@ -82,6 +82,8 @@ AppKit.i18n.add('redpoint', 'de', {
   // Welt
   world: "Welt",
   findingCrags: "Suche Gebiete…",
+  findCrag: "Gebiete, Regionen oder Länder suchen",
+  noResults: "Keine passenden Gebiete",
   loadFailed: (msg) => `Laden fehlgeschlagen: ${msg}`,
   noPublicCrags: "Noch keine öffentlichen Gebiete",
   emptyTitle: "Hol dir dein erstes Gebiet aus der Welt",

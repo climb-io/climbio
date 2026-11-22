@@ -22,6 +22,7 @@
 <link rel="alternate" hreflang="en" href="https://climbio.app/en/guides/shoot-3d.html">
 <link rel="icon" href="../../icons/brand/favicon-brand.svg" type="image/svg+xml">
 <link rel="stylesheet" href="../../css/brand-tokens.css">
+<link rel="stylesheet" href="../../css/site-nav.css">
 <link rel="stylesheet" href="../../css/pages.css">
 <style>
 .shoot-fig { margin: 16px 0 8px; }
@@ -29,13 +30,16 @@
 .shoot-fig.tall img { max-width: 460px; margin: 0 auto; }
 </style>
 </head>
-<body>
-<header class="pg-top"><a class="pg-brand" href="../../en/"><img src="../../icons/brand/climbio-mark.svg" alt=""><span>Climbio</span></a><span class="grow"></span><nav class="pg-nav" aria-label="Related pages"><a href="../../en/">Home</a><a href="../../en/studio/crag3d/">3D workflow</a><a href="studio.html">How Studio works</a><a href="../../studio/">Open Studio</a><a href="../../guides/shoot-3d.html" hreflang="zh-Hant" lang="zh-Hant">繁體中文</a></nav></header>
+<body class="site-page">
+<header class="site-header docs-header">
+  <a class="site-brand" href="../../en/"><picture><source media="(max-width: 600px)" srcset="../../icons/brand/climbio-mark.svg"><img src="../../icons/brand/climbio-horizontal-light.svg" alt="Climbio" width="110" height="30"></picture></a>
+  <nav class="site-nav" aria-label="Documentation navigation"><a href="../../en/guides/" aria-label="All documentation">Docs</a><a class="site-language" href="../../guides/shoot-3d.html" hreflang="zh-Hant" lang="zh-Hant">繁體中文</a></nav>
+</header>
 <main class="pg">
   <div class="pg-hero">
     <h1>How to shoot 3D photos</h1>
     <p class="pg-lead">Shoot completely so the wall can be rebuilt. Finish each station, then move to the next. For a crag 3D model (Redpoint lets readers walk along the wall and tap routes), add a <a href="#crag3d">second, step-back set</a>.</p>
-    <div class="pg-actions"><a class="pg-btn primary" href="../../en/studio/crag3d/">Turn a guidebook into 3D</a><a class="pg-btn" href="../../studio/">Open Studio</a></div>
+    <div class="pg-actions"><a class="pg-btn primary" href="crag3d.html">Turn a guidebook into 3D</a><a class="pg-btn" href="../../studio/">Open Studio</a><a class="pg-link" href="studio.html">Studio guide</a></div>
   </div>
 
   <section class="pg-section" aria-labelledby="rules">
@@ -118,7 +122,7 @@
     <p class="pg-note">The shared rules above still apply: 1× main lens, no digital zoom, keep original photos with GPS, shoot in even light, avoid people, ropes and gear. Wind makes trees and grass sway and those areas blur, so pick a calm time. Photos are sorted afterwards in one go; you do not need to pick shots or mark routes on site.</p>
     <details class="pg-more"><summary>How many photos?</summary><p>Follow the spacing: a 20-metre wall has roughly 10–20 positions on the arc, times three heights, plus the ends, the top and the corners, so a few dozen photos. The count is still being field-tested; follow the spacing and shoot completely. Extra photos are fine, since unusable ones are filtered out later.</p></details>
     <details class="pg-more"><summary>Why are the close-up photos not enough?</summary><p>A Gaussian splat is only sharp near where photos were taken. Readers in Redpoint look at the whole wall from the trail; if no photo was taken from there, that view is guessed by the model and comes out foggy. So no matter how many close-ups you shot, the step-back set is needed on top.</p></details>
-    <details class="pg-more"><summary>What happens after shooting?</summary><p>See <a href="../../en/studio/crag3d/">Turn a guidebook into 3D</a>: building the model, placing the routes from your 2D guidebook on the 3D wall, checking and publishing.</p></details>
+    <details class="pg-more"><summary>What happens after shooting?</summary><p>See <a href="crag3d.html">Turn a guidebook into 3D</a>: building the model, placing the routes from your 2D guidebook on the 3D wall, checking and publishing.</p></details>
   </section>
 
   <section class="pg-section" aria-labelledby="more">
@@ -127,7 +131,7 @@
     <details class="pg-more"><summary>How many photos?</summary><p>It depends on the width and height of the wall. Photo counts and the resulting model and recognition quality still need field testing; shoot completely first, then reduce.</p></details>
     <details class="pg-more"><summary>What happens after shooting?</summary><p>Import the photos in <a href="../../studio/">Studio</a> and turn them into readable climbing data. See <a href="studio.html">How Studio works</a>.</p></details>
   </section>
-  <footer class="pg-foot"><span>Climbio · How to shoot 3D photos</span><a href="../../en/">Back to home</a></footer>
+  <footer class="pg-foot docs-footer"><span>© 2026 Climbio</span><nav aria-label="Policies"><a href="../../privacy.html#en">Privacy</a><a href="../../terms.html#en">Terms</a></nav></footer>
 </main>
 </body>
 </html>

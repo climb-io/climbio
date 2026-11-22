@@ -11,19 +11,21 @@ const REPO = 'https://github.com/climb-io/climbio/tree/main';
 
 const UI = {
   zh: {
-    lang: 'zh-Hant', dir: '', home: '首頁', all: '所有元件', otherLabel: 'English', otherLang: 'en',
-    indexTitle: 'Climbio 元件', indexLead: '攀岩資料的格式、看圖、編輯與分享，拆成可以單獨使用的小元件。不需要整個 App、登入或 Firebase。',
-    indexNote: '每個元件都能獨立使用，彼此盡量不依賴。除 Format（Apache-2.0）外都是 AGPL-3.0。',
+    lang: 'zh-Hant', dir: '', home: '首頁', siteNav: '網站導覽', siteDocs: '文件', all: '所有元件', otherLabel: 'English', otherLang: 'en',
+    indexTitle: 'Climbio 元件', indexLead: '這些是 Climbio 已開放的功能。可以先看效果；想讓自己的 AI Agent 改進或應用它們，直接從 GitHub 專案開始。',
+    indexNote: '技術規格、安裝方式及授權條件統一放在 GitHub；網站只展示用途與效果。',
     what: '這是什麼', points: '能做什麼', demo: '線上範例', install: '安裝', example: '最小範例', notes: '授權與限制',
     openDemo: '看線上範例', github: '在 GitHub 看原始碼', noNpm: '尚未發佈到 npm', docs: '給 AI 讀的說明在 GitHub 的 README.md',
+    eyebrow: 'Climbio 開放元件', next: '一起改善這項工具', join: '想讓自己的 AI Agent 加入開發？把 Climbio GitHub 專案交給它，技術規格、授權和工作規則都從原始碼取得。', explore: '查看 GitHub 專案', participate: '了解怎麼參與',
     demoTitle: '線上範例', suffix: '｜Climbio 元件', indexSuffix: '｜Climbio',
   },
   en: {
-    lang: 'en', dir: 'en/', home: 'Home', all: 'All kits', otherLabel: '繁體中文', otherLang: 'zh-Hant',
-    indexTitle: 'Climbio kits', indexLead: 'Climbing data format, viewers, editors and sharing, split into small parts you can use on their own. No Climbio app, login or Firebase needed.',
-    indexNote: 'Every kit works on its own and avoids depending on the others. All are AGPL-3.0 except Format (Apache-2.0).',
+    lang: 'en', dir: 'en/', home: 'Home', siteNav: 'Site navigation', siteDocs: 'Docs', all: 'All kits', otherLabel: '繁體中文', otherLang: 'zh-Hant',
+    indexTitle: 'Climbio kits', indexLead: 'Explore the tools Climbio makes available. See what they do, then start from GitHub if you want your own AI agent to build on them.',
+    indexNote: 'Technical specifications, installation and licenses are documented on GitHub. These pages focus on what each tool does.',
     what: 'What it is', points: 'What it does', demo: 'Live demo', install: 'Install', example: 'Minimal example', notes: 'License and limits',
     openDemo: 'See the live demo', github: 'View source on GitHub', noNpm: 'Not published to npm yet', docs: 'Machine-readable docs are the README.md files on GitHub',
+    eyebrow: 'Open Climbio tools', next: 'Help improve this tool', join: 'Want to contribute with your own AI agent? Start with the Climbio GitHub project. Source code, technical requirements and licensing live there.', explore: 'Explore on GitHub', participate: 'How to join',
     demoTitle: 'Live demo', suffix: ' | Climbio kits', indexSuffix: ' | Climbio',
   },
 };
@@ -60,10 +62,14 @@ function shell(lang, { title, description, file, body }) {
 <link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/kits/${name}">
 <link rel="alternate" hreflang="en" href="https://climbio.app/kits/en/${name}">
 <link rel="stylesheet" href="${up}css/brand-tokens.css">
+<link rel="stylesheet" href="${up}css/site-nav.css">
 <link rel="stylesheet" href="${up}css/pages.css">
 </head>
-<body>
-<header class="pg-top"><a class="pg-brand" href="${up}${u.dir}"><img src="${up}icons/brand/climbio-mark.svg" alt=""><span>Climbio</span></a><span class="grow"></span><nav class="pg-nav" aria-label="${esc(u.all)}"><a href="${up}${u.dir}">${esc(u.home)}</a><a href="${up}kits/${here}"${file === 'index' ? ' aria-current="page"' : ''}>${esc(u.all)}</a><a href="${up}kits/${otherHere}${name}" hreflang="${u.otherLang}" lang="${u.otherLang}">${esc(u.otherLabel)}</a></nav></header>
+<body class="site-page">
+<header class="site-header">
+  <a class="site-brand" href="${up}${u.dir}"><picture><source media="(max-width: 600px)" srcset="${up}icons/brand/climbio-mark.svg"><img src="${up}icons/brand/climbio-horizontal-light.svg" alt="Climbio" width="110" height="30"></picture></a>
+  <nav class="site-nav" aria-label="${esc(u.siteNav)}"><a href="${up}${u.dir}">${esc(u.home)}</a><a href="${up}studio/">Studio</a><a href="${up}lab/${u.dir}">Lab</a><a href="${up}${u.dir}guides/" aria-current="true">${esc(u.siteDocs)}</a><a class="site-language" href="${up}kits/${otherHere}${name}" hreflang="${u.otherLang}" lang="${u.otherLang}">${esc(u.otherLabel)}</a></nav>
+</header>
 <main class="pg">
 ${body}
   <footer class="pg-foot"><span>Climbio · ${esc(u.all)}</span><a href="${up}${u.dir}">${esc(u.home)}</a></footer>
@@ -85,7 +91,7 @@ function kitPage(lang, k) {
   </section>
 ` : '';
   const body = `  <div class="pg-hero">
-    <span class="pg-eyebrow">${esc(k.pkg || u.noNpm)} · ${esc(k.license)}</span>
+    <span class="pg-eyebrow">${esc(u.eyebrow)}</span>
     <h1>${esc(k.name)}</h1>
     <p class="pg-lead">${esc(c.tagline)}</p>
     <div class="pg-actions">${actions}</div>
@@ -97,35 +103,29 @@ function kitPage(lang, k) {
   <section class="pg-section" aria-labelledby="points">
     <h2 id="points">${esc(u.points)}</h2>
     <div class="pg-grid">
-${c.points.map((p, i) => `      <article class="pg-card"><span class="pg-num">${i + 1}</span><h3>${esc(p.h)}</h3><p>${esc(p.p)}</p></article>`).join('\n')}
+${c.points.map((p) => `      <article class="pg-card"><h3>${esc(p.h)}</h3><p>${esc(p.p)}</p></article>`).join('\n')}
     </div>
   </section>
-${demo}  <section class="pg-section" aria-labelledby="install">
-    <h2 id="install">${esc(u.install)}</h2>
-    <pre><code>${esc(c.install)}</code></pre>
-    <h2 id="example">${esc(u.example)}</h2>
-    <pre><code>${esc(c.example)}</code></pre>
-  </section>
-  <section class="pg-section" aria-labelledby="notes">
-    <h2 id="notes">${esc(u.notes)}</h2>
-    <p class="pg-note">${esc(c.notes)}</p>
-    <p class="pg-muted"><a href="${up}kits/${u.dir}">${esc(u.all)}</a> · <a href="${REPO}/${k.folder}">GitHub</a> · ${esc(u.docs)}</p>
+${demo}  <section class="pg-section" aria-labelledby="next">
+    <h2 id="next">${esc(u.next)}</h2>
+    <p>${esc(u.join)}</p>
+    <div class="pg-actions"><a class="pg-btn primary" href="${REPO}/${k.folder}">${esc(u.explore)}</a><a class="pg-btn" href="${up}${u.dir}project/">${esc(u.participate)}</a></div>
   </section>`;
   return shell(lang, { title: k.name + u.suffix, description: c.tagline, file: k.id, body });
 }
 
 function indexPage(lang, kits) {
-  const u = UI[lang];
+  const u = UI[lang], up = lang === 'zh' ? '../' : '../../';
   const body = `  <div class="pg-hero">
     <h1>${esc(u.indexTitle)}</h1>
     <p class="pg-lead">${esc(u.indexLead)}</p>
   </div>
   <section class="pg-section" aria-labelledby="list">
     <h2 id="list">${esc(u.all)}</h2>
-    <div class="pg-grid">
-${kits.map((k) => `      <article class="pg-card"><h3><a href="${k.id}.html">${esc(k.name)}</a></h3><p>${esc(k[lang].tagline)}</p><p class="pg-muted">${esc(k.license)}${k.pkg ? ' · ' + esc(k.pkg) : ''}</p></article>`).join('\n')}
+    <div class="pg-rows">
+${kits.map((k) => `      <a class="pg-row" href="${k.id}.html"><span><strong>${esc(k.name)}</strong><small>${esc(k[lang].tagline)}</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a>`).join('\n')}
     </div>
-    <p class="pg-note">${esc(u.indexNote)}</p>
+    <p class="pg-note">${esc(u.indexNote)} <a href="${up}${u.dir}project/">${esc(u.participate)}</a></p>
   </section>`;
   return shell(lang, { title: u.indexTitle + u.indexSuffix, description: u.indexLead, file: 'index', body });
 }

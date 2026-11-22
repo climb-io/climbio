@@ -10,7 +10,7 @@ export default {
     ],
     install: 'npm install @climbio/routekit',
     example: "import { scene, RouteViewer } from '@climbio/routekit';\nconst s = scene(img, holds);   // 照片＋岩點外框\nconst route = { holds: { a: 's', b: 'h', c: 't' } };\nnew RouteViewer(canvas, { scene: s, route });",
-    notes: 'AGPL-3.0。只做取景與點選，縮放、拖曳要自己加；需要瀏覽器的 Canvas。要偵測岩點請另用岩點偵測工具。',
+    notes: 'AGPL-3.0。只做取景與點選，縮放、拖曳要自己加；需要瀏覽器的 Canvas。要偵測岩點請另用岩點偵測工具。不想公開前端原始碼的網站可以用 iframe 嵌入託管的畫面，資料只讀 Climbio 官方發佈的網址，定線結果經訊息傳回（見 GitHub 說明）。',
   },
   en: {
     tagline: 'View and set routes on a wall photo',
@@ -22,6 +22,6 @@ export default {
     ],
     install: 'npm install @climbio/routekit',
     example: "import { scene, RouteViewer } from '@climbio/routekit';\nconst s = scene(img, holds);   // photo + hold outlines\nconst route = { holds: { a: 's', b: 'h', c: 't' } };\nnew RouteViewer(canvas, { scene: s, route });",
-    notes: 'AGPL-3.0. Framing and tapping only; add zoom and pan yourself. Needs browser Canvas. Use a separate tool to detect holds.',
+    notes: 'AGPL-3.0. Framing and tapping only; add zoom and pan yourself. Needs browser Canvas. Use a separate tool to detect holds. Sites that do not want to open-source their front end can embed the hosted screen with an iframe; it only reads the official published Climbio URLs and sends route edits back as messages (see the GitHub docs).',
   },
 };

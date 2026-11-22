@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-Hant" data-climbio-theme="outdoor">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="../../host-redirect.js"></script>
+<title>Hold Lab：岩點貓怎麼把岩點選對</title>
+<meta name="description" content="同一張牆面照片，從手機偵測、重描外框、電腦精修到人工檢查，一步步看岩點外框怎麼變準。">
+<link rel="canonical" href="https://climbio.app/lab/hold-lab/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Climbio">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:url" content="https://climbio.app/lab/hold-lab/">
+<meta property="og:title" content="Hold Lab：岩點貓怎麼把岩點選對">
+<meta property="og:description" content="同一張牆面照片，從手機偵測、重描外框、電腦精修到人工檢查，一步步看岩點外框怎麼變準。">
+<meta property="og:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Hold Lab：岩點貓怎麼把岩點選對">
+<meta name="twitter:description" content="同一張牆面照片，從手機偵測、重描外框、電腦精修到人工檢查，一步步看岩點外框怎麼變準。">
+<meta name="twitter:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/lab/hold-lab/">
+<link rel="alternate" hreflang="en" href="https://climbio.app/lab/hold-lab/en/">
+<meta name="theme-color" content="#F7F9FB">
+<link rel="icon" href="../../icons/brand/favicon-64.png">
+<link rel="stylesheet" href="../../css/brand-tokens.css">
+<link rel="stylesheet" href="../../appkit/ui.css">
+<link rel="stylesheet" href="../../css/site-nav.css">
+<link rel="stylesheet" href="../../studio/report-frame.css">
+<link rel="stylesheet" href="../../studio/wall/report.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <a class="site-brand" href="../../"><picture><source media="(max-width: 600px)" srcset="../../icons/brand/climbio-mark.svg"><img src="../../icons/brand/climbio-horizontal-light.svg" alt="Climbio" width="110" height="30"></picture></a>
+  <nav class="site-nav" aria-label="網站導覽"><a href="../../">首頁</a><a href="../../studio/">Studio</a><a href="../../lab/" aria-current="true">Lab</a><a href="../../guides/">文件</a><a class="site-language" href="en/" hreflang="en" lang="en">English</a></nav>
+</header>
+<main>
+  <section class="hero" aria-labelledby="h-title">
+    <h1 id="h-title"><span>一張照片，</span><span>岩點貓怎麼把岩點選對。</span></h1>
+  </section>
+
+  <section aria-label="展示">
+    <div class="pick" id="pick" role="group" aria-label="牆" hidden></div>
+    <div id="report"></div>
+  </section>
+
+  <section aria-labelledby="vision-title">
+    <h2 id="vision-title">我們要去的地方</h2>
+    <div class="vision">
+      <div><b>拍一張，就是完美的</b></div>
+      <div><b>人工只留給看不出來的地方</b></div>
+      <div><b>你修的牆，就是下一版的教材</b></div>
+      <div><b>在手機上完成</b></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="walls-title">
+    <h2 id="walls-title">公開的牆</h2>
+    <div class="walls" id="walls"><span class="note">載入清單…</span></div>
+    <p class="note" style="margin-top:14px"><a href="https://huggingface.co/datasets/climbio/walls" rel="noopener">Hugging Face 完整資料集</a>（CC BY-SA 4.0）</p>
+  </section>
+
+  <footer><a href="../">Climbio Lab</a><a href="../../studio/wall/">Studio Wall</a><a href="../../stats/">資料量</a></footer>
+</main>
+
+<script src="../../studio/wall/geometry.js"></script>
+<script src="../../studio/wall/record.js"></script>
+<script src="../../studio/wall/report.js"></script>
+<script src="../../studio/report-frame.js"></script>
+<script src="../../studio/wall/report-view.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

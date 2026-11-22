@@ -28,13 +28,13 @@ npm run test:product -- studio --e2e          # Studio 的 Node 測試，再跑�
 npm run test:product -- hold shared           # 改了共用層：加跑用到它的產品
 ```
 
-交付工具的測試也可以用 `product` 參數（同樣的名稱）。改到 `appkit/`、`site.js`、`backend/` 這類共用層，除了 `shared`，再加跑用到它的產品；改 `routekit/`、`topokit/`、`mapkit/`、`format/` 跑 `kits`，再加用到它的產品。新增測試檔時在 `tools/test-groups.mjs` 加進對應的產品，`tools/test-groups.test.mjs` 會擋掉沒歸屬或重複歸屬的檔案。Node 測試共用一個程序（`--experimental-test-isolation=none`），測試改全域變數（`location`、`document`）要在結束時還原，不能刪掉別的測試檔設的。瀏覽器測試仍共用一把機器上的鎖，一次只跑一組。
+改到 `appkit/`、`site.js`、`backend/` 這類共用層，除了 `shared`，再加跑用到它的產品；改 `routekit/`、`topokit/`、`mapkit/`、`format/` 跑 `kits`，再加用到它的產品。新增測試檔時在 `tools/test-groups.mjs` 加進對應的產品，`tools/test-groups.test.mjs` 會擋掉沒歸屬或重複歸屬的檔案。Node 測試不會卡住：每個測試最多 2 分鐘，跑完就結束（沒關的伺服器、計時器不等）；卡在無窮迴圈、3 分鐘沒有輸出就整組強制停掉（不留空轉的子行程），印出卡在哪個測試，結束碼非 0（`TEST_IDLE_MS` 可調）。Node 22.8 以上時測試共用一個程序（`--experimental-test-isolation=none`，舊版一個檔案一個程序），測試改全域變數（`location`、`document`）要在結束時還原，不能刪掉別的測試檔設的。瀏覽器測試一次只跑一組。
 
 **核心**（格式、權限、資料完整性、同步、發布）必須保有有效測試；**功能**測試隨受影響模組執行；**視覺與細節**測試重點檢查真實使用情境並整併重複案例。日常仍依下節跑最小必要驗證；完整回歸只在使用者要求時執行。不以提高覆蓋率為理由擴增低價值案例。
 
 ## 本機先驗證改動範圍
 
-每次推送與正式版發布，預設只跑 `npm run check`（語法、語言包），再依實際改動選最小的 Node 測試與 Chromium 瀏覽器案例。交付工具 `delivery_test` 用 `unitTests` 指定 Node 測試檔、`cases` 指定瀏覽器測試檔、`grep` 篩選相關案例；未指定的測試不執行。只有使用者明確要求完整回歸，才傳 `full: true`，執行全部 Node 測試與 Chromium／WebKit 回歸。正式版接受最小測試的 `quick` 驗證標記，仍須明確發布授權。
+每次推送與正式版發布，預設先跑 `npm run check`（語法、語言包），再依實際改動選最小的 Node 測試與 Chromium 瀏覽器案例；完整回歸只在使用者明確要求時執行。
 ```sh
 npm run check
 npm run test:smoke                       # 冒煙（CI 也跑）：示範牆存入、RouteKit、沒有後端的分享與收線

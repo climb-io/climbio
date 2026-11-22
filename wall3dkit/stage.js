@@ -4,7 +4,7 @@
 // 這裡用 setViewOffset 把同一塊裁給相機，畫出來跟 2D 一一對上；兩指一起拖轉角度（繞畫面中央那一點），轉完岩點外框照新的角度重投。
 // 資料包由 3D 重建流程輸出（wall.json），格式 climbio-3d-wall/1（工作檔）或 climbio-3d-wall/2（烘焙過的成品，見 bakepack.js）。
 // English: Hold Cat 3D wall stage: renders the model under the 2D wall view (same crop via setViewOffset), picks holds by raycast.
-import { Scene, PerspectiveCamera, OrthographicCamera, WebGLRenderer, WebGLRenderTarget, ShaderMaterial, PlaneGeometry, LinearFilter, Color, Vector2, Vector3, Quaternion, Box3, Raycaster, MeshBasicMaterial, BufferGeometry,
+import { Matrix4, Scene, PerspectiveCamera, OrthographicCamera, WebGLRenderer, WebGLRenderTarget, ShaderMaterial, PlaneGeometry, LinearFilter, Color, Vector2, Vector3, Quaternion, Box3, Raycaster, MeshBasicMaterial, BufferGeometry,
   Float32BufferAttribute, Mesh, DataTexture, UnsignedByteType, NearestFilter, DoubleSide, SRGBColorSpace, MathUtils, GLTFLoader, MeshBVH, acceleratedRaycast } from './vendor/three.js';
 import { WalkCam, unpackWalk, tableFor, STEP as WALK_STEP, YAW_MAX, YAW_RATE } from './walkcam.js';
 
@@ -13,6 +13,8 @@ const FORMAT2 = 'climbio-3d-wall/2';   // 成品包（Climbio Studio 烘焙過�
 const SNAP_SIDE = 2048;   // 快照（牆的「照片」）長邊
 const SNAP_CAMERA = 'level-holds';   // 快照（正面）鏡頭的規則：改了就換，手機上的快照、岩點外框會重做
 const FOV = 50;
+const TILE = 0.75;   // 牆分塊畫的大小（公尺，Stage.tileSurface）
+const DPR_MOVE = 1.25, DPR_SETTLE_MS = 180;   // 動態解析度（Stage.motion）
 const PEEK_YAW = 0.4, PEEK_PITCH = 0.3;   // 偷看：離軌道上的位置最多轉幾弧度（左右約 23°、上下約 17°），放手彈回
 const RAIL_STEP = 0.1, RAIL_SMOOTH = 0.5, RAIL_MAX = 1.1, RAIL_FOOT = 0.4;   // 軌道：每格公尺、平滑的 σ（公尺）、離正面最多轉幾弧度、牆腳取離地多高的面
 const FADE_NEAR = 0.03, FADE_FAR = 0.15, FADE_ZONE = 1.2;   // 兩端淡出：離最近的岩點幾公尺開始淡、全淡，只在兩端幾公尺內
@@ -124,21 +126,26 @@ export async function loadPack(base) {
 
 // 模型、岩點標籤、覆蓋網格。base：資料包的網址（結尾 /）
 export async function openStage(base, pack) {
+  return openStageWith(pack, (path, json) => (json ? getRetry(new URL(path, base)).then(r => r.json()) : fetchBytes(new URL(path, base))));
+}
+// 檔案從別的地方拿（Studio 試用：剛在瀏覽器裡烘好的成品，還沒發佈）：get(路徑, 是不是 JSON) → 位元組或物件
+export async function openStageWith(pack, get) {
   if (pack.format === FORMAT2) {
-    const [glb, faceBytes, labelBytes, overlayBytes, walk] = await Promise.all([fetchBytes(new URL(pack.model, base)), fetchBytes(new URL(pack.faces, base)), fetchBytes(new URL(pack.holdLabels.file, base)), fetchBytes(new URL(pack.holdLabels.overlay, base)),
-      pack.walk ? getRetry(new URL(pack.walk.file, base)).then(r => r.json()) : null]);
+    if (!pack.surfaces) pack.surfaces = { list: [{ kind: 'wall' }], frame: { planes: [] } };   // 沒經過 loadPack 的成品（同上）
+    const [glb, faceBytes, labelBytes, overlayBytes, walk] = await Promise.all([get(pack.model), get(pack.faces), get(pack.holdLabels.file), get(pack.holdLabels.overlay),
+      pack.walk ? get(pack.walk.file, true) : null]);
     if (walk) pack.walkData = walk;   // 沿牆走的鏡頭（Studio 烘焙好的軌道、牆面深度、邊界表），見 walkAlong
     const overlay = u16(await inflate(overlayBytes, 'deflate')), n = pack.holdLabels.holds;   // uint32：n+1 個位移，後面是每顆岩點的面
     const all = new Uint32Array(overlay.buffer.slice(overlay.byteOffset, overlay.byteOffset + overlay.byteLength));
     pack.holdLabels.overlayFaces = { offsets: all.subarray(0, n + 1), faces: all.subarray(n + 1) };
     if (pack.snapshot) {   // 烘焙好的快照（牆的「照片」）：手機不用自己渲染一張
-      const bmp = await createImageBitmap(new Blob([await fetchBytes(new URL(pack.snapshot.file, base))], { type: 'image/jpeg' }));
+      const bmp = await createImageBitmap(new Blob([await get(pack.snapshot.file)], { type: 'image/jpeg' }));
       const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height; c.getContext('2d').drawImage(bmp, 0, 0); bmp.close();
       pack.snapshot.canvas = c;
     }
     return openStageFrom({ pack, glb, faces: await inflate(faceBytes, 'deflate'), labels: await inflate(labelBytes, 'deflate'), surfaces: new Uint8Array(0) });
   }
-  const [glb, faceBytes, labelBytes, surfaces] = await Promise.all([fetchBytes(new URL(pack.model, base)), fetchBytes(new URL(pack.faces, base)),
+  const [glb, faceBytes, labelBytes, surfaces] = await Promise.all([get(pack.model), get(pack.faces),
     inflate(decode(pack.holdLabels.data), 'deflate'), packSurfaces(pack)]);
   return openStageFrom({ pack, glb, faces: faceBytes, labels: labelBytes, surfaces });
 }
@@ -238,16 +245,18 @@ class Stage {
     const level = (v) => v.clone().sub(this.up.clone().multiplyScalar(v.dot(this.up))).normalize();
     this.eye = level(pack.front ? new Vector3(...pack.front) : ref);
     this.eyeH = new Vector3(...pack.reference.position).dot(this.up);   // 眼睛的高度：拍照的人拿手機的高度
+    if (this.baked) this.tileSurface();   // up、eye（牆的左右軸）定了才切
     this.home();
     this.rail = this.baked ? this.bakedRail(pack.rail) : this.buildRail();
     this.holdPos = pack.holds.filter((h, i) => !this.gone.has(i) && !h.off).map(h => new Vector3(...h.position));
+    if (!this.baked) { this.snapEye = this.panelEye(); if (this.snapEye) this.home(); }   // 成品包的快照相機是烘焙好的，不重算
     const hx = this.holdPos.map(p => p.dot(this.rail.right)); this.rail.hxlo = Math.min(...hx); this.rail.hxhi = Math.max(...hx);   // 最外側的岩點：兩端進場段從這裡往內算
     const hy = this.holdPos.map(p => p.dot(this.up)); this.rail.hlo = Math.min(this.rail.hlo, Math.min(...hy) - 0.15); this.rail.hhi = Math.max(this.rail.hhi, Math.max(...hy) + 0.15);   // 上下能走到最高、最低的岩點（牆面的高度範圍不含凸出牆外的岩點）
     this.reach = { xlo: this.rail.hxlo - REACH_PAD, xhi: this.rail.hxhi + REACH_PAD, hlo: Math.min(...hy) - REACH_PAD, hhi: Math.max(...hy) + REACH_PAD };
     if (!this.baked) this.edgeFade(geometry);
     this.buildEdges(geometry);
     this.addFill();
-    this.raycaster = new Raycaster();
+    this.raycaster = new Raycaster(); this.raycaster.layers.enable(1);   // 圖層 1：整面牆那一塊（tileSurface）只給射線，不畫
     this.renderer = null; this.view = null; this.dirty = false; this.off = 0;
     if (pack.edits?.length) this.setEdits([]);   // 資料包裡的修點（Climbio Studio 修的）一開始就套上
   }
@@ -335,7 +344,7 @@ class Stage {
     m.geometry.dispose(); m.geometry = this.faceGeometry(this.baseFaces[i]); m.userData.edited = false; m.userData.faces = this.baseFaces[i]; this.hullCache.delete(i);
   }
   // 一顆岩點的修點：從記下的角度看得到、投到畫面落在多邊形裡的表面算這顆（貼圖像素逐點判斷，邊界照多邊形走），
-  // 原本是這顆、看得到但落在外面的清掉；看不到的那側不動。沒有這顆（補點）就加一顆新的
+  // 原本是這顆、看得到但落在外面的清掉（離多邊形多遠都清，原本的範圍拖出去的尾巴才不會留著）；看不到的那側不動。沒有這顆（補點）就加一顆新的
   applyEdit(id, m3) {
     let i = this.index.get(id);
     if (i === undefined) {
@@ -358,22 +367,39 @@ class Stage {
     for (const [x, y] of poly) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
     const M = 0.03 * Math.max(W, H), tris = (I ? I.count : nv) / 3, vid = (f, j) => I ? I.getX(f * 3 + j) : f * 3 + j;
     const s = this.labelSize, L = this.labels, ray = this.raycaster, A = new Vector3(), B = new Vector3(), C = new Vector3(), dir = new Vector3();
-    const near = [];
+    const near = [], inPoly = [], own = new Set(this.baseFaces[i] || []);   // 這顆原本的面：離多邊形再遠也要看（原本的範圍拖了尾巴，落在外面的要清掉）
+    // 裝在上面的小岩點（量體上的 chip）：別顆的面大多落在多邊形裡、面數不到多邊形裡的一半，那些面和像素留給它自己（量體的光暈照樣填過去，見 fillOf），
+    // 不然修量體的外框會把 chip 整顆收走，chip 就點不到、沒有光暈
+    const tot = new Map(), ins = new Map(), F0 = this.faceLabels, others = [];
+    let insAll = 0;
+    for (let f = 0; f < tris; f++) {
+      const a = vid(f, 0), b = vid(f, 1), c = vid(f, 2);
+      if (!ok[a] || !ok[b] || !ok[c]) continue;
+      const cx = (sx[a] + sx[b] + sx[c]) / 3, cy = (sy[a] + sy[b] + sy[c]) / 3;
+      if (cx < x0 - M || cx > x1 + M || cy < y0 - M || cy > y1 + M) continue;
+      const l = F0[f], inP = inside(cx, cy, poly);
+      if (inP) insAll++;
+      if (!l || l === idx) continue;
+      tot.set(l, (tot.get(l) || 0) + 1); if (inP) { ins.set(l, (ins.get(l) || 0) + 1); others.push(f); }
+    }
+    const guest = new Set([...ins].filter(([l, n]) => n >= 0.6 * tot.get(l) && n < 0.5 * insAll).map(([l]) => l));
+    const guestFaces = others.filter(f => guest.has(F0[f]));   // 量體的填色要蓋過 chip（從修點的角度看不到的那側也算），光暈才不挖洞
     let count = 0;
     ray.firstHitOnly = true;
     for (let f = 0; f < tris; f++) {
       const a = vid(f, 0), b = vid(f, 1), c = vid(f, 2);
       if (!ok[a] || !ok[b] || !ok[c]) continue;
       const cx = (sx[a] + sx[b] + sx[c]) / 3, cy = (sy[a] + sy[b] + sy[c]) / 3;
-      if (cx < x0 - M || cx > x1 + M || cy < y0 - M || cy > y1 + M) continue;
-      // 從這個角度看得到：中心沒被別的面擋住
+      if ((cx < x0 - M || cx > x1 + M || cy < y0 - M || cy > y1 + M) && !own.has(f)) continue;
+      // 從這個角度看得到：中心沒被別的面擋住；中心被擋住時（貼著岩點邊緣的面，中心常被岩點自己擋住）三個角（往中心縮一點）有一個看得到也算，
+      // 不然這些面上原本的標籤不會清掉，換個角度看就是光暈拖出的尾巴、觸手
       A.fromBufferAttribute(Pos, a).applyMatrix4(mw); B.fromBufferAttribute(Pos, b).applyMatrix4(mw); C.fromBufferAttribute(Pos, c).applyMatrix4(mw);
-      const center = A.add(B).add(C).multiplyScalar(1 / 3), dist = dir.subVectors(center, cam.position).length();
-      ray.set(cam.position, dir.normalize());
-      const hit = ray.intersectObject(this.surface, false)[0];
-      if (hit && hit.faceIndex !== f && hit.distance < dist - 0.003) continue;
+      const center = A.clone().add(B).add(C).multiplyScalar(1 / 3);
+      const sees = (P) => { const dist = dir.subVectors(P, cam.position).length(); ray.set(cam.position, dir.normalize()); const hit = ray.intersectObject(this.surface, false)[0]; return !(hit && hit.faceIndex !== f && hit.distance < dist - 0.003); };
+      if (!sees(center) && ![A, B, C].some(V => sees(V.clone().lerp(center, 0.15)))) continue;
       near.push(f);
-      if (inside(cx, cy, poly)) { this.faceLabels[f] = idx; count++; } else if (this.faceLabels[f] === idx) this.faceLabels[f] = 0;
+      // 填色（fillOf）只用整個落在多邊形裡的面：邊上跨出去的面交給貼圖像素，光暈的邊才會照描的外框走（直線就是直線），不會變成三角面的鋸齒
+      if (inside(cx, cy, poly)) { if (!guest.has(this.faceLabels[f])) { this.faceLabels[f] = idx; count++; } if (inside(sx[a], sy[a], poly) && inside(sx[b], sy[b], poly) && inside(sx[c], sy[c], poly)) inPoly.push(f); } else if (this.faceLabels[f] === idx) this.faceLabels[f] = 0;
       // 這個面在貼圖上的每個像素：重心座標換到畫面，在多邊形裡＝這顆
       const ua = UV.getX(a) * s, va = UV.getY(a) * s, ub = UV.getX(b) * s, vb = UV.getY(b) * s, uc = UV.getX(c) * s, vc = UV.getY(c) * s;
       const det = (vb - vc) * (ua - uc) + (uc - ub) * (va - vc);
@@ -385,12 +411,12 @@ class Stage {
         const w0 = ((vb - vc) * (px - uc) + (uc - ub) * (py - vc)) / det, w1 = ((vc - va) * (px - uc) + (ua - uc) * (py - vc)) / det, w2 = 1 - w0 - w1;
         if (w0 < -1e-4 || w1 < -1e-4 || w2 < -1e-4) continue;
         const k = ty * s + tx;
-        if (inside(w0 * sx[a] + w1 * sx[b] + w2 * sx[c], w0 * sy[a] + w1 * sy[b] + w2 * sy[c], poly)) { if (L[k] !== idx) this.hullCache.delete(L[k] - 1); L[k] = idx; }
+        if (inside(w0 * sx[a] + w1 * sx[b] + w2 * sx[c], w0 * sy[a] + w1 * sy[b] + w2 * sy[c], poly)) { if (guest.has(L[k])) continue; if (L[k] !== idx) this.hullCache.delete(L[k] - 1); L[k] = idx; }
         else if (L[k] === idx) L[k] = 0;
       }
     }
     const m = this.overlays[i], faces = new Set([...this.baseFaces[i], ...near]);
-    m.geometry.dispose(); m.geometry = this.faceGeometry(faces); m.userData.edited = true; m.userData.faces = [...faces]; this.hullCache.delete(i);
+    m.geometry.dispose(); m.geometry = this.faceGeometry(faces); m.userData.edited = true; m.userData.faces = [...faces]; m.userData.inPoly = [...new Set([...inPoly, ...guestFaces])]; m.userData.guests = guestFaces.length > 0; m.userData.guestIds = [...guest]; m.userData.m3 = m3; m.userData.near = near; m.userData.seq = this.editSeq = (this.editSeq || 0) + 1; this.hullCache.delete(i);   // 烘焙照描的線切網格、照套用的先後（bakepack.js）
     const h = this.holds[i];
     if (!h.position) {   // 補的岩點：多邊形中心打到的那一點（點不到中心時找最近的岩點用）
       const cxp = poly.reduce((t, p) => t + p[0], 0) / poly.length, cyp = poly.reduce((t, p) => t + p[1], 0) / poly.length;
@@ -420,9 +446,19 @@ class Stage {
     const cam = this.camera, r = (x, n) => +x.toFixed(n);
     return { c: [...cam.position.toArray(), ...cam.quaternion.toArray()].map(x => r(x, 5)), p: poly.map(([x, y]) => [r(x / this.snapW, 4), r(y / this.snapH, 4)]) };
   }
+  // 快照正對的方向：岩點最多的那片牆板的法線。牆是兩片以上（明德是 V 字）時，整面牆的平均正面會讓大的那片斜著看、近大遠小，預覽圖像斜拍的
+  // 每顆岩點照它在軌道上的位置取牆面法線的角度（正面左右軸與正面方向的夾角），5° 一格數出最多的那一格，取附近的平均
+  panelEye() {
+    const R = this.rail, P = this.holdPos; if (!R || !P.length) return null;
+    const right = R.right, BIN = 5 * Math.PI / 180, ang = P.map(p => { const n = this.railNormal(p.dot(right)); return Math.atan2(n.dot(right), n.dot(this.eye)); }), hist = new Map();
+    for (const a of ang) { const k = Math.round(a / BIN); hist.set(k, (hist.get(k) || 0) + 1); }
+    let best = -1, peak = 0; for (const [k, c] of hist) { const sc = c + (hist.get(k - 1) || 0) + (hist.get(k + 1) || 0); if (sc > best) { best = sc; peak = k * BIN; } }
+    const near = ang.filter(a => Math.abs(a - peak) <= 2.5 * BIN), a = near.reduce((t, v) => t + v, 0) / near.length;
+    return right.clone().multiplyScalar(Math.sin(a)).addScaledVector(this.eye, Math.cos(a)).normalize();
+  }
   // 正面的相機：岩點範圍剛好放進快照（快照的長寬比照岩點範圍，長邊 SNAP_SIDE）
   home() {
-    const cam = this.camera, eye = this.eye, up = this.up;
+    const cam = this.camera, eye = this.snapEye || this.eye, up = this.up;   // 快照照岩點最多的那片牆板正面看（panelEye），不是整面牆的平均正面
     const right = up.clone().cross(eye).normalize(), upv = eye.clone().cross(right);
     // 岩點剛好放進快照：每顆岩點中心往四個角各加 SNAP_PAD 公尺（岩點本身的大小）。不用整個模型的方盒：
     // V 字形的牆方盒的角落離岩點很遠，快照四周會空出一大片、岩點只佔一半
@@ -447,10 +483,39 @@ class Stage {
     this.homePose = { position: cam.position.clone(), quaternion: cam.quaternion.clone() }; this.glide = null;
     this.tilted = false;
   }
+  // 把牆切成幾塊畫（共用同一份頂點，每塊自己一份索引）：走近時三.js 把畫面外的整塊略過，每格的三次繪製（本體、光暈遮罩、岩點編號）都少畫大半。
+  // 原本整面牆那一塊（BVH、面編號都照原樣）放到圖層 1，只給射線用、相機不畫。實機（iPhone 12）：牆的三角形多畫 3 倍，每格從 17 ms 變 25 ms，約 2.5 ms 一個 19 萬面的繪製
+  tileSurface() {
+    const s = this.surface, g = s.geometry, P = g.attributes.position, I = g.index, nt = I.count / 3, M = s.matrixWorld;
+    const right = this.up.clone().cross(this.eye).normalize(), up = this.up, v = new Vector3();
+    const U = new Float32Array(P.count), Hh = new Float32Array(P.count);
+    for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i).applyMatrix4(M); U[i] = v.dot(right); Hh[i] = v.dot(up); }
+    const cell = new Map();
+    for (let f = 0; f < nt; f++) {
+      const a = I.getX(f * 3), b = I.getX(f * 3 + 1), c = I.getX(f * 3 + 2); if (a === b || b === c || a === c) continue;   // 隱藏的面（縮成一點）不用畫
+      const key = Math.floor((U[a] + U[b] + U[c]) / 3 / TILE) + ',' + Math.floor((Hh[a] + Hh[b] + Hh[c]) / 3 / TILE);
+      let t = cell.get(key); if (!t) cell.set(key, t = []);
+      t.push(a, b, c);
+    }
+    const parent = s.parent, tiles = [];
+    for (const idx of cell.values()) {
+      const tg = new BufferGeometry(); for (const k of Object.keys(g.attributes)) tg.setAttribute(k, g.attributes[k]);
+      tg.setIndex(idx);   // 一般陣列：three 依最大的頂點編號選 16 或 32 位元
+      const box = new Box3(); for (const i of idx) box.expandByPoint(v.fromBufferAttribute(P, i));
+      tg.boundingBox = box; tg.boundingSphere = box.getBoundingSphere({ center: new Vector3(), radius: 0 });   // 預設的 computeBoundingSphere 看整份頂點，不看索引：要自己給（只要 center、radius，不必另外匯入 Sphere）
+      const m = new Mesh(tg, s.material); m.renderOrder = s.renderOrder; m.matrixAutoUpdate = false; m.matrix.copy(s.matrix);
+      parent.add(m); tiles.push(m);
+    }
+    s.layers.set(1); this.tiles = tiles;
+    parent.updateMatrixWorld(true);
+  }
   // 兩端的淡出：離最近的岩點表面超過 FADE_NEAR 公尺開始往牆面顏色混，FADE_FAR 公尺全部混掉（每個頂點算一次，存在 wallFade 屬性；岩點本身（貼圖標籤）不淡出，大岩點的邊才不會被吃掉）。
   // 只管兩端各 FADE_ZONE 公尺（再往中間漸漸沒有），牆的上下緣、中間照舊
+  // 照牆板結構切齊過的模型（外緣是直線、沒有邊緣整理、沒有裁切平面）不淡出：淡出會把真的牆面換成一片平的顏色，看起來像糊掉、切得太貼岩點
   edgeFade(geometry) {
     const P = geometry.attributes.position, n = P.count, out = new Float32Array(n), right = this.rail.right, lo = this.rail.hxlo, hi = this.rail.hxhi;
+    const fr = this.pack.surfaces && this.pack.surfaces.frame;
+    if (!this.pack.finishing && fr && !(fr.planes || []).length) { geometry.setAttribute('wallFade', new Float32BufferAttribute(out, 1)); return; }
     const cell = FADE_FAR, key = (x, y, z) => `${Math.floor(x / cell)},${Math.floor(y / cell)},${Math.floor(z / cell)}`, grid = new Map();
     // 岩點的表面（有岩點標籤的面的頂點）：量到岩點表面的距離，大岩點、長條岩點的邊才不會被淡出吃掉
     const I = geometry.index, seen = new Uint8Array(n), pts = [];
@@ -614,7 +679,14 @@ class Stage {
   // 沿牆走的鏡頭（walkcam.js）：成品包帶 walk 時用它，手勢在 2D 的平移、縮放換成沿牆走、升降、靠近，畫面的裁切固定成「快照的高度＝畫面的高度、
   // 左右置中」（鏡頭的視角就是 FOV，跟 Studio 實拍校正時一樣，邊界表才對得上）。畫面四邊都是牆、走到轉角自動靠近，都在 WalkCam 裡
   get along() { return !!this.pack.walkData; }
+  // 畫面之間的空檔把相鄰距離刻度的範圍先算好（WalkCam.prefetch），換刻度、第一次捏合時不卡。捏合途中馬上做，平常等 120 ms
+  prefetch() {
+    const wc = this.wc; if (!wc || this.pfT) return;
+    const idle = !wc.coarse;
+    this.pfT = setTimeout(() => { this.pfT = 0; if (this.wc === wc && wc.prefetch(3, idle)) this.prefetch(); }, idle ? 120 : 0);
+  }
   walkAlong(view, at = null) {
+    this.prefetch();
     const st = this.stage;
     if (!st || !view || !view.bw) return null;
     const W = st.clientWidth, H = st.clientHeight, cam = this.camera, K = H / this.snapH;
@@ -707,6 +779,7 @@ class Stage {
         cam.position.lerpVectors(P0, P1, e); cam.quaternion.slerpQuaternions(Q0, Q1, e); cam.updateMatrixWorld(true);
         this.view = viewAt(h0 * (h1 / h0) ** e, 1 - e);
         this.draw();
+        if (this.renderer) this.renderer.domElement.style.visibility = '';   // 第一格起點畫好了才顯示（見 js/wall3d.js enter：掛上去先藏起來）
         if (e < 1) { requestAnimationFrame(step); return; }
         this.view = { ...v1 }; Object.assign(g, { s: v1.s, tx: v1.tx, ty: v1.ty }); this.glide = g; this.tilted = true;
         ok(v1);
@@ -719,10 +792,12 @@ class Stage {
     const wc = this.wc, p = wc && wc.p, set = new Set(ids);
     if (!wc || !wc.table) return null;
     let s0 = Infinity, s1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+    // 岩點對到沿牆位置：找最近的牆面點（軌道往前推到牆面，見 WalkCam.offset 的 R）。軌道的基準線在 cave、側牆那裡跟牆離很遠，用它會對到入口
+    const R = wc.offset(wc.d).R;
     for (const h of this.pack.holds) {
       if (!set.has(h.id) || !h.position) continue;
       const P = new Vector3(...h.position), a = P.dot(p.right), b = P.dot(p.f); let bi = 0, bd = Infinity;
-      for (let i = 0; i < p.n; i++) { const e = (p.X[i] - a) ** 2 + (p.Y[i] - b) ** 2; if (e < bd) { bd = e; bi = i; } }
+      for (let i = 0; i < p.n; i++) { const e = (R[2 * i] - a) ** 2 + (R[2 * i + 1] - b) ** 2; if (e < bd) { bd = e; bi = i; } }
       const x = bi * WALK_STEP, y = P.dot(p.up); s0 = Math.min(s0, x); s1 = Math.max(s1, x); v0 = Math.min(v0, y); v1 = Math.max(v1, y);
     }
     if (s0 > s1) return null;
@@ -730,7 +805,7 @@ class Stage {
     const d = Math.max(((s1 - s0) / 2 + pad) / (tan * wc.W / wc.H), ((v1 - v0) / 2 + pad) / (tan * use), wc.dMin);
     const to = { s: (s0 + s1) / 2, v: (v0 + v1) / 2 + (top - bottom) * d * tan, d };   // 看得到的那一段（工具列和留白之間）的中間對準岩點
     // 照實際的畫面修正：轉角附近鏡頭是斜著看的，沿牆的距離估不準。投影到畫面上，沒放進留白以內就往中間移、往後退，幾次就穩
-    const pts = this.pack.holds.filter(h => set.has(h.id) && h.position).map(h => new Vector3(...h.position)), keep = { s: wc.s, v: wc.v, d: wc.d, want: wc.want };
+    const pts = this.pack.holds.filter(h => set.has(h.id) && h.position).map(h => new Vector3(...h.position)), keep = { s: wc.s, v: wc.v, d: wc.d, want: wc.want, yaw: wc.yaw || 0 };
     const yb = -1 + 2 * bottom, yt = 1 - 2 * top, q = new Vector3();
     for (let k = 0; k < 6; k++) {
       Object.assign(wc, to); wc.clamp(); wc.apply(); Object.assign(to, { s: wc.s, v: wc.v, d: wc.d });
@@ -741,19 +816,80 @@ class Stage {
       if (grow <= 1.02 && Math.abs(cx) < 0.05 && Math.abs(cy) < 0.05) break;
       to.s += cx * wc.d * tan * wc.W / wc.H; to.v += cy * wc.d * tan; to.d *= Math.max(1, grow);
     }
+    // 照估的位置看不到（cave、凸塊背面、側牆上的岩點）：沿這條路線每 10 公分、角度 0 與 ±30° 找看得到最多顆的位置（離估的最近的優先），角度一起轉過去
+    const want = this.pack.holds.filter(h => set.has(h.id) && h.position);
+    to.yaw = keep.yaw || 0;
+    Object.assign(wc, to); wc.clamp(); wc.apply();
+    if (want.length && this.seenOf(want) < want.length) {
+      const [A, B] = wc.sRange(), best = this.bestPose(want, to, { s: [A, B], yaw: [0, YAW_MAX, -YAW_MAX], d: [to.d] });
+      if (best) Object.assign(to, best);
+    }
     Object.assign(wc, keep); wc.apply();
     return to;
   }
-  // 看線時換到框住這些岩點的位置：沿牆走過去（位置、高度直線變、距離等比例變，慢起慢停），每一格 onFrame（重投外框）；回傳停下來的 2D 畫面
-  frameTo(ids, onFrame, ms = 600) {
-    const wc = this.wc, to = this.glide && this.frameOf(ids);
-    if (!to) return Promise.resolve(null);
-    const a = { s: wc.s, v: wc.v, d: wc.d }, t0 = performance.now(), sm = (x) => x * x * (3 - 2 * x);
+  // 目前沿牆鏡頭的畫面裡看得到幾顆：中心在畫面裡、從鏡頭打過去第一個碰到的是它自己，而且不是貼著牆斜看（打到的面跟視線夾角 70° 以內）。
+  // face：另外回傳看得多正（每顆的 cos 加總），同樣看得到幾顆時挑看得最正的
+  seenOf(holds, face = false) {
+    this.applyView(); this.camera.updateMatrixWorld(true); let k = 0, c = 0;
+    const n = new Vector3(), mw = this.surface.matrixWorld;
+    for (const h of holds) {
+      const P = new Vector3(...h.position), dir = P.clone().sub(this.camera.position), dist = dir.length();
+      this.raycaster.set(this.camera.position, dir.normalize()); const hit = this.firstHit(), g = hit && this.holdOfHit(hit);
+      if (hit && !(g && g.id === h.id) && hit.distance <= dist - 0.03) continue;
+      const q = P.clone().project(this.camera); if (!(q.z < 1 && Math.abs(q.x) < 0.9 && Math.abs(q.y) < 0.9)) continue;
+      const cos = hit && hit.face ? Math.abs(n.copy(hit.face.normal).transformDirection(mw).dot(dir)) : 1;
+      if (cos < 0.34) continue;
+      k++; c += cos;
+    }
+    return face ? { k, c } : k;
+  }
+  // 沿牆鏡頭試一排位置（s 的範圍每 10 公分、角度、距離），看得到最多顆的那個（同樣多顆時離 from 最近的）；試完鏡頭不動，一顆都看不到回 null
+  bestPose(holds, from, { s: [A, B], yaw: Y, d: D }) {
+    const wc = this.wc, keep = { s: wc.s, v: wc.v, d: wc.d, want: wc.want, yaw: wc.yaw || 0 }, coarse = wc.coarse; let best = null;
+    wc.coarse = true;   // 粗刻度的左右範圍：每換一個角度、距離不用重算上萬次射線的精確範圍
+    for (const d of D) for (const yaw of Y) for (let s = A; s <= B + 1e-6; s += 0.1) {
+      Object.assign(wc, { s, v: from.v, d, want: d, yaw }); wc.clamp(); wc.apply();
+      const { k, c } = this.seenOf(holds, true), score = k * 1000 + c * 5 - Math.abs(wc.s - from.s) - Math.abs(yaw - (from.yaw || 0)) - Math.abs(wc.d - from.d);
+      if (k && (!best || score > best.score)) best = { score, k, s: wc.s, v: wc.v, d: wc.d, yaw };
+    }
+    wc.coarse = coarse; Object.assign(wc, keep); wc.apply();
+    return best && { s: best.s, v: best.v, d: best.d, yaw: best.yaw, k: best.k };
+  }
+  // 點到重疊的地方（舞台座標 x, y）：射線穿過的岩點，加上附近 r 像素內中心被擋住的岩點（大岩點後面的小點），最多 n 顆；
+  // 兩顆以上時找一個露出最多顆的位置（附近 ±80 公分、角度 0／±15°／±30°、走近一點）。回傳 { ids, to }，to 給 flyWalk；不用換位置回 null
+  revealAt(x, y, r = 44, n = 5) {
+    const wc = this.wc, st = this.stage;
+    if (!wc || !st || !this.glide) return null;
+    const W = st.clientWidth, H = st.clientHeight;
+    this.applyView(); this.camera.updateMatrixWorld(true);
+    this.raycaster.setFromCamera(new Vector2(x / W * 2 - 1, -y / H * 2 + 1), this.camera);
+    const ids = [];
+    for (const h of this.hits()) { const g = this.holdOfHit(h); if (g && !ids.includes(g.id)) ids.push(g.id); }
+    const q = new Vector3(), near = [];
+    for (const h of this.holds) {
+      if (!h.position || ids.includes(h.id) || h.off) continue;
+      q.set(...h.position).project(this.camera); if (q.z >= 1) continue;
+      const px = (q.x + 1) / 2 * W, py = (1 - q.y) / 2 * H, e = Math.hypot(px - x, py - y);
+      if (e <= r) near.push([e, h]);
+    }
+    near.sort((a, b) => a[0] - b[0]);
+    for (const [, h] of near) if (ids.length < n && this.seenOf([h]) === 0) ids.push(h.id);   // 看得到的鄰居點得到，不算重疊
+    if (ids.length < 2) return null;
+    const holds = ids.map(id => this.holds[this.index.get(id)]), from = { s: wc.s, v: wc.v, d: wc.d, yaw: wc.yaw || 0 };
+    if (this.seenOf(holds) === holds.length) return { ids, to: null };   // 都看得到：不用換位置，照 2D 的放大選
+    const best = this.bestPose(holds, from, { s: [wc.s - 0.8, wc.s + 0.8], yaw: [0, YAW_MAX / 2, -YAW_MAX / 2, YAW_MAX, -YAW_MAX], d: [wc.d, Math.max(wc.dMin, wc.d * 0.6)] });
+    return { ids, to: best && best.k > this.seenOf(holds) ? best : null };
+  }
+  // 沿牆鏡頭飛到 to（{ s, v, d, yaw }）：位置、高度、角度直線變、距離等比例變，慢起慢停，每一格 onFrame；回傳停下來的 2D 畫面
+  flyWalk(to, onFrame, ms = 600) {
+    const wc = this.wc;
+    if (!to || !wc) return Promise.resolve(null);
+    const a = { s: wc.s, v: wc.v, d: wc.d, yaw: wc.yaw || 0 }, t0 = performance.now(), sm = (x) => x * x * (3 - 2 * x);
     return new Promise((ok) => {
       const step = () => {
         if (!this.stage || this.wc !== wc) return ok(null);
         const u = Math.min(1, (performance.now() - t0) / ms), e = sm(u);
-        wc.s = a.s + (to.s - a.s) * e; wc.v = a.v + (to.v - a.v) * e; wc.d = a.d * (to.d / a.d) ** e; wc.clamp(); wc.want = wc.d;
+        wc.s = a.s + (to.s - a.s) * e; wc.v = a.v + (to.v - a.v) * e; wc.d = a.d * (to.d / a.d) ** e; if (to.yaw !== undefined) wc.yaw = a.yaw + (to.yaw - a.yaw) * e; wc.clamp(); wc.want = wc.d;
         wc.apply(); this.camera.near = 0.005; this.camera.far = 100; this.railPose = { position: this.camera.position.clone(), quaternion: this.camera.quaternion.clone() };
         this.draw(); if (onFrame) onFrame();
         if (u < 1) { requestAnimationFrame(step); return; }
@@ -761,6 +897,10 @@ class Stage {
       };
       step();
     });
+  }
+  // 看線時換到框住這些岩點的位置：沿牆走過去（flyWalk），每一格 onFrame（重投外框）；回傳停下來的 2D 畫面
+  frameTo(ids, onFrame, ms = 600) {
+    return this.glide ? this.flyWalk(this.frameOf(ids), onFrame, ms) : Promise.resolve(null);
   }
   walk(view, at = null) {
     if (this.pack.walkData) return this.walkAlong(view, at);
@@ -945,18 +1085,32 @@ class Stage {
   }
   // 每顆岩點投到目前相機（整張快照）上的外框：岩點面的頂點投影取凸包，再精簡到最多 32 點。被擋住、在畫面外的照樣給（點選用射線，不用外框）。
   // 只投每顆的候選點（hullPoints）：整面牆從幾百毫秒降到幾毫秒，走近、拖曳的途中可以每格重投。only：只算這些岩點 id
-  outlines(only = null) {
+  outlines(only = null, cull = false) {
     const bo = this.bakedFront();
     if (bo && !only && !this.tilted) return bo;
-    const cam = this.camera, W = this.snapW, H = this.snapH, v = new Vector3(), out = [];
+    const cam = this.camera, W = this.snapW, H = this.snapH, out = [], seen = new Set();
+    // cull：只算現在畫面（含一圈邊）裡的岩點。走近、拖曳的途中畫面外的岩點外框沒人看，放手那一次再整面牆重投
+    let vis = null;
+    if (cull) { this.applyView(); cam.updateMatrixWorld(true); vis = new Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse).elements; }
     cam.clearViewOffset(); cam.updateProjectionMatrix(); cam.updateMatrixWorld(true);
+    const e = new Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse).elements;   // 手算投影（跟 Vector3.project 同一個結果），不用每點配一個物件
+    const scale = vis && Math.max(Math.hypot(vis[0], vis[4], vis[8]), Math.hypot(vis[1], vis[5], vis[9]));
     this.overlays.forEach((m, i) => {
       if (only && !only.has(this.holds[i].id)) return;
-      const Q = this.hullPoints(i), pts = [], seen = new Set();
+      const Q = this.hullPoints(i);
+      if (vis && Q.b) {
+        const [cx, cy, cz, r] = Q.b, w = vis[3] * cx + vis[7] * cy + vis[11] * cz + vis[15];
+        if (w > 1e-6) {
+          const nx = (vis[0] * cx + vis[4] * cy + vis[8] * cz + vis[12]) / w, ny = (vis[1] * cx + vis[5] * cy + vis[9] * cz + vis[13]) / w, rn = r * scale / w + 0.3;
+          if (Math.abs(nx) > 1 + rn || Math.abs(ny) > 1 + rn) return;
+        }
+      }
+      const pts = []; seen.clear();
       for (let k = 0; k < Q.length; k += 3) {
-        v.set(Q[k], Q[k + 1], Q[k + 2]).project(cam); if (v.z < -1 || v.z > 1) continue;
-        const x = Math.round((v.x + 1) / 2 * W * 2) / 2, y = Math.round((1 - v.y) / 2 * H * 2) / 2, key = x + ',' + y;
-        if (!seen.has(key)) { seen.add(key); pts.push([x, y]); }
+        const x = Q[k], y = Q[k + 1], z = Q[k + 2], iw = 1 / (e[3] * x + e[7] * y + e[11] * z + e[15]), nz = (e[2] * x + e[6] * y + e[10] * z + e[14]) * iw;
+        if (nz < -1 || nz > 1) continue;
+        const sx = Math.round(((e[0] * x + e[4] * y + e[8] * z + e[12]) * iw + 1) / 2 * W * 2), sy = Math.round((1 - (e[1] * x + e[5] * y + e[9] * z + e[13]) * iw) / 2 * H * 2), key = sx * 262144 + sy;
+        if (!seen.has(key)) { seen.add(key); pts.push([sx / 2, sy / 2]); }
       }
       if (pts.length >= 3) out.push({ id: this.holds[i].id, poly: simplify(hull(pts), 32) });
     });
@@ -980,7 +1134,11 @@ class Stage {
     }
     const keep = [];
     for (let d = 0; d < n; d++) if (best[d] > -Infinity) keep.push(at[d * 3], at[d * 3 + 1], at[d * 3 + 2]);
-    Q = new Float32Array(keep); this.hullCache.set(i, Q);
+    Q = new Float32Array(keep);
+    let cx = 0, cy = 0, cz = 0, r = 0; const c = Q.length / 3;
+    for (let k = 0; k < Q.length; k += 3) { cx += Q[k]; cy += Q[k + 1]; cz += Q[k + 2]; }
+    if (c) { cx /= c; cy /= c; cz /= c; for (let k = 0; k < Q.length; k += 3) r = Math.max(r, Math.hypot(Q[k] - cx, Q[k + 1] - cy, Q[k + 2] - cz)); Q.b = [cx, cy, cz, r]; }   // 外框的中心與半徑（outlines 的畫面外略過用）
+    this.hullCache.set(i, Q);
     return Q;
   }
   // 覆蓋網格第 k 個頂點的貼圖標籤
@@ -993,8 +1151,12 @@ class Stage {
   ensureRenderer() {
     if (this.renderer) return this.renderer;
     const r = this.renderer = new WebGLRenderer({ antialias: true });
-    r.outputColorSpace = SRGBColorSpace; r.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    this.dprRest = Math.min(devicePixelRatio || 1, 2); this.dprMove = Math.min(this.dprRest, DPR_MOVE);
+    r.outputColorSpace = SRGBColorSpace; r.setPixelRatio(this.dprRest);
     r.domElement.className = 'stage-3d';
+    // 手機（iOS）記憶體吃緊時會收掉 WebGL；不擋掉預設行為就不會復原，畫面一直是黑的。復原後重畫
+    r.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); console.warn('3D 畫面被系統收掉，等復原'); });
+    r.domElement.addEventListener('webglcontextrestored', () => { this.warmed = false; this.invalidate(); if (this.stage) this.draw(); });
     return r;
   }
   // 進定線前先暖機：開 WebGL、編好著色器、把模型與貼圖送上顯示卡（畫在看不見的小畫布上一次），進去時第一格不用卡著等
@@ -1043,14 +1205,21 @@ class Stage {
         side: DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
         vertexShader: 'void main(){gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}', fragmentShader: 'uniform vec3 roleColor;uniform vec2 holdId;uniform float maskMode;void main(){gl_FragColor=maskMode>1.5?vec4(holdId,0.,1.):vec4(roleColor,1.);}' });
       if (this.bigHold === undefined) { const c = this.holds.map(h => h.faceCount).sort((a, b) => a - b); this.bigHold = 5 * c[c.length >> 1]; }
-      const m = new Mesh(this.faceGeometry(this.holds[i].faceCount >= this.bigHold ? this.enclosed(i + 1) : []), mat);   // 只有量體（面數是中位數 5 倍以上）上面會裝別的岩點
+      // 只有量體（面數是中位數 5 倍以上）上面會裝別的岩點：被它圍住的面也填上，光暈不挖洞。修過外框的照修的範圍（成品記 edited），不填：填色會從縫溢出、拖出觸手
+      // 修過外框的量體：只填修的外框裡面的面（成品記在 holds[].fill，工作檔照 applyEdit 記的），量體上裝的小岩點不會變成洞、也不會溢出外框
+      const h = this.holds[i], ov = this.overlays[i], edited = h.edited || (ov && ov.userData.edited);
+      // 修的外框裡留了 chip 的（不到量體的大小也算）：填修的外框裡面，chip 那塊才不會挖洞
+      const guests = h.fill || (ov && ov.userData.guests);
+      const fillFaces = h.faceCount < this.bigHold && !(edited && guests) ? [] : !edited ? this.enclosed(i + 1) : h.fill || (ov && ov.userData.inPoly) || [];
+      const m = new Mesh(this.faceGeometry(fillFaces), mat);
       m.matrix.copy(this.surface.matrixWorld); m.matrixAutoUpdate = false; m.visible = false; m.renderOrder = 1; this.scene.add(m);
       fills.set(i, m);
     }
     return fills.get(i);
   }
-  // 被這顆岩點（標籤 idx）圍住的別的岩點的面：從它的邊往外、只走別的岩點的面，碰到牆面或走太遠（面數超過它的一半）就不算；
-  // 牆面不填（之前連牆面一起填，量體的範圍會多出一塊）
+  // 量體（大岩點）光暈裡不挖洞：光暈整塊亮，上面的小點（chip）可不可以用由它們自己的光暈表示。要補進光暈的面：
+  // ① 別的岩點的面：一塊連通的別顆岩點，大半個邊（貼量體的邊至少是碰到外面的 3 倍，貼邊的 chip 也算，只是鄰居不算）貼著這顆量體、面數不超過它的一半，不管有沒有被完全圍住（貼著邊的 chip 也算）；
+  // ② 沒有標籤的面圍成的小洞：四周只碰到這顆量體（或補進來的 chip）才算；碰到別顆岩點的是岩點之間的牆，往外走太遠的是外面的牆，都不補
   enclosed(idx) {
     const I = this.surface.geometry.index, F = this.faceLabels, tris = F.length;
     if (!this.adjacent) {   // 共用一條邊的面（第一次要用才建）
@@ -1062,20 +1231,79 @@ class Stage {
       this.adjacent = adj;
     }
     const own = []; for (let f = 0; f < tris; f++) if (F[f] === idx) own.push(f);
-    const limit = Math.max(20, own.length >> 1), state = new Uint8Array(tris), out = [];   // 1：走過、2：圍住
+    const limit = Math.max(20, own.length >> 1), state = new Uint8Array(tris), out = [];   // 1：走過、2：補進來、3：這顆自己的面
     for (const f of own) state[f] = 3;
-    for (const f of own) for (const g of this.adjacent[f]) {
-      if (state[g]) continue;
-      if (!F[g]) continue;
-      const seen = [g], stack = [g]; let open = false; state[g] = 1;
-      while (stack.length && seen.length <= limit && !open) for (const h of this.adjacent[stack.pop()]) {
+    const A = this.adjacent;
+    // ① 先補 chip：同一顆岩點連通的面，貼量體的邊至少是碰到外面（牆面、別顆岩點）的 3 倍；只是相鄰的鄰居、長在別顆岩點上的都不算
+    for (const f of own) for (const g of A[f]) {
+      if (state[g] || !F[g]) continue;
+      const lab = F[g], seen = [g], stack = [g]; let toOwn = 0, toOut = 0; state[g] = 1;   // 只走同一顆（chip 自己）的面
+      while (stack.length && seen.length <= limit) for (const h of A[stack.pop()]) {
+        if (state[h] === 3) { toOwn++; continue; }
+        if (F[h] !== lab) { toOut++; continue; }   // 牆面或別顆岩點
         if (state[h]) continue;
-        if (!F[h]) { open = true; break; }   // 碰到牆面：沒被圍住
         state[h] = 1; seen.push(h); stack.push(h);
       }
-      if (!open && seen.length <= limit) { for (const h of seen) state[h] = 2; out.push(...seen); }
+      if (!stack.length && seen.length <= limit && toOwn >= toOut * 3) for (const h of seen) { state[h] = 2; out.push(h); }
+    }
+    // ② 再補沒標籤的小洞：四周只碰到這顆量體（或剛補進來的 chip）的面才算洞；碰到別顆岩點的是岩點之間的牆，不補
+    const small = Math.max(20, own.length >> 3);
+    for (const f of own) for (const g of A[f]) {
+      if (state[g] || F[g]) continue;
+      const seen = [g], stack = [g]; let open = false; state[g] = 1;
+      while (stack.length && !open) for (const h of A[stack.pop()]) {
+        if (state[h] >= 2) continue;
+        if (F[h]) { open = true; break; }   // 碰到沒補進來的別顆岩點
+        if (state[h]) continue;
+        state[h] = 1; seen.push(h); stack.push(h);
+        if (seen.length > small) { open = true; break; }
+      }
+      if (!open) for (const h of seen) { state[h] = 2; out.push(h); }
     }
     return out;
+  }
+  // 烘焙時整理量體（大岩點）的標籤，光暈才會整塊、不挖洞（bakepack.js 套完修點後呼叫）：
+  // 這顆自己的面裡，離主體很遠的小碎塊（連通塊不到它的 5%）清掉；沒標籤的小洞（enclosed 的 ②）補成這顆；
+  // 這顆的面上，貼圖還空著（標籤 0）的像素也補成這顆，面上不留小洞。上面的 chip（別顆岩點）的標籤不動
+  cleanVolumes() {
+    const F = this.faceLabels, L = this.labels, s = this.labelSize, geo = this.surface.geometry, UV = geo.attributes.uv, I = geo.index;
+    const c = this.holds.map(h => h.faceCount).sort((a, b) => a - b), big = 5 * c[c.length >> 1];
+    const paint = (f, from, to) => {   // 面 f 在貼圖上的像素：標籤 from 換成 to
+      const a = I.getX(f * 3), b = I.getX(f * 3 + 1), d = I.getX(f * 3 + 2);
+      const ua = UV.getX(a) * s, va = UV.getY(a) * s, ub = UV.getX(b) * s, vb = UV.getY(b) * s, uc = UV.getX(d) * s, vc = UV.getY(d) * s;
+      const det = (vb - vc) * (ua - uc) + (uc - ub) * (va - vc); if (Math.abs(det) < 1e-9) return;
+      for (let ty = Math.max(0, Math.floor(Math.min(va, vb, vc))); ty <= Math.min(s - 1, Math.ceil(Math.max(va, vb, vc))); ty++)
+        for (let tx = Math.max(0, Math.floor(Math.min(ua, ub, uc))); tx <= Math.min(s - 1, Math.ceil(Math.max(ua, ub, uc))); tx++) {
+          const px = tx + 0.5, py = ty + 0.5, w0 = ((vb - vc) * (px - uc) + (uc - ub) * (py - vc)) / det, w1 = ((vc - va) * (px - uc) + (ua - uc) * (py - vc)) / det;
+          if (w0 < -1e-4 || w1 < -1e-4 || 1 - w0 - w1 < -1e-4) continue;
+          const k = ty * s + tx; if (L[k] === from) L[k] = to;
+        }
+    };
+    let changed = 0;
+    this.holds.forEach((h, i) => {
+      if (h.faceCount < big || this.overlays[i].userData.edited) return;   // 修過外框的（Studio、岩點貓修的）照修的範圍，不再補洞：補的面會落到多邊形外，光暈拖出尾巴
+      const idx = i + 1, fill = this.enclosed(idx), A = this.adjacent;
+      const own = []; for (let f = 0; f < F.length; f++) if (F[f] === idx) own.push(f);
+      const seen = new Uint8Array(F.length), comps = [];
+      for (const f of own) {
+        if (seen[f]) continue;
+        const comp = [f], st = [f]; seen[f] = 1;
+        while (st.length) for (const g of A[st.pop()]) if (F[g] === idx && !seen[g]) { seen[g] = 1; comp.push(g); st.push(g); }
+        comps.push(comp);
+      }
+      const keep = Math.max(5, own.length * 0.05), main = [];
+      for (const comp of comps) {
+        if (comp.length >= keep) { main.push(...comp); continue; }
+        for (const f of comp) { F[f] = 0; paint(f, idx, 0); }   // 遠處的小碎塊
+      }
+      for (const f of fill) if (!F[f]) { F[f] = idx; main.push(f); }   // 沒標籤的小洞
+      for (const f of main) paint(f, 0, idx);   // 面上還空著的像素
+      const m = this.overlays[i]; m.userData.faces = [...new Set([...(m.userData.faces || this.baseFaces[i] || []), ...main])]; m.geometry.dispose(); m.geometry = this.faceGeometry(m.userData.faces);
+      this.hullCache.delete(i); changed++;
+    });
+    if (this.fills) { for (const m of this.fills.values()) { this.scene.remove(m); m.geometry.dispose(); m.material.dispose(); } this.fills = null; }
+    this.labelTexture.needsUpdate = true;
+    return changed;
   }
   applyView() {
     const v = this.view, st = this.stage;
@@ -1097,10 +1325,22 @@ class Stage {
     const size = r.getSize(new Vector2());
     if (size.x !== W || size.y !== H) r.setSize(W, H);
     this.applyView();
+    this.motion();
     const route = this.overlays.some(m => m.visible);
     if (route) this.glowMask();
     r.setRenderTarget(null); r.render(this.scene, this.camera);
     if (route) this.glowComposite();
+  }
+  // 動態解析度：畫面在動（拖曳、縮放、轉角度、飛進來）時降到 DPR_MOVE 倍畫，停下 DPR_SETTLE_MS 毫秒後換回清楚的。
+  // 實機（iPhone 12，3 倍螢幕）每格是填色（像素）受限：2 倍每格 21 ms，1.5 倍 17 ms（60 fps），模型面數不是瓶頸
+  motion() {
+    const r = this.renderer, v = this.view, c = this.camera, q = c.quaternion, p = c.position, m = this.moveSig || (this.moveSig = new Float64Array(10));
+    const now = [v.tx, v.ty, v.s, p.x, p.y, p.z, q.x, q.y, q.z, q.w];
+    let moved = false; for (let i = 0; i < 10; i++) { if (Math.abs(now[i] - m[i]) > 1e-6) moved = true; m[i] = now[i]; }
+    if (!moved || this.dprMove >= this.dprRest) return;
+    if (r.getPixelRatio() !== this.dprMove) r.setPixelRatio(this.dprMove);
+    clearTimeout(this.settleT);
+    this.settleT = setTimeout(() => { this.settleT = 0; if (this.renderer && this.renderer.getPixelRatio() !== this.dprRest) { this.renderer.setPixelRatio(this.dprRest); this.invalidate(); } }, DPR_SETTLE_MS);
   }
   // 光暈（畫面上的後製，放大縮小一樣寬）：路線岩點畫成角色色的遮罩（被牆面擋住的不畫；量體上裝的岩點填滿），縮成一半、高斯模糊兩次（橫、直），
   // 從修圓滑的岩點形狀往外漸淡，內外圈都平整，靠在一起的岩點光暈疊在一起；越靠近岩點越亮、帶一點白
@@ -1175,6 +1415,21 @@ class Stage {
   // 給了 rank(id)（點在它畫出來的外框裡回傳外框面積，不在回傳 null）：射線沿路穿過的岩點裡選 rank 最小的，跟 2D 的牆一樣重疊時選小的；
   // 外框不看遮擋，被前面的牆、大岩點擋住的岩點也有外框，點它的外框要選得到。沒有符合的就照射線打到的第一顆；
   // 都沒點到就找 tol 像素內看得到的岩點中心
+  // 岩點在畫面上的範圍 [x0, y0, x1, y1]（外框凸包投影；放選單時避開它）；看不到是 null
+  screenBox(id) {
+    const st = this.stage, i = this.holds.findIndex(h => h.id === id);
+    if (!st || i < 0 || !this.overlays[i]) return null;
+    const W = st.clientWidth, H = st.clientHeight, cam = this.camera, Q = this.hullPoints(i), p = new Vector3();
+    this.applyView(); cam.updateMatrixWorld(true);
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let k = 0; k < Q.length; k += 3) {
+      p.set(Q[k], Q[k + 1], Q[k + 2]).project(cam);
+      if (p.z < -1 || p.z > 1) continue;
+      const x = (p.x + 1) / 2 * W, y = (1 - p.y) / 2 * H;
+      x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+    }
+    return x1 < x0 ? null : [x0, y0, x1, y1];
+  }
   pick(x, y, tol = 22, rank = null) {
     const st = this.stage; if (!st || !this.view) return null;
     const W = st.clientWidth, H = st.clientHeight, cam = this.camera;
@@ -1266,6 +1521,7 @@ class Stage {
   // 調角度（沿牆鏡頭）：兩指同向左右移 dx 像素，鏡頭繞看的那一點左右轉，半個畫面寬＝30°，最多 ±30°（WalkCam.orbit）。放手後保留，之後左右滑都帶著這個角度（回程角度加在上面）；換牆、重新進來歸零
   angle(dx) {
     const wc = this.wc, st = this.stage; if (!wc || !st) return;
+    wc.coarse = true;   // 調角度途中範圍用粗刻度（walkcam.js 的 YAW_COARSE），放手由 W3D.endZoom 換回精確值
     wc.yaw = MathUtils.clamp(wc.yaw - dx / (st.clientWidth / 2) * YAW_MAX, -YAW_MAX, YAW_MAX); wc.clamp();
   }
   // 回程角度（WalkCam.auto）：正常角度一路滑過去被別的量體擋住、看不到的岩點，回程換個角度看得到。沿牆每 10 公分在 ±30°（每 10° 一個）裡挑，
@@ -1294,7 +1550,7 @@ class Stage {
     const m = YAW_RATE / d * WALK_STEP;   // 沿牆變化的上限（WalkCam.yawAt）：往前、往後各夾一次
     for (let i = 1; i < n; i++) auto[i] = Math.max(auto[i - 1] - m, Math.min(auto[i - 1] + m, auto[i]));
     for (let i = n - 2; i >= 0; i--) auto[i] = Math.max(auto[i + 1] - m, Math.min(auto[i + 1] + m, auto[i]));
-    wc.auto = U.length ? auto : null; wc.sr = wc.vr = null;
+    wc.auto = U.length ? auto : null; wc.sr = wc.vr = wc.vrs = null;
     cam.position.copy(keep[0]); cam.quaternion.copy(keep[1]); cam.near = keep[2]; cam.far = keep[3]; cam.updateProjectionMatrix(); cam.updateMatrixWorld(true);
     this.angleInfo = { hidden: U.length, back: U.filter(i => at.some(({ q }, k) => sees(wc.orbit(q.cam, q.look, d, Y[pick[k]]), q.look, i))).length };
   }

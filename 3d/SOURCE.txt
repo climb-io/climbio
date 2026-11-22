@@ -1,6 +1,6 @@
 Climbio 3D 追蹤測試
 AGPL-3.0-or-later：../LICENSE
-網頁程式原始碼：source/holds-3d-motion.js、source/holds-3d-camera-view.js、source/holds-3d-tracking.js、source/holds-3d-tracking-log.js、source/holds-3d-camera-worker.js
+網頁程式原始碼：source/holds-3d-motion.js、source/holds-3d-camera-view.js、source/holds-3d-spz.js、source/holds-3d-tracking.js、source/holds-3d-tracking-log.js、source/holds-3d-camera-worker.js、../topokit/（Apache-2.0，見 ../topokit/LICENSE）
 依賴：three 0.180.0（MIT）、esbuild 0.28.2（MIT，僅建置使用）。
 建置：esbuild 3d/source/holds-3d-tracking.js --bundle --format=iife --minify --outfile=3d/app.js
-Meshopt 解碼器隨 Three.js 提供（MIT）。OpenCV 4.10.0 從 ../redpoint/vendor/ 載入，授權檔也在該目錄。
+OpenCV 4.10.0 從 ../redpoint/vendor/ 載入，授權檔也在該目錄。

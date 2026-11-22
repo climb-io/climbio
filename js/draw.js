@@ -5,23 +5,25 @@
   // ---------- 幾何 ----------
   // 外框幾何、路線的標示與底圖在 routekit/（看路線、定線、路線圖輸出的共用模組，不依賴 App 的狀態）：幾何直接取出來用，繪製都寫 RouteKit.…
   const { inPoly, area, edgePoint } = RouteKit;
-  // 兩個多邊形的面積重疊比（取樣 64×64，不用畫布）：圈起來的結果貼不貼得上手畫的圈
-  function polyIoU(a, b) {
-    const xs = [...a, ...b].map(p => p[0]), ys = [...a, ...b].map(p => p[1]);
-    const x0 = Math.min(...xs), y0 = Math.min(...ys), dx = (Math.max(...xs) - x0) / 64, dy = (Math.max(...ys) - y0) / 64;
-    let inter = 0, union = 0;
-    for (let i = 0; i < 64; i++) for (let j = 0; j < 64; j++) {
-      const x = x0 + (i + 0.5) * dx, y = y0 + (j + 0.5) * dy, ia = inPoly(x, y, a), ib = inPoly(x, y, b);
-      if (ia && ib) inter++;
-      if (ia || ib) union++;
-    }
-    return union ? inter / union : 0;
-  }
-  // 圈的外接框加 4% 的邊、夾在照片裡：交給 MobileSAM 當框提示（量體上只用框比單點準：16 顆量體 IoU 平均 0.90 vs 0.67）
-  function lassoBox(pts, w, h) {
-    const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
-    const x0 = Math.min(...xs), y0 = Math.min(...ys), x1 = Math.max(...xs), y1 = Math.max(...ys), pad = 0.04 * Math.max(x1 - x0, y1 - y0);
-    return [Math.max(0, x0 - pad), Math.max(0, y0 - pad), Math.min(w, x1 + pad), Math.min(h, y1 + pad)];
+  // 圈起來：手畫的圈變成外框。去掉繞過起點多畫的那一段，前後各 2 點平均掉手抖，再省掉偏差不到 px（螢幕上約 1 px）的點；
+  // 不交給模型、不削成粗略的多邊形，畫的是什麼形狀就是什麼形狀
+  function lassoOutline(pts, px) {
+    const d0 = (p) => Math.hypot(p[0] - pts[0][0], p[1] - pts[0][1]), far = Math.max(...pts.map(d0));
+    let end = pts.length, near = Infinity;
+    for (let i = pts.length >> 1; i < pts.length; i++) if (d0(pts[i]) < near) { near = d0(pts[i]); end = i + 1; }   // 後半段最靠近起點的地方：之後是多畫的
+    const raw = near < far * 0.25 ? pts.slice(0, end) : pts, n = raw.length;
+    if (n < 5) return raw;
+    const avg = raw.map((_, i) => [0, 1, 2, 3, 4].reduce((s, k) => { const q = raw[(i + k - 2 + n) % n]; return [s[0] + q[0] / 5, s[1] + q[1] / 5]; }, [0, 0]));
+    const seg = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy, t = L ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L)) : 0; return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
+    const dp = (list) => {   // Douglas–Peucker：留頭尾，中間偏差最大的超過 px 就留下、兩邊再分
+      let worst = 0, at = 0;
+      for (let i = 1; i < list.length - 1; i++) { const d = seg(list[i], list[0], list[list.length - 1]); if (d > worst) { worst = d; at = i; } }
+      return worst <= px ? [list[0], list[list.length - 1]] : [...dp(list.slice(0, at + 1)).slice(0, -1), ...dp(list.slice(at))];
+    };
+    let opp = 0;
+    avg.forEach((p, i) => { if (Math.hypot(p[0] - avg[0][0], p[1] - avg[0][1]) > Math.hypot(avg[opp][0] - avg[0][0], avg[opp][1] - avg[0][1])) opp = i; });
+    const out = [...dp(avg.slice(0, opp + 1)).slice(0, -1), ...dp([...avg.slice(opp), avg[0]]).slice(0, -1)];
+    return out.map(p => [+p[0].toFixed(1), +p[1].toFixed(1)]);
   }
   // 外框上的細尖：往外伸出去又折回來（或往內切進去）的一小段——根部寬度不到這段長度的 1/6、整段很薄、不到整顆的 8%——剪掉，
   // 多半是 MobileSAM 沿著縫隙、陰影多描了一條，或拖頂點時旁邊的頂點留在外面拉成一根針。正常的尖角（20° 以上）和有寬度的凸塊不動。
@@ -130,7 +132,7 @@
     return Math.min(f.x1 - f.x0, f.y1 - f.y0) < 24 * px ? near : null;
   }
   // 點在裡面的所有岩點，面積小的在前
-  const holdsUnder = (x, y, hs = tapHolds()) => state.w3d ? [] : hs.filter(h => inPoly(x, y, h.poly)).map(h => [area(h.poly), h]).sort((a, b) => a[0] - b[0]).map(e => e[1]);
+  const holdsUnder = (x, y, hs = tapHolds()) => state.w3d ? [] : RouteKit.holdsUnder(hs, x, y);   // 規則在 kit（geometry.js），內嵌頁用同一份
   // 岩點頁點選用：點在裡面的所有岩點；都沒有就是邊界距離在 tol 內最近的那顆
   function holdsAt(x, y, tol) {
     const inside = holdsUnder(x, y, state.wall.holds);
@@ -138,33 +140,8 @@
     const h = hitHold(x, y, tol);
     return h ? [h] : [];
   }
-  // 重疊岩點（面積小的在前）各自的圓點：會選到它（不在更小的候選裡）的範圍中，離所有候選邊界最遠的一點
-  function overlapSpots(cands) {
-    const b = bbox(cands.flatMap(h => h.poly)), step = Math.max(b.x1 - b.x0, b.y1 - b.y0) / 40, spots = new Map();
-    for (let y = b.y0 + step / 2; y < b.y1; y += step) for (let x = b.x0 + step / 2; x < b.x1; x += step) {
-      const h = cands.find(c => inPoly(x, y, c.poly)); if (!h) continue;
-      const d = Math.min(...cands.map(c => edgeDist(x, y, c.poly))), s = spots.get(h);
-      if (!s || d > s.d) spots.set(h, { x, y, d });
-    }
-    // 完全重合或被較小候選覆蓋的岩點沒有獨占區，改在右側放帶引線的選點。
-    const hidden = cands.filter(h => !spots.has(h)), pad = Math.min(step * 5, state.w / 8, state.h / 8);
-    const span = Math.min(state.h - 2 * pad, Math.max(b.y1 - b.y0, pad * 2 * hidden.length));
-    const top = Math.max(pad, Math.min(state.h - pad - span, (b.y0 + b.y1 - span) / 2));
-    hidden.forEach((h, i) => {
-      const anchor = edgePoint(h.poly, 1, 0, true);
-      spots.set(h, { x: Math.max(pad, Math.min(state.w - pad, b.x1 + pad)), y: top + span * (i + 0.5) / hidden.length, anchor });
-    });
-    return spots;
-  }
-  function edgeDist(x, y, poly) {
-    let m = Infinity;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-      const [ax, ay] = poly[j], [bx, by] = poly[i], dx = bx - ax, dy = by - ay;
-      const k = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
-      m = Math.min(m, Math.hypot(x - ax - k * dx, y - ay - k * dy));
-    }
-    return m;
-  }
+  function overlapSpots(cands) { return RouteKit.overlapSpots(cands, state.w, state.h); }   // 重疊岩點各自的圓點（kit 的同一份）
+  function edgeDist(x, y, poly) { return RouteKit.edgeDist(x, y, poly); }
 
   // ---------- 繪製 ----------
   const route = () => state.wall && state.wall.routes.find(r => r.id === state.routeId) || null;
@@ -290,7 +267,7 @@
     do await pause(200); while (document.body.classList.contains('flying'));
     if (!alive()) return;
     const mode = baseMode();
-    await state.scene.prefetch([neighborRoute(1), neighborRoute(-1)].filter(Boolean).map(r => ({ routeHolds: holdsOf(r, wall), r, unit: labelUnit(r), mode, tint: true, hands: true })), alive);
+    await state.scene.prefetch([neighborRoute(1), neighborRoute(-1)].filter(Boolean).map(r => ({ routeHolds: holdsOf(r, wall), r, unit: labelUnit(r), mode, tint: mode !== 'dim', hands: true })), alive);
   }
   // 畫面上的線條層（#ov）：跟 #stage 一樣大、螢幕解析度；座標換成照片座標，畫的程式不用改
   const ovCv = $('ov'), ovCtx = ovCv.getContext('2d');
@@ -322,17 +299,12 @@
   // 畫面上的編輯畫面（分享的路線圖是 RouteKit.renderRouteImage）
   // 定線時顯示所有岩點的熱圖：這面牆的其他路線各用了每顆岩點幾次（不含正在定的這條）。定線中其他路線不會變，條數或這條換了才重算
   let heatMemo = null;
+  const heatLevel = RouteKit.heatLevel;   // 0＝沒用過（白框），用過的 1 次起跳、最多那顆是 1（kit 的同一份）
   function holdUse(w, r) {
     const rid = r ? r.id : null;
     if (heatMemo && heatMemo.w === w && heatMemo.rid === rid && heatMemo.n === w.routes.length) return heatMemo;
-    const n = new Map();
-    for (const x of w.routes) if (x !== r) for (const id of Object.keys(x.holds)) n.set(id, (n.get(id) || 0) + 1);
-    return (heatMemo = { w, rid, n: w.routes.length, use: n, max: Math.max(3, ...n.values()) });
+    return (heatMemo = { w, rid, n: w.routes.length, ...RouteKit.holdUse(w.routes, r) });   // 次數的算法在 kit（editor.js），內嵌頁用同一份
   }
-  // 0＝沒用過（白框），用過的 1 次起跳、最多那顆（至少當 3 次算）是 1
-  const heatLevel = (heat, id) => { const n = heat.use.get(id) || 0; return n && (0.25 + 0.75 * (n - 1) / (heat.max - 1)); };
-  // 粉紅 → 洋紅：避開類型的綠藍黃紅和選取的黃框
-  const heatColor = (k, a) => `rgba(255,${Math.round(190 - 150 * k)},${Math.round(240 - 30 * k)},${Math.max(+a, 0.6 + 0.4 * k).toFixed(2)})`;
   function draw(c0, { lines = false } = {}) {   // lines：只重畫線條層（底圖沒變，例如自動放大的動畫）
     let c = c0;
     if (state.w3d) W3D.sync();   // 修點變了（改外框、補點、復原、刪掉）先套到模型上
@@ -347,7 +319,7 @@
     const gray = highlight;   // 路線的底（灰階或暗彩，見 baseMode）：路線有點才換；定線一進來還是原本的照片，選了第一個點才調暗
     if (!lines) {
       // 底圖：整面牆共用的底＋路線岩點的原色圖層（都記在 state.scene）；滑鼠移動、縮放只重畫線條層
-      const sc = state.scene, tint = !!state.routeView, mode = baseMode();
+      const sc = state.scene, mode = baseMode(), tint = mode !== 'dim' && !!state.routeView;   // 灰階看線：volume 染色；暗彩不染，靠光暈
       const key = [sc.version, gray, mode, tint, routeHolds.map(h => h.id).join(',')].join('|');
       c.clearRect(0, 0, W, H);
       // 3D 牆：底圖是下面的模型（2D 畫布留空），路線岩點原色＋角色色光暈（看線、定線一樣）
@@ -359,21 +331,18 @@
     }
     c = overlay();   // 之後的線條、標籤都畫在線條層
     c.lineJoin = 'round';
+    // 暗彩時路線岩點外圈有角色色光暈（跟 3D 牆一樣；灰階沒有；寬度照螢幕點算；光暈在下、路線岩點原色圖層再蓋上去）；3D 牆的光暈在模型上做
+    if (highlight && baseMode() === 'dim' && !state.w3d && !revealing) RouteKit.glowAround(c, routeHolds, r.holds, TYPE_COLOR, devicePixelRatio || 1, state.scene.routeLayer(routeHolds, { tint: false }));
     if (state.mode === 'holds' || (state.showAll && !state.routeView)) {
       // 大螢幕（電腦）上照片放得很大，線跟著加粗一點：手機 1 倍，最多 1.5 倍
       const big = Math.min(1.5, Math.max(1, Math.min(innerWidth, innerHeight) / 560));
       // 沒放大時（一次看整面牆、岩點很多）細細淡淡的，看得到岩點本身；放大到 4 倍才是完整粗細。選到的那顆照樣粗
-      const zf = Math.min(1, 0.4 + 0.6 * (view.s - 1) / 3), wa = (0.55 + 0.3 * zf).toFixed(2);
       const heat = state.mode === 'route' ? holdUse(state.wall, r) : null;
       for (const h of holds) {
         if (state.mode === 'holds' && state.holdSub && h !== state.selected) continue;
         if (highlight && r.holds[h.id]) continue;
         if (offView(c, h.poly)) continue;
-        const sel = h === state.selected, f = sel ? 1 : zf, k = heat ? heatLevel(heat, h.id) : 0;
-        // 選到的那顆只畫黃框（外面再一圈深色看起來像一條細黑線）；定線：其他路線用過的照次數畫成粉紅到洋紅，越多越粗
-        if (!sel) { c.strokeStyle = `rgba(0,0,0,${(0.25 + 0.2 * zf).toFixed(2)})`; RouteKit.strokeOutside(c, h.poly, L((3 + 1.5 * k) * big * f)); }
-        c.strokeStyle = sel ? 'rgba(250,204,21,0.95)' : k ? heatColor(k, wa) : `rgba(255,255,255,${wa})`;
-        RouteKit.strokeOutside(c, h.poly, L((sel ? 3 : 2 + 1.5 * k) * big * f));
+        RouteKit.strokeHoldOutline(c, h.poly, { k: heat ? RouteKit.heatLevel(heat, h.id) : 0, sel: h === state.selected, viewScale: view.s, big, L });   // 外框和熱圖的畫法在 kit（labels.js），內嵌頁用同一份
       }
     }
     if (!highlight) { drawHover(c); drawHandles(c); drawLasso(c); drawDraft(c); drawOverlapPick(c); return; }
@@ -382,9 +351,12 @@
     if (state.routeView) {
       if (revealing) return;   // 岩點還在亮起：先不畫標籤
       if (state.w3d && (state.w3d.tilted || routeZoomed())) return;   // 3D 牆放大、走近：標籤是平面的，換角度會跑來跑去，回到路線視角才畫
+      // 暗彩：光暈外再描一圈角色色的細外框（岩點外側），看得出是哪些點（跟定線一樣的畫法）
+      const glowOn = baseMode() === 'dim' && !state.w3d;
+      if (glowOn) for (const h of routeHolds) RouteKit.strokeRouteHold(c, h.poly, r.holds[h.id], (s) => L(s * 0.4));
       const lu = labelUnit();
       const labels = placeTypeLabels(routeHolds, r, lu, true);
-      c.save(); c.globalAlpha = tagAlpha(); RouteKit.drawTypeLabels(c, labels, lu); RouteKit.drawSeq(c, state, r, lu, labels, routeHolds); c.restore();
+      c.save(); c.globalAlpha = tagAlpha(); if (!glowOn) RouteKit.drawTypeLabels(c, labels, lu); RouteKit.drawSeq(c, state, r, lu, labels, routeHolds); c.restore();   // 暗彩有光暈外框，就不貼膠帶標示
     }
     else {
       // 定線：外框用固定的細螢幕線寬（不隨縮放變：岩點小的時候才不會一圈外框把岩點蓋滿）
@@ -394,32 +366,10 @@
     drawHover(c); drawDraft(c); drawOverlapPick(c);
   }
   // 重疊岩點的選擇：候選以外調暗，每顆一個顏色畫框，各自會選到的地方放一個同色圓點
-  const PICK_COLORS = ['#fff', '#c6ff3d', '#5ee0ff', '#ff9be6'];
-  // 候選的岩點換回照片原本的顏色（灰階的底上看不出是哪一顆）；路線上已經選的岩點，類型的框畫在壓暗的上面，放大後也看得清楚
   function drawOverlapPick(c) {
-    const p = state.overlapPick, v = c.vis;
+    const p = state.overlapPick, v = c.vis, r = route(), sp = screenPx();
     if (!p || !v) return;
-    const sp = screenPx(), r = route();
-    c.save();
-    for (const h of p.holds) { c.beginPath(); c.rect(v.x0, v.y0, v.x1 - v.x0, v.y1 - v.y0); tracePoly(c, h.poly); c.clip('evenodd'); }
-    c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(v.x0, v.y0, v.x1 - v.x0, v.y1 - v.y0);
-    c.restore();
-    c.save(); c.beginPath(); for (const h of p.holds) tracePoly(c, h.poly); c.clip('nonzero'); c.drawImage(state.img, 0, 0); c.restore();
-    if (r) for (const h of holdsOf(r)) if (!offView(c, h.poly)) RouteKit.strokeRouteHold(c, h.poly, r.holds[h.id], (s) => s * sp);
-    c.save(); c.lineJoin = 'round';
-    p.holds.forEach((h, i) => {
-      const col = PICK_COLORS[i % PICK_COLORS.length], s = p.spots.get(h);
-      c.beginPath(); tracePoly(c, h.poly);
-      c.lineWidth = 5 * sp; c.strokeStyle = 'rgba(0,0,0,0.5)'; c.stroke();
-      c.lineWidth = 2.6 * sp; c.strokeStyle = col; c.stroke();
-      if (s.anchor) {
-        c.beginPath(); c.moveTo(...s.anchor); c.lineTo(s.x, s.y);
-        c.lineWidth = 1.5 * sp; c.strokeStyle = col; c.stroke();
-      }
-      c.beginPath(); c.arc(s.x, s.y, 10 * sp, 0, Math.PI * 2);
-      c.fillStyle = col; c.fill(); c.lineWidth = 3 * sp; c.strokeStyle = 'rgba(0,0,0,0.55)'; c.stroke();
-    });
-    c.restore();
+    RouteKit.drawOverlapPick(c, { img: state.img, holds: p.holds, spots: p.spots, vis: v, L: (s) => s * sp, routeHolds: r ? holdsOf(r) : [], route: r });   // 畫法在 kit（labels.js），內嵌頁用同一份
   }
   // 同色預覽的候選：白色虛線框（外面一圈深色，淺色岩點上也看得到）
   // 選取的岩點（岩點模式）：頂點畫成白色把手，邊的中點畫成小點（拖它可新增頂點）

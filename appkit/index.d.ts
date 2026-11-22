@@ -180,6 +180,23 @@ export interface Account {
   }): HTMLElement;
 }
 
+/** 分享用的風格圖片（限時動態、貼文；滿版、卡片，見 share-image.js） */
+export interface ShareImage {
+  make(options: {
+    size: { w: number; h: number };
+    base: HTMLCanvasElement | (() => HTMLCanvasElement);
+    focus?: { x0: number; y0: number; x1: number; y1: number }[];
+    grade?: string; name?: string; by?: string; fmt?: 'story' | 'post';
+    logo?: (size: number) => HTMLCanvasElement;
+    lang?: string; quality?: number; current?: () => boolean;
+  }): Promise<{ blob: Blob | null; name: string }>;
+  loadFonts(styleName: 'full' | 'card', text: string, cap?: string, lang?: string): Promise<void>;
+  capFont(lang?: string): [string, string];
+  symbolLogo(symbol: Element): (size: number) => HTMLCanvasElement;
+  imageLogo(img: CanvasImageSource): (size: number) => HTMLCanvasElement;
+  readonly STYLES: Record<'full' | 'card', { grade: [string, string]; name: [string, string]; by: [string, string]; ink: string }>;
+}
+
 export declare const i18n: I18n;
 export declare const install: Install;
 export declare const photo: Photo;
@@ -188,6 +205,7 @@ export declare const ui: Ui;
 export declare const account: Account;
 export declare const landing: Landing;
 export declare const share: Share;
+export declare const shareImage: ShareImage;
 export declare const update: Update;
 export declare const idb: Idb;
 /** 手勢（見 gesture.js） */
@@ -206,5 +224,5 @@ export declare const store: Store;
 export declare const gesture: Gesture;
 export declare const timing: Timing;
 export declare const backstack: Backstack;
-declare const AppKit: { i18n: I18n; install: Install; photo: Photo; files: Files; ui: Ui; account: Account; landing: Landing; share: Share; update: Update; idb: Idb; backstack: Backstack; store: Store; gesture: Gesture; timing: Timing };
+declare const AppKit: { i18n: I18n; install: Install; photo: Photo; files: Files; ui: Ui; account: Account; landing: Landing; share: Share; shareImage: ShareImage; update: Update; idb: Idb; backstack: Backstack; store: Store; gesture: Gesture; timing: Timing };
 export default AppKit;

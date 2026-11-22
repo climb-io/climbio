@@ -45,6 +45,8 @@ crags/<id>/
   <id>.jpg …           照片
   <id>.thumb.jpg …     每張照片的縮圖（長邊 480 像素）
   preview.jpg、thumb.jpg  預覽圖與縮圖
+  source/              轉換路線書的原始檔（只有從路線書轉換的岩場有）：轉換時選的檔案、按建立時的大綱 outline.md、
+                       換成原圖的那張路線書圖 fig-*、轉換紀錄 convert.json；App 不讀，拿來重跑轉換（tools/guidebook.mjs rerun）
 openclimbing/index.json  OpenClimbing 岩場的索引（紅點貓的世界）
 openclimbing/<OSM relation id>/
   topo.json            岩場的 Topo：路線、線條、Commons 照片的資訊（建索引時已驗證授權與網址）
@@ -68,6 +70,7 @@ openclimbing/<OSM relation id>/
 | `at` | 岩場位置 `[經度, 緯度]`（沒有是 `null`） |
 | `license`、`attribution` | 授權、署名（原作者；改編的會註明） |
 | `origin` | 改編自哪個岩場包（原創是空字串） |
+| `source` | 有原始檔（`source/`）時才有：`{ files, bytes }`；上面的 `files`、`bytes`、`photos` 不含原始檔 |
 
 ## 授權與署名
 

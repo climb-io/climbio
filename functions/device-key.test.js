@@ -35,7 +35,7 @@ function phone() {
 const route = id => JSON.stringify({ nodes: [{ id, type: 'route', t: 1 }], marks: [] });   // 圖層的片段
 const routes = ids => ({ pid: PID, routes: ids.map(id => ({ id, r: route(id) })) });
 
-async function published(s) { await s.call({ op: 'publish', pid: PID, name: '牆', gym: '', src: SRC }); }
+async function published(s) { await s.call({ op: 'publish', source: 'studio', pid: PID, name: '牆', gym: '', src: SRC }); }
 
 test('裝置金鑰：不登入也能寫自己的線，擁有者記成 k:<kid>，同一把金鑰才能改、刪', async () => {
   const s = setup(); await published(s);

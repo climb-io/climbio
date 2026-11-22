@@ -25,7 +25,7 @@ for (const p of pkgs) {
   });
   test(`${p.dir}：package.json 列的檔案都在`, () => {
     const pkg = JSON.parse(read(`${p.dir}/package.json`));
-    for (const f of pkg.files.filter(f => !f.includes('*'))) assert.ok(fs.existsSync(new URL(`${p.dir}/${f}`, root)), `${p.dir}/${f}`);
+    for (const f of pkg.files.filter(f => !f.includes('*') && !f.startsWith('!'))) assert.ok(fs.existsSync(new URL(`${p.dir}/${f}`, root)), `${p.dir}/${f}`);
     for (const e of Object.values(pkg.exports).flatMap(v => typeof v === 'string' ? [v] : Object.values(v)).filter(v => !v.includes('*')))
       assert.ok(fs.existsSync(new URL(`${p.dir}/${e}`, root)), `${p.dir}/${e}`);
   });

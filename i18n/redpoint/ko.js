@@ -82,6 +82,8 @@ AppKit.i18n.add('redpoint', 'ko', {
   // 월드
   world: "월드",
   findingCrags: "암장을 찾는 중…",
+  findCrag: "암장, 지역, 국가 검색",
+  noResults: "일치하는 암장이 없습니다",
   loadFailed: (msg) => `불러오지 못했어요: ${msg}`,
   noPublicCrags: "공개된 암장이 아직 없어요",
   emptyTitle: "월드에서 첫 암장을 받아 보세요",

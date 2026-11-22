@@ -27,6 +27,7 @@ English: [README.en.md](README.en.md)
 | `render.js` | 把路線模型畫成 SVG 字串：`renderLines`、`renderReveal`（沒有 DOM 也能跑） |
 | `annotate.js` | 版面：平滑路徑、文字寬度與換行、`Placer`（牌子避讓） |
 | `viewport.js` | 縮放、平移、取景、雙擊、滑動的純函式與常數 |
+| `motion.js` | 重畫後的動態：編號牌換位置時滑過去、說明新出現時淡入（`TopoViewer` 內部用） |
 | `view.js` | `TopoViewer`：照片＋SVG、手勢、縮放按鈕、事件 |
 | `editor.js` | `TopoEditor`（繼承 `TopoViewer`）：工具、編輯、復原／重做 |
 | `style.js` | 元件用的 CSS 字串 `CSS` |
@@ -131,6 +132,8 @@ English: [README.en.md](README.en.md)
 - v2 沒有共用線段；分岔是複製前段的點。兩端座標相同的線段視為共用、只畫一次。產生路線線的程式要讓共線路線共用同一組點，各自簡化會讓共用段座標差一點而各畫各的。
 - 在共用線段加點、移動共用點，分岔的路線一起動。
 - 畫了線的路線一定有編號牌，放不下也放在第一個位置。
+- 編號牌是路線色的圓（白字），難度是圓下面的小白籤（`5.11a` 縮成 `11a`），圓的上緣接著起點；起點離照片下緣太近、下面放不下時，畫出來的線起點沿著線往上挪（只影響畫面，不改資料）。
+- 路線擠時牌子先縮小、再拿掉難度；放大後路線拉開就恢復成排得下的最大尺寸，縮放時級別有遲滯，不會一會大一會小。
 - 只有 `editLayer` 的路線可改；`toLayer()` 輸出的圖層通過 `@climbio/format` 的 `validate`。
 - 編號牌位置不看選了哪條路線；編輯時看到的就是最後的結果，只有正在編的路線頭尾照原樣、有把手。
 
@@ -169,7 +172,7 @@ editor.setTool('line');
 - 需要瀏覽器的 DOM、SVG（`TopoViewer`、`TopoEditor`、元件）；`renderLines`、`readTopo`、`writeLayer`、線段與視角函式可在 Node 執行。
 - 照片以 `href` 載入，需能被瀏覽器跨來源讀取；元件讀網址只收 https 或同站。
 - `wheel` 預設要按 Ctrl／⌘ 才縮放（Viewer），讓頁面照常捲動。
-- 字型固定（系統字），不跟 App 字型；顏色用 CSS 變數 `--tk-sport`、`--tk-sport-on`、`--tk-other`、`--tk-other-on`、`--tk-bolt`、`--tk-bg`。
+- 字型固定（系統字），不跟 App 字型；顏色用 CSS 變數 `--tk-sport`、`--tk-sport-on`、`--tk-other`、`--tk-other-on`、`--tk-bg`。
 - 外觀對齊龍洞的截圖基準（`baseline/`）；改版面演算法要連同基準重截。
 
 ## 8. 驗證
@@ -178,4 +181,5 @@ editor.setTool('line');
 |---|---|
 | 版面與龍洞 `TopoLines` 逐項一致、v2 進出（輸出通過 `validate`）、共用線段、縮放 | `node --test topokit/test/unit.test.mjs`（`npm run test:quick` 也會跑） |
 | 路線擠時的牌子排版 | `node --test tools/topokit-render.test.mjs` |
+| 公開岩場的全部 Topo × 手機寬度 320–768 × 縮放 1–6 倍：牌子不重疊、不壓別條線、不小於 14 像素、不超出照片 | `node tools/topokit-audit.mjs`（需要網路，`--verbose` 列出問題） |
 | 瀏覽器：demo、編輯、觸控、資源清理 | 內部 e2e 案例；外部安裝流程 內部 e2e 案例 |

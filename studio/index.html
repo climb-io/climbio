@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant" data-ak-phone="app" data-climbio-theme="outdoor">
+<html lang="zh-Hant" class="st-railed" data-ak-phone="app" data-climbio-theme="studio">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -20,213 +20,194 @@
 <meta name="twitter:description" content="整理戶外岩場的工作台：丟進一批照片，自動整理，輸出 Climbio 公開格式。">
 <meta name="twitter:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#F7F9FB">
+<meta name="theme-color" content="#0E0E0F">
 <link rel="icon" href="../icons/brand/favicon-64.png">
 <link rel="apple-touch-icon" href="../icons/brand/apple-touch-icon-180.png">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self' blob: https:; img-src 'self' data: blob: https://*.googleusercontent.com; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; frame-src 'self' https://*.web.app; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'inline-speculation-rules'; connect-src 'self' blob: https:; img-src 'self' data: blob: https://*.googleusercontent.com; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; frame-src 'self' https://*.web.app; object-src 'none'; base-uri 'self'; form-action 'self'">
 <script src="../appkit/recover.js"></script>
 <script src="../appkit/errors.js"></script>   <!-- 測試版的錯誤回報（正式版不送），越早載入越好 -->
 <link rel="stylesheet" href="../css/brand-tokens.css">
+<link rel="stylesheet" href="../css/site-nav.css">
 <link rel="stylesheet" href="../appkit/ui.css">
 <link rel="stylesheet" href="shell.css">
 <script src="../appkit/landing.js"></script>   <!-- 手機照常打開，html 加 ak-handset：只匯入岩場站、接著編 Crag -->
 <style>
-  :root { --radius: 20px; --radius-sm: 14px; --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang TC", "Noto Sans TC", "Segoe UI", sans-serif; }
+  /* 首頁：按鈕、輸入框等元件在 shell.css；這裡只排版面。內容一欄置中，區段之間用小字標題分開 */
   * { box-sizing: border-box; }
-  html, body { margin: 0; min-height: 100%; }
-  body { background: var(--bg); color: var(--text); font: 15px/1.5 var(--font); }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--text); }
   button, input { font: inherit; color: inherit; }
   [hidden] { display: none !important; }
-  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 40px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--surface-2); color: var(--text); font-weight: 600; text-decoration: none; cursor: pointer; white-space: nowrap; }
-  .btn:hover:not(:disabled) { background: var(--hover); }
-  .btn.primary { background: var(--accent); color: var(--on-accent); }
-  .btn.primary:hover:not(:disabled) { background: var(--accent-hover); }
-  .btn:disabled { opacity: .4; cursor: default; }
-  .btn.danger-fill { background: var(--danger); color: var(--on-danger); }
-  .field { background: var(--surface); border: 1px solid var(--control); border-radius: 12px; padding: 9px 12px; min-width: 0; font-size: 16px; }
-  .field:focus { border-color: var(--accent); outline: none; }
-  #top { display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
-  main { width: min(1120px, 100%); margin: 0 auto; padding: 28px 20px 56px; display: flex; flex-direction: column; gap: 26px; }
-  h2 { margin: 0 0 12px; font-size: 13px; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
-  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
-  #scan { display: flex; align-items: center; gap: 12px; }
-  #result { display: flex; flex-direction: column; gap: 18px; }
-  .name { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 13px; }
-  .name .field { color: var(--text); font-size: 15px; max-width: 420px; }
-  .btn.small { height: 30px; padding: 0 12px; font-size: 12.5px; }
-  #groupBox { display: flex; flex-direction: column; gap: 10px; }
-  .group-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .group-bar h2 { margin: 0 auto 0 0; }
-  .sel-count { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  #groupMap { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
-  #groupMap .gm-head { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; color: var(--muted); }
-  #groupMap svg { width: 100%; height: 220px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); display: block; }
-  #groupMap .gm-wall { cursor: pointer; }
-  #groupMap .gm-wall:hover line.wall-seg { stroke-width: 5.5; }
-  .gcard.flash { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
-  #groups { display: flex; flex-direction: column; gap: 10px; max-height: 560px; overflow: auto; padding: 2px; }
-  .gcard { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
-  .ghead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .ghead input { font-weight: 700; font-size: 14.5px; padding: 4px 8px; border-radius: 8px; border: 1px solid transparent; background: transparent; min-width: 120px; max-width: 240px; }
-  .ghead input:hover, .ghead input:focus { border-color: var(--line-strong); background: var(--surface); outline: none; }
-  .ghead .gnote { font-size: 12.5px; color: var(--muted); margin-right: auto; }
-  .ggrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
-  .pcard { position: relative; border-radius: 10px; border: 2px solid var(--line); background: var(--surface); overflow: hidden; display: flex; flex-direction: column; transition: opacity .15s, border-color .15s; }
-  .pcard.on { border-color: var(--accent); }
-  .pcard.off { opacity: .52; }
-  .pcard .thumb { position: relative; aspect-ratio: 4 / 3; background: var(--surface-2) center / cover no-repeat; cursor: zoom-in; }
-  .pcard .pcheck { position: absolute; left: 6px; top: 6px; width: 20px; height: 20px; accent-color: var(--accent); margin: 0; cursor: pointer; z-index: 1; }
-  .pcard .pbadge { position: absolute; right: 6px; top: 6px; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: rgba(16, 24, 32, .72); color: #fff; }
-  .pcard .pbadge.clean, #lbBadge.clean { background: rgba(20, 120, 70, .88); }
-  .pcard .pbadge.warn, #lbBadge.warn { background: rgba(196, 68, 28, .92); }
-  .pcard .pmeta { padding: 5px 6px; display: flex; align-items: center; gap: 4px; font-size: 12px; }
-  .pcard .pname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: zoom-in; }
-  .pcard select { font-size: 11.5px; padding: 1px 4px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface-2); max-width: 72px; }
-  #lightbox { position: fixed; inset: 0; z-index: 200; background: rgba(10, 16, 24, .88); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; user-select: none; }
-  #lbBar { width: min(960px, 100%); display: flex; align-items: center; gap: 10px; background: rgba(24, 32, 44, .92); color: #fff; padding: 8px 14px; border-radius: 999px; font-size: 13.5px; }
-  #lbBar label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 600; }
-  #lbBar input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; cursor: pointer; }
-  #lbBadge { font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; color: #fff; }
-  #lbTitle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(255,255,255,.85); }
-  #lbClose { border: 0; background: rgba(255,255,255,.14); color: #fff; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-weight: 700; }
-  #lbClose:hover { background: rgba(255,255,255,.26); }
-  #lbStage { position: relative; flex: 1; width: 100%; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: auto; }
-  #lbImg { max-width: min(92vw, 1280px); max-height: calc(100vh - 100px); object-fit: contain; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.5); cursor: zoom-in; transition: transform .15s ease; }
-  #lbImg.zoomed { max-width: none; max-height: none; width: min(180vw, 2200px); cursor: zoom-out; }
-  .lb-nav { position: fixed; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 50%; border: 0; background: rgba(24, 32, 44, .82); color: #fff; font-size: 24px; line-height: 1; cursor: pointer; display: grid; place-items: center; z-index: 201; }
-  .lb-nav:hover { background: rgba(40, 52, 70, .95); }
-  #lbPrev { left: 18px; }
-  #lbNext { right: 18px; }
-  #opts { display: flex; flex-direction: column; gap: 2px; }
-  .opt { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-radius: 10px; cursor: pointer; }
-  .opt:hover { background: var(--surface-2); }
-  .opt input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; margin: 0; }
-  .opt small { color: var(--muted); font-size: 12.5px; }
-  .row { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
-  #manual { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  #manual button { text-align: left; padding: 14px 16px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--surface); cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
-  #manual button:hover { border-color: var(--line-strong); background: var(--hover); }
-  #manual b { display: flex; align-items: center; gap: 8px; }
-  #manual span { color: var(--muted); font-size: 13px; }
-  .tag { flex: none; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--ws-soft); border: 1px solid var(--ws); color: var(--text); }
+  main { width: min(1180px, 100%); margin: 0 auto; padding: 24px clamp(16px, 3vw, 40px) 80px; display: flex; flex-direction: column; gap: 44px; }
+  h2 { margin: 0 0 16px; font: 600 19px/1.2 var(--font); letter-spacing: -.025em; color: var(--text); }
+  /* 主畫面：岩館（原岩明德的 3D 牆）和天然岩場（大砲岩的 3D 模型）交替，淡入淡出、慢慢推近；系統「減少動態效果」時不推、不換 */
+  .st-hero { position: relative; height: clamp(320px, 58vh, 600px); border-radius: 24px; overflow: hidden; background: #000; isolation: isolate; box-shadow: 0 0 0 1px var(--line), 0 30px 80px -40px rgba(0, 0, 0, .9); }
+  .hero-scene { position: absolute; inset: 0; margin: 0; opacity: 0; transition: opacity 1.6s ease; }
+  .hero-scene.on { opacity: 1; }
+  .hero-scene img { width: 100%; height: 100%; object-fit: cover; display: block; transform: scale(1); transition: transform 9s linear; filter: saturate(.92) contrast(1.04); }
+  .hero-scene.on img { transform: scale(1.07); }
+  .hero-scene[data-kind="crag"] img { object-position: 50% 45%; }
+  .st-hero::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; border-radius: inherit; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08); }
+  .st-hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(11, 11, 13, 0) 35%, rgba(11, 11, 13, .55) 70%, rgba(11, 11, 13, .92)), linear-gradient(90deg, rgba(11, 11, 13, .55), rgba(11, 11, 13, 0) 55%); pointer-events: none; }
+  .hero-text { position: absolute; z-index: 1; left: clamp(22px, 4vw, 48px); right: 22px; bottom: clamp(22px, 4vw, 44px); display: flex; flex-direction: column; align-items: flex-start; gap: 20px; }
+  .hero-text h1 { margin: 0; color: #fff; font: 700 clamp(44px, 7.2vw, 96px)/.95 var(--font); letter-spacing: -.055em; text-shadow: 0 10px 40px rgba(0, 0, 0, .5); }
+  .hero-text h1 em { font-style: normal; background: linear-gradient(100deg, #E6FF8A, var(--accent) 40%, #7FE3C4); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero-chip { display: inline-flex; align-items: center; gap: 10px; height: 40px; padding: 0 5px 0 15px; border-radius: 12px; background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); color: #fff; text-decoration: none; font: 500 14px/1 var(--font); }
+  .hero-chip i { width: 6px; height: 6px; border-radius: 50%; background: var(--ws, var(--accent)); box-shadow: 0 0 8px var(--ws, var(--accent)); }
+  .hero-chip b { height: 30px; display: grid; place-items: center; padding: 0 12px; border-radius: 8px; background: var(--accent); color: var(--on-accent); font-weight: 600; box-shadow: var(--glow); }
+  .hero-chip:hover b { background: var(--accent-hover); }
+  .hero-dots { position: absolute; z-index: 1; right: 20px; bottom: 22px; display: flex; gap: 6px; }
+  .hero-dots i { width: 22px; height: 3px; border-radius: 1px; background: rgba(255, 255, 255, .3); }
+  .hero-dots i.on { background: #fff; }
+  @media (prefers-reduced-motion: reduce) { .hero-scene, .hero-scene img { transition: none; } .hero-scene.on img { transform: none; } }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
+  #scan { display: flex; align-items: center; gap: 12px; color: var(--muted); }
+  #result { display: flex; flex-direction: column; gap: 16px; }
+  .name { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 12.5px; font-weight: 500; }
+  .name .field { color: var(--text); max-width: 420px; }
+  .sel-count { margin: 0; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .row { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+  #manual { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  #manual button { text-align: left; padding: 12px 14px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--surface); cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+  #manual button:hover { border-color: var(--line-strong); background: var(--surface-2); }
+  #manual b { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+  #manual span { color: var(--muted); font-size: 12.5px; }
   #recentBox .head { display: flex; align-items: center; gap: 8px; }
   #recentBox .head h2 { margin-right: auto; }
+  /* 繼續編輯：專案卡（工作區色的圖示、名稱、哪一條線 · 放在哪 · 時間），刪除鈕滑過才出現 */
+  #recent { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  #recent li { position: relative; display: flex; align-items: stretch; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; transition: border-color .15s, background-color .15s, box-shadow .2s, translate .2s var(--ease); }
+  #recent li:hover { border-color: var(--line-strong); background: var(--surface-2); box-shadow: var(--lift); translate: 0 -2px; }
+  #recent .open { flex: 1; min-width: 0; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 12px; row-gap: 3px; align-items: center; text-align: left; padding: 14px; border: 0; background: none; cursor: pointer; color: var(--text); }
+  #recent .lib-icon { grid-row: span 2; width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; background: var(--ws-soft); color: var(--ws); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05); }
+  #recent .lib-icon svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  #recent .open b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14.5px; font-weight: 600; letter-spacing: -.01em; }
+  #recent .open small { color: var(--dim); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #recent .warn { color: var(--danger); }
-  #recent { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
-  #recent li { display: flex; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); }
-  #recent .open { flex: 1; min-width: 0; display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: center; text-align: left; padding: 12px 14px; border: 0; background: none; cursor: pointer; }
-  #recent .open b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #recent .open small { grid-column: 2; color: var(--muted); }
-  #recent .del { border: 0; background: none; color: var(--muted); padding: 8px 12px; cursor: pointer; font-size: 13px; }
+  #recent .del { position: absolute; top: 8px; right: 8px; height: 22px; border: 0; border-radius: 6px; background: var(--surface); color: var(--muted); padding: 0 8px; cursor: pointer; font-size: 11.5px; opacity: 0; transition: opacity .15s; }
+  #recent li:hover .del, #recent .del:focus-visible { opacity: 1; }
   #recent .del:hover { color: var(--danger); }
-  /* Studio 起點：以工作區及使用者目標分類，格式判斷交給匯入器。 */
-  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); margin: 0; }
-  .workspace-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
-  .workspace { border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; background: var(--surface); min-width: 0; display: grid; gap: 14px; }
-  .workspace h2 { font-size: 23px; letter-spacing: -.02em; color: var(--text); margin: 0; }
-  .workspace p { margin: 0; color: var(--muted); line-height: 1.6; }
-  .workspace .ws-label { font-size: 12px; font-weight: 750; letter-spacing: .06em; color: var(--muted); }
-  .workspace.wall .ws-label { color: var(--climbio-brand-green-depth); }
-  .workspace.crag .ws-label { color: var(--brand-action); }
-  .workspace .panel { padding: 22px 18px; border-radius: 15px; }
-  .entry-drop { min-height: 168px; border: 2px dashed var(--line-strong); border-radius: 15px; background: var(--surface-2); display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px; padding: 22px 18px; text-align: center; }
-  .entry-drop.over, .entry-drop:focus-within { border-color: var(--accent); background: var(--accent-soft); }
-  .entry-drop b { font-size: 17px; }
-  .entry-drop span { color: var(--muted); font-size: 13px; }
-  .entry-drop .acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-  .entry-url { display: flex; gap: 8px; }
-  .entry-url .field { width: 100%; flex: 1; }
-  .entry-url button { flex: none; }
-  .entry-tip { font-size: 12px; margin: 0; }
+  @media (hover: none) { #recent .del { opacity: 1; } }
+  /* 加資料：唯一的新增入口（整頁也收拖放），這頁唯一的主要動作 */
+  /* 交給 AI：Studio 是給 AI 代理做事、人來確認的；首頁教人設定代理、交代任務、打開它做好的專案（studio/home.js） */
+  #aiBox { padding: 22px 24px; border-radius: 20px; background: radial-gradient(80% 140% at 0% 0%, rgba(212, 255, 79, .13), transparent 60%), radial-gradient(60% 140% at 100% 100%, rgba(79, 179, 240, .1), transparent 60%), var(--surface); box-shadow: var(--sheen), 0 0 0 1px rgba(212, 255, 79, .2), 0 30px 60px -40px rgba(212, 255, 79, .35); }
+  #aiBox h2 { margin: 0 0 4px; font: 650 22px/1.2 var(--font); letter-spacing: -.03em; color: var(--text); }
+  #aiBox > p { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+  .ai-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; counter-reset: ai; }
+  .ai-steps > li { counter-increment: ai; display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; background: var(--surface-2); box-shadow: 0 0 0 1px var(--line); font-size: 13.5px; color: var(--muted); }
+  .ai-steps > li > b { color: var(--text); font-size: 14.5px; font-weight: 600; }
+  .ai-steps > li > b::before { content: counter(ai); display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 8px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: 12px; }
+  .ai-steps a { color: var(--accent); }
+  .ai-tasks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .ai-tasks li { display: flex; align-items: flex-start; gap: 8px; }
+  .ai-tasks q { flex: 1; quotes: none; font-weight: 400; color: var(--text); font-size: 12.5px; line-height: 1.45; padding: 6px 8px; border-radius: 8px; background: var(--sunken, var(--bg)); }
+  .ai-tasks q b { color: var(--muted); font-weight: 500; }
+  .ai-tasks button { flex: none; height: 28px; padding: 0 9px; font-size: 12px; }
+  #openProject { align-self: flex-start; }
+  @media (max-width: 900px) { .ai-steps { grid-template-columns: 1fr; } }
+  /* 四條線：同一種卡片（工作區色的圖示、輸入 → AI → 你判斷三步）；新增一律從「加資料」，3D 另有看的入口 */
+  .workspace-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: stretch; }
+  .workspace { position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; background: var(--surface); min-width: 0; display: flex; flex-direction: column; gap: 20px; transition: border-color .2s, box-shadow .25s, translate .25s var(--ease); }
+  .workspace::before { content: ""; position: absolute; inset: -1px -1px auto; height: 160px; background: radial-gradient(110% 100% at 0% 0%, var(--ws-soft), transparent 70%); opacity: 1; pointer-events: none; transition: opacity .25s; }
+  .workspace::after { content: ""; position: absolute; left: 20px; right: 20px; top: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--ws), transparent); opacity: .5; }
+  .workspace:hover { border-color: var(--line-strong); box-shadow: 0 26px 60px -30px var(--ws-soft), var(--lift); translate: 0 -3px; }
+  .workspace > * { position: relative; }
+  .workspace h2 { font: 650 19px/1.2 var(--font); letter-spacing: -.025em; color: var(--text); margin: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
+  .ws-icon { flex: none; width: 44px; height: 44px; border-radius: 13px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08), 0 8px 24px -8px var(--ws) !important; display: grid; place-items: center; background: var(--ws-soft); color: var(--ws); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); }
+  .ws-icon svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .ws-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; }
+  .ws-steps li { display: grid; grid-template-columns: 4.6em 1fr; gap: 8px; padding: 9px 0; font-size: 13px; line-height: 1.45; border-top: 1px solid var(--line); }
+  .ws-steps li span { color: var(--dim); }
+  .ws-steps li b { font-weight: 400; color: var(--text); }
+  .ws-steps li:last-child b { color: var(--ws); font-weight: 500; }
+  .ws-acts { margin-top: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .entry-tip { font-size: 12px; margin: 0; color: var(--muted); }
   .entry-tip:empty { display: none; }
-  .workspace details { border-top: 1px solid var(--line); padding-top: 14px; }
-  .workspace summary { cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 650; }
-  .workspace .secondary-actions { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
-  #flowStage { scroll-margin-top: 20px; }
+  #flowStage { scroll-margin-top: 64px; }
   #flowStage[hidden] { display: none; }
   #flowStage #scan, #flowStage #result { width: 100%; }
-  #recentBox { margin-bottom: 4px; }
-  @media (max-width: 800px) { .workspace-grid { grid-template-columns: 1fr; } }
-  @media (max-width: 760px) { .workspace { padding: 20px; } main { padding: 20px 16px 42px; } }
-  @media (max-width: 410px) { .entry-url { flex-direction: column; } .entry-url button { width: 100%; } }
-  html.ak-handset #newCrag { display: none !important; }
+  @media (max-width: 900px) { .workspace-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 640px) { .workspace-grid { grid-template-columns: 1fr; } main { gap: 28px; padding-top: 20px; } }
 </style>
 </head>
-<body>
-<header id="top">
-  <a class="st-brand" href="../"><img src="../icons/brand/climbio-mark.svg" alt="Climbio">Studio</a>
+<body class="studio-home">
+<header id="top" class="st-topbar">
+  <span class="st-crumb"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></svg></i><b data-i18n="stRailHome">首頁</b></span>
+  <span class="grow"></span>
 </header>
 <main>
-  <h1 class="sr">Studio</h1>
+  <section id="hero" class="st-hero" aria-labelledby="heroTitle">
+    <figure class="hero-scene on" data-kind="gym"><img src="hero/mingde.jpg" alt="原岩明德的 3D 牆" data-i18n-aria="stHeroGymAlt" fetchpriority="high"></figure>
+    <figure class="hero-scene" data-kind="crag"><img src="hero/dapao.jpg" alt="大砲岩的 3D 模型" data-i18n-aria="stHeroCragAlt" loading="lazy"></figure>
+    <div class="hero-text">
+      <h1 id="heroTitle">Climbio <em>Studio</em></h1>
+      <a id="heroOpen" class="hero-chip" href="scene/#src=mingde"><i></i><span id="heroLabel" data-i18n="stHeroGym">岩館 · 原岩明德</span><b data-i18n="stHeroOpen">打開 3D</b></a>
+    </div>
+    <div class="hero-dots" aria-hidden="true"><i class="on"></i><i></i></div>
+  </section>
+  <section id="aiBox" aria-labelledby="aiTitle">
+    <h2 id="aiTitle" data-i18n="stAi">交給 AI</h2>
+    <p data-i18n="stAiIntro">Studio 是給 AI 代理做事、你來確認的：整理照片、轉換路線書、偵測岩點都交給它，你只看結果、按發佈。</p>
+    <ol class="ai-steps">
+      <li><b data-i18n="stAiSetup">設定一次</b><span data-i18n="stAiSetupText">準備一個能在你電腦上執行程式的 AI 代理（例如 Claude Code、Codex），把 Climbio 的 GitHub 專案交給它；要裝什麼、怎麼做，它照專案裡的說明自己處理。</span><a href="https://github.com/climb-io/climbio" target="_blank" rel="noopener">github.com/climb-io/climbio</a></li>
+      <li><b data-i18n="stAiTell">交代任務</b><span data-i18n="stAiTellText">把下面的句子複製給它，換成你的資料夾或網址：</span>
+        <ul class="ai-tasks">
+          <li><q data-i18n-html="stAiTaskGym">用 Climbio Studio 把 <b>〔照片資料夾〕</b> 的岩館牆面照片做成岩點檔。先讀專案的 AGENTS.md，再跑 node tools/studio.mjs start gym 〔照片資料夾〕 照它印的做；AI 能判斷的都自己做完，做好告訴我專案資料夾在哪，只有發佈要問我，做不到的如實說卡在哪。</q><button type="button" class="btn" data-copy data-i18n="stAiCopy">複製</button></li>
+          <li><q data-i18n-html="stAiTaskCrag">用 Climbio Studio 把 <b>〔老岩場的路線書：檔案或網頁〕</b> 轉成手機上好閱讀的紅點貓格式（Guidebook）。先讀專案的 AGENTS.md，再跑 node tools/studio.mjs start crag 〔資料夾〕 〔路線書檔案或網址〕 照它印的做；AI 能判斷的都自己做完，做好告訴我專案資料夾在哪，只有發佈要問我，做不到的如實說卡在哪。</q><button type="button" class="btn" data-copy data-i18n="stAiCopy">複製</button></li>
+          <li><q data-i18n-html="stAiTaskBook">用 Climbio Studio 把這份路線書 <b>〔Word、PDF 或網址〕</b> 轉成 Guidebook。先讀專案的 AGENTS.md，再跑 node tools/studio.mjs start book 〔資料夾〕 〔路線書〕 照它印的做；AI 能判斷的都自己做完，做好告訴我專案資料夾在哪，只有發佈要問我，做不到的如實說卡在哪。</q><button type="button" class="btn" data-copy data-i18n="stAiCopy">複製</button></li>
+          <li><q data-i18n-html="stAiTask3d">用 Climbio 的 3D 重建流程把 <b>〔影片或照片資料夾〕</b> 做成 3D 牆。先讀專案的 AGENTS.md，再跑 node tools/studio.mjs start 3d 〔3D 牆資料夾〕 照它印的做；AI 能判斷的都自己做完，只有發佈要問我，做不到的如實說卡在哪。</q><button type="button" class="btn" data-copy data-i18n="stAiCopy">複製</button></li>
+        </ul>
+      </li>
+      <li><b data-i18n="stAiCheck">你來確認</b><span data-i18n="stAiCheckText">AI 做好會告訴你專案資料夾。打開它，看 AI 的判斷、需要時修正，最後按發佈；AI 判斷不了、資料不夠的才會問你。</span>
+        <button id="openProject" type="button" class="btn primary" data-i18n="stAiOpen">打開專案</button>
+        <span id="openNote" class="entry-tip" data-i18n="stAiOpenNote" hidden>打開專案資料夾要用電腦的 Chrome 或 Edge。</span>
+        <p id="addStatus" class="entry-tip" role="status" aria-live="polite"></p>
+      </li>
+    </ol>
+  </section>
   <section id="recentBox" hidden>
     <div class="head"><h2 data-i18n="stRecentTitle">繼續編輯</h2></div>
     <ul id="recent"></ul>
   </section>
-  <section class="workspace-grid" aria-label="建立新專案" data-i18n-aria="stNewProject">
-    <article class="workspace wall" aria-labelledby="wallEntryTitle">
-      <h2 id="wallEntryTitle" data-i18n="stWallTitle">室內牆面</h2>
-      <div class="entry-drop">
-        <b data-i18n="stWallDrop">修好牆面的岩點</b>
-        <span data-i18n="stWallFormats">手機拍的牆 · 岩點貓公開的牆</span>
-        <div class="acts"><a id="wallStart" class="btn primary" href="wall/" data-i18n="stWallStart">開始</a></div>
-      </div>
+  <section id="tasks" class="workspace-grid" aria-label="建立新專案" data-i18n-aria="stNewProject">
+    <article class="workspace wall" data-studio-ws="gym" aria-labelledby="wallEntryTitle">
+      <h2 id="wallEntryTitle"><i class="ws-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V4h16v16z"/><circle cx="9" cy="9" r="1.6"/><circle cx="15" cy="11" r="1.6"/><circle cx="10" cy="15.5" r="1.6"/></svg></i><span data-i18n="stGym">岩館</span></h2>
+      <ol class="ws-steps">
+        <li><span data-i18n="stStepIn">輸入</span><b data-i18n="stGymIn">牆面照片</b></li>
+        <li><span data-i18n="stStepAi">AI</span><b data-i18n="stGymAi">偵測岩點、外框</b></li>
+        <li><span data-i18n="stStepYou">你判斷</span><b data-i18n="stGymYou">漏掉的岩點、外框</b></li>
+      </ol>
     </article>
-    <article class="workspace crag" aria-labelledby="cragEntryTitle">
-      <h2 id="cragEntryTitle" data-i18n="stCragTitle">天然岩場</h2>
-      <div id="cragDrop" class="entry-drop">
-        <b data-i18n="stDropGuidebook">把路線書放進來</b>
-        <span data-i18n="stDropFormats">Word · ZIP · 照片 · 網址</span>
-        <div class="acts">
-          <button id="cragFiles" type="button" class="btn primary" data-i18n="stChooseFiles">選擇檔案</button>
-          <button id="cragDir" type="button" class="btn" data-i18n="stChooseFolder">選資料夾</button>
-        </div>
-      </div>
-      <form id="cragUrlForm" class="entry-url" aria-label="從網址匯入岩場" data-i18n-aria="stImportFromUrl">
-        <input id="cragUrl" class="field" type="url" inputmode="url" autocomplete="url" placeholder="或貼上網址" data-i18n-ph="stPasteUrl" aria-label="岩場資料網址" data-i18n-aria="stCragUrl" required>
-        <button type="submit" class="btn" data-i18n="importData">匯入</button>
-      </form>
-      <p id="cragStatus" class="entry-tip" role="status" aria-live="polite"></p>
-      <details>
-        <summary data-i18n="stStartBlank">從空白開始</summary>
-        <div class="secondary-actions">
-          <button id="newCrag" type="button" class="btn small" data-i18n="stNewBlankCrag">建立空白岩場</button>
-        </div>
-      </details>
+    <article id="crag" class="workspace crag" data-studio-ws="crag" aria-labelledby="cragEntryTitle">
+      <h2 id="cragEntryTitle"><i class="ws-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20l6-12 4 6 3-4 5 10z"/></svg></i><span data-i18n="stCrag">岩場</span></h2>
+      <ol class="ws-steps">
+        <li><span data-i18n="stStepIn">輸入</span><b data-i18n="stCragIn">照片、路線書、岩場站</b></li>
+        <li><span data-i18n="stStepAi">AI</span><b data-i18n="stCragAi">照片歸岩壁、讀路線書、描線</b></li>
+        <li><span data-i18n="stStepYou">你判斷</span><b data-i18n="stCragYou">岩壁位置、路線歸屬</b></li>
+      </ol>
+    </article>
+    <article class="workspace scene3d" data-studio-ws="wall3d" aria-labelledby="scene3dEntryTitle">
+      <h2 id="scene3dEntryTitle"><i class="ws-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg></i><span data-i18n="st3d">3D</span></h2>
+      <ol class="ws-steps">
+        <li><span data-i18n="stStepIn">輸入</span><b data-i18n="st3dIn">模型、照片位置</b></li>
+        <li><span data-i18n="stStepAi">AI</span><b data-i18n="st3dAi">重建、對位、切地面</b></li>
+        <li><span data-i18n="stStepYou">你判斷</span><b data-i18n="st3dYou">是不是牆、是不是岩點</b></li>
+      </ol>
+      <div class="ws-acts"><a id="sceneStart" class="btn" href="scene/" data-i18n="stScene">3D 場景</a><a class="btn" href="wall3d/" data-i18n="stWall3d">3D 牆</a></div>
     </article>
   </section>
   <section id="flowStage" hidden aria-label="匯入資料確認" data-i18n-aria="stReviewImport">
     <div id="scan" class="panel" hidden><span class="ak-spin"></span><span id="scanMsg" data-i18n="stScanning">掃描中…</span></div>
     <div id="result" class="panel" hidden>
       <label class="name"><span data-i18n="stProjectName">專案名稱</span><input id="pjName" class="field" maxlength="60"></label>
-      <div id="groupBox">
-        <div class="group-bar">
-          <h2 data-i18n="stGroups">分組</h2>
-          <span id="selCount" class="sel-count"></span>
-          <button id="selectClean" type="button" class="btn small" data-i18n="stSelectClean">只選乾淨岩壁</button>
-          <button id="selectAll" type="button" class="btn small" data-i18n="stSelectAll">全選</button>
-          <button id="addGroup" type="button" class="btn small" data-i18n="stAddGroup">新增分組</button>
-        </div>
-        <div id="groupMap" hidden></div>
-        <div id="groups"></div>
-      </div>
-      <div><h2 data-i18n="stAutoProcess">自動處理</h2><div id="opts"></div></div>
+      <div id="wsPick" class="seg" role="radiogroup" aria-label="工作區" data-i18n-aria="stWsPick"><button type="button" role="radio" data-ws="gym" data-i18n="stGym">岩館</button><button type="button" role="radio" data-ws="crag" data-i18n="stCrag">岩場</button></div>
+      <p id="selCount" class="sel-count"></p>
       <div class="row"><button id="cancel" class="btn" data-i18n="cancel">取消</button><button id="create" class="btn primary" data-i18n="stCreate">建立</button></div>
     </div>
   </section>
 </main>
-<div id="lightbox" role="dialog" aria-modal="true" aria-label="照片放大預覽" data-i18n-aria="stPhotoZoom" hidden>
-  <div id="lbBar">
-    <label><input id="lbCheck" type="checkbox"><span data-i18n="stInclude">納入處理</span></label>
-    <span id="lbBadge"></span>
-    <span id="lbTitle"></span>
-    <button id="lbClose" type="button" aria-label="關閉預覽" data-i18n-aria="stClosePreview"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-  </div>
-  <button id="lbPrev" type="button" class="lb-nav" aria-label="上一張" data-i18n-aria="stPrev"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
-  <div id="lbStage"><img id="lbImg" alt="照片預覽" data-i18n-aria="stPhotoPreview"></div>
-  <button id="lbNext" type="button" class="lb-nav" aria-label="下一張" data-i18n-aria="stNext"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
-</div>
-<input id="cragInput" type="file" accept="image/*,.heic,.heif,.zip,.docx,.html,.htm,.md,.txt,.geojson,.json,.csv,.tsv,.pdf" multiple hidden>
-<input id="cragFolderInput" type="file" webkitdirectory hidden>
+<input id="addInput" type="file" multiple hidden>
+<input id="addFolderInput" type="file" webkitdirectory hidden>
 <script src="../appkit/i18n.js"></script>
 <script src="i18n-boot.js" data-packs="studio studio-crag studio-crag-data"></script>
 <script src="../appkit/photo.js"></script>
@@ -234,6 +215,7 @@
 <script src="../appkit/idb.js"></script>
 <script src="../appkit/ui.js"></script>
 <script src="../version.js"></script>
+<script src="../appkit/account.js"></script>
 <script src="shell.js"></script>
 <script src="store.js"></script>
 <script type="module" src="home.js"></script>

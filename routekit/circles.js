@@ -13,15 +13,38 @@
     const a = (i / SIDES) * 2 * Math.PI;
     return [cx + rad * Math.cos(a), cy + rad * Math.sin(a)];
   });
-  // 圈點 → 路線 { holds, shapes }（w×h：照片像素）。holds：牆上的岩點 [{ id, poly }]，給了就把圈圈中心對到包住它的岩點；
-  // 對不到（或沒給）的用圓形外框放進 shapes，id 是 c0、c1…（照圈點的順序）。不認得的 t 當手點
+  // 點到外框邊的最短距離（點在外框內不用呼叫）
+  function edgeDist(x, y, poly) {
+    let best = Infinity;
+    for (let i = 0; i < poly.length; i++) {
+      const [ax, ay] = poly[i], [bx, by] = poly[(i + 1) % poly.length], dx = bx - ax, dy = by - ay, len = dx * dx + dy * dy;
+      const k = len ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / len)) : 0;
+      best = Math.min(best, Math.hypot(x - (ax + k * dx), y - (ay + k * dy)));
+    }
+    return best;
+  }
+  // 圈心沒落在任何岩點內時：圈圈範圍（半徑 rad）內離圈心最近的岩點，沒有就 null
+  function nearestHold(holds, x, y, rad) {
+    let best = null, bd = rad;
+    for (const h of holds) {
+      const b = G.bbox(h.poly);
+      if (x < b.x0 - rad || x > b.x1 + rad || y < b.y0 - rad || y > b.y1 + rad) continue;
+      const d = edgeDist(x, y, h.poly);
+      if (d <= bd) { best = h; bd = d; }
+    }
+    return best;
+  }
+  // 圈點 → 路線 { holds, shapes }（w×h：照片像素）。holds：牆上的岩點 [{ id, poly }]，給了就把圈圈中心對到包住它的岩點，
+  // 沒有包住的就取圈圈範圍內最近的岩點（手畫的圈圈常偏在小岩點旁邊）；
+  // 範圍內沒有岩點（或沒給）的用圓形外框放進 shapes，id 是 c0、c1…（照圈點的順序）。不認得的 t 當手點
   function fromCircles(circles, w, h, { holds = [] } = {}) {
     const route = { holds: {}, shapes: {} };
     circles.forEach((c, i) => {
       const x = c.x / 100 * w, y = c.y / 100 * h, t = c.t === 's' || c.t === 't' ? c.t : 'h';
-      let hold = G.holdAt(holds, x, y);
+      const rad = (CIRCLE_DIAMETER[c.r] || CIRCLE_DIAMETER[2]) * w / 2;
+      let hold = G.holdAt(holds, x, y) || nearestHold(holds, x, y, rad);
       if (!hold) {
-        hold = { id: `c${i}`, poly: circlePoly(x, y, (CIRCLE_DIAMETER[c.r] || CIRCLE_DIAMETER[2]) * w / 2) };
+        hold = { id: `c${i}`, poly: circlePoly(x, y, rad) };
         route.shapes[hold.id] = hold;
       }
       if (route.holds[hold.id] !== 's' && route.holds[hold.id] !== 't') route.holds[hold.id] = t;   // 兩個圈點在同一顆：起攀、完攀優先

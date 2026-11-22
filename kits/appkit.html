@@ -22,13 +22,17 @@
 <link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/kits/appkit.html">
 <link rel="alternate" hreflang="en" href="https://climbio.app/kits/en/appkit.html">
 <link rel="stylesheet" href="../css/brand-tokens.css">
+<link rel="stylesheet" href="../css/site-nav.css">
 <link rel="stylesheet" href="../css/pages.css">
 </head>
-<body>
-<header class="pg-top"><a class="pg-brand" href="../"><img src="../icons/brand/climbio-mark.svg" alt=""><span>Climbio</span></a><span class="grow"></span><nav class="pg-nav" aria-label="所有元件"><a href="../">首頁</a><a href="../kits/">所有元件</a><a href="../kits/en/appkit.html" hreflang="en" lang="en">English</a></nav></header>
+<body class="site-page">
+<header class="site-header">
+  <a class="site-brand" href="../"><picture><source media="(max-width: 600px)" srcset="../icons/brand/climbio-mark.svg"><img src="../icons/brand/climbio-horizontal-light.svg" alt="Climbio" width="110" height="30"></picture></a>
+  <nav class="site-nav" aria-label="網站導覽"><a href="../">首頁</a><a href="../studio/">Studio</a><a href="../lab/">Lab</a><a href="../guides/" aria-current="true">文件</a><a class="site-language" href="../kits/en/appkit.html" hreflang="en" lang="en">English</a></nav>
+</header>
 <main class="pg">
   <div class="pg-hero">
-    <span class="pg-eyebrow">@climbio/appkit · AGPL-3.0</span>
+    <span class="pg-eyebrow">Climbio 開放元件</span>
     <h1>AppKit</h1>
     <p class="pg-lead">PWA 常用的介面與工具，免框架</p>
     <div class="pg-actions"><a class="pg-btn primary" href="https://github.com/climb-io/climbio/tree/main/appkit">在 GitHub 看原始碼</a></div>
@@ -40,27 +44,15 @@
   <section class="pg-section" aria-labelledby="points">
     <h2 id="points">能做什麼</h2>
     <div class="pg-grid">
-      <article class="pg-card"><span class="pg-num">1</span><h3>照片匯入一步到位</h3><p>讀拍攝位置、轉正、縮圖、重新編碼，一次完成，原始位置資訊不會意外外流。</p></article>
-      <article class="pg-card"><span class="pg-num">2</span><h3>一次只載一種語言</h3><p>依手機設定載入單一語言包，離線也能切換，換語言不用重新整理。</p></article>
-      <article class="pg-card"><span class="pg-num">3</span><h3>不會壞掉的小工具</h3><p>對話框取代瀏覽器內建的視窗；系統分享不能用時自動複製連結；儲存空間滿了也不丟例外。</p></article>
+      <article class="pg-card"><h3>照片匯入一步到位</h3><p>讀拍攝位置、轉正、縮圖、重新編碼，一次完成，原始位置資訊不會意外外流。</p></article>
+      <article class="pg-card"><h3>一次只載一種語言</h3><p>依手機設定載入單一語言包，離線也能切換，換語言不用重新整理。</p></article>
+      <article class="pg-card"><h3>不會壞掉的小工具</h3><p>對話框取代瀏覽器內建的視窗；系統分享不能用時自動複製連結；儲存空間滿了也不丟例外。</p></article>
     </div>
   </section>
-  <section class="pg-section" aria-labelledby="install">
-    <h2 id="install">安裝</h2>
-    <pre><code>npm install @climbio/appkit</code></pre>
-    <h2 id="example">最小範例</h2>
-    <pre><code>import { ui, photo, share } from &#39;@climbio/appkit&#39;;
-
-const p = await photo.prepare(file);   // 轉正、縮圖、取拍攝位置
-if (await ui.confirm(&#39;使用這張照片？&#39;)) {
-  await share.sendLink(url);   // 不能系統分享就複製
-  ui.toast(&#39;已建立連結&#39;);
-}</code></pre>
-  </section>
-  <section class="pg-section" aria-labelledby="notes">
-    <h2 id="notes">授權與限制</h2>
-    <p class="pg-note">AGPL-3.0。需要自己提供品牌顏色變數（文件有一組可直接貼上的預設值）；附近交換與分享工具綁定 Climbio 本身，不屬於獨立使用的部分。</p>
-    <p class="pg-muted"><a href="../kits/">所有元件</a> · <a href="https://github.com/climb-io/climbio/tree/main/appkit">GitHub</a> · 給 AI 讀的說明在 GitHub 的 README.md</p>
+  <section class="pg-section" aria-labelledby="next">
+    <h2 id="next">一起改善這項工具</h2>
+    <p>想讓自己的 AI Agent 加入開發？把 Climbio GitHub 專案交給它，技術規格、授權和工作規則都從原始碼取得。</p>
+    <div class="pg-actions"><a class="pg-btn primary" href="https://github.com/climb-io/climbio/tree/main/appkit">查看 GitHub 專案</a><a class="pg-btn" href="../project/">了解怎麼參與</a></div>
   </section>
   <footer class="pg-foot"><span>Climbio · 所有元件</span><a href="../">首頁</a></footer>
 </main>

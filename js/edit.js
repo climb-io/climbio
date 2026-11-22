@@ -7,6 +7,7 @@
   // 點擊容錯（螢幕像素）：路線模式寬鬆好選；岩點模式小一點，密的牆也點得到空白處新增
   const hitTol = (rect) => (state.mode === 'holds' ? 6 : 12) * state.w / rect.width;
   // 點擊掛在外框 #stage 上：按下時外框會抓住指標（縮放／拖曳用），滑鼠的 click 事件會送到外框而不是 canvas
+  let editorUi = null;   // 定線的操作介面（RouteKit.EditorUI），下面的「出手順序、類型」那一段掛上
   let lastTap = { t: 0, x: 0, y: 0 };
 
   // 點兩下（看路線圖、定線點空白處）：以點的地方為中心放大 2.5 倍；已經放大了就復原（看路線圖回到路線視角，定線回到放大前、沒有就整張）
@@ -35,7 +36,7 @@
     }
     zoomBack = state.routeView ? null : { s: view.s, tx: view.tx, ty: view.ty };
     const r = $('stage').getBoundingClientRect(), px = ev.clientX - r.left, py = ev.clientY - r.top;
-    const s = Math.min(maxScale(), view.s * 2.5), k = s / view.s;
+    const s = Math.min(maxScale(), view.s * RouteKit.DOUBLE_TAP), k = s / view.s;   // 點兩下放大的倍數（kit 的同一份）
     flyTo(s, px - (px - view.tx) * k, py - (py - view.ty) * k, () => { W3D.walk(); W3D.retrace(); });
   }
   $('stage').addEventListener('click', (ev) => {
@@ -43,7 +44,7 @@
     if (!state.wall) return;
     if (state.mode === 'route' && state.routeView) {   // 看路線圖：點兩下放大／復原；點一下＝收起右下的工具
       const now = ev.timeStamp;   // 事件發生的時間：主執行緒忙的時候，處理第二下時已經過了 350 毫秒也照樣算點兩下
-      if (now - lastTap.t < 350 && Math.hypot(ev.clientX - lastTap.x, ev.clientY - lastTap.y) < 40) { dblZoom(ev); lastTap.t = 0; }
+      if (now - lastTap.t < RouteKit.DOUBLE_MS && Math.hypot(ev.clientX - lastTap.x, ev.clientY - lastTap.y) < 40) { dblZoom(ev); lastTap.t = 0; }
       else lastTap = { t: now, x: ev.clientX, y: ev.clientY };
       return;
     }
@@ -69,32 +70,151 @@
       refreshUi(); render(); focusDraft(x, y);
       return;
     }
+    if (hit && !state.routeView && state.w3d && !state.overlapBusy) {   // 3D：被擋住的點看不到外框，先轉角度、走近讓它們露出來再選
+      state.overlapBusy = true;
+      W3D.reveal(x, y).then((r) => {
+        state.overlapBusy = false;
+        if (r && openOverlapPick(r.holds, r.back)) return;
+        if (r && r.back) W3D.flyBack(r.back);
+        cycleRouteHold(hit); const rt = route(); tapFx(ev.clientX, ev.clientY, (rt && rt.holds[hit.id]) || '');
+      }, () => { state.overlapBusy = false; });
+      return;
+    }
     if (hit && !state.routeView && openOverlapPick(holdsUnder(x, y))) return;
     if (hit && !state.routeView) { cycleRouteHold(hit); const r = route(); tapFx(ev.clientX, ev.clientY, (r && r.holds[hit.id]) || ''); return; }
     if (!hit && !state.routeView) {   // 定線：快速點兩下空白處，放大／復原（跟看路線一樣）
       const now = ev.timeStamp;
-      if (now - lastTap.t < 350 && Math.hypot(ev.clientX - lastTap.x, ev.clientY - lastTap.y) < 40) { lastTap.t = 0; dblZoom(ev); }
+      if (now - lastTap.t < RouteKit.DOUBLE_MS && Math.hypot(ev.clientX - lastTap.x, ev.clientY - lastTap.y) < 40) { lastTap.t = 0; dblZoom(ev); }
       else lastTap = { t: now, x: ev.clientX, y: ev.clientY };
     }
   });
   // 定線點到重疊的岩點：放大那一塊、選好（或點候選以外取消）就回到原本的縮放和位置
-  function openOverlapPick(list) {
+  function openOverlapPick(list, back3d = null) {
     if (list.length < 2) return false;
     const spots = overlapSpots(list), holds = list;
-    state.overlapPick = { holds, spots, back: { s: view.s, tx: view.tx, ty: view.ty } };
+    state.overlapPick = { holds, spots, back: { s: view.s, tx: view.tx, ty: view.ty }, back3d };
+    if (back3d) { buzz(4); render(); return true; }   // 3D：鏡頭已經轉到看得到每一顆的位置（W3D.reveal），不再放大
     const b = bbox([...holds.flatMap(h => h.poly), ...[...spots.values()].map(s => [s.x, s.y])]), st = $('stage'), k = view.bw / state.w;
     flyView(Math.min(maxScale(), st.clientWidth * 0.7 / ((b.x1 - b.x0) * k), st.clientHeight * 0.5 / ((b.y1 - b.y0) * k)), (b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2);
     buzz(4); render();
     return true;
   }
   function pickOverlap(x, y, ev) {
-    const p = state.overlapPick, radius = 16 * screenPx();
-    const dots = p.holds.map(h => ({ h, s: p.spots.get(h) })).map(({ h, s }) => ({ h, d: Math.hypot(x - s.x, y - s.y) })).sort((a, b) => a.d - b.d);
-    const h = dots[0].d <= radius ? dots[0].h : p.holds.find(c => inPoly(x, y, c.poly));
+    const p = state.overlapPick, h = RouteKit.pickOverlap(p.holds, p.spots, x, y, 16 * screenPx());   // 規則在 kit（geometry.js），內嵌頁用同一份
     state.overlapPick = null;
-    flyTo(p.back.s, p.back.tx, p.back.ty);
+    if (p.back3d) W3D.flyBack(p.back3d); else flyTo(p.back.s, p.back.tx, p.back.ty);
     if (!h) { render(); return; }
     cycleRouteHold(h); const r = route(); tapFx(ev.clientX, ev.clientY, (r && r.holds[h.id]) || '');
+  }
+  // 相機看線：只在測試版（env-dev 網域）顯示入口；正式版不顯示也不載入追蹤程式
+  // 3D 牆載入 /3d/?ui=2&auto=1&wall=…&route=…；2D 牆載入 /lab/wall2d-cam/?ui=2&auto=1&wall=…&route=… 並透過同源 postMessage 傳入本機牆面與照片
+  const isDevEnv = document.documentElement.classList.contains('env-dev');
+  const trackable = (w) => isDevEnv && !!w;
+  let preloadWall2dCam = () => {};
+  if (!isDevEnv) {
+    $('camTrackBtn')?.remove();
+    $('vwCam')?.remove();
+    $('camView')?.remove();
+  } else {
+    // 在岩點貓裡蓋一層全螢幕的追蹤頁，不換頁：返回（左上、返回手勢）就收掉，相機跟著關（iframe 換成空白頁）
+    let camSession = 0, camPayload = null;
+    let wall2dStaticPreloaded = false, wall2dManifestPromise = null;
+    const preloadedWallIds = new Set();
+    preloadWall2dCam = (w) => {
+      if (!w || w.m3d) return;
+      if (!wall2dStaticPreloaded) {
+        wall2dStaticPreloaded = true;
+        const urls = [
+          '/lab/wall2d-cam/',
+          '/lab/wall2d-cam/style.css',
+          '/lab/wall2d-cam/boot.js',
+          '/lab/wall2d-cam/geometry.js',
+          '/lab/wall2d-cam/app.js',
+          '/lab/wall2d-cam/tracking-log.js',
+          '/lab/wall2d-cam/wall2d-worker.js',
+          '/3d/source/holds-3d-camera-view.js',
+          '/redpoint/vendor/opencv-4.10.0.js',
+        ];
+        for (const u of urls) fetch(u, { credentials: 'omit' }).catch(() => {});
+        wall2dManifestPromise = fetch('/lab/wall2d-cam/manifest.json', { credentials: 'omit' })
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null);
+      }
+      const wallId = w.pid || w.id;
+      if (!wallId || preloadedWallIds.has(wallId) || !wall2dManifestPromise) return;
+      preloadedWallIds.add(wallId);
+      wall2dManifestPromise.then((manifest) => {
+        const entry = manifest?.walls?.find((e) => e.wall === wallId);
+        if (!entry) return;
+        const base = `${location.origin}/lab/wall2d-cam/`;
+        if (entry.camera?.url) fetch(new URL(entry.camera.url, base).href, { credentials: 'omit' }).catch(() => {});
+        if (entry.wallJson) fetch(new URL(entry.wallJson, base).href, { credentials: 'omit' }).catch(() => {});
+        if (entry.routesJson) fetch(new URL(entry.routesJson, base).href, { credentials: 'omit' }).catch(() => {});
+      }).catch(() => {});
+    };
+    $('vwMore')?.addEventListener('click', () => {
+      if (state.wall && !state.wall.m3d) preloadWall2dCam(state.wall);
+    });
+    const hideCam = () => { camSession++; camPayload = null; $('camView').hidden = true; $('camFrame').src = 'about:blank'; };
+    const closeCam = () => { hideCam(); return closeOverlay('camView'); };
+    const sendWall2dData = async (session) => {
+      const p = camPayload;
+      if (!p || session !== camSession || $('camView').hidden) return;
+      const win = $('camFrame').contentWindow;
+      if (!win) return;
+      let photo = await (p.photoPromise || getImage(p.id).catch(() => null));
+      if (!photo && p.img && typeof p.img.toBlob === 'function') {
+        photo = await new Promise((res) => p.img.toBlob(res, 'image/jpeg', 0.92));
+      }
+      if (session !== camSession || $('camView').hidden || $('camFrame').contentWindow !== win) return;
+      win.postMessage({
+        type: 'climbio-wall2d-data',
+        wallId: p.wallId,
+        name: p.name,
+        w: p.w,
+        h: p.h,
+        updatedAt: p.updatedAt,
+        holds: p.holds,
+        photo,
+      }, location.origin);
+    };
+    $('camFrame').addEventListener('load', () => {
+      if (camPayload && !$('camView').hidden) sendWall2dData(camSession);
+    });
+    window.addEventListener('message', (ev) => {
+      if (ev.origin !== location.origin || ev.source !== $('camFrame').contentWindow) return;
+      if (ev.data?.type === 'climbio-wall2d-request' && camPayload) sendWall2dData(camSession);
+    });
+    $('camTrackBtn').onclick = $('vwCam').onclick = () => {
+      const w = state.wall, r = w && w.routes.find(x => x.id === state.routeId);
+      if (!r) return;
+      const routeParam = encodeURIComponent(Object.entries(r.holds).map(([id, k]) => `${id}:${k}`).join(','));
+      ++camSession;
+      if (w.m3d) {
+        camPayload = null;
+        $('camFrame').src = `${location.origin}/3d/?ui=2&auto=1&wall=${encodeURIComponent(w.pid)}&route=${routeParam}`;
+      } else {
+        const wallId = w.pid || w.id;
+        const byId = new Map();
+        for (const h of (w.holds || [])) byId.set(h.id, { id: h.id, poly: h.poly });
+        for (const h of holdsOf(r, w)) if (!byId.has(h.id)) byId.set(h.id, { id: h.id, poly: h.poly });
+        camPayload = {
+          id: w.id,
+          wallId,
+          name: w.name || '',
+          w: state.w || w.w,
+          h: state.h || w.h,
+          updatedAt: w.updatedAt || 0,
+          holds: [...byId.values()],
+          img: state.img,
+          photoPromise: getImage(w.id).catch(() => null),
+        };
+        $('camFrame').src = `${location.origin}/lab/wall2d-cam/?ui=2&auto=1&wall=${encodeURIComponent(wallId)}&route=${routeParam}`;
+      }
+      $('camView').hidden = false;
+      openOverlay('camView', hideCam);
+    };
+    $('camClose').onclick = () => closeCam();
   }
   const pressBtns = (sel, on) => { for (const b of document.querySelectorAll(sel)) b.setAttribute('aria-pressed', on); };   // 定線上方和看路線圖上方各有一顆，狀態一起換
   // 路線的底切換灰階／暗彩（只在這一頁、只在畫面上看；分享的圖一律灰階）：手機按上方的圓鈕或快速點兩下（看路線圖在路線視角時、定線點空白處），電腦按空白鍵
@@ -102,6 +222,7 @@
     bases[setting() ? 'set' : 'view'] = mode;
     baseSwap();
     pressBtns('.base-btn', mode === 'dim');
+    if (editorUi) editorUi.setOptions({ base: mode });
     render();
   }
   // 底色換了（灰階↔暗彩：按圓鈕、點兩下、看路線圖↔定線）：舊的畫面先複製一張蓋在上面，從手指剛按的地方挖一個圓、越擴越大，
@@ -128,8 +249,8 @@
     };
     requestAnimationFrame(step);
   }
-  // 定線長按：單點編輯（手機唯一改岩點的地方）。漏掉的岩點先給可調整的方框，再用單點提示辨識輪廓；
-  // 已有的岩點＝想要這顆但範圍不滿意：先自動重算，比原本好就直接換上（可以復原），不好就留著原本的給使用者自己拖。
+  // 定線長按：單點編輯（手機唯一改岩點的地方）。外框只在使用者動手時才變：已有的岩點選起來給人拖頂點、按「重描」；
+  // 漏掉的岩點直接進「圈起來」，畫一圈才補上（3D 牆沒有圈，照舊先放方框、依顏色長成岩點）。
   // 從定線長按進來前的縮放、位置：回到定線時平滑地回到這裡
   let holdView = null;
   // 3D 牆是模型快照，外框直接編輯；一般照片（含舊版留在本機的牆）走正常重描流程。
@@ -145,70 +266,53 @@
     }
     hit = pickHold(hit, x, y);
     buzz(12); refreshUi(); render();
-    // 以長按的位置為中心放大：照片上這一點留在指尖下（碰到照片邊緣才會偏）
-    const b = bbox(hit.poly), size = Math.max(b.x1 - b.x0, b.y1 - b.y0) * view.bw / state.w;
+    // 以長按的位置為中心放大：照片上這一點留在指尖下（碰到照片邊緣才會偏）；要圈的漏網岩點以一般岩點的大小估
+    const b = hit && bbox(hit.poly), med = medianArea();
+    const size = (b ? Math.max(b.x1 - b.x0, b.y1 - b.y0) : Number.isFinite(med) ? Math.sqrt(med) : Math.min(state.w, state.h) / 20) * view.bw / state.w;
     const s1 = Math.min(maxScale(), Math.max(2, view.s, $('stage').clientWidth / 3 / size));
     const k0 = view.bw * view.s / state.w, k1 = view.bw * s1 / state.w;
     flyTo(s1, view.tx + x * (k0 - k1), view.ty + y * (k0 - k1));
   }
   function pickHold(hit, x, y) {
-    if (!hit) {
-      const host = volumeAt(x, y);   // 補在 volume 上：方框、辨識結果可以蓋在這顆 volume 上
-      hit = touch({ id: uid('h'), poly: fallbackHoldOutline(x, y, state.wall.holds.filter(h => h !== host)), source: 'manual' });
-      holdView.host = host;
-      state.wall.holds.push(hit);
-      holdView.added = hit.id;
-      state.selected = hit;
-      touchGeom();
-      save();
-      resetUndo();   // 補上這顆不算一步（不要就按取消）
-      refineAddedHold(hit, x, y);
-    } else {
+    if (hit) {
       holdView.picked = { h: hit, poly: hit.poly, source: hit.source };
-      state.selected = hit; resetUndo(); retraceHeldHold(hit, x, y, true);
+      state.selected = hit; resetUndo();
+      return hit;
     }
+    const host = volumeAt(x, y);   // 補在 volume 上：新的這顆可以蓋在這顆 volume 上
+    holdView.host = host;
+    if (!state.w3d) { state.selected = null; resetUndo(); setLasso(true); return null; }   // 照片：圈起來才補上（finishLasso）
+    hit = touch({ id: uid('h'), poly: fallbackHoldOutline(x, y, state.wall.holds.filter(h => h !== host)), source: 'manual' });
+    state.wall.holds.push(hit);
+    holdView.added = hit.id;
+    state.selected = hit;
+    touchGeom();
+    save();
+    resetUndo();   // 補上這顆不算一步（不要就按取消）
+    growAddedHold(hit, x, y);
     return hit;
   }
   // 長按後手指移到別處才放開：收回剛才那一點的補點或重算，改編輯放開的這一點（畫面不動）。
   // 換一個 holdView，還在算的舊結果就不會再套用
   function retargetHold(x, y) {
     if (!state.holdSub || !holdView || (!state.w3d && (x < 0 || y < 0 || x > state.w || y > state.h))) return;
-    const w = state.wall, { added, picked, ...v } = holdView;
+    const w = state.wall, { added, picked, host, ...v } = holdView;
     w.holds = w.holds.filter(h => h.id !== added);
     if (picked) { picked.h.poly = picked.poly; picked.h.source = picked.source; }
     holdView = v;
+    setLasso(false);
     pickHold(pressHold(x, y), x, y);
     touchGeom(); save();
     buzz(12); refreshUi(); render();
   }
-  async function refineAddedHold(h, x, y) {
-    const R = window.HoldRefiner, w = state.wall, before = h.poly, session = holdView;
+  // 3D 牆補點：等放大到這顆（岩點在畫面上夠大）再從畫面依顏色描出岩點，方框慢慢長成它（不用模型）
+  async function growAddedHold(h, x, y) {
+    const w = state.wall, before = h.poly, session = holdView;
     const alive = () => state.wall === w && state.mode === 'holds' && state.holdSub && holdView === session && state.selected === h && w.holds.includes(h);
-    const current = () => alive() && h.poly === before;
-    if (state.w3d) {   // 3D 牆：等放大到這顆（岩點在畫面上夠大）再從畫面依顏色描出岩點，方框慢慢長成它（不用模型）
-      await pause(450);
-      if (!current()) return;
-      const others = state.scene.holds.filter(o => o !== h && o !== session.host), poly = W3D.grow(x, y, others);
-      if (poly && current()) morphPoly(h, despike(simplifyPoly(poly)), 500, alive, () => { touch(h); touchGeom(); save(); refreshUi(); render(); });
-      return;
-    }
-    if (noModel(w)) return;   // 3D 牆由模型幾何處理，不下載 2D 重描模型
-    // 拖頂點會原地修改陣列，因此還要比對內容，不能只看參照。
-    const original = JSON.stringify(before);
-    try {
-      const result = await R.refine(state.img, w.id, null, (text, frac) => { if (current()) samProgress(text, frac); }, { point: [x, y] });
-      $('samProg').hidden = true;
-      const host = session.host, others = w.holds.filter(other => other !== h && other !== host);
-      const fits = (p) => validAddedOutline(p, x, y, others) && (!host || area(p) < area(host.poly) * 0.5);   // 補在 volume 上：抓到整顆 volume 的不要
-      if (!current() || JSON.stringify(before) !== original || !fits(result)) return;
-      const poly = despike(simplifyPoly(result));
-      if (!fits(poly)) return;
-      h.poly = poly; touch(h);
-      touchGeom(); save(); refreshUi(); render();
-    } catch (e) {
-      $('samProg').hidden = true;
-      if (current()) toast(t('refineFailed') + (e.message || e));
-    }
+    await pause(450);
+    if (!alive() || h.poly !== before) return;
+    const others = state.scene.holds.filter(o => o !== h && o !== session.host), poly = W3D.grow(x, y, others);
+    if (poly && alive() && h.poly === before) morphPoly(h, despike(simplifyPoly(poly)), 500, alive, () => { touch(h); touchGeom(); save(); refreshUi(); render(); });
   }
   // 外框從 h.poly 平滑變成 to（兩邊各沿著邊等距取 32 點、對齊起點再內插），ok() 不成立（例如使用者動了）就停；最後換成 to 本身
   function morphPoly(h, to, ms, ok, done) {
@@ -239,27 +343,6 @@
     };
     requestAnimationFrame(step);
   }
-  // 定線時手指按住還沒到長按（按下 150 ms、沒移動）：先在背景算長按要用的那次重描（跟 retraceHeldHold、refineAddedHold 第一次的提示一樣），
-  // 長按成立時拿的是同一份結果（HoldRefiner.refine 同一個提示共用一次），放大動畫做完通常已經算好。一般的點擊不到 150 ms 就放開了，不會算
-  function prefetchHoldTrace(x, y, hit = pressHold(x, y)) {
-    const R = window.HoldRefiner, w = state.wall;
-    if (!R || !w || noModel(w) || computing(w)) return;
-    (hit && !bigHold(hit) ? R.refine(state.img, w.id, hit.poly) : R.refine(state.img, w.id, null, () => {}, { point: [x, y] })).catch(() => { /* 長按成立時再算一次、報錯 */ });
-  }
-  // 大岩點（volume、大顆的，面積是中位數的 4 倍以上）：上面、邊上常貼著別的小岩點，長按時先看按的那一點認出什麼（見 retraceHeldHold）
-  const bigHold = (h) => area(h.poly) >= medianArea() * 4;
-  // 長按大岩點、按的那一點認出的是另一顆獨立的小岩點：面積不到大岩點的 1/3、不是螺絲孔那麼小一塊、不壓到別的岩點（可以蓋在這顆大岩點上）
-  const smallOnBig = (p, big, x, y) => !!p && validAddedOutline(p, x, y, state.wall.holds.filter(o => o !== big))
-    && area(p) < area(big.poly) / 3 && area(p) >= medianArea() * 0.15;
-  // 改成補這顆小岩點：大岩點留原樣，新的這顆跟長按補點一樣（離開時加進路線），畫面移到它
-  function addOnBig(big, poly) {
-    holdView.picked = null; holdView.host = big;
-    const h = touch({ id: uid('h'), poly, source: 'manual' });
-    state.wall.holds.push(h); holdView.added = h.id; state.selected = h;
-    touchGeom(); save(); resetUndo(); refreshUi(); render(); buzz(8);
-    const b = bbox(poly), st = $('stage'), k = view.bw / state.w;
-    flyView(Math.min(maxScale(), Math.max(view.s, st.clientWidth / 3 / (Math.max(b.x1 - b.x0, b.y1 - b.y0) * k))), (b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2);
-  }
   // 上方的進度條：下載模型、跟雲端要照片特徵（frac 是 null＝不知道還要多久）
   function samProgress(text, frac) {
     $('samProg').hidden = false;
@@ -276,109 +359,75 @@
     lockHint = w; samProgress(t('tracingWall'), null); buzz(8);
     return true;
   }
-  // 長按已有的岩點：先用原本外框當提示，結果不合格再改用長按的點當提示（點提示有時只抓到螺絲孔那麼小一塊，靠面積擋掉）。
-  // 合格＝輪廓有效、包住長按的點、不壓到別的岩點，面積是原本的 1/5～5 倍，而且跟原本的不一樣；換上算一步（復原鈕拿回原本的）
-  // first：剛長按選到這顆（不是單點編輯中再長按）；大岩點先看按的那一點是不是另一顆小岩點，是就改成補那顆
-  async function retraceHeldHold(h, x, y, first = false) {
-    const R = window.HoldRefiner, w = state.wall, before = h.poly, session = holdView, original = JSON.stringify(before);
+  // 「重描」鈕：用目前的外框當提示跑一次 MobileSAM。結果輪廓有效、包住原本的中心、不壓到旁邊的岩點（蓋在上面的、所在的 volume 不算）、
+  // 面積是原本的 1/5～5 倍才換上（算一步，復原拿得回原本的）；不合格就留著原本的並提示
+  // auto：畫完圈自動貼齊（finishLasso）：靜靜地做——不合格、失敗都保留畫的圈、不提示；換上時併進畫圈那一步，復原一次回到畫圈之前
+  let retracing = false;
+  async function retraceSelected({ auto = false } = {}) {
+    const R = window.HoldRefiner, w = state.wall, h = state.selected;
+    if (!R || !w || !h || retracing || noModel(w) || !state.holdSub) return;
+    const before = h.poly, session = holdView, original = JSON.stringify(before);
     const current = () => state.wall === w && state.mode === 'holds' && state.holdSub && holdView === session
       && state.selected === h && w.holds.includes(h) && h.poly === before && JSON.stringify(before) === original;
-    const swap = (poly) => {
+    const c = centroid(before), [x, y] = inPoly(c[0], c[1], before) ? c : before[0];
+    const others = w.holds.filter(o => o !== h && o !== session?.host && inside(o.poly, before) < 0.5), a0 = area(before);
+    const good = (p) => !!p && validAddedOutline(p, x, y, others) && area(p) / a0 > 0.2 && area(p) / a0 < 5;
+    retracing = true; refreshUi(); buzz(8);
+    samProgress(t('refining'), null);
+    try {
+      const result = await R.refine(state.img, w.id, before, (text, frac) => { if (current()) samProgress(text, frac); });
+      $('samProg').hidden = true;
+      if (!current()) return;
+      const poly = result && despike(simplifyPoly(result));
+      if (!good(poly)) { if (!auto) toast(t('refineKept')); return; }
+      if (auto) undo.at = Date.now();   // 跟畫圈那一步併成一步（save() 在 600 ms 內的變動不另開一步）
       h.poly = poly;
       if (h.source === 'detect') h.source = 'edited';
-      touch(h); touchGeom(); save(); refreshUi(); render();
-      buzz(8);
-    };
-    if (noModel(w)) return;   // 3D 牆保留模型幾何外框
-    samProgress(t('refining'), null);   // 長按還沒成立時就開始算了（prefetchHoldTrace），通常已經算好；第一次要下載模型時進度條跟著顯示
-    const others = w.holds.filter(o => o !== h), a0 = area(before), b0 = bbox(before);
-    const good = (p) => {
-      if (!p || !validAddedOutline(p, x, y, others)) return false;
-      const k = area(p) / a0, b = bbox(p);
-      const same = k > 0.95 && k < 1.05 && boxIoU([b.x0, b.y0, b.x1, b.y1], [b0.x0, b0.y0, b0.x1, b0.y1]) > 0.95;
-      return k > 0.2 && k < 5 && !same;
-    };
-    try {
-      if (first && bigHold(h)) {
-        const p = await R.refine(state.img, w.id, null, (text, frac) => { if (current()) samProgress(text, frac); }, { point: [x, y] });
-        $('samProg').hidden = true;
-        if (!current()) { hideToast(); return; }
-        const poly = p && despike(simplifyPoly(p));
-        if (smallOnBig(poly, h, x, y)) { hideToast(); addOnBig(h, poly); return; }
-      }
-      for (const opt of [{}, { point: [x, y] }]) {
-        const result = await R.refine(state.img, w.id, before, (text, frac) => { if (current()) samProgress(text, frac); }, opt);
-        $('samProg').hidden = true;
-        if (!current()) { hideToast(); return; }
-        const poly = result && despike(simplifyPoly(result));
-        if (!good(poly)) continue;
-        hideToast(); swap(poly);
-        return;
-      }
-      hideToast();   // 算出來的沒有比原本好：默默留著原本的
+      touch(h); touchGeom(); save(); buzz(8);
     } catch (e) {
       $('samProg').hidden = true;
-      if (current()) toast(t('refineFailed') + (e.message || e)); else hideToast();
-    }
+      if (current() && !auto) toast(t('refineFailed') + (e.message || e));
+    } finally { retracing = false; if (state.wall === w) { refreshUi(); render(); } }
   }
-  // 單點編輯中再長按這一顆（例如手動拖過頂點之後）：用目前的外框當提示，再跑一次 MobileSAM 重描
-  function retraceAgain(x, y) {
-    const h = state.selected;
-    if (!state.holdSub || !h) return;
-    buzz(12); retraceHeldHold(h, x, y);
-  }
-  // 單點編輯時按在這一顆上（裡面或邊緣附近，跟長按選岩點同一個範圍）
-  const onSelected = (x, y) => !!state.selected && (inPoly(x, y, state.selected.poly) || pressHold(x, y) === state.selected);   // 按在這顆裡面（就算是 volume）都是重描
-  // 單點編輯：圈起來（手機）。按右下膠囊的「圈」，手指在照片上畫一圈（把整個量體圈在裡面），放開就用圈的外接框當提示交給 MobileSAM
-  // 貼齊實際邊界，換掉選到的這一顆（算一步，復原拿得回來）；描偏了（跟圈的重疊不到 6 成）或抓不到就用圈本身（精簡成多邊形），
-  // 之後照樣能拖頂點微調。給偵測找不到、或只描到一小塊的大量體用：長按量體補一顆，再圈起整個量體
+  // 單點編輯：圈起來（手機）。按膠囊的「圈」，或長按沒有岩點的地方，手指在照片上畫一圈：畫的圈（去掉繞過起點多畫的一段、手抖）
+  // 就是外框，有選到的岩點就換掉它（算一步，復原拿得回來），沒有就補一顆新的。放開後自動用圈當提示重描貼齊（retraceSelected 的 auto），
+  // 貼不上（模型沒備好、結果不合格）就留著畫的圈；之後還能按「重描」再來一次
   function setLasso(on) {
-    state.lasso = !!on && state.mode === 'holds' && state.holdSub && !!state.selected;
+    state.lasso = !!on && state.mode === 'holds' && state.holdSub;
     state.lassoPts = null;
     $('holdLasso').setAttribute('aria-pressed', String(state.lasso));
+    $('holdLasso').setAttribute('aria-label', t(state.lasso ? 'lassoCancel' : 'lasso'));   // 圈的時候這顆是「取消」（×）
+    $('holdLasso').querySelector('use').setAttribute('href', state.lasso ? '#i-plus' : '#i-lasso');
     $('holdActions').classList.toggle('lassoing', state.lasso);
-    placeHoldActions();
+    refreshUi();
     render();
   }
-  async function finishLasso(loop) {
-    const w = state.wall, h = state.selected, R = window.HoldRefiner;
-    if (!w || !h || !state.holdSub || state.mode !== 'holds') return;
+  // 取消「圈起來」（× 鈕、電腦版 Esc）：有選到岩點（從它進來重畫外框的）回到調整它；沒有（長按空白處進來的）就整個離開單點編輯
+  function cancelLasso() {
+    if (!state.lasso) return false;
+    if (state.selected) setLasso(false); else history.back();
+    return true;
+  }
+  function finishLasso(loop) {
+    const w = state.wall, h = state.selected;
+    if (!w || !state.holdSub || state.mode !== 'holds') return;
     const k = view.bw * view.s / state.w, closed = loop.map(p => [+p[0].toFixed(1), +p[1].toFixed(1)]);
     if (closed.length < 6 || area(closed) * k * k < 400) { toast(t('lassoSmall')); return; }   // 畫得太小，多半是手滑
-    const session = holdView, before = h.poly, drawn = simplifyPoly(closed);
-    const current = () => state.wall === w && state.mode === 'holds' && state.holdSub && holdView === session && state.selected === h && w.holds.includes(h) && h.poly === before;
-    const ok = (p) => !!p && validAddedOutline(p, p[0][0], p[0][1], []);   // 有效、在照片裡、不自己交叉（量體上有別的岩點，所以不檢查跟它們重疊）
-    let poly = null;
-    if (R && !noModel(w)) {
-      samProgress(t('refining'), null);
-      try { poly = await R.refine(state.img, w.id, closed, (text, frac) => { if (current()) samProgress(text, frac); }, { box: lassoBox(closed, state.w, state.h) }); }
-      catch (e) { poly = null; }   // 抓不到：用手畫的圈
-      $('samProg').hidden = true; hideToast();
-      if (!current()) return;
-      poly = poly && despike(simplifyPoly(poly));
+    const poly = lassoOutline(closed, 1 / k);
+    if (!validAddedOutline(poly, poly[0][0], poly[0][1], [])) { toast(t('lassoFail')); return; }   // 有效、在照片裡、不自己交叉
+    if (h) {
+      h.poly = poly;
+      if (h.source === 'detect') h.source = 'edited';
+      touch(h); touchGeom(); save();
+    } else {
+      const n = touch({ id: uid('h'), poly, source: 'manual' });
+      w.holds.push(n); holdView.added = n.id; state.selected = n;
+      touchGeom(); save();
+      resetUndo();   // 補上這顆不算一步（不要就按取消）
     }
-    const out = ok(poly) && polyIoU(poly, drawn) >= 0.6 ? poly : ok(drawn) ? drawn : null;
-    if (!out) { toast(t('lassoFail')); return; }
-    h.poly = out;
-    if (h.source === 'detect') h.source = 'edited';
-    absorbPieces(h, session.host);
-    touch(h); touchGeom(); save(); setLasso(false); refreshUi(); render(); buzz(8);
-  }
-  // 圈起來之後：被新外框包住 7 成以上的別顆是同一顆被切開的碎塊，併進這顆（跟換外框算同一步）。
-  // 圈的是大岩點（volume）時，上面的小岩點（不到 1/3，見 smallOnBig）留著。這條路線上碎塊的類型、順序改到這顆；別的路線自帶外框，不受影響
-  function absorbPieces(h, host) {
-    const w = state.wall, big = bigHold(h), whole = area(h.poly), r = route();
-    const pieces = w.holds.filter(o => o !== h && o !== host && inside(o.poly, h.poly) >= 0.7 && (!big || area(o.poly) >= whole / 3));
-    if (!pieces.length) return;
-    const ids = new Set(pieces.map(o => o.id));
-    w.holds = w.holds.filter(o => !ids.has(o.id));
-    if (!r) return;
-    for (const id of ids) {
-      if (!r.holds[id]) continue;
-      if (!r.holds[h.id]) r.holds[h.id] = r.holds[id];
-      delete r.holds[id]; touch(r);
-    }
-    if (r.seq) r.seq = r.seq.map(id => ids.has(id) ? h.id : id);
+    if (holdView) holdView.lassoed = true;   // 圈完了：膠囊裡的「圈」收起來（不然像是還要再圈一次），要重畫就復原
+    setLasso(false); buzz(8);
+    retraceSelected({ auto: true });   // 手指畫的圈多半歪歪的：用圈當提示貼齊岩點的邊（模型還沒備好就不貼，維持畫的圈）
   }
   // a 有幾成在 b 裡面（在 a 的外接框裡取樣 16×16）
   function inside(a, b) {
@@ -412,72 +461,84 @@
     if (state.addType === 'n') return seqTap(r, hit);
     const now = performance.now(), res = RouteKit.tapHold(r, hit.id, state.addType || 'h', { justAdded: holdTapAt.id === hit.id && now - holdTapAt.t < 400 });
     if (res === 'ignored') return;
-    if (res === 'full') { setAddType('h', true); toast(t('startMax', MAX_START)); return; }   // 起攀滿了：已在路線上的不動
+    if (res === 'full') { setAddType('h', true); editorUi.hooks.onLimit(); toast(t('startMax', MAX_START)); return; }   // 起攀滿了：已在路線上的不動
     if (res !== 'removed') holdTapAt = { id: hit.id, t: now };
-    if (state.addType === 's' && startCount(r) >= MAX_START) setAddType('h', true);   // 起攀滿了：之後新的點是手點
+    if (RouteKit.nextType(r, state.addType, MAX_START) !== state.addType) setAddType('h', true);   // 起攀滿了：之後新的點是手點
     touch(r); save(); refreshUi(); render();
   }
-  // 出手順序：每次點選都追加一手；短暫提供刪除最後一手的入口，避免連點與撤銷互相衝突。
-  function seqTap(r, hit) {
-    const added = RouteKit.appendSeq(r, hit.id), expected = [...r.seq], w = state.wall;
-    touch(r); save(); refreshUi(); render();
-    toast(t('seqMove', r.seq.length), { action: { label: t('remove'), run: () => {
-      if (state.wall !== w || route() !== r || state.mode !== 'route' || state.routeView
-        || state.addType !== 'n' || JSON.stringify(r.seq) !== JSON.stringify(expected)) return;
-      RouteKit.popSeq(r, added);
-      touch(r); save(); refreshUi(); render();
-    } } });
+  // 出手順序：每次點選都追加一手。順序列、類型列、不限腳的長按、上方的取消／完成／暗彩／顯示所有岩點都是 kit 的操作介面 RouteKit.EditorUI
+  // （內嵌頁用同一份），這裡只提供「控制器」：把按下的動作接到岩點貓的狀態（state.addType、路線、存檔）。
+  // 長按有編號的岩點：接下來點的岩點插在它最後一個編號之後（seqSession 的 startInsert），按「結束插入」才回到接在最後。
+  const seqSession = RouteKit.orderSession();   // 規則（追加、插入、刪除、復原）在 kit（editor.js），內嵌頁用同一份
+  function seqTap(r, hit) { seqSession.tap(r, hit.id); touch(r); save(); refreshUi(); render(); }
+  // 順序模式長按有編號的岩點：選在它最後一個編號之後插入，或刪掉它的某一手；回傳有沒有處理（沒有編號就交給單點編輯）
+  function seqHoldAsk(hit) {
+    const r = route(), nums = seqSession.numbers(r, hit.id);
+    if (!nums.length) return false;
+    buzz(12);
+    editorUi.hooks.onOrderAsk({ id: hit.id, nums });
+    return true;
   }
-  function setAddType(k, anim) {
-    if (state.addType === 'n' && k !== 'n') hideToast();
-    const from = state.addType;
+  function applyAddType(k) {
+    if (state.addType === 'n' && k !== 'n') seqSession.reset();   // 離開順序模式：別的類型會改順序，復原紀錄作廢
     state.addType = k;
-    for (const b of document.querySelectorAll('#typeRow .type-btn')) b.setAttribute('aria-pressed', b.dataset.type === k);
-    slideTypePill(from, k, anim);
   }
-  // 手機類型列的色塊：像一滴顏料流到新的按鈕——前緣先衝過去、拉長壓扁，後緣再跟上回彈；到了圖示跳一下
-  const typePill = $('typePill'), typeBtns = [...document.querySelectorAll('#typeRow .type-btn')], typeKeys = typeBtns.map(b => b.dataset.type);
-  const pillBox = (i) => { const el = typeBtns[i]; return el && el.offsetWidth ? { left: `${el.offsetLeft}px`, width: `${el.offsetWidth}px`, x: el.offsetLeft, w: el.offsetWidth } : null; };
-  function syncTypePill() {
-    const i = typeKeys.indexOf(state.addType), b = pillBox(i);
-    if (!b) return;
-    typePill.style.left = b.left;
-    typePill.style.width = b.width;
-    typePill.style.color = getComputedStyle(typeBtns[i]).color;
+  // 規則自動換了類型（起攀滿了、不限腳切掉腳點）、換路線時重設：介面跟著換（anim＝色塊滑過去）
+  function setAddType(k, anim) { applyAddType(k); if (editorUi) editorUi.pickType(k, true, !!anim); }
+  const routeCtl = {
+    get type() { return state.addType || 'h'; },
+    setType(k) { applyAddType(k); },   // 介面自己會換
+    get showAll() { return !!state.showAll; },
+    setShowAll(on) { if (!!state.showAll !== !!on) toggleShowAll(); },
+    zoomStep() { /* 岩點貓的縮放鈕是頁面右側的 .photo-zoom */ },
+    get canUndoSeq() { return seqSession.canUndo(route()); },
+    undoSeq() { const r = route(); if (r && seqSession.undo(r)) { touch(r); save(); } refreshUi(); render(); return true; },
+    get orderInfo() { const r = route(); return { len: r && r.seq ? r.seq.length : 0, insertAt: seqSession.insertAt(r), canUndo: seqSession.canUndo(r) }; },
+    orderInsertAfter(n) { seqSession.startInsert(route(), n); refreshUi(); },
+    orderEndInsert() { seqSession.endInsert(); refreshUi(); },
+    orderRemove(n) { const r = route(); seqSession.remove(r, n); touch(r); save(); refreshUi(); render(); },
+    orderClear() { const r = route(); if (!r) return; seqSession.clear(r); touch(r); save(); refreshUi(); render(); },
+    // 不限腳：長按腳點切換這條路線不限腳；路線上已經有腳點時，開了會清掉，介面問過（{ clear: true }）才開
+    toggleFeetFree({ clear = false } = {}) {
+      const r = route() || newRoute();
+      if (!r.feetFree && Object.values(r.holds).includes('f')) {
+        if (!clear) return 'confirm';
+        RouteKit.clearFeet(r); seqSession.reset();
+      }
+      RouteKit.toggleFeetFree(r);
+      touch(r); save(); buzz(12); refreshUi(); render();
+      return r.feetFree ? 'on' : 'off';
+    },
+  };
+  // 介面的文字：照岩點貓目前的語言（t）；沒對到的鍵用 kit 內建
+  function editorText(k, ...a) {
+    const m = { cancel: 'cancel', base: 'baseToggle', heat: 'showHolds', zout: 'zoomOut', zin: 'zoomIn', done: 'done', undo: 'undo', orderEnd: 'seqEnd', s: 'start', h: 'hand', t: 'top', f: 'foot', n: 'seq', feetFree: 'feetFree',
+      orderAt: 'seqInsertAt', orderFirst: 'seqInsertFirst', orderCount: 'seqMove', delMove: 'seqDelete', feetAsk: 'feetClearAsk', feetGo: 'feetClear', seqAsk: 'seqClearAsk', seqClear: 'seqClear' };
+    return m[k] ? t(m[k], ...a) : undefined;
   }
-  function slideTypePill(from, k, anim) {
-    const a = typeKeys.indexOf(from), b = typeKeys.indexOf(k), btn = typeBtns[b];
-    if (!btn) return;
-    typePill.style.setProperty('--i', b);
-    typePill.style.color = getComputedStyle(btn).color;
-    const fromBox = pillBox(a), toBox = pillBox(b);
-    if (toBox) { typePill.style.left = toBox.left; typePill.style.width = toBox.width; }
-    if (!anim || a < 0 || a === b || calm() || !fromBox || !toBox) return;
-    const right = b > a, ms = 280 + 30 * Math.abs(b - a);
-    const leadX = Math.min(fromBox.x, toBox.x), leadW = Math.max(fromBox.x + fromBox.w, toBox.x + toBox.w) - leadX;
-    const lead = { left: `${leadX}px`, width: `${leadW}px`, transform: 'scaleY(.82)' };   // 拉長到同時蓋住兩顆
-    const overW = Math.max(20, toBox.w - 4), over = { left: `${right ? toBox.x + 4 : toBox.x}px`, width: `${overW}px` };
-    typePill.animate([
-      { left: fromBox.left, width: fromBox.width, transform: 'scaleY(1)', easing: 'cubic-bezier(.5,0,.7,.4)' },
-      { ...lead, offset: .42, easing: 'cubic-bezier(.2,.7,.3,1)' },
-      { ...over, transform: 'scaleY(1.08)', offset: .78, easing: 'ease-in-out' },
-      { left: toBox.left, width: toBox.width, transform: 'scaleY(1)' },
-    ], { duration: ms });
-    btn.querySelector('.sw-slot').animate([
-      { scale: 1, rotate: '0deg' }, { scale: 1, rotate: '0deg', offset: .35 },
-      { scale: 1.5, rotate: right ? '14deg' : '-14deg', offset: .6 }, { scale: .9, rotate: right ? '-6deg' : '6deg', offset: .82 }, { scale: 1, rotate: '0deg' },
-    ], { duration: ms + 120, easing: 'ease-out' });
+  editorUi = RouteKit.EditorUI.mount($('editor'), {
+    mode: 'edit', controls: false, zoom: false, fullscreen: false, interactive: true, heat: true, foot: true, order: true, base: 'dim', t: editorText,
+    onDone: () => { if (state.draft && state.draft.length >= 3) finishDraft(); history.back(); },
+    onCancel: () => cancelEdit(),
+    onBase: (b) => toggleBase(b),
+    onPrev: () => stepRoute(-1), onNext: () => stepRoute(1),   // 看路線圖的上一條、下一條
+  });
+  // 所有頁面程式載完才接上控制器（main.js 開頭呼叫）：介面一接上就會讀路線，route() 在後面的檔案裡
+  function attachEditorUi() {
+    editorUi.attach(routeCtl, () => route());
+    self.climbioRefreshText = () => editorUi.refreshText();   // 切語言（app.js 的 applyLang）：介面文字重畫
+    editorUi.slot('start', $('rGrade'));      // 難度轉盤：取消鈕右邊
   }
-  addEventListener('resize', () => { if (!$('routePanel').hidden) syncTypePill(); });
-  for (const b of document.querySelectorAll('#typeRow .type-btn')) b.onclick = () => pickType(b.dataset.type);
-  // 選類型；已經在順序模式又按一次「順序」：問要不要清除這條路線的順序
-  async function pickType(k) {
-    if (k === 'n' && state.addType === 'n') {
-      const r = route();
-      if (r && r.seq && await askConfirm(t('seqClearAsk'), { ok: t('seqClear'), danger: true })) { delete r.seq; hideToast(); touch(r); save(); refreshUi(); render(); }
-      return;
-    }
-    setAddType(k, true);
+  // 介面的狀態跟著岩點貓（只在定線、不是看路線圖時出現；單點編輯有自己的膠囊）
+  function syncEditorUi() {
+    if (!editorUi) return;
+    const editingRoute = state.mode === 'route' && !state.routeView && !$('editor').hidden;
+    if (editingRoute && route() && route().feetFree && state.addType === 'f') applyAddType('h');   // 不限腳就不再選腳點，切回手點
+    const viewing = state.mode === 'route' && state.routeView && !$('editor').hidden;   // 看路線圖：上方是岩點貓自己的 #vw，下面的上一條／下一條用 kit 的
+    $('editor').classList.toggle('rk-routing', editingRoute);
+    editorUi.setOptions({ mode: viewing ? 'view' : 'edit', controls: editingRoute || viewing, top: editingRoute, nav: viewing, base: baseMode() });
+    if (viewing) { const rs = sortedRoutes(), i = rs.indexOf(route()); editorUi.setNav({ index: Math.max(0, i), total: rs.length }); }
+    editorUi.update();
   }
   // 滑鼠移到岩點上：亮框＋手指游標（觸控不需要）
   cv.addEventListener('pointermove', (ev) => {
@@ -550,7 +611,7 @@
     w.holds = w.holds.filter(x => x !== h);
     const r = state.holdSub && route();   // 定線時刪掉：這條路線也拿掉；別的路線自帶外框，不受影響
     const type = r && r.holds[id], seq = r && r.seq && [...r.seq], added = holdView && holdView.added === id;
-    if (type) { delete r.holds[id]; RouteKit.dropSeq(r, id); touch(r); }
+    if (type) { delete r.holds[id]; RouteKit.dropSeq(r, id); seqSession.reset(); touch(r); }
     state.selected = null; save();
     if (state.holdSub) {   // 單點編輯刪掉那一顆：回到定線；提示裡按「復原」放回來（路線上的類型、順序一起）
       addEventListener('popstate', () => toast(t('deleted'), { action: { label: t('undo'), run: () => {
@@ -644,8 +705,6 @@
     $('viewPanel').hidden = !viewing;
     $('routePanel').hidden = !(m === 'route' && !viewing);
     $('holdPanel').hidden = m !== 'holds';
-    $('outlineBtn').hidden = !(m === 'route' && !viewing);
-    $('baseBtn').hidden = !(m === 'route' && !viewing);   // 定線：灰階／暗彩切換
     pressBtns('.base-btn', baseMode() === 'dim');
     // 顯示所有岩點只在定線有效，看路線圖↔定線、重新進來都回到關
     if (state.showAll && viewing !== lastViewing) { state.showAll = false; pressBtns('.outline-btn', false); }
@@ -657,28 +716,35 @@
     // 看路線圖：返回｜分享、⋯（編輯、刪除）；編輯路線：取消｜完成（改的東西隨時存，取消＝回到進來編輯前的樣子）
     const editing = !viewing;   // 編輯路線、岩點：左上取消、右上完成
     $('edMenuBtn').hidden = $('shareBtn').hidden = !viewing; $('edMenu').hidden = true;   // 看路線圖：分享直接放在上方
+    if (isDevEnv) {
+      $('camTrackBtn').hidden = !(viewing && trackable(state.wall));
+      $('vwCam').hidden = !(viewing && trackable(state.wall));   // 看路線圖右上「⋯」選單裡（#vw）
+      if (viewing && trackable(state.wall) && !state.wall.m3d) setTimeout(() => preloadWall2dCam(state.wall), 0);
+    }
+    $('vwMenu').hidden = true; $('vwMore').setAttribute('aria-expanded', 'false');
     $('edBack').hidden = editing;
-    $('edCancel').hidden = !editing;
-    $('edDone').hidden = !editing || m === 'holds';   // 單點編輯：完成在岩點旁的膠囊裡（#holdDone）
+    $('edCancel').hidden = !(editing && m === 'holds');   // 定線的取消、完成在操作介面（RouteKit.EditorUI）；單點編輯：取消在左上，完成在岩點旁的膠囊裡（#holdDone）
     $('rGrade').hidden = !(m === 'route' && !viewing);   // 定線：難度在上方
     $('viewTitle').hidden = !viewing;                     // 看路線圖：難度＋名稱（點名稱直接改）
     $('edTitle').hidden = viewing;
 
     if (m === 'route' && !route() && state.wall.routes.length) state.routeId = sortedRoutes()[0].id;
     if (shownBase && m === 'route' && shownBase !== baseMode()) baseSwap();   // 看路線圖↔定線：底色換了
-    refreshUi(); if (!$('routePanel').hidden) syncTypePill(); refitStage(); render();
+    refreshUi(); refitStage(); render();
   }
 
   function refreshUi() {
     const w = state.wall; if (!w) return;
     renderLogBtns();
     if (!$('wall').hidden) renderOverview();
-    $('edDone').disabled = state.mode === 'route' && !state.routeView && !routeReady(route());
     // 沒選取、沒在畫的時候不顯示提示；使用說明獨立在說明頁面
     const ov = state.selected && state.overlap && state.overlap.h === state.selected ? state.overlap : null;
     $('holdHint').textContent = ov && !state.draft ? t('hintOverlap', ov.i, ov.n) : '';   // 只留重疊的第幾顆（不放操作說明）
     $('holdHint').hidden = !$('holdHint').textContent;
     $('delHold').disabled = !state.selected;
+    $('holdRetrace').hidden = !state.selected || state.lasso || noModel(w) || !window.HoldRefiner;
+    $('holdRetrace').disabled = retracing;
+    $('holdLasso').hidden = !state.lasso && !!(holdView && holdView.lassoed);   // 圈完、還沒復原：不顯示
     $('holdUndo').disabled = !undo.stack.length;
     $('draftBar').hidden = !state.draft;
     $('holdActions').hidden = !!state.draft;
@@ -688,17 +754,17 @@
       $('draftDone').disabled = state.draft.length < 3;
     }
     const r = route();
+    syncEditorUi();
     setDial(r ? r.grade : lastGrade());
     if (r) {
       setGrade($('viewGrade'), r.grade); setGrade($('vwGrade'), r.grade);
+      $('vwFeet').hidden = !r.feetFree;
       if (document.activeElement !== $('routeTitle')) $('routeTitle').value = r.name || '';
     }
     const has = !!(r && Object.keys(r.holds).length);
     $('shareBtn').disabled = !has;
     const rs = sortedRoutes(), idx = rs.indexOf(r);
-    $('viewCount').textContent = r ? `${idx + 1} / ${rs.length}` : '';
     $('vwCount').textContent = r && rs.length > 1 ? `${idx + 1}/${rs.length}` : '';
 
-    $('prevRoute').disabled = idx <= 0; $('nextRoute').disabled = idx < 0 || idx >= rs.length - 1;
     $('edTitle').textContent = state.mode === 'route' && !r ? t('routes') : '';
   }

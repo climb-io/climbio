@@ -1,0 +1,21 @@
+/* 報告的步驟卡、定義與限制（report-frame.js）：岩館牆、3D 牆、天然岩場的報告共用，Studio 和 Lab 的頁面都載入。
+   顏色取頁面的 --surface、--line、--text、--muted、--accent：Studio 是深色、Lab 是淺色，版面相同。 */
+.rp-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.rp-step { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px 16px 16px; text-align: left; border: 1px solid var(--line); border-radius: var(--radius-sm, 14px); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; transition: border-color .15s, background-color .15s, box-shadow .2s; }
+.rp-step:hover { background: var(--surface-2); }
+.rp-step[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent), 0 14px 34px -22px var(--accent); }
+.rp-n { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; background: var(--surface-2); color: var(--muted); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.rp-step[aria-pressed="true"] .rp-n { background: var(--accent); color: var(--on-accent); }
+.rp-step > b { margin-top: 6px; font-size: 15px; font-weight: 600; letter-spacing: -.01em; line-height: 1.3; }
+.rp-score { margin-top: auto; padding-top: 8px; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.rp-score strong { font-size: 30px; font-weight: 650; line-height: 1.05; letter-spacing: -.03em; color: var(--text); font-variant-numeric: tabular-nums; }
+.rp-score em { margin-left: 5px; font-style: normal; font-weight: 600; }
+.rp-nums { display: block; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.rp-nums i { display: block; font-style: normal; }
+.rp-nums .bad, .rp-warn { color: var(--danger, #FF4D5E); }
+.rp-defn { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.rp-where { color: var(--muted); font-size: 12px; font-weight: 600; }
+.rp-limits { margin: 0; padding-left: 1.2em; color: var(--muted); font-size: 13px; line-height: 1.7; }
+div.rp-step { cursor: default; }
+div.rp-step:hover { background: var(--surface); }
+@media (max-width: 640px) { .rp-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } .rp-score strong { font-size: 24px; } }

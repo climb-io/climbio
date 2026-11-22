@@ -1,6 +1,8 @@
 // AppKit nearby：附近交換。同一個網路的裝置互相看得到，用 WebRTC 直接傳；兩個畫面、兩件事：
 //   mode: 'send'（傳給別人）：勾選附近的人（可多人）和要傳的東西，一次傳出去；收的人看到「○○ 想傳 N 項給你」，手動按「收下」。未配對只顯示「岩點貓／紅點貓＋匿名代號」，不帶金鑰、攀登記錄或真實裝置名稱。
 //   mode: 'devices'（我的裝置）：配對過的自己的裝置，打開這一頁就自動連線、雙向同步（比較新的互送、收到的自動收下）；加入新裝置時兩台顯示同一組確認碼。
+//     配對是所有 App 共用的（配一次，岩點貓、紅點貓、Studio 都認得）；同步只在相容的 App 之間：同一種，或其中一邊是 Studio（compatible）。
+//     list、pack、take 的最後一個參數是對方的 App（'hold'｜'redpoint'｜'studio'），Studio 依它決定交換什麼。
 // 找人和轉送連線訊息靠雲端函式 nearby（functions/nearby.js，只轉訊息、不碰資料）；資料走裝置之間的 DataChannel，不經過伺服器。
 // 沒有 endpoint（自架的站、後端 none、連不上）時，傳給別人還能用「QR code」連線：一方顯示 QR code（offer），另一方掃了再顯示 QR code（answer），第一方掃回去就連上，完全不用伺服器。
 // 瀏覽器不支援 WebRTC 就用不了：App 不顯示入口（看 AppKit.nearby.supported）。
@@ -8,17 +10,17 @@
 //
 // 用法：
 //   AppKit.nearby.open({ app: 'hold', endpoint, label: '岩點貓', mode: 'send' | 'devices',
-//     list: async (trusted) => [{ id, name, sub?, img?, v, t? }], // img：縮圖網址（「傳給別人」的小卡用；沒有就顯示名字的第一個字） // 我可以給的東西（v：內容，字串陣列；devices 模式對方有同一個 id 而且 v 涵蓋我的就不送，有 t（修改時間）的比 t，只送比較新的）；trusted：對方是配對過的自己的裝置
-//     pack: async (id, trusted) => ({ name, entry, files: [{ path, bytes: Uint8Array }] }),   // 打包一項；entry：入口檔（接收時從它開始讀）
-//     take: async (bundle, trusted) => {},                  // 收下一項：bundle = { id, name, entry, url, files }，url 是 mem://… 讀得到打包的檔案（ShareTools.open）
+//     list: async (trusted, peerApp) => [{ id, name, sub?, img?, v, t? }], // img：縮圖網址（「傳給別人」的小卡用；沒有就顯示名字的第一個字） // 我可以給的東西（v：內容，字串陣列；devices 模式對方有同一個 id 而且 v 涵蓋我的就不送，有 t（修改時間）的比 t，只送比較新的）；trusted：對方是配對過的自己的裝置
+//     pack: async (id, trusted, peerApp) => ({ name, entry, files: [{ path, bytes: Uint8Array }] }),   // 打包一項；entry：入口檔（接收時從它開始讀）
+//     take: async (bundle, trusted, peerApp) => {},                  // 收下一項：bundle = { id, name, entry, url, files }，url 是 mem://… 讀得到打包的檔案（ShareTools.open）
 //     sharePair: async () => 任何 JSON,  takePair: async (資料) => {},   // 配對時雙方各給一份、各收一份（例如岩點貓的裝置金鑰）
 //     onClose })
 //   → { close() }
 //   AppKit.nearby.nickname() / setNickname(暱稱) / ensureNickname()：兩款 App 共用唯一暱稱，舊簽名自動遷移。
 //   deviceName()：配對後用「暱稱＋裝置類型」區分，不再單獨改名。
 //   AppKit.nearby.start(mode, { app, label, suggested, list, pack, take, … })：入口的共用接線（確認暱稱 → open）；AppKit.nearby.bind(按鈕, mode, adapter, before?)：接上入口按鈕。
-//   AppKit.nearby.paired(app)：這個 App 已配對幾台。
-// 配對：兩台各存一把只有彼此知道的密鑰（localStorage `climbio.nearby.pairs.<app>`：[{ psk, name, last? }]）；用密鑰的雜湊當「配對房間」在伺服器上互相找到（伺服器看不到密鑰），連上後用密鑰證明（HMAC），證明過才同步。刪除不同步。
+//   AppKit.nearby.paired()：已配對幾台（所有 App 共用）。
+// 配對：兩台各存一把只有彼此知道的密鑰（localStorage `climbio.nearby.pairs`：[{ psk, name, last? }]，所有 App 共用；舊的分 App 記錄 `climbio.nearby.pairs.<app>` 第一次讀時併進來）；用密鑰的雜湊當「配對房間」在伺服器上互相找到（伺服器看不到密鑰），連上後用密鑰證明（HMAC），證明過才同步。刪除不同步。
 // 傳的是一個包：{ id, name, entry, files }。一次最多 MAX_BYTES；收的人也有同樣的上限。
 // English: AppKit nearby: discover devices on the same network, send to several people at once (receiver accepts), and auto-sync your own paired devices over WebRTC.
 (function (root, factory) {
@@ -26,11 +28,12 @@
   else (root.AppKit || (root.AppKit = {})).nearby = factory(root);
 })(typeof self !== 'undefined' ? self : this, function (root) {
   'use strict';
+  const ICON_BASE = (typeof document !== 'undefined' && document.currentScript && document.currentScript.src) || (typeof location !== 'undefined' ? location.href : 'http://localhost/appkit/');   // appkit/nearby.js 自己的網址
   const CHUNK = 16 * 1024, HIGH = 1024 * 1024, LOW = 256 * 1024;   // DataChannel 一個訊息 16 KB；送出佇列超過 HIGH 就等到低於 LOW
   const MAX_BYTES = 150 * 1024 * 1024, MAX_FILES = 2000, IDLE = 55000, ERR_RETRY = 3000, CONNECT_TIMEOUT = 20000, PAIR_CODE_TIMEOUT = 12000, PROOF_TIMEOUT = 8000, RETRY_AFTER = 15000, POOL = 8;
   // 文字在共用名詞語言包（i18n/common/<語言>.js 的 nearby*）；沒載入語言包時（自架站、測試）用繁體中文
   const FALLBACK = {
-    Title: '附近交換', SendTitle: '傳給別人', DevicesTitle: '我的裝置', Devices: '配對裝置', Empty: '附近沒有其他裝置', Searching: '搜尋附近的人…', Retry: '重新尋找', Close: '關閉',
+    Title: '朋友互傳', SendTitle: '傳給朋友', DevicesTitle: '我的裝置', Devices: '配對裝置', Empty: '附近沒有其他裝置', Searching: '搜尋附近的人…', Retry: '重新尋找', Close: '關閉',
     People: '附近的人', WhatToSend: '要傳的', Nothing: '沒有可以傳的', SelectAll: '全選', SendTo: (n) => `傳給 ${n} 人`, SendPick: '選擇對象與內容',
     Wants: (n, k) => `${n} 想傳 ${k} 項給你`, Decline: '不要', Take: '收下', Taken: '已收下', FailedTake: '收不下', Got: '收到的',
     AskWait: (n) => `等 ${n} 收下…`, Refused: '對方沒有收下', Sending: '傳送中', Sent: '已傳送', Lost: '連線中斷', Failed: '連不上對方。請確認在同一個 Wi-Fi', Offline: '沒有網路，連不上', TooBig: '太大了，傳不出去', Linking: '連線中…',
@@ -126,11 +129,24 @@
     }
   }
 
+  // ---------- 配對（所有 App 共用一份）與相容的 App ----------
+  const PAIR_KEY = 'climbio.nearby.pairs', LEGACY_APPS = ['hold', 'redpoint'];
+  const validPairs = (l) => (Array.isArray(l) ? l.filter((x) => x && typeof x.psk === 'string' && x.psk.length >= 16) : []);
+  const readJson = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+  function readPairs() {
+    const now = readJson(PAIR_KEY);
+    if (Array.isArray(now)) return validPairs(now);
+    const merged = [];   // 第一次：把舊的分 App 記錄併成一份（同一把密鑰只留一筆）
+    for (const a of LEGACY_APPS) for (const p of validPairs(readJson(`${PAIR_KEY}.${a}`))) if (!merged.some((x) => x.psk === p.psk)) merged.push(p);
+    writePairs(merged);
+    return merged;
+  }
+  function writePairs(l) { try { localStorage.setItem(PAIR_KEY, JSON.stringify(l)); } catch (e) { /* 沒有儲存空間：這次連線有效，下次要重配 */ } }
+  /** 我的裝置之間能不能同步：同一種 App，或其中一邊是 Studio（Studio 編輯岩點貓的牆、紅點貓的 Guidebook） */
+  const compatible = (a, b) => !a || !b || a === b || a === 'studio' || b === 'studio';
+
   function open(o) {
     const T = text, endpoint = o.endpoint, mode = o.mode === 'devices' ? 'devices' : 'send', devices = mode === 'devices';
-    const PAIR_KEY = `climbio.nearby.pairs.${o.app}`;
-    const readPairs = () => { try { const l = JSON.parse(localStorage.getItem(PAIR_KEY)); return Array.isArray(l) ? l.filter((x) => x && typeof x.psk === 'string' && x.psk.length >= 16) : []; } catch (e) { return []; } };
-    const writePairs = (l) => { try { localStorage.setItem(PAIR_KEY, JSON.stringify(l)); } catch (e) { /* 沒有儲存空間：這次連線有效，下次要重配 */ } };
     const st = {
       id: '', peers: [], timer: 0, closed: false, idle: false, last: Date.now(), links: new Map(), failedAt: new Map(), rooms: new Map(),   // rooms：配對房間 → 配對（psk）
       sel: new Set(), items: [], pick: new Set(), packs: new Map(), phase: 'main', pairs: readPairs(), flow: null, adding: false, renderAt: 0, dirty: false, down: 0, anim: { peers: new Set(), cls: new Map(), asked: new WeakSet() }, doneAt: 0, rounds: 0,
@@ -148,7 +164,7 @@
     const toastText = (t) => { if (root.AppKit && root.AppKit.ui) root.AppKit.ui.toast(t); };
     const myName = () => deviceName(), devId = () => devIdOf(o.app);
     // 每次開啟此頁產生匿名名稱，不跟裝置設定名稱、帳號或持久裝置 ID 綁定；相同名稱由 shown() 附加臨時代號區分。
-    const anonName = `${o.label || (o.app === 'redpoint' ? '紅點貓' : '岩點貓')} ${1000 + crypto.getRandomValues(new Uint16Array(1))[0] % 9000}`;
+    const anonName = `${o.label || ({ redpoint: '紅點貓', studio: 'Studio' }[o.app] || '岩點貓')} ${1000 + crypto.getRandomValues(new Uint16Array(1))[0] % 9000}`;
 
     // ---------- 畫面 ----------
     const page = make('div', 'ak-nearby'), bar = make('div', 'ak-nb-bar'), head = make('b', 'ak-nb-title', devices ? T.DevicesTitle : T.SendTitle);
@@ -205,7 +221,7 @@
     function drawPrompts() {
       const got = [];
       for (const L of st.links.values()) {
-        if (L.offer && !L.accepted && !L.declined) {
+        if (L.offer && !L.accepted && !L.declined && L.open && !L.dead) {   // 線斷了的提示按了也送不出去，不顯示
           const first = !st.anim.asked.has(L.offer); st.anim.asked.add(L.offer);
           const sec = make('section', `ak-nb-sec ak-nb-ask${first ? ' pop' : ''}`);
           const who = make('div', 'ak-pair-faces'); who.append(face(L.label(), true));
@@ -224,7 +240,7 @@
     }
 
     // ---------- 頭像：共用功能使用各 App 的正式 SVG；裝置識別色只用於小圓點，不改品牌圖 ----------
-    const CAT_ICON = o.app === 'redpoint' ? '../icons/cats/redpoint-cat.svg' : '../icons/cats/hold-cat.svg';
+    const CAT_ICON = new URL(o.app === 'redpoint' ? '../icons/cats/redpoint-cat.svg' : o.app === 'studio' ? '../icons/brand/climbio-mark.svg' : '../icons/cats/hold-cat.svg', ICON_BASE).href;   // 從 appkit/ 算，不管頁面在第幾層
     const DEVICE_COLORS = ['#A4DC2A', '#FF7A93', '#5BB8F5', '#FFC83D', '#A27BFF'];
     const hueOf = (key) => { let h = 7; for (const c of String(key || '')) h = (h * 31 + c.charCodeAt(0)) % 997; return h; };
     function face(key, awake = true) {
@@ -389,7 +405,7 @@
       try {
         const j = st.id ? await call({ op: 'poll', wait: Math.max(1000, Math.min(IDLE, st.last + IDLE - Date.now())), sig: sigOf(st.peers) }) : await call({ op: 'join', app: o.app, name: anonName, dev: devId(), pairRooms: [...st.rooms.keys()] });
         if (!st.id) st.id = j.id;
-        st.peers = j.peers || []; st.down = 0;
+        st.peers = (j.peers || []).filter((p) => (devices ? compatible(p.app, o.app) : !p.app || p.app === o.app)); st.down = 0;   // 傳給別人只有同一種 App；我的裝置連相容的
         for (const m of j.msgs || []) await onSignal(m.from, m.msg);
         if (devices) autoConnect();
         render(); ok = true;
@@ -444,6 +460,7 @@
         const intent = ['send', 'sync', 'pair'].includes(m.intent) ? m.intent : 'send';
         if ((intent === 'sync' || intent === 'pair') && !devices) return;   // 只有打開「我的裝置」才接同步與配對；別人的連線不理，對方會自己放棄
         if (intent === 'pair' && !st.adding) return;
+        if (L && L.open && !L.dead) return;   // 已經連好的線不拆：這是兩邊同時連對方時，對方慢到的邀請（它早改用我這條了），拆掉會讓正在問的提示掛在死線上
         if (L && !L.open && L.initiator) { if (st.id < from) return; linkDown(L, '', true); L = null; }   // 兩邊同時連對方：id 小的那條留下
         else if (L) { linkDown(L, '', true); L = null; }
         const peer = st.peers.find((x) => x.id === from) || { id: from, name: '?' };
@@ -476,7 +493,7 @@
       L.ch = ch; ch.binaryType = 'arraybuffer';
       ch.onopen = () => {
         clearTimeout(L.timer); L.open = true;
-        L.send({ t: 'who', name: anonName, nonce: L.nonce, rooms: devices ? [...st.rooms.keys()] : [] });
+        L.send({ t: 'who', name: anonName, nonce: L.nonce, app: o.app, rooms: devices ? [...st.rooms.keys()] : [] });
         if (L.intent === 'sync' || L.intent === 'pair') L.trustTimer = setTimeout(() => { if (!L.trusted && !st.flow) { st.failedAt.set(L.pid, Date.now()); linkDown(L, '', true); } }, PROOF_TIMEOUT);
         if (L.pid === 'qr') { st.phase = 'main'; st.sel.add('qr'); }
         render();
@@ -489,8 +506,8 @@
     // ---------- 收到的訊息 ----------
     async function onText(L, m) {
       if (m.t === 'who' && typeof m.name === 'string' && typeof m.nonce === 'string' && m.nonce.length <= 64) {
-        L.theirName = m.name.slice(0, 30); L.theirNonce = m.nonce; L.rooms = Array.isArray(m.rooms) ? m.rooms.filter((x) => typeof x === 'string').slice(0, 16) : [];
-        if (devices && L.intent === 'sync') {
+        L.theirName = m.name.slice(0, 30); L.theirNonce = m.nonce; L.theirApp = ['hold', 'redpoint', 'studio'].includes(m.app) ? m.app : o.app; L.rooms = Array.isArray(m.rooms) ? m.rooms.filter((x) => typeof x === 'string').slice(0, 16) : [];
+        if (devices && L.intent === 'sync' && compatible(L.theirApp, o.app)) {
           const pr = L.rooms.map((r) => st.rooms.get(r)).find(Boolean);
           if (pr) { L.pair = pr; L.send({ t: 'proof', mac: await mac(pr.psk, `proof:${L.theirNonce}:${L.nonce}`) }); }   // 我有這台的密鑰：證明給它看（它的亂數＋我的亂數）
         }
@@ -562,7 +579,7 @@
     async function takeOne(L, r) {
       if (r.taken || r.taking) return;
       r.taking = true; r.error = '';
-      try { await o.take({ id: r.id, name: r.name, entry: r.entry, url: memUrl(r.bid, r.entry), files: r.files.map((f) => f.path) }, L.trusted); r.taken = true; L.stats.got++; if (root.ShareTools) root.ShareTools.memDrop(r.bid); }
+      try { await o.take({ id: r.id, name: r.name, entry: r.entry, url: memUrl(r.bid, r.entry), files: r.files.map((f) => f.path) }, L.trusted, L.theirApp || o.app); r.taken = true; L.stats.got++; if (root.ShareTools) root.ShareTools.memDrop(r.bid); }
       catch (e) { r.error = `${T.FailedTake}：${e.message || e}`; }
       r.taking = false; render();
     }
@@ -573,8 +590,9 @@
 
     // ---------- 送：把一包傳給一個人 ----------
     async function sendBundle(L, it, onPct) {
-      let pack = st.packs.get(it.id);
-      if (!pack) { pack = o.pack(it.id, L.trusted); st.packs.set(it.id, pack); }   // 同一項傳給很多人只打包一次
+      const app = L.theirApp || o.app, key = `${app}:${it.id}`;
+      let pack = st.packs.get(key);
+      if (!pack) { pack = o.pack(it.id, L.trusted, app); st.packs.set(key, pack); }   // 同一項傳給很多人只打包一次（對方是不同 App 時各打包各的）
       const p = await pack, ch = L.ch, files = p.files, size = files.reduce((s, f) => s + f.bytes.length, 0);
       if (size > MAX_BYTES || files.length > MAX_FILES) throw new Error(T.TooBig);
       const bid = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => (b % 36).toString(36)).join('');
@@ -603,7 +621,8 @@
         L = connect(p, 'send');
         L.out = { phase: 'asking', total: items.length, done: 0 };
         render();
-        await new Promise((ok, no) => { const t = setInterval(() => { if (L.open) { clearInterval(t); ok(); } else if (!st.links.has(p.id) || L.dead) { clearInterval(t); no(new Error(T.Failed)); } }, 100); });
+        // 兩邊同時選對方：id 大的那邊放掉自己的連線、改接對方打來的，這裡跟著換到那條連線（資料通道是雙向的，照樣傳）
+        L = await new Promise((ok, no) => { const t = setInterval(() => { const cur = st.links.get(p.id); if (cur && cur.open && !cur.dead) { clearInterval(t); ok(cur); } else if (!cur || cur.dead) { clearInterval(t); no(new Error(T.Failed)); } }, 100); });
       }
       L.out = { phase: 'asking', total: items.length, done: 0 };
       render();
@@ -620,7 +639,7 @@
 
     // ---------- 我的裝置：連上、證明後，雙方各把對方沒有的（或比較新的）送過去，收到的自動收下 ----------
     async function sendHello(L) {
-      L.mine = (await o.list(true).catch(() => [])).map((x) => ({ ...x, pick: false, fresh: true }));
+      L.mine = (await o.list(true, L.theirApp || o.app).catch(() => [])).map((x) => ({ ...x, pick: false, fresh: true }));
       L.send({ t: 'hello', items: L.mine.map((x) => ({ id: x.id, v: x.v || [], ...(Number.isFinite(x.t) ? { t: x.t } : {}) })) });
     }
     async function syncProgress(L) {
@@ -794,8 +813,8 @@
     button.onclick = () => { if (before) before(); start(mode, adapter); };
   }
 
-  /** 這個 App 已配對幾台（App 的選單、首頁提示用；不用打開附近交換） */
-  const paired = (app) => { try { const l = JSON.parse(localStorage.getItem(`climbio.nearby.pairs.${app}`)); return Array.isArray(l) ? l.filter((x) => x && typeof x.psk === 'string' && x.psk.length >= 16).length : 0; } catch (e) { return 0; } };
+  /** 已配對幾台（所有 App 共用；App 的選單、首頁提示用，不用打開附近交換） */
+  const paired = () => readPairs().length;
 
-  return { open, start, bind, supported, paired, nickname, setNickname, ensureNickname, deviceName, setDeviceName, MAX_BYTES, memUrl };
+  return { open, start, bind, supported, paired, compatible, nickname, setNickname, ensureNickname, deviceName, setDeviceName, MAX_BYTES, memUrl };
 });

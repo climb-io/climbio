@@ -4,7 +4,7 @@ import path from 'node:path';
 
 const ORIGIN = 'https://climbio.app';
 const root = path.resolve(import.meta.dirname, '..');
-const SKIP = /^(404|google[0-9a-f]+)\.html$|^(node_modules|dist|docs|tests|design|demo|proto|playwright-report|test-results|functions|holdkit|holdscan|\.atlas-view|extension|backend)\/|baseline\/|(^|\/)demo\.html$|^(mapkit|routekit|topokit)\/demo\.html$/;
+const SKIP = /^(404|google[0-9a-f]+)\.html$|^(node_modules|dist|docs|tests|design|demo|proto|embed|playwright-report|test-results|functions|holdkit|holdscan|\.atlas-view|extension|backend)\/|baseline\/|(^|\/)demo\.html$|^(mapkit|routekit|topokit)\/demo\.html$/;
 const FALLBACK_DESC = {
   '3d/index.html': 'Climbio 3D：在手機上瀏覽岩壁與岩場的 3D 模型，沿岩壁看路線。',
   'privacy.html': 'Climbio 隱私權政策：說明我們收集哪些資料、如何使用與保護。',
@@ -16,7 +16,7 @@ const FALLBACK_DESC = {
 
 function walk(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    const rel = path.relative(root, path.join(dir, e.name));
+    const rel = path.relative(root, path.join(dir, e.name)).split(path.sep).join('/');   // Windows 的路徑分隔也換成網址的 /
     if (e.isDirectory()) { if (!SKIP.test(rel + '/')) walk(path.join(dir, e.name), out); }
     else if (e.name.endsWith('.html') && !SKIP.test(rel)) out.push(rel);
   }
@@ -25,7 +25,12 @@ function walk(dir, out = []) {
 const esc = s => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 const unesc = s => s.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
 
+const isHomepage = rel => /^(?:index\.html|(?:zh-cn|en|ja|ko|de|es|fr)\/index\.html)$/.test(rel);
+const HOME_IMAGE = '/social/climbio-home.jpg';
+const HOME_IMAGE_ALT = 'Climbio official logo and climbers viewing a rock wall';
+
 function imageFor(rel) {
+  if (isHomepage(rel)) return HOME_IMAGE;
   if (/^(en\/)?guides\/hold|^hold\//.test(rel)) return '/icons/cats/hold-cat-512.png';
   if (/^(en\/)?guides\/redpoint|^redpoint/.test(rel)) return '/icons/cats/redpoint-cat-512.png';
   return '/icons/brand/app-icon-light-512.png';
@@ -53,10 +58,17 @@ for (const rel of walk(root).sort()) {
     `<meta property="og:title" content="${ogTitle ?? esc(title)}">`,
     `<meta property="og:description" content="${ogDesc ?? esc(desc)}">`,
     `<meta property="og:image" content="${ORIGIN}${imageFor(rel)}">`,
-    `<meta name="twitter:card" content="summary">`,
+    ...(!isHomepage(rel) ? [] : [
+      '<meta property="og:image:type" content="image/jpeg">',
+      '<meta property="og:image:width" content="1200">',
+      '<meta property="og:image:height" content="630">',
+      `<meta property="og:image:alt" content="${HOME_IMAGE_ALT}">`,
+    ]),
+    `<meta name="twitter:card" content="${isHomepage(rel) ? 'summary_large_image' : 'summary'}">`,
     `<meta name="twitter:title" content="${ogTitle ?? esc(title)}">`,
     `<meta name="twitter:description" content="${ogDesc ?? esc(desc)}">`,
     `<meta name="twitter:image" content="${ORIGIN}${imageFor(rel)}">`,
+    ...(!isHomepage(rel) ? [] : [`<meta name="twitter:image:alt" content="${HOME_IMAGE_ALT}">`]),
   ];
   const before = html;
   html = html.replace(/[ \t]*<meta (?:property="og:[^"]*"|name="twitter:[^"]*")[^>]*>\n?/gi, '')

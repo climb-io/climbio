@@ -35,7 +35,7 @@ export function withText(old, value) {
 }
 
 /** 照片畫面（AppKit.photo.view：自己拍的、有位置就帶 camera）；raw 是 AppKit.photo.readExif 讀到的拍照資料 */
-/** origin 不給 = 自己拍的（'self'）；路線書轉換抽出的內嵌圖傳 null：來源不明，不能發佈，換上作者的原圖才放行 */
+/** origin 不給 = 自己拍的（'self'）；路線書轉換抽出的內嵌圖傳 'authorized'（轉換的人聲明有權利） */
 export function newPhoto({ id = newId(), name, w, h, sha256, raw, attribution = '', declination = 0, t = Date.now(), origin = 'self' }) {
   const view = { ...globalThis.AppKit.photo.view({ id, name, t, license: LICENSE, attribution, w, h, sha256, raw, declination, origin }), props: {} };
   if (!view.camera && Number.isFinite(raw?.time)) view.props[`${LOCAL}time`] = Math.round(raw.time);   // 沒有位置時 camera 不存在，拍攝時間另外留著歸岩壁用
@@ -74,7 +74,8 @@ export function addWall(state, name) {
   const names = new Set(walls(state).map(w => text(w.name)));
   let n = walls(state).length + 1;
   while (names.has(T('cdWallN', n))) n++;
-  const wall = { id: newId(), type: 'wall', name: name || T('cdWallN', n) };
+  const crag = cragOf(state);   // 有岩場節點（轉換、匯入的書）就放在岩場底下，不然路線清單會多出一個大區域
+  const wall = { id: newId(), type: 'wall', name: name || T('cdWallN', n), ...(crag ? { parent: crag.id } : {}) };
   state.book.nodes.push(wall);
   return wall.id;
 }
@@ -148,6 +149,21 @@ const lineLength = (l) => l.slice(1).reduce((s, p, i) => s + Math.hypot(p[0] - l
 /** 岩場節點（匯入的、轉換路線書建的才有）：位置 geo 記在它身上 */
 export const cragOf = (state) => state.book.nodes.find(n => n.type === 'crag');
 export const cragPosition = (state) => cragOf(state)?.geo?.coordinates;
+/**
+ * 地圖上岩場自己的形狀（岩壁、分區的牆線，岩石、區域、岩場的範圍；道路、陸地這類底圖不算）的中心 [經度, 緯度]；沒有回 undefined。
+ * 來源資料畫了地圖、沒寫岩場座標時（例如匯入的岩場站），發佈用它當岩場的位置
+ */
+export function mapCenter(map, nodes) {
+  const own = new Map(nodes.filter(n => [...WALL_TYPES, 'area', 'crag'].includes(n.type)).map(n => [n.id, n]));
+  const pts = (map?.marks || []).filter(m => own.has(m.node)).flatMap(m => {
+    const g = m.geometry;
+    return g?.type === 'Point' ? [g.coordinates] : g?.type === 'LineString' ? g.coordinates : g?.type === 'MultiLineString' || g?.type === 'Polygon' ? g.coordinates.flat() : g?.type === 'MultiPolygon' ? g.coordinates.flat(2) : [];
+  }).filter(p => Number.isFinite(p?.[0]) && Number.isFinite(p?.[1]));
+  if (!pts.length) return undefined;
+  const mid = (i) => Math.round(((Math.min(...pts.map(p => p[i])) + Math.max(...pts.map(p => p[i]))) / 2) * 1e6) / 1e6;
+  return [mid(0), mid(1)];
+}
+export const mapPosition = (state) => mapCenter(state.map, state.book.nodes);
 /** 貼上的位置 → [經度, 緯度]：Google 地圖複製的「緯度, 經度」；範圍不對回 undefined */
 export function parsePosition(input) {
   const m = /^\s*(-?\d+(?:\.\d+)?)\s*[,，\s]\s*(-?\d+(?:\.\d+)?)\s*$/.exec(input || '');
@@ -314,9 +330,32 @@ export const originAttribution = (state) => state.book.props[`${LOCAL}origin`];
 /** 自己的那部分署名（設定、發佈時填的） */
 export const ownAttribution = (state) => (originAttribution(state) === undefined ? state.book.attribution || '' : state.book.props[`${LOCAL}own`] || '');
 /** 組合的署名：原本的＋「〇〇 改編」 */
-const joinAttribution = (origin, own) => [origin, own && T('cdAdapted', own)].filter(Boolean).join(T('cdAttrSep'));
+/**
+ * 署名去掉「自己改編自己」的重複：同一個人改自己的作品不另外寫改編，「楊礎豪；楊礎豪 改編」→「楊礎豪」（中英文兩種寫法都認）。
+ * Studio 不在背景自己改：重複的發佈前擋下（app.js 的 mustFix），人按「整理署名」才改（tidyBookAttribution）
+ */
+const ADAPTED = [/^(.+?)\s*改編$/, /^Adapted by\s+(.+)$/i];
+export function tidyAttribution(s) {
+  const parts = String(s || '').split(/\s*[；;]\s*/).map(p => p.trim()).filter(Boolean);
+  const who = (p) => ADAPTED.map(re => re.exec(p)?.[1]).find(Boolean);
+  const plain = new Set(parts.filter(p => !who(p)));
+  const kept = parts.filter(p => !(who(p) && plain.has(who(p).trim())));
+  return kept.length === parts.length ? String(s || '') : kept.join(T('cdAttrSep'));
+}
+const joinAttribution = (origin, own) => [origin, own && T('cdAdapted', own)].filter(Boolean).join(T('cdAttrSep'));   // 不自己整理：重複的發佈前擋下（tidyBookAttribution 由人按）
 export function markOrigin(state) {
   state.book.props[`${LOCAL}origin`] = state.book.attribution || '';
+}
+/** 整理這本的署名（tidyAttribution，人在發佈對話框按「整理署名」才呼叫）：原本的署名、自己的署名一起整理，自己的跟原本的是同一個人就拿掉；有改回 true（呼叫的人存檔） */
+export function tidyBookAttribution(state) {
+  const before = state.book.attribution || '', origin = originAttribution(state);
+  if (origin !== undefined) {
+    const o = tidyAttribution(origin), own = state.book.props[`${LOCAL}own`] || '';
+    state.book.props[`${LOCAL}origin`] = o;
+    if (own && tidyAttribution(joinAttribution(o, own)) === o) delete state.book.props[`${LOCAL}own`];   // 自己就是原作者：不寫改編
+    state.book.attribution = tidyAttribution(joinAttribution(o, state.book.props[`${LOCAL}own`] || ''));
+  } else state.book.attribution = tidyAttribution(before);
+  return state.book.attribution !== before;
 }
 
 /** 改自己的署名：改編的組合寫成「原本的；自己 改編」，原本的拿不掉 */

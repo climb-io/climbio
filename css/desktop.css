@@ -12,8 +12,8 @@
 
   /* 室內：首頁、牆面與選單共用同一組邊界。 */
   html[data-climbio-theme="indoor"] body { --tablet-width: var(--desktop-width); --tablet-gutter: var(--desktop-gutter); }
-  html[data-climbio-theme="indoor"]:has(:is(#editor, #crop, #scan, #landing, #shareDialog):not([hidden])),
-  html[data-climbio-theme="indoor"]:has(:is(#editor, #crop, #scan, #landing, #shareDialog):not([hidden])) body { overflow: hidden; }
+  html[data-climbio-theme="indoor"]:has(:is(#editor, #crop, #shotCam, #scan, #landing, #shareDialog):not([hidden])),
+  html[data-climbio-theme="indoor"]:has(:is(#editor, #crop, #shotCam, #scan, #landing, #shareDialog):not([hidden])) body { overflow: hidden; }
   :is(#home, #wall) > .bar { min-height: 72px; }
   /* 返回圖示的線條對齊內容左緣（按鈕 48px、圖示 26px，兩側各有留白）。 */
   #wall > .bar #backBtn { margin-left: -11px; }
@@ -49,14 +49,11 @@
   #editor:not(.viewing) > .ed-top { left: var(--desktop-inset); right: var(--desktop-inset); padding: 16px 0 0; }
   #editor:not(.viewing) > .ed-bottom { align-items: center; padding: 0 24px 24px; }
   #editor:not(.viewing) .ed-panel { width: min(var(--desktop-tools), 100%); max-width: none; margin: 0 auto; align-items: stretch; }
-  #editor .type-row { gap: 6px; padding: 6px; }
-  #editor .type-row .type-btn { height: 42px; font-size: 14px; }
-  #editor .type-row { --pw: calc((100% - 36px) / 5); --step: calc(var(--pw) + 6px); }
-  #editor .type-pill { top: 6px; bottom: 6px; left: calc(6px + var(--i, 0) * var(--step)); }
   #editor > .vw { left: calc(var(--desktop-inset) - 12px); right: calc(var(--desktop-inset) - 12px); top: 4px; }
   #editor .vw-title b { font-size: 34px; }
   #editor .vw-title #routeTitle { font-size: 16px; }
-  #editor .photo-zoom { right: var(--desktop-inset); top: 50%; transform: translateY(-50%); }
+  #editor .rk-ui { --rk-inset-x: var(--desktop-inset); --rk-bottom-w: var(--desktop-tools); }   /* kit 的操作介面：跟頁面其他地方同一組邊距、工具寬度 */
+  #editor .photo-zoom { right: var(--desktop-inset); top: 76px; transform: none; }   /* 右上（上方工具列下面） */
   #editor #vwFabWrap { right: var(--desktop-inset); bottom: 24px; }
 
   /* 戶外桌面：一般內容共享一組置中寬度；世界限寬、岩場全視窗捲動，Topo 才使用雙欄工作區。 */

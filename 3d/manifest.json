@@ -1,0 +1,14 @@
+{
+  "schema": "climbio-3d-tracking/2",
+  "wall": "d1c27twdlbyor9cs",
+  "scene": "9af29d404bf9e5ee",
+  "camera": {
+    "url": "camera-3e0756b4d1a0.json",
+    "bytes": 2408796,
+    "sha256": "3e0756b4d1a0c592e4125c4fdfc98b43b662d8d1cdbaab5a1836414c328dbcbc"
+  },
+  "referenceViews": 60,
+  "featurePoints": 41026,
+  "containsImages": false,
+  "build": "tracking3d-3e0756b4d1a0"
+}

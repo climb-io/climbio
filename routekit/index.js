@@ -2,6 +2,6 @@
 // English: RouteKit entry for Node and bundlers: all modules merged into one object, same as the browser global.
 module.exports = {
   ...require('./geometry.js'), ...require('./labels.js'), ...require('./base.js'), ...require('./scene.js'),
-  ...require('./image.js'), ...require('./editor.js'), ...require('./viewer.js'), ...require('./circles.js'),
+  ...require('./image.js'), ...require('./fit.js'), ...require('./editor.js'), ...require('./viewport.js'), ...require('./viewer.js'), ...require('./ui.js'), ...require('./circles.js'),
   ...require('./format.js'),
 };

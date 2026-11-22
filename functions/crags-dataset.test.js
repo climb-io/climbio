@@ -78,9 +78,27 @@ test('Guidebook 的新版本：已發佈的 id 不能改；新 id 加 origin 是
   assert.deepEqual(s.docs.get('datasets/dddddddd12345678').credits, ['原作者', '改編者']);
 });
 
-test('發佈到資料集的檢查：只收公開的 Guidebook、路徑與種類、內容雜湊要對、JSON 要帶內容', async () => {
+test('不列入世界：檔案照樣進資料集，資料集目錄不列；下一版預設也不列入；versions 找得到所有版本', async () => {
   const s = setup();
-  assert.equal((await s.call(body({ listed: false }))).statusCode, 400);
+  const A = GID, B = 'bbbbbbbb12345678', C = 'cccccccc12345678';
+  const r = await s.call(body({ listed: false }));
+  assert.deepEqual([r.statusCode, r.data.listed], [200, false]);
+  assert.deepEqual(s.commits[0].sort(), [`file:crags/${A}/index.json`, `file:crags/${A}/pack.json`, `lfs:crags/${A}/p1.jpg`, `lfs:crags/${A}/p1.thumb.jpg`].sort(), '不寫 crags.jsonl');
+  assert.equal(s.docs.get(`datasets/${A}`).listed, false);
+  await s.call(body({ id: B, origin: A }));
+  assert.equal(s.docs.get(`datasets/${B}`).listed, false, '上一版不列入，下一版預設也不列入');
+  await s.call(body({ id: C, origin: B, listed: true }));
+  assert.equal(s.docs.get(`datasets/${C}`).listed, true, '明確給 listed: true 才改回列入');
+  assert.equal(s.store.text.split('\n').filter(Boolean).length, 1);
+  const v = (await s.call({ op: 'versions', id: A })).data.rows;
+  assert.deepEqual([v.length, v[0].versions, v[0].root, [v[0].id, ...v[0].others.map(o => o.id)].sort()], [1, 3, A, [A, B, C]], '不列入的版本也在（測試的發佈時間都一樣，不比先後）');
+  assert.deepEqual((await s.call({ op: 'versions', id: 'zzzzzzzz12345678' })).data.rows, []);
+  assert.equal((await s.call({ op: 'versions', id: 'x' })).statusCode, 400);
+});
+
+test('發佈到資料集的檢查：只收資料集的 Guidebook、路徑與種類、內容雜湊要對、JSON 要帶內容', async () => {
+  const s = setup();
+  assert.equal((await s.call(body({ hf: false }))).statusCode, 400);
   assert.equal((await s.call(body({ type: 'walls' }))).statusCode, 400);   // 牆面走 publishWall，不走這裡
   const bad = [
     files().map(f => (f.path === 'p1.jpg' ? { ...f, path: '../x.jpg' } : f)),
@@ -94,6 +112,21 @@ test('發佈到資料集的檢查：只收公開的 Guidebook、路徑與種類�
   ];
   for (const f of bad) assert.equal((await s.call(body({ files: f }))).statusCode, 400);
   assert.equal(s.commits.length, 0);
+});
+
+test('原始檔 source/：只收一層、認得路線書種類、上限放寬；目錄另記 source，不算進照片數', async () => {
+  const s = setup();
+  const doc = Buffer.from('PK docx');
+  const bad = [
+    [...files(), F('source/a/b.docx', doc)],
+    [...files(), F('source/x.exe', doc)],
+    [...files(), F('notes.docx', doc)],
+  ];
+  for (const f of bad) assert.equal((await s.call(body({ files: f }))).statusCode, 400);
+  const r = await s.call(body({ files: [...files(), F('source/book.docx', doc), F('source/IMG_0635.jpeg', JPG)] }));
+  assert.equal(r.statusCode, 200);
+  const row = JSON.parse(s.store.text);
+  assert.deepEqual([row.photos, row.files, row.source.files], [1, 4, 2]);
 });
 
 test('目錄與差異：planChanges、cragRow、upsertRow', () => {

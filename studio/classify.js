@@ -144,7 +144,7 @@ export function classifyImageData(rgba, w, h) {
 
 /**
  * 將掃描後的照片項目依「子資料夾 → GPS 位置與鏡頭朝向 → 拍攝時間（1 分鐘內）」自動分組：
- * items: [{ file, dir, camera, time, status, label, clean, red, thumbUrl }]
+ * items: [{ file, dir, camera, time, status, label, clean, red }]
  * 回傳 groups: [{ id, name, style, note, aspect, items }]
  */
 export function groupPhotos(items, { byTime = true } = {}) {

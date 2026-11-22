@@ -1,0 +1,73 @@
+/* 首頁、Studio、Lab、文件的共用導覽。 */
+:root {
+  --site-width: 1120px;
+  --site-gutter: clamp(16px, 4vw, 40px);
+  --site-header-height: 64px;
+}
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--site-header-height);
+  padding: 0 max(var(--site-gutter), calc((100% - var(--site-width)) / 2 + var(--site-gutter)));
+  border-bottom: 1px solid var(--brand-line);
+  background: var(--brand-surface);
+  font: 600 14px/1.4 -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Segoe UI", sans-serif;
+}
+
+.site-header .site-brand { display: flex; flex: none; align-items: center; min-height: 44px; }
+.site-header .site-brand img { display: block; width: 110px; height: 30px; object-fit: contain; }
+.site-nav { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.site-nav a {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 999px;
+  color: var(--brand-text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.site-nav a:hover, .site-nav a[aria-current] { background: var(--brand-surface-2); color: var(--brand-text); }
+.site-nav a[aria-current] { color: var(--brand-action); }
+.site-nav a.site-language {
+  margin-inline-start: 4px;
+  padding-inline: 8px;
+  border-radius: 0;
+  color: var(--brand-text-muted);
+  font-size: .9em;
+}
+.site-nav a.site-language:hover { background: transparent; text-decoration: underline; text-underline-offset: .24em; }
+.site-header :focus-visible { outline: 2px solid var(--brand-action); outline-offset: 2px; }
+.site-header .st-acct { margin-left: 0; }
+.site-header .st-avatar { background: var(--brand-surface-2); color: var(--brand-text); }
+.site-header .site-en, html:lang(en) .site-header .site-zh { display: none; }
+html:lang(en) .site-header .site-en { display: flex; }
+
+.site-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  :root { --site-header-height: 56px; }
+  .site-header { gap: 6px; }
+  .site-header .site-brand img { width: 28px; height: 28px; }
+  .site-nav { gap: 2px; font-size: 13px; }
+  .site-nav a { min-height: 44px; padding: 0 8px; }
+  .site-header > .st-env { display: none; }
+}
+@media (max-width: 360px) {
+  .site-header { padding-inline: 12px; }
+  .site-nav a { padding-inline: 6px; }
+  .site-nav a.site-language { margin-inline-start: 0; padding-inline: 6px; }
+}

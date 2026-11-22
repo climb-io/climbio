@@ -4,11 +4,10 @@ import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {TrackingLog} from '../3d/source/holds-3d-tracking-log.js';
 const root=new URL('../3d/',import.meta.url);
-test('3D 三檔資產沒有照片貼圖，雜湊與面數由 manifest 對照',()=>{
- const manifest=JSON.parse(readFileSync(new URL('model-manifest.json',root)));assert.equal(manifest.containsImages,false);assert.equal(manifest.containsTextures,false);assert.equal(manifest.models.length,3);
- for(const model of manifest.models){const bytes=readFileSync(new URL(model.url,root));assert.equal(bytes.length,model.bytes);assert.equal(createHash('sha256').update(bytes).digest('hex'),model.sha256);const length=bytes.readUInt32LE(12),meta=JSON.parse(bytes.subarray(20,20+length));assert.equal(meta.images,undefined);assert.equal(meta.textures,undefined);const p=meta.meshes[0].primitives[0];assert.equal(meta.accessors[p.indices].count/3,model.triangles);}
- assert.ok(manifest.models[0].bytes>manifest.models[1].bytes&&manifest.models[1].bytes>manifest.models[2].bytes);
- const common=JSON.parse(readFileSync(new URL(manifest.common.url,root)));assert.equal(common.photos,undefined);assert.equal(common.images,undefined);assert.equal(common.camera.references.length,manifest.referenceViews);assert.ok(common.camera.references.every(ref=>Object.keys(ref).sort().join(',')==='desc,n,xyz'));
+test('追蹤資料只有相機比對資料，雜湊、大小與特徵數由 manifest 對照',()=>{
+ const manifest=JSON.parse(readFileSync(new URL('manifest.json',root)));assert.equal(manifest.containsImages,false);assert.match(manifest.wall,/^[0-9a-z]{16}$/);
+ const bytes=readFileSync(new URL(manifest.camera.url,root));assert.equal(bytes.length,manifest.camera.bytes);assert.equal(createHash('sha256').update(bytes).digest('hex'),manifest.camera.sha256);
+ const camera=JSON.parse(bytes);assert.equal(camera.scene,manifest.scene);assert.equal(camera.references.length,manifest.referenceViews);assert.equal(camera.references.reduce((a,r)=>a+r.n,0),manifest.featurePoints);assert.ok(camera.references.every(ref=>Object.keys(ref).sort().join(',')==='desc,n,xyz'));
 });
 test('追蹤紀錄按模型分段，保存掉追蹤與人工標記且排除相機識別碼',()=>{
  let clock=0;const saved=new Map(),storage={getItem:k=>saved.get(k),setItem:(k,v)=>saved.set(k,v)},log=new TrackingLog({build:'test',manifest:{},device:{},storage,now:()=>clock,date:()=>new Date(clock).toISOString()});
@@ -47,4 +46,20 @@ test('黑邊檢查只回報摘要，暗畫面不被誤判為可裁切內容',asy
 
 test('定位診斷分辨特徵、匹配與幾何拒絕並保留標記當下摘要',()=>{
  let clock=0;const log=new TrackingLog({build:'test',manifest:{},device:{},now:()=>clock,date:()=>new Date(clock).toISOString()});log.begin({id:'balanced',bytes:1,triangles:1});clock=1000;const d={stage:'search',reason:'insufficient_matches',queryFeatures:800,matched3d:7,flowPoints:null,maxInliers:0,coverage:null,referenceHits:[[2,6],[1,4]],pnpRejected:0,coverageRejected:0,errorRejected:0,behindRejected:0};log.frame({pose:null,mode:'searching',latency:20,processingMs:15,diagnostics:d});const report=log.report(),row=Object.fromEntries(report.diagnosticColumns.map((key,i)=>[key,report.diagnosticSamples[0][i]]));assert.equal(row.session_started_s,0);assert.equal(row.query_features,800);assert.equal(row.matched_3d,7);assert.equal(row.best_reference,2);assert.equal(row.best_reference_matches,6);assert.equal(row.reason,'insufficient_matches');log.mark('missing_outline',{previewDiagnostics:{suspectedInset:false}});const mark=log.report().events.at(-1);assert.equal(mark.diagnostics.queryFeatures,800);assert.equal(mark.previewDiagnostics.suspectedInset,false);assert.ok(!('desc' in mark.diagnostics));
+});
+
+test('SPZ 解析支援 v2 點雲座標與透明度篩選並拒絕無效檔頭',async()=>{
+ const {parseSpzBuffer}=await import('../3d/source/holds-3d-spz.js');
+ const n=2,frac=9,scale=1<<frac,raw=new Uint8Array(16+n*16);
+ const view=new DataView(raw.buffer);
+ view.setUint32(0,0x5053474e,true);view.setUint32(4,2,true);view.setUint32(8,n,true);raw[12]=0;raw[13]=frac;
+ const write24=(off,val)=>{const iv=Math.round(val*scale);raw[off]=iv&255;raw[off+1]=(iv>>8)&255;raw[off+2]=(iv>>16)&255;};
+ write24(16,1.5);write24(19,-2.25);write24(22,3.0);
+ write24(25,0.5);write24(28,0.5);write24(31,0.5);
+ raw[16+n*9]=255;raw[16+n*9+1]=10;
+ raw.fill(128,16+n*10,16+n*13);raw.fill(140,16+n*13,16+n*16);
+ const parsed=parseSpzBuffer(raw);
+ assert.equal(parsed.version,2);assert.equal(parsed.totalPoints,2);assert.equal(parsed.count,1);
+ assert.ok(Math.abs(parsed.positions[0]-1.5)<1e-3);assert.ok(Math.abs(parsed.positions[1]+2.25)<1e-3);assert.ok(Math.abs(parsed.positions[2]-3.0)<1e-3);
+ assert.throws(()=>parseSpzBuffer(new Uint8Array(16)));
 });

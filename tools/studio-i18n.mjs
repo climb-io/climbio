@@ -10,5 +10,5 @@ globalThis.document = { documentElement: {}, write() {} };
 globalThis.localStorage = { getItem: () => 'zh', setItem() {}, removeItem() {} };
 const packs = readdirSync(new URL('../i18n/', import.meta.url)).filter((d) => d.startsWith('studio'));
 for (const p of packs) await import(`../i18n/${p}/zh.js`);
-AppKit.i18n.boot({ app: packs, key: 'climbio.studio.lang', langs: ['zh', 'en'], base: '../i18n/' });
+AppKit.i18n.boot({ app: packs, langs: ['zh', 'en'], base: '../i18n/' });
 for (const k of ['document', 'localStorage']) { if (had[k]) globalThis[k] = old[k]; else delete globalThis[k]; }

@@ -4,10 +4,12 @@
   // ---------- 綁定 ----------
   buildDial();
 
+  attachEditorUi();   // 定線的操作介面（RouteKit.EditorUI）接上控制器
   for (const b of document.querySelectorAll('.outline-btn')) b.onclick = toggleShowAll;
   for (const b of document.querySelectorAll('.base-btn')) b.onclick = () => toggleBase();
   $('delHold').onclick = deleteSelected;
-  $('holdLasso').onclick = () => setLasso(!state.lasso);   // 手機單點編輯：圈起來（js/edit.js 的 finishLasso）
+  $('holdLasso').onclick = () => { if (!cancelLasso()) setLasso(true); };   // 手機單點編輯：圈起來（js/edit.js 的 finishLasso）
+  $('holdRetrace').onclick = () => retraceSelected();   // 單點編輯：用目前的外框重描這一顆
   // 刪除路線（定線畫面右上的垃圾桶）：直接刪，不跳確認；自己的公開線大家都沒了（見 dropLine）；提示裡按「復原」放回來（見 keepLine）
   $('edDelRoute').onclick = () => {
     const r = route(); if (!r) return;
@@ -28,13 +30,17 @@
   };
   // 完成：結束編輯回到路線圖（跟返回鍵一樣，沒加任何點的新路線不存）
   // 編輯岩點時按完成：畫到一半的岩點夠 3 點就加進去
-  $('edDone').onclick = () => { if (state.draft && state.draft.length >= 3) finishDraft(); history.back(); };
   $('edMenuBtn').onclick = (e) => {
     e.stopPropagation();
     $('edMenuBtn').disabled = false;
     $('edMenu').hidden = !$('edMenu').hidden;
   };
   document.addEventListener('click', (e) => { if (!$('edMenu').hidden && !$('edMenu').contains(e.target)) $('edMenu').hidden = true; });
+  // 看路線圖右上的「⋯」：相機看線、灰階／暗彩、編輯路線、分享；選了一項或點別的地方就收起來
+  const vwMenu = (open) => { $('vwMenu').hidden = !open; $('vwMore').setAttribute('aria-expanded', String(open)); };
+  $('vwMore').onclick = (e) => { e.stopPropagation(); vwMenu($('vwMenu').hidden); };
+  $('vwMenu').addEventListener('click', () => vwMenu(false));
+  document.addEventListener('click', (e) => { if (!$('vwMenu').hidden && !$('vwMenu').contains(e.target)) vwMenu(false); });
   // 取消：回到進來編輯前的樣子（有改過先確認；ask＝false：已經問過了）
   async function cancelEdit(ask = true) {
     const w = state.wall; if (!w) return;
@@ -58,6 +64,7 @@
   // 看路線圖：點名稱直接修改（跟牆面名稱一樣）
   $('wallName').onchange = (e) => {
     if (!state.wall) return;
+    if (isPublic(state.wall)) { e.target.value = state.wall.name; return; }   // 公開牆不能改名
     state.wall.name = e.target.value.trim() || state.wall.name; e.target.value = state.wall.name; save();
   };
   $('wallName').onkeydown = (e) => { if (e.key === 'Enter') e.target.blur(); };
@@ -68,7 +75,8 @@
   async function openWallMenu(w, card) {
     if (w.lite) w = (await getWall(w.id).catch(() => null)) || w;   // 首頁的牆沒讀路線：選單的動作要完整的牆
     menuWall = w;
-    $('gymWallBtn').lastChild.textContent = t('gymOf', gymLabel(w.gym));
+    // 公開牆（Studio 發佈的）不能改名、加照片，只能刪除：大家看到同一份
+    $('renameWallBtn').hidden = $('addPhotoBtn').hidden = isPublic(w);
     openCardMenu('wallSheet', card);
   }
   AppKit.gesture.longPress($('wallList'), { item: '.wall-card:not(.pending)', rightClick: true, onHold: (el) => { if (el.wall) openWallMenu(el.wall, el); } });
@@ -84,18 +92,12 @@
   }
   // 對沒打開的牆（首頁）要用到牆面頁的功能：先打開那面牆
   const openedWall = async (w) => { if (state.wall !== w) await openWall(w.id); return state.wall && state.wall.id === w.id ? state.wall : null; };
-  $('gymWallBtn').onclick = () => { const w = menuWall || state.wall; if (w) openGymSheet(w.gym, async g => { await setWallGym(w, g); if (state.wall !== w) showHome(); }); };
-  $('scanGym').onclick = () => {
-    const w = scanWall; if (!w) return;
-    openGymSheet(w.gym, async g => { await setWallGym(w, g, true); $('scanGym').textContent = gymLabel(g); });
-  };
-  if (can('gyms') || SITE.directory) $('findBtn').onclick = () => openFind(); else $('findBtn').remove();   // 有總目錄就找得到別的站的牆
+  const hasFind = can('gyms') || SITE.directory;   // 有總目錄就找得到別的站的牆
+  if (hasFind) $('findBtn').onclick = () => openFind(); else $('findBtn').remove();
   $('findBack').onclick = findBack;
   $('findGym').onclick = findBack;
   $('findSearch').oninput = () => { find.q = $('findSearch').value.trim(); renderFind(); };   // 打字就依館名（沒有再依牆名）找，結果少就直接攤開卡片
   new IntersectionObserver((es) => { if (es.some(e => e.isIntersecting) && !$('find').hidden) loadFind(false); }).observe($('findMore'));   // 捲到底載入下一頁
-  $('gymCancel').onclick = dismissMenu;
-  $('gymSheet').onclick = (e) => { if (e.target === $('gymSheet')) dismissMenu(); };
   // 選單關掉（返回那一層退回去）之後才做，不然兩次返回疊在一起
   // fn(w)：選單是哪面牆的（打開選單時記下，關掉選單後就清掉）
   const afterMenu = (fn) => () => {
@@ -146,13 +148,6 @@
   $('homeMenuBtn').onclick = (e) => { e.stopPropagation(); toggleHomeMenu(); };
   // 點選單外面只關選單，不觸發底下的按鈕（不然退回選單這一層會跟底下開的頁面搶返回紀錄）
   document.addEventListener('click', (e) => { if (!$('homeMenu').hidden && !$('homeMenu').contains(e.target)) { e.stopPropagation(); e.preventDefault(); dismissMenu(); } }, true);
-  async function setLangSetting(v) {
-    if (v === langSetting()) return;
-    try { lang = await AppKit.i18n.use(v); } catch (err) { toast(t('netLoadFail')); return; }
-    // 由程式填的文字（不是 data-i18n 的）也要重畫：帳號、上傳同步、目前的頁面
-    applyLang(); renderInstall(); renderAccount();
-    if (!$('home').hidden) showHome();
-  }
   // 頁面自己的版本寫在 <meta name="app-version">（跟頁面一起從網路拿，不會像 version.js 被 HTTP 快取拿到舊的而一直提示更新）
   const PAGE_VERSION = (document.querySelector('meta[name="app-version"]') || {}).content || self.CLIMBIO_VERSION;
   AppKit.account.footer($('hmFoot'), { version: PAGE_VERSION, versionButton: true, showUpdateStatus: true });
@@ -165,7 +160,9 @@
     document.getElementById('bootSplash')?.remove();   // 拿掉 hold/index.html 的啟動畫面
     // Service Worker 第一次安裝要下載整版檔案：等首頁畫好、瀏覽器閒下來才開始，不跟首屏搶頻寬
     if ('serviceWorker' in navigator && location.protocol === 'https:') { if (self.requestIdleCallback) requestIdleCallback(registerSW, { timeout: 3000 }); else setTimeout(registerSW, 1000); }
-    if (!PCLAND) setTimeout(warmLocalDetect, 2000);
+    if (!PCLAND) setTimeout(prefetchModels, 2000);   // 偵測、重描的模型在背景先下載好（只存不載入），第一次拍照不用等
+    // 岩館目錄（兩個小檔，冷請求要 2、3 秒）閒下來先讀（只有接後端的主網；其他站按了才連外）：第一次按「找牆面」不用等，同時存成下次的快取；失敗不吭聲，按「找牆面」時會重讀並說原因
+    if (can('gyms')) { const go = () => { if (!findPre) preloadFind().p.catch(() => {}); }; setTimeout(() => { if (self.requestIdleCallback) requestIdleCallback(go, { timeout: 5000 }); else go(); }, 4000); }   // 等首屏、Service Worker 和模型下載先跑
     if (SITE.listed && SITE.directory && SITE.directory !== SITE.url && !PCLAND) ShareTools.registerSite(SITE.directory);   // 登記進總目錄，別的站找得到這裡的牆（總目錄自己的站不送：總目錄每天的複查列進自己）   // 岩點偵測在手機上做：開場畫面出來後在背景準備好模型
     // 點了路線連結（?p=照片編號&r=路線 id）：直接開始接收
 
@@ -203,6 +200,7 @@
   $('holdUndo').onclick = () => {
     const id = state.selected && state.selected.id;
     if (!undoEdit()) return;
+    if (holdView) holdView.lassoed = false;   // 復原後可以再圈
     state.selected = state.wall.holds.find(h => h.id === id) || null;
     refreshUi(); render();
   };
@@ -256,7 +254,7 @@
   // 操作示範兩段從頭播（等選單那一層退掉再開，不然返回事件會把示範關掉）
   $('helpBtn').onclick = () => {
     dismissMenu();
-    window.open('../guides/hold-manual.html', '_blank', 'noopener,noreferrer');
+    window.open(AppKit.i18n.guideUrl('hold-manual.html'), '_blank', 'noopener,noreferrer');
   };
   $('hmAcct').onclick = (e) => {   // 點最上面的姓名改暱稱；等選單那一層返回退完才開對話框，不然退掉選單的返回會把剛開的對話框關掉
     const ask = () => askSign().then(renderAccount);

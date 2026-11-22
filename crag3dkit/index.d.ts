@@ -66,10 +66,22 @@ export interface Area {
   routes: Set<string>;
   /** 這面岩壁的快照（照片畫面） */
   snapshot: Doc;
+  /** 這面岩壁所屬的模型畫面 id（分段多模型時每段不同） */
+  modelId: string;
+}
+
+export interface CragSegment {
+  id: string;
+  model: Doc;
+  from: number;
+  to: number;
+  areaIndices: number[];
 }
 
 export interface Crag3D {
   model: Doc;
+  models: Doc[];
+  segments: CragSegment[];
   layers: Doc[];
   marks: Mark[];
   sight?: SightSpec;
@@ -81,8 +93,10 @@ export interface Crag3D {
 
 /** Topo 都是同一個模型的快照時回傳那個模型畫面的 id，否則 null */
 export function sharedModelId(views: Doc[]): string | null;
-/** 從這個岩場所有的檔案找出 modelId 這個模型和播放需要的東西；找不到模型畫面回 null */
-export function readCrag3d(docs: Iterable<Doc>, modelId: string, options?: { lang?: string }): Crag3D | null;
+/** 所有 Topo 都有指定 3D 模型時，回傳依序去重後的模型畫面 id 陣列，否則空陣列 */
+export function cragModelIds(views: Doc[]): string[];
+/** 從這個岩場所有的檔案找出 modelId（單一或分段陣列）和播放需要的東西；找不到模型畫面回 null */
+export function readCrag3d(docs: Iterable<Doc>, modelId: string | string[], options?: { lang?: string }): Crag3D | null;
 
 /** 遮擋表：base64 的 deflate（raw）→ 每個點 az×el 個 4 位元的值 */
 export function readSight(b64: string): Promise<Uint8Array>;
@@ -95,12 +109,24 @@ export function pickGrade(grade: string | Record<string, unknown> | undefined, s
 export const CSS: string;
 export function injectStyle(host: Element): void;
 
-export interface MountOptions {
-  /** 模型檔網址（.spz 或 .glb），或還在讀的 Promise */
+export interface MountSegment {
+  id: string;
   url: string | Promise<string>;
+  mime?: string;
+  background?: string | Promise<string>;
+  sky?: [string, string, string?];
+  from: number;
+  to: number;
+}
+
+export interface MountOptions {
+  /** 模型檔網址（.spz 或 .glb），或還在讀的 Promise（單模型；分段請傳 segments） */
+  url?: string | Promise<string>;
   mime?: string;
   /** 背景模型（網格加潑濺背景時的潑濺），網址或 Promise */
   background?: string | Promise<string>;
+  /** 分段模型清單（依岩壁順序，優先載入目前區段、其餘背景預載並於邊界無縫切換） */
+  segments?: MountSegment[];
   marks: Mark[];
   sight?: SightSpec;
   nodes: Node[];
@@ -114,6 +140,8 @@ export interface MountOptions {
   poster: string;
   /** 背景漸層 [上, 地平線, 地面] */
   sky?: [string, string, string?];
+  /** 'free'：自由轉動、縮放；'fixed'：每一區先畫成一張圖當 2D 看（可縮放、平移、左右換區）；預設 'free' */
+  mode?: 'free' | 'fixed';
   onPick?: (routeId: string | null) => void;
   /** 目前最近的是第幾面（連續的數字，四捨五入） */
   onArea?: (index: number) => void;

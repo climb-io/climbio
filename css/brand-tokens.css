@@ -1,5 +1,5 @@
 /* Climbio 品牌色（規範見 docs/brand.md）：母品牌、室內、戶外各自管理，不取代各 App 的 --accent 與路線語意色。
-   手機 App 分室內岩點貓（深底綠、操作色 #D4FF4F）及戶外紅點貓（白底深海藍）。Climbio Studio 沿用母品牌 Logo，Wall／Crag 共用 Shell，僅工作區內容可使用對應主題色。在容器加 data-climbio-theme="indoor"／"outdoor" 取用 --brand-*。 */
+   手機 App 分室內岩點貓（深底綠、操作色 #D4FF4F）及戶外紅點貓（白底深海藍）。Climbio Studio 沿用母品牌 Logo，固定深色（studio：跟室內同一組深色，加上戶外的層次藍給地圖），僅工作區內容可使用對應主題色。在容器加 data-climbio-theme="indoor"／"outdoor"／"studio" 取用 --brand-*。 */
 :root {
   --climbio-brand-green: #B6F000;
   --climbio-brand-green-depth: #8AD300;
@@ -18,7 +18,7 @@
   --climbio-brand-dark-muted: #B5C8D3;
   --climbio-brand-dark-border: #344D61;
 }
-[data-climbio-theme="indoor"] {
+[data-climbio-theme="indoor"], [data-climbio-theme="studio"] {
   color-scheme: dark;
   --brand-bg: #0E0E0F;
   --brand-surface: #161618;
@@ -43,6 +43,25 @@
   --brand-on-danger: #FFFFFF;
   --brand-overlay: rgba(0, 0, 0, .6);
   --brand-shadow: rgba(0, 0, 0, .6);
+}
+/* Studio：工作台的中性深灰（比室內 App 更冷、層次更細，操作色只用在主要動作與焦點），深色上的地圖線、層次用亮一階的藍 */
+[data-climbio-theme="studio"] {
+  --brand-layer: #4FB3F0;
+  --brand-bg: #0B0B0D;
+  --brand-surface: #121215;
+  --brand-surface-2: #1A1A1E;
+  --brand-surface-hover: #212126;
+  --brand-line: #1E1E23;
+  --brand-line-strong: #2B2B31;
+  --brand-control: #34343B;
+  --brand-text: #EDEDEF;
+  --brand-text-muted: #9B9BA4;
+  --brand-text-dim: #6C6C75;
+  --brand-action-hover: #E0FF80;
+  --brand-action-soft: rgba(212, 255, 79, .12);
+  --brand-danger: #FF5C5C;
+  --brand-overlay: rgba(5, 5, 7, .62);
+  --brand-shadow: rgba(0, 0, 0, .55);
 }
 [data-climbio-theme="outdoor"] {
   color-scheme: light;

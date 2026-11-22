@@ -40,7 +40,7 @@
         const p = n.props || {}, hs = p.holds && typeof p.holds === 'object' ? { ...p.holds } : {}, mine = own.get(n.id) || new Map(), shapes = {};
         for (const id of Object.keys(hs)) { const s = mine.get(id) || at.get(id); if (s) { const { retired, ...rest } = s; shapes[id] = { ...rest, poly: s.poly.map(q => q.slice()) }; } }
         routes.push({ id: n.id, name: text(n.name), grade: grade(p.grade), holds: hs, ...(Array.isArray(p.seq) ? { seq: p.seq.slice() } : {}), shapes,
-          author: n.author || '', t: n.t || 0, ...(p['climbio:device'] ? { u: String(p['climbio:device']) } : {}), ...(p['climbio:color'] ? { color: String(p['climbio:color']) } : {}) });
+          author: n.author || '', t: n.t || 0, ...(p['climbio:device'] ? { u: String(p['climbio:device']) } : {}), ...(p['climbio:color'] ? { color: String(p['climbio:color']) } : {}), ...(p['climbio:feetFree'] === true ? { feetFree: true } : {}) });
       }
     }
     return { w: view.w, h: view.h, holds, routes };
@@ -79,7 +79,7 @@
       const hs = Object.fromEntries(Object.entries(r.holds || {}).filter(([k, v]) => NODE_ID.test(k) && ROLES.includes(v)));
       const seq = Array.isArray(r.seq) ? r.seq.filter(k => k in hs) : [];
       nodes.push({ id: r.id, type: 'route', ...(r.name ? { name: String(r.name) } : {}), ...(r.author ? { author: String(r.author) } : {}), t: Number(r.t) || 0,
-        props: { ...(gradeOf(r.grade) ? { grade: gradeOf(r.grade) } : {}), holds: hs, ...(seq.length ? { seq } : {}), ...(r.u ? { 'climbio:device': String(r.u) } : {}), ...(r.color ? { 'climbio:color': String(r.color) } : {}) } });
+        props: { ...(gradeOf(r.grade) ? { grade: gradeOf(r.grade) } : {}), holds: hs, ...(seq.length ? { seq } : {}), ...(r.u ? { 'climbio:device': String(r.u) } : {}), ...(r.color ? { 'climbio:color': String(r.color) } : {}), ...(r.feetFree ? { 'climbio:feetFree': true } : {}) } });
       for (const [k, s] of Object.entries(r.shapes || {})) {
         if (!(k in hs) || !s || !validPoly(s.poly) || (inView.has(k) && samePoly(inView.get(k), s.poly))) continue;
         if (!inView.has(k)) extra.add(k);

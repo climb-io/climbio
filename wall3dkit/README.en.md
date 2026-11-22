@@ -40,13 +40,14 @@ Coordinates are model `[x, y, z]` in metres; stage coordinates are CSS px. See `
 | `loadPack(base)` | Reads the pack's `wall.json` (`base` is the pack URL ending in `/`) |
 | `openStage(base, pack)` | Downloads the model and hold labels (a finished pack also brings the snapshot and the wall-following camera) and builds a `Stage` |
 | `openFront(base, pack)` | Builds a wall from a finished pack's `wall.json` and snapshot alone (the snapshot is the photo, the baked front outlines are the holds) before the model loads; returns `null` for older packs |
+| `openStageWith(pack, get)` | Builds a `Stage` with files from elsewhere (`get(path, isJson)`), e.g. a pack Studio just baked in the browser for a trial run, not yet published |
 | `openStageFrom(data)` | Builds a `Stage` from data already in memory (baking uses it too) |
-| `Stage` | `mount`, `unmount`, `dispose`, `warm`; `setView(view)` applies the 2D view; `paint({ holds, mode, colors })` draws a route; `pick(x, y)` picks a hold; `outlines()`, `frontOutlines()`; `snapshot()`, `viewShot()`; `setEdits(edits)` hold fixes; wall-following camera: `walk(view, at)`, `flyIn`, `frameTo(ids)`, `angle(dx)`, `settle`, `resetTilt` |
-| `WalkCam` | The wall-following camera: `s`, `v`, `d`, `yaw`; `sRange()`, `vRange(s, d)`, `dMax`, `dMin`; `pan`, `zoomAt`, `clamp`, `apply`; `missedHolds(d)` checks the standard; `calibrate` for on-screen calibration |
+| `Stage` | `mount`, `unmount`, `dispose`, `warm`; `setView(view)` applies the 2D view; `paint({ holds, mode, colors })` draws a route; `pick(x, y)` picks a hold; `outlines()`, `frontOutlines()`; `snapshot()`, `viewShot()`; `setEdits(edits)` hold fixes; wall-following camera: `walk(view, at)`, `flyIn`, `frameTo(ids)` (searches along the path for a position and angle that shows the holds when the estimate cannot), `flyWalk(to)`, `revealAt(x, y)` (overlapping or hidden holds: finds the position that reveals the most), `seenOf(holds)`, `bestPose`, `angle(dx)`, `settle`, `resetTilt` |
+| `WalkCam` | The wall-following camera: `s`, `v`, `d`, `yaw`; past a stop (turning into a cave or side wall) it keeps walking along the main wall's left–right axis while the look point follows the wall (`beyond`), up to the outermost point of that section, never walking in; `sRange()`, `vRange(s, d)`, `dMax`, `dMin`; `pan`, `zoomAt`, `clamp`, `apply`; `missedHolds(d)` checks the standard; `calibrate` for on-screen calibration |
 | `wallPath`, `profile`, `meshesOf`, `loadGlb` | Compute the track from a model (author side) |
 | `packWalk`, `unpackWalk`, `tableFor`, `introEnd` | Write the camera into a finished pack, read it back, pick the bounds table with the closest aspect ratio, and the opening stop position |
 | `bakePack({ doc, glb, faces })` | Bakes working files into a finished pack; returns `{ files: [{ path, bytes }], stats }` |
-| `clipPolygon`, `bakeMesh`, `writeGlb`, `parseGlb`, `sourceTexture` | Pure baking functions |
+| `clipPolygon`, `bakeMesh`, `cutOutlines` (cut the mesh along traced hold outlines), `writeGlb`, `parseGlb`, `sourceTexture` | Pure baking functions |
 | `packSurfaces`, `goneHolds`, `holdMargin`, `frameTest`, `frameShader`, `packSig` | Working-file surfaces, holds that are gone, cropping |
 | `hull`, `simplify`, `inside`, `decode`, `inflate`, `u16`, `parseModel` | Small helpers |
 | `STEP`, `YAW_MAX`, `YAW_RATE`, `FRAME_MAX`, `FRAME_BOUNDS` | Constants |

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en" data-climbio-theme="indoor">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="../../../host-redirect.js"></script>
+<title>Wall3D: a batch of photos becomes a 3D wall with holds marked</title>
+<meta name="description" content="Shoot a batch of photos and the computer builds a 3D wall with every hold marked. How it works on the Mingde Spraywall, how well it does, and how to shoot better.">
+<link rel="canonical" href="https://climbio.app/lab/wall3d/en/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Climbio">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="https://climbio.app/lab/wall3d/en/">
+<meta property="og:title" content="Wall3D: a batch of photos becomes a 3D wall with holds marked">
+<meta property="og:description" content="Shoot a batch of photos and the computer builds a 3D wall with every hold marked. How it works on the Mingde Spraywall, how well it does, and how to shoot better.">
+<meta property="og:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Wall3D: a batch of photos becomes a 3D wall with holds marked">
+<meta name="twitter:description" content="Shoot a batch of photos and the computer builds a 3D wall with every hold marked. How it works on the Mingde Spraywall, how well it does, and how to shoot better.">
+<meta name="twitter:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/lab/wall3d/">
+<link rel="alternate" hreflang="en" href="https://climbio.app/lab/wall3d/en/">
+<meta name="theme-color" content="#F7F9FB">
+<link rel="icon" href="../../../icons/brand/favicon-64.png">
+<link rel="stylesheet" href="../../../css/brand-tokens.css">
+<link rel="stylesheet" href="../../../appkit/ui.css">
+<link rel="stylesheet" href="../../../css/site-nav.css">
+<link rel="stylesheet" href="../../../lab/hold-lab/style.css">
+<link rel="stylesheet" href="../../../studio/report-frame.css">
+<style>#w3steps { margin-top: 20px; } .w3-notes { margin-top: 14px; }</style>
+<style>
+  .shot { display: block; width: 100%; height: auto; margin-top: 28px; border-radius: var(--radius-sm); background: #111; }
+  .vision.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  @media (max-width: 800px) { .vision.three { grid-template-columns: 1fr; } }
+  .para { margin-top: 14px; max-width: 40em; color: var(--muted); }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <a class="site-brand" href="../../../"><picture><source media="(max-width: 600px)" srcset="../../../icons/brand/climbio-mark.svg"><img src="../../../icons/brand/climbio-horizontal-light.svg" alt="Climbio" width="110" height="30"></picture></a>
+  <nav class="site-nav" aria-label="Site navigation"><a href="../../../en/">Home</a><a href="../../../studio/">Studio</a><a href="../../../lab/en/" aria-current="true">Lab</a><a href="../../../en/guides/">Docs</a><a class="site-language" href="../" hreflang="zh-Hant" lang="zh-Hant">中文</a></nav>
+</header>
+<main>
+  <section class="hero" aria-labelledby="t">
+    <h1 id="t"><span>Shoot a batch of photos,</span><span>get a 3D wall with holds marked.</span></h1>
+    <p class="lede">No tracing holds by hand. The computer finds the holds in each photo, then lets the photos vote on where each hold sits on the 3D wall.</p>
+    <img class="shot" src="https://huggingface.co/datasets/climbio/walls3d/resolve/main/walls3d/ghhxkq4pfz7vbfoh/snapshot-48afd7b3eef3.jpg" alt="The Mingde Spraywall as a 3D wall" width="2048" height="1024">
+  </section>
+
+  <section aria-labelledby="flow-t">
+    <h2 id="flow-t">How it works</h2>
+    <ol id="w3steps"></ol>
+    <div id="w3notes" class="w3-notes"></div>
+    <h3 style="margin-top:28px">Why vote</h3>
+    <p class="para">One photo’s outline is a little off. Pasted straight onto the 3D wall, outlines spill over the surface. Photos err in different directions, so a vote cancels the errors and the outline hugs the hold.</p>
+  </section>
+
+  <section aria-labelledby="shoot-t">
+    <h2 id="shoot-t">How to shoot</h2>
+    <div class="vision"><div><b>Walk along the wall</b><p>Turning on the spot gives no parallax, so depth cannot be computed. Shoot every small step, with about 70% overlap between neighbours.</p></div><div><b>Left, middle, right</b><p>Every spot needs three angles. Count left and right from 15° off straight-on.</p></div><div><b>Lock the camera</b><p>One lens throughout, no digital zoom. Long-press to lock focus and exposure, and avoid glare and backlight.</p></div><div><b>Cover the awkward parts</b><p>Corners, the top edge and caves get missed most. Review right after shooting and fill gaps on the spot.</p></div></div>
+    <p class="para">About 120 to 160 photos are enough. More just repeats.</p>
+    <h3 style="margin-top:28px">Can I film instead</h3>
+    <p class="para">Not tested yet. Video gives a natural order and good parallax, but each frame has lower resolution than a photo, plus compression and stabilisation. Use 4K, turn stabilisation off, lock focus and exposure, walk slowly, then pull 2 to 3 sharp frames per second. Only a real test will tell.</p>
+  </section>
+
+  <section aria-labelledby="lim-t">
+    <h2 id="lim-t">Limits</h2>
+    <p class="para">Verified only on two photo sets of the Mingde wall. Very small holds, corners and caves are where it fails most.</p>
+  </section>
+
+  <section aria-labelledby="go-t">
+    <h2 id="go-t">More</h2>
+    <p class="lede"><a href="../../../3d/">3D example</a>　·　<a href="../../../studio/wall3d/">Studio 3D Lab</a>　·　<a href="../../hold-lab/en/">Hold Lab (2D)</a>　·　<a href="https://github.com/climb-io/climbio/blob/main/docs/wall3d-research.md">Technical details (GitHub, for researchers and AI)</a></p>
+  </section>
+
+  <footer><a href="../../../lab/">Climbio Lab</a><a href="../../../studio/wall/">Studio Wall</a><a href="../../../stats/">Data</a></footer>
+</main>
+<script src="../../../appkit/i18n.js"></script>
+<script src="../../../i18n/studio-wall3d/en.js"></script>
+<script src="../../../studio/report-frame.js"></script>
+<script src="../../../studio/wall3d/report.js"></script>
+<script src="../app.js"></script>
+</body>
+</html>

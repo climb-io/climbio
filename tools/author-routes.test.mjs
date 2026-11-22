@@ -124,7 +124,7 @@ test('匯入岩場站（龍洞）：區、分區、路線照原本的樹和 id�
   const { state, images } = fromV2(src, 1761620000000);
   const { book } = state;
   assert.equal(book.name, '龍洞');
-  assert.equal(book.attribution, '臺灣戶外攀岩協會（TOCC）固定點更新計畫');
+  assert.equal(book.attribution, '龍洞攀岩資料庫');
   assert.deepEqual(book.derivedFrom, { url: BASE, id: '4on8pm04b9psonxr', t: src.root.t });
   const count = (type) => book.nodes.filter(n => n.type === type).length;
   assert.deepEqual([count('crag'), count('area'), count('sector')], [1, 2, 11]);
@@ -172,16 +172,16 @@ test('匯入岩場站（龍洞）：區、分區、路線照原本的樹和 id�
   assert.deepEqual(photo.derivedFrom, { url: 'https://longdong.web.app/climbio/2e26idbcphon06ov.json', id: '2e26idbcphon06ov', ...(src.docs.get('2e26idbcphon06ov').t ? { t: src.docs.get('2e26idbcphon06ov').t } : {}) });
   assert.equal(layer.attribution, 'KK');
   assert.equal(layer.derivedFrom.url, 'https://longdong.web.app/climbio/wi8csu5srq8qmox4.json');
-  assert.equal(state.map.attribution, '臺灣戶外攀岩協會（TOCC）固定點更新計畫');
+  assert.equal(state.map.attribution, '龍洞攀岩資料庫');
   assert.equal(state.map.license, 'CC-BY-SA-4.0');
   assert.equal(state.map.derivedFrom.id, 'nffc2kag3yvw9v9k');
 
   // 改署名只加在 Guidebook 原本的署名後面（拿不掉）；匯入的照片、圖層、地圖不動；改名稱只換中文
   M.setAttribution(state, '小明');
-  assert.equal(book.attribution, '臺灣戶外攀岩協會（TOCC）固定點更新計畫；小明 改編');
+  assert.equal(book.attribution, '龍洞攀岩資料庫；小明 改編');
   assert.equal(photo.attribution, 'KK');
   assert.equal(layer.attribution, 'KK');
-  assert.equal(state.map.attribution, '臺灣戶外攀岩協會（TOCC）固定點更新計畫');
+  assert.equal(state.map.attribution, '龍洞攀岩資料庫');
   M.renameWall(state, illusion.id, '騙人牆');
   assert.deepEqual(illusion.name, { 'zh-Hant': '騙人牆', en: 'Illusion Wall' });
 

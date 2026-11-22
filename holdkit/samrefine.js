@@ -37,7 +37,7 @@
   const SIDE = 1024;
   const MSG = {
     samDownload: (mb, total) => `Downloading the outline model ${mb} / ${total} MB (first time only)`, samAnalyzing: 'Analyzing the photo…',
-    samTimeout: 'The outline model stopped responding. Try again later.', samOffline: 'Outlines need an internet connection for this photo.',
+    samTimeout: 'The outline model stopped responding. Try again later.', samOffline: 'Outlines need an internet connection for this photo.', samQuota: 'Today’s cloud retrace limit is used up.', samCloudFailed: 'Cloud retrace just failed for this photo.',
   };
   const T = (k, ...a) => cfg.t ? cfg.t(k, ...a) : typeof MSG[k] === 'function' ? MSG[k](...a) : MSG[k] || k;
   const stats = { download: null, load: null, decode: null, decodes: [], cloud: null, encode: null, local: null };
@@ -60,8 +60,8 @@
   }
   const embGet = (k) => embTx('readonly', st => st.get(k)).then(v => v || null);
   const hasEmb = (k) => embTx('readonly', st => st.count(k)).then(n => n > 0, () => false);
-  const forget = (k) => { if (wKey === k) wKey = null; memo = null; return embTx('readwrite', st => st.delete(k)).catch(() => {}); };
-  const clear = () => { wKey = null; memo = null; return embTx('readwrite', st => st.clear()).catch(() => {}); };
+  const forget = (k) => { if (wKey === k) wKey = null; memo = null; cloudFailed.delete(k); return embTx('readwrite', st => st.delete(k)).catch(() => {}); };
+  const clear = () => { wKey = null; memo = null; cloudFailed.clear(); return embTx('readwrite', st => st.clear()).catch(() => {}); };
 
   // ---------- Worker：只有解碼器（samworker.js） ----------
   let worker = null, wReady = null, wKey = null, wSeq = 0, onProg = null, curStatus = () => {};
@@ -108,10 +108,18 @@
   // ---------- 雲端（functions/ 的 retrace）：照片只在伺服器記憶體裡算、不存檔 ----------
   // 整面牆一次送一份：分份同時送時常拿不到第二個執行個體，塞進同一台或新開的冷執行個體每顆都變慢，總時間沒有比較短。
   // 回傳是串流（一行一個 JSON）：照片特徵先到先存，外框每描好一批就交給 onHolds，不用等整面描完
+  // 雲端重試完仍失敗（超過次數、斷線、開不出執行個體）的照片：這次開著 App 時不再問雲端，照片特徵改在這台算（App 重開才再試雲端）
+  const cloudFailed = new Set();
+  // localFallback: false：有雲端時，雲端失敗就丟錯，不在這台一顆顆描整面牆（手機描幾百顆要幾分鐘）；沒有雲端照舊在這台描
   async function traceWall(src, key, items, status = () => {}, opts = {}) {
-    const url = cloudUrl();
-    if (!url) return traceLocal(src, key, items, status, opts);
-    return traceCloud(url, src, key, items, status, opts).catch(() => traceLocal(src, key, items, status, opts));   // 雲端不能用（超過次數、斷線、開不出執行個體）就在這台描
+    const url = cloudUrl(), local = opts.localFallback !== false;
+    if (!url || (cloudFailed.has(key) && (local || !items.length))) return traceLocal(src, key, items, status, opts);
+    if (cloudFailed.has(key)) throw new Error(T('samCloudFailed'));
+    return traceCloud(url, src, key, items, status, opts).catch((e) => {
+      cloudFailed.add(key);
+      if (local) return traceLocal(src, key, items, status, opts);   // 雲端不能用就在這台描
+      throw e;
+    });
   }
   async function traceCloud(url, src, key, items, status, { onHolds = () => {} } = {}) {
     if (navigator.onLine === false) throw new Error(T('samOffline'));
@@ -151,6 +159,7 @@
           await r.body?.cancel();
           return send(true);
         }
+        if (r.status === 429 && (await r.json().catch(() => ({}))).error === 'quota') throw Object.assign(new Error(T('samQuota')), { final: true });   // 今天的次數用完了：重試也沒用
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const rd = r.body.getReader(), dec = new TextDecoder();
         let buf = '';
@@ -168,7 +177,7 @@
     // 失敗（多半是雲端一時開不出執行個體：HTTP 500「no available instance」或 429；或描到一半斷了）等 3、6、12 秒再試；登入、請求本身的錯（400、401、413）重試也沒用
     for (let i = 0; ; i++) {
       try { await send(); break; }
-      catch (e) { if (i >= 3 || /HTTP 4(00|01|13)/.test(e.message)) throw e; status(T('samAnalyzing'), null); await new Promise(r => setTimeout(r, 3000 * 2 ** i)); }
+      catch (e) { if (i >= 3 || e.final || /HTTP 4(00|01|13)/.test(e.message)) throw e; status(T('samAnalyzing'), null); await new Promise(r => setTimeout(r, 3000 * 2 ** i)); }
     }
     if (!emb) throw new Error('retrace: no embedding');
     await emb;
@@ -178,7 +187,8 @@
   // ---------- 沒有雲端：在 Worker 裡分析照片、整面牆一顆顆解碼（跟單顆重描同一個佇列），每 0.3 秒交一批給 onHolds ----------
   async function traceLocal(src, key, items, status, { onHolds = () => {} } = {}) {
     const t0 = performance.now();
-    const enc = queue.then(() => encodeLocal(src, key, status)); queue = enc.catch(() => {}); await enc;
+    // 只要照片特徵、Worker 裡已經是這張的（例如背景分析剛做完）：不再算一次
+    const enc = queue.then(() => items.length || wKey !== key ? encodeLocal(src, key, status) : null); queue = enc.catch(() => {}); await enc;
     const out = [], part = [];
     let sent = performance.now();
     for (const { id, poly, box } of items) {
@@ -261,8 +271,8 @@
     let rec = await embGet(key).catch(() => null);
     if (!rec) {
       status(T('samAnalyzing'), null);
-      const url = cloudUrl();
-      if (!url || !await traceCloud(url, src, key, [], status).then(() => true, () => false)) { await encodeLocal(src, key, status); return; }   // 在佇列裡：直接分析，不再排隊；雲端不能用也在這台分析
+      const url = !cloudFailed.has(key) && cloudUrl();   // 這張照片雲端剛失敗過：不再等重試，直接在這台分析
+      if (!url || !await traceCloud(url, src, key, [], status).then(() => true, () => { cloudFailed.add(key); return false; })) { await encodeLocal(src, key, status); return; }   // 在佇列裡：直接分析，不再排隊；雲端不能用也在這台分析
       rec = await embGet(key);
     }
     if (!rec) throw new Error(T('samTimeout'));

@@ -3,7 +3,7 @@
 An open climbing platform: two apps for climbers and one workbench for the people who prepare the data. Routes, photos and topos share one open format that people can read, and so can AI.
 
 - **Hold Cat** (`/hold/`, indoor): photograph a wall, get the holds detected, tap holds to set a route, and share a route image or link. No sign-in needed.
-- **Red Dot Cat** (`/redpoint/`, outdoor): collect crags from World, then read topos, routes and 3D views offline and log your ascents.
+- **Redpoint Cat** (`/redpoint/`, outdoor): collect crags from World, then read topos, routes and 3D views offline and log your ascents.
 - **Climbio Studio** (`/studio/`): turn photos and existing guidebooks into Guidebooks and publish them.
 - **Open format and Kits**: `format/` and every Kit can be used on its own in your site or app; see the layout below.
 
@@ -11,7 +11,7 @@ The production site is **https://climbio.app**. Data stays on your device by def
 
 To contribute: people read [CONTRIBUTING.md](CONTRIBUTING.md); AI agents start with [AGENTS.md](AGENTS.md).
 
-The documentation is written in Traditional Chinese. The code identifiers, commands and file paths are in English, and the app UI supports Traditional Chinese, English, Japanese, French, Korean, Spanish and German.
+The [website documentation](https://climbio.app/en/guides/) includes the app manuals, Studio guide, crag data resources, open format, and kits. The repository specifications are written in Traditional Chinese. The code identifiers, commands and file paths are in English, and the app UI supports Traditional Chinese, Simplified Chinese, English, Japanese, French, Korean, Spanish and German.
 
 
 ## Run it
@@ -51,7 +51,8 @@ Opened from any host other than the official one, the app runs without a backend
 | `holdscan/` | On-device hold detection (YOLOv8n via onnxruntime-web) and an optional cloud function | AGPL-3.0 |
 | `holdkit/` | Hold outlines, MobileSAM re-tracing, hold data format | AGPL-3.0 |
 | `routekit/`, `topokit/`, `mapkit/` | Route viewer/editor, photo topo, crag map | AGPL-3.0 |
-| `sourcekit/`, `appkit/` | Third-party source import, user-owned Drive data, shared app helpers | AGPL-3.0 |
+| `wall3dkit/`, `crag3dkit/` | Indoor 3D wall and outdoor 3D crag viewers | AGPL-3.0 |
+| `sourcekit/`, `appkit/`, `embed/` | Third-party source import, shared app helpers, and iframe embeds | AGPL-3.0 |
 | `format/` | Open Format v2 schema and validator | Apache-2.0 |
 | `redpoint/`, `studio/`, `lab/` | Outdoor app, Guidebook authoring, and research tools | AGPL-3.0 |
 | `backend/`, `functions/`, `firestore.rules`, `storage.rules` | The official site's Firebase backend | AGPL-3.0 |

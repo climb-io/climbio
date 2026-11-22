@@ -1,160 +1,117 @@
 <!doctype html>
-<html lang="en" data-climbio-theme="outdoor" data-root="../">
+<html data-home-locale="en" data-home-root="../" lang="en" data-climbio-theme="outdoor">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https://climbio-redpoint-demo.web.app; base-uri 'self'; form-action 'none'">
-<meta name="theme-color" content="#0E1722">
-<meta name="description" content="Climbio's Hold Cat and Red Dot Cat: photograph an indoor wall and set your own routes, or collect crags outdoors and read topos offline. Routes, photos and topos share one open format that people and AI can both read.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; base-uri 'self'; form-action 'none'">
+<meta name="theme-color" content="#10130F">
+<meta name="description" content="Keep the climbing story going with friends from the gym to the crag">
 <link rel="canonical" href="https://climbio.app/en/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Climbio">
 <meta property="og:locale" content="en_US">
 <meta property="og:url" content="https://climbio.app/en/">
-<meta property="og:title" content="Climbio | Set routes indoors, find lines outdoors">
-<meta property="og:description" content="Hold Cat helps you set indoor routes; Red Dot Cat brings outdoor crags onto your phone.">
-<meta property="og:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
-<meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Climbio | Set routes indoors, find lines outdoors">
-<meta name="twitter:description" content="Hold Cat helps you set indoor routes; Red Dot Cat brings outdoor crags onto your phone.">
-<meta name="twitter:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<meta property="og:title" content="Climbio | Keep the climbing story going">
+<meta property="og:description" content="Keep the climbing story going with friends from the gym to the crag">
+<meta property="og:image" content="https://climbio.app/social/climbio-home.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Climbio official logo and climbers viewing a rock wall">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Climbio | Keep the climbing story going">
+<meta name="twitter:description" content="Keep the climbing story going with friends from the gym to the crag">
+<meta name="twitter:image" content="https://climbio.app/social/climbio-home.jpg">
+<meta name="twitter:image:alt" content="Climbio official logo and climbers viewing a rock wall">
 <link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/">
+<link rel="alternate" hreflang="zh-Hans" href="https://climbio.app/zh-cn/">
 <link rel="alternate" hreflang="en" href="https://climbio.app/en/">
-<title>Climbio | Set routes indoors, find lines outdoors</title>
+<link rel="alternate" hreflang="ja" href="https://climbio.app/ja/">
+<link rel="alternate" hreflang="fr" href="https://climbio.app/fr/">
+<link rel="alternate" hreflang="ko" href="https://climbio.app/ko/">
+<link rel="alternate" hreflang="es" href="https://climbio.app/es/">
+<link rel="alternate" hreflang="de" href="https://climbio.app/de/">
+<title>Climbio | Keep the climbing story going</title>
 <link rel="icon" href="../icons/brand/favicon-brand.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../icons/brand/apple-touch-icon-180.png">
 <script src="../host-redirect.js"></script>
 <link rel="stylesheet" href="../css/brand-tokens.css">
-<link rel="stylesheet" href="../css/pages.css">
 <link rel="stylesheet" href="../css/home.css">
-<script src="../home.js" defer></script>
+<script src="../home-reel.js" defer></script>
 </head>
-<body class="home">
-<header class="pg-top site-header home-top on-dark">
-  <a class="pg-brand" href="#apps" aria-label="Climbio home"><span class="mark-live"><img src="../icons/brand/climbio-mark.svg" alt=""><svg viewBox="0 0 320 300" aria-hidden="true"><path d="M157 75 C 222 92, 150 190, 215 207"/></svg></span><span>Climbio</span></a>
-  <span class="grow"></span>
-  <nav class="pg-nav navigation" aria-label="Page navigation">
-    <a href="#apps">Two apps</a>
-    <a href="#redpoint-data">Crag data</a>
-    <a href="#studio">Studio</a>
-    <a class="nav-developer" href="#developer">Developers</a>
-    <a href="../" hreflang="zh-Hant" lang="zh-Hant">繁體中文</a>
-  </nav>
-</header>
-<main class="pg home">
-  <section class="pg-section section apps hero" id="apps" aria-labelledby="apps-heading">
-    <svg class="flow-field" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <defs><linearGradient id="fieldGrad" x1="0" x2="1"><stop offset="0" stop-color="#B6F000"/><stop offset="1" stop-color="#0FADEA"/></linearGradient></defs>
-      <path d="M-40 120 C 240 40, 420 260, 720 170 S 1180 40, 1480 150"/>
-      <path d="M-40 210 C 300 150, 520 330, 820 250 S 1220 150, 1480 240"/>
-      <path d="M-40 300 C 200 260, 460 420, 760 340 S 1160 260, 1480 330"/>
-      <path d="M-40 390 C 280 330, 540 520, 840 430 S 1240 360, 1480 420"/>
-      <path d="M-40 480 C 220 450, 480 600, 780 520 S 1200 450, 1480 510"/>
-      <path d="M-40 570 C 300 520, 560 700, 860 610 S 1260 540, 1480 600"/>
-      <path d="M-40 660 C 240 630, 500 780, 800 700 S 1220 640, 1480 690"/>
-      <path d="M-40 750 C 320 700, 580 880, 880 790 S 1280 730, 1480 780"/>
-      <path d="M-40 840 C 260 820, 520 960, 820 880 S 1240 830, 1480 870"/>
-    </svg>
-    <div class="pg-hero" data-flow-node>
-      <span class="pg-eyebrow">Climbio · An open climbing platform</span>
-      <h1 id="apps-heading">Set routes indoors, <span class="flowing">find lines outdoors</span></h1>
-      <p class="pg-lead">Hold Cat turns an indoor wall into your own routes. Red Dot Cat puts real crags on your phone. Photos, routes and topos share one open format that people can read, and so can AI.</p>
-    </div>
-    <nav class="app-shortcuts" aria-label="Choose a climbing app">
-      <a href="#hold" aria-label="About Hold Cat"><img src="../icons/cats/hold-cat.svg" alt="" width="28" height="28"><span>Hold Cat</span><span class="app-shortcut-type">Indoor</span></a>
-      <a href="#redpoint" aria-label="About Red Dot Cat"><img src="../icons/cats/redpoint-cat.svg" alt="" width="28" height="28"><span>Red Dot Cat</span><span class="app-shortcut-type">Outdoor</span></a>
-    </nav>
-    <div class="app-grid" aria-label="Two apps">
-      <article class="app-card indoor" id="hold" aria-labelledby="hold-heading">
-        <div class="stage" data-wall-stage><img src="../demo/wanhua-wall.jpg" alt="A real wall in Hold Cat (Original Rock Wanhua 2F): holds found, one route drawn" width="1600" height="1282" fetchpriority="high"><a class="stage-credit" href="https://huggingface.co/datasets/climbio/walls" target="_blank" rel="noopener noreferrer">Original Rock Wanhua 2F · public wall · CC BY-SA 4.0</a></div>
-        <div class="head">
-          <img class="app-cat-logo pg-cat" src="../icons/cats/hold-cat.svg" alt="" width="48" height="48">
-          <div><div class="app-name">Hold Cat</div><div class="app-type">Indoor</div></div>
-        </div>
-        <h2 id="hold-heading">This line is yours to set.</h2>
-        <p>Photograph a wall to detect holds and tap to set routes. You can also view and set routes on an existing 3D wall, on your phone or desktop, then share your routes with friends.</p>
-        <div class="pg-actions">
-          <a class="pg-btn primary button" href="../hold/">Hold Cat ↗</a>
-          <a class="pg-link" href="guides/hold-manual.html">User guide</a>
-        </div>
-      </article>
-      <svg class="bridge" viewBox="0 0 80 100" preserveAspectRatio="none" aria-hidden="true">
-        <defs><linearGradient id="bridgeGrad" x1="0" x2="1"><stop offset="0" stop-color="#B6F000"/><stop offset="1" stop-color="#0FADEA"/></linearGradient></defs>
-        <path d="M0 10 C 46 10, 34 90, 80 90" vector-effect="non-scaling-stroke"/>
-      </svg>
-      <article class="app-card outdoor" id="redpoint" aria-labelledby="redpoint-heading">
-        <div class="stage"><img src="../demo/redpoint-dapao.jpg" alt="Red Dot Cat 3D crag view: routes and grades marked on the Dapao Rock wall" width="800" height="500" loading="eager"></div>
-        <div class="head">
-          <img class="app-cat-logo pg-cat" src="../icons/cats/redpoint-cat.svg" alt="" width="48" height="48">
-          <div><div class="app-name">Red Dot Cat</div><div class="app-type">Outdoor</div></div>
-        </div>
-        <h2 id="redpoint-heading">Take the crag with you.</h2>
-        <p>Collect crags from World and read photo topos, grades and routes offline. Some crags also offer 3D cliff views with routes; log the climbs you've completed.</p>
-        <div class="pg-actions">
-          <a class="pg-btn primary button" href="../redpoint/">Red Dot Cat ↗</a>
-          <a class="pg-link" href="guides/redpoint-manual.html">User guide</a>
-        </div>
-      </article>
-    </div>
-  </section>
-
-  <section class="pg-section section data-story" id="redpoint-data" aria-labelledby="redpoint-data-title">
-    <h2 id="redpoint-data-title" data-flow-node>Where does crag data come from?</h2>
-    <p class="pg-sub">Red Dot Cat's crag data is compiled by climbers and authors. If a crag is already there, collect it from World; if not, there are three ways to bring it in.</p>
-    <div class="pg-note"><span>Simplest: pick a crag in Red Dot Cat World and download it to read the topo offline.</span><a class="pg-btn primary" href="../redpoint/?world=1">World</a></div>
-    <div class="pg-grid three">
-      <a class="pg-card data-story-card" href="../redpoint-collect/" aria-label="Collect a crag from another site"><h3>Collect a crag</h3><p>Collect a crag from a supported site on your computer, then pair Red Dot Cat with your phone under Sync to other devices. Both devices must be on the same network.</p></a>
-      <a class="pg-card data-story-card" href="../studio/convert/" aria-label="Convert an existing guidebook"><h3>Convert a guidebook</h3><p>Already have a guidebook in Google Docs or Word? No need to redo it: convert it into a Guidebook with tappable routes on the phone.</p></a>
-      <a class="pg-card data-story-card" href="../redpoint-sites/" aria-label="Make your crag website work with Red Dot Cat"><h3>Connect a crag website</h3><p>Crag data on your own website? Expose an entry point in the open format and Red Dot Cat can read it, offline too.</p></a>
-    </div>
-  </section>
-
-  <section class="pg-section section studio" id="studio" aria-labelledby="studio-heading">
-    <h2 id="studio-heading" data-flow-node>Studio: the tool for preparing data</h2>
-    <p class="pg-sub">For guidebook authors and crag maintainers: no need to redo an existing guidebook. The tools do the first pass; you only review what needs a second look.</p>
-    <ol class="flowline" aria-label="How a guidebook becomes a digital Guidebook">
-      <li>Guidebook and photos<span>Word, web pages, PDF, the author's originals</span></li>
-      <li>Outline<span>Areas, walls, routes and photos read out</span></li>
-      <li>Topo<span>Red lines on the photos traced automatically</span></li>
-      <li>Red Dot Cat<span>Climbers download it and read it offline</span></li>
-    </ol>
-    <div class="pg-grid">
-      <a class="pg-card studio-card" href="../studio/" aria-label="Studio natural crag workspace"><h3>Natural crags</h3><p>Organize cliffs, routes and topos into a Guidebook that Red Dot Cat can read offline; existing guidebooks can be converted directly.</p></a>
-      <a class="pg-card lab-card" href="../lab/" aria-label="Indoor hold refinement and 3D wall research tools"><h3>Indoor walls · Lab</h3><p>Refine hold outlines and explore 3D walls. These are research tools, not the regular Studio publishing flow.</p></a>
-    </div>
-    <div class="pg-actions"><a class="pg-btn primary" href="../studio/">Studio ↗</a></div>
-  </section>
-
-  <section class="pg-section section developer" id="developer" aria-labelledby="developer-heading">
-    <span class="pg-eyebrow">Developers</span>
-    <h2 id="developer-heading" data-flow-node>One set of data, readable by people and by AI</h2>
-    <p class="pg-sub">The route Hold Cat draws is a file in a public format. Websites, apps and AI agents can all read it, and check, convert and improve it with the same tools.</p>
-    <div class="dual">
-      <figure class="wall-pane" data-wall-dual><figcaption>For people</figcaption><img src="../demo/wanhua-wall.jpg" alt="A route on a real wall" width="1600" height="1282" loading="lazy"></figure>
-      <figure class="code-pane"><figcaption>For AI · wall-routes.json</figcaption><pre data-route-json aria-label="This route in the open format"></pre></figure>
-    </div>
-    <ul class="dual-points">
-      <li><h3><a href="../kits/en/format.html">Open format</a></h3><p>Specification, schema and validator under Apache-2.0, so any app can implement it.</p></li>
-      <li><h3><a href="../kits/en/">Standalone kits</a></h3><p>Route views, topos, maps and hold detection you can use on their own in your site or app, under AGPL-3.0.</p></li>
-      <li><h3><a href="../studio/convert/">Command line for AI agents</a></h3><p>Read a guidebook, check it, build a Guidebook and make targeted fixes without opening the app; every step produces the same issue list.</p></li>
-    </ul>
-    <div class="pg-actions"><a class="pg-btn primary" href="../kits/en/">Component docs</a><a class="pg-btn" href="https://github.com/climb-io/climbio" target="_blank" rel="noopener noreferrer">GitHub ↗</a></div>
-    <aside class="pg-lab lab-invite" aria-labelledby="lab-invite-title">
-      <div><h3 id="lab-invite-title">Climbio Lab</h3><p>Refine hold detection and explore 3D wall research. With the necessary rights, you can choose to contribute photos and corrections to the open dataset; private walls are never published automatically.</p></div>
-      <div class="pg-actions"><a class="pg-btn" href="../lab/">Lab</a><a class="pg-btn" href="../stats/">Data</a></div>
-    </aside>
-    <div class="pg-kits" aria-label="Climbio standalone components">
-      <a class="pg-card kit developer-kit" id="kit-format" href="../kits/en/format.html"><h3>Format</h3><p>Data format and validator</p><code>@climbio/format</code></a>
-      <a class="pg-card kit developer-kit" id="kit-routekit" href="../kits/en/routekit.html"><h3>RouteKit</h3><p>View and edit indoor routes</p><code>@climbio/routekit</code></a>
-      <a class="pg-card kit developer-kit" id="kit-topokit" href="../kits/en/topokit.html"><h3>TopoKit</h3><p>View and edit outdoor topos</p><code>@climbio/topokit</code></a>
-      <a class="pg-card kit developer-kit" id="kit-mapkit" href="../kits/en/mapkit.html"><h3>MapKit</h3><p>Vector maps of crags</p><code>@climbio/mapkit</code></a>
-      <a class="pg-card kit developer-kit" id="kit-holdscan" href="../kits/en/holdscan.html"><h3>HoldScan</h3><p>Detect holds in photos</p><code>holdscan/ · AGPL-3.0</code></a>
-      <a class="pg-card kit developer-kit" id="kit-holdkit" href="../kits/en/holdkit.html"><h3>HoldKit</h3><p>Hold outlines and colors</p><code>@climbio/holdkit</code></a>
-      <a class="pg-card kit developer-kit" id="kit-sourcekit" href="../kits/en/sourcekit.html"><h3>SourceKit</h3><p>Tools for importing crag data and topos</p><code>@climbio/sourcekit</code></a>
-      <a class="pg-card kit developer-kit" id="kit-appkit" href="../kits/en/appkit.html"><h3>AppKit</h3><p>Shared features: photos, languages, sharing</p><code>@climbio/appkit</code></a>
-    </div>
-    <footer class="pg-foot"><span>© 2026 Climbio</span><span><a href="../about.html">About</a>　<a href="../privacy.html">Privacy</a>　<a href="../terms.html">Terms</a></span></footer>
-  </section>
+<body class="reel-page">
+<main class="reel" tabindex="-1" aria-label="Climbio climbing stories">
+  <a class="reel-shortcut" href="#apps" aria-label="View apps" title="View apps"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></a>
+  <div class="reel-stage">
+    <article class="reel-frame hold-intro" id="hold-private" aria-labelledby="hold-private-title" data-title="Hold Cat" data-active>
+      <img class="reel-photo" src="../demo/reel/nangang-wall.webp" alt="" fetchpriority="high" decoding="async">
+      <div class="reel-copy">
+        <h1 id="hold-private-title">Next time, try these two</h1>
+        <p class="reel-desc">
+          <span class="reel-sentence">After climbing, I wanted to keep the routes I had just set</span>
+          <span class="reel-sentence">I photographed the wall and marked the holds so the routes would be there next time</span>
+        </p>
+        <a class="reel-app" href="../hold/"><img src="../icons/cats/hold-cat.svg" alt="" width="48" height="48">Hold Cat</a>
+      </div>
+    </article>
+    <article class="reel-frame friend-intro" id="friend-exchange" aria-labelledby="friend-exchange-title" data-title="Friends exchange" inert aria-hidden="true">
+      <img class="reel-photo" src="../demo/reel/wanhua-friends.webp" alt="" loading="lazy" decoding="async">
+      <div class="reel-copy">
+        <h2 id="friend-exchange-title"><span class="reel-phrase">My routes</span> <span class="reel-phrase">Your turn to keep them</span></h2>
+        <p class="reel-desc">
+          <span class="reel-sentence">I wanted my friends to try the routes I just set</span>
+          <span class="reel-sentence">Send the photos and routes directly; friends can keep them on their own devices</span>
+        </p>
+        <a class="reel-app" href="guides/friends.html"><img src="../icons/brand/friends-exchange.svg" alt="" width="48" height="48">Friends exchange</a>
+      </div>
+    </article>
+    <article class="reel-frame collector-intro" id="redpoint-collect" aria-labelledby="redpoint-collect-title" data-title="Redpoint Cat Collector" inert aria-hidden="true">
+      <img class="reel-photo" src="../demo/reel/before-departure.webp" alt="" loading="lazy" decoding="async">
+      <div class="reel-copy">
+        <h2 id="redpoint-collect-title">Save a few lines for the trip</h2>
+        <p class="reel-desc">
+          <span class="reel-sentence">Before a climbing trip, we researched the crags we wanted to visit</span>
+          <span class="reel-sentence">I found a few lines online and saved the wall photos and topos while we still had a connection</span>
+        </p>
+        <a class="reel-app" href="redpoint-collect/"><img src="../icons/cats/redpoint-cat-collector.svg" width="48" height="48" alt="">Redpoint Cat Collector</a>
+      </div>
+    </article>
+    <article class="reel-frame crag-intro" id="redpoint-climb" aria-labelledby="redpoint-climb-title" data-title="Redpoint Cat" inert aria-hidden="true">
+      <img class="reel-photo" src="../demo/reel/crag-guidebook.webp" alt="" loading="lazy" decoding="async">
+      <div class="reel-copy">
+        <h2 id="redpoint-climb-title"><span class="reel-phrase">At the crag</span> <span class="reel-phrase">find your line</span></h2>
+        <p class="reel-desc">
+          <span class="reel-sentence">At the crag, the photos and topos we saved are ready to use</span>
+          <span class="reel-sentence">Compare the routes with the rock in front of us and find where to start together</span>
+        </p>
+        <a class="reel-app" href="../redpoint/"><img src="../icons/cats/redpoint-cat.svg" alt="" width="48" height="48">Redpoint Cat</a>
+      </div>
+    </article>
+    <article class="reel-frame climbio-intro" id="climbio" aria-labelledby="climbio-title" data-title="Climbio" inert aria-hidden="true">
+      <img class="reel-photo" src="../demo/story-after-climbing.webp" alt="" loading="lazy" decoding="async">
+      <div class="reel-copy">
+        <h2 id="climbio-title"><span class="reel-phrase">AI does it better</span><span class="reel-phrase">You enjoy the climb</span></h2>
+      </div>
+      <div class="directory-content" id="apps" inert aria-hidden="true">
+        <nav class="finale-apps" aria-label="Climbio apps">
+          <a href="../hold/"><img src="../icons/cats/hold-cat.svg" width="38" height="38" alt=""><span><strong>Hold Cat</strong><small>Set a climb for a friend</small></span></a>
+          <a href="guides/friends.html"><img src="../icons/brand/friends-exchange.svg" width="38" height="38" alt=""><span><strong>Friends exchange</strong><small>Share photos and routes</small></span></a>
+          <a href="../redpoint/"><img src="../icons/cats/redpoint-cat.svg" width="38" height="38" alt=""><span><strong>Redpoint Cat</strong><small>Bring your topo to the crag</small></span></a>
+          <a href="redpoint-collect/"><img src="../icons/cats/redpoint-cat-collector.svg" width="38" height="38" alt=""><span><strong>Redpoint Cat Collector</strong><small>Save a crag for your next trip</small></span></a>
+          <a href="../studio/"><img src="../icons/brand/climbio-mark.svg" width="38" height="38" alt=""><span><strong>Studio</strong><small>AI handles the work</small></span></a>
+          <a href="guides/"><img src="../icons/brand/docs.svg" width="38" height="38" alt=""><span><strong>Docs</strong><small>User guides and project progress</small></span></a>
+        </nav>
+        <nav class="finale-labs" aria-label="Climbio Lab">
+          <a href="project/"><img src="../icons/brand/ai-engine.svg" width="38" height="38" alt=""><span><strong>Put Climbio in your gym app</strong><small>Let your AI Agent integrate it simply</small></span></a>
+          <a href="../lab/hold-lab/en/"><img src="../icons/brand/hold-lab.svg" width="38" height="38" alt=""><span><strong>Hold Lab</strong><small>Help Hold Cat recognize the right holds</small></span></a>
+          <a href="../lab/wall3d/en/"><img src="../icons/brand/3d-lab.svg" width="38" height="38" alt=""><span><strong>3D Lab</strong><small>Teach Redpoint Cat to recognize rock faces</small></span></a>
+        </nav>
+        <a class="finale-source" href="https://github.com/climb-io/climbio" aria-label="GitHub"><svg viewBox="0 0 16 16" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38l-.01-1.49c-2.23.48-2.7-.95-2.7-.95-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.22.82 1.22.82.71 1.22 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.65-.89-3.65-3.96 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.13 0 0 .67-.21 2.2.82a7.7 7.7 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.11.16 1.93.08 2.13.51.56.82 1.28.82 2.15 0 3.08-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.22c0 .21.14.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a>
+        <footer class="finale-legal" aria-label="Site policies"><a href="../terms.html">Terms</a><a href="../privacy.html">Privacy</a></footer>
+      </div>
+    </article>
+  </div>
+  <p class="reel-status" role="status"></p>
 </main>
 </body>
 </html>

@@ -15,7 +15,7 @@ import { readSight, routeVisibility } from './sight.js';
 const SKY = ['#dfe6ec', '#dfe6ec', '#dfe6ec'], TAP_PX = 24, FILL = 3, TURN = Math.PI / 3, TILT_UP = 0.55, TILT_DOWN = 0.45, NEAR = 1.5, ZOOM_OUT = 1.15, LIFT = 4, DASH = 0.25, HIDDEN = 0.45;
 const DIM_MS = 120, LINE_W = 2.8, LINE_W_ON = 4, POSTER_MS = 450, FADE_MS = 320, MIN_SEEN = 0.3, CALM_FRAMES = 3, SETTLE_MAX_MS = 5000;   // 潑濺排好＝Spark 沒在排、也不用重排，連續 CALM_FRAMES 格（每台手機排序速度不同，不能用固定時間猜）；SETTLE_MAX_MS 只是防卡住的上限
 // 鏡頭的動作：進場拉開；放開後順勢滑（越來越慢、最快每秒幾公尺），停在哪裡就是哪裡；路線照看得到畫（不分區）；電腦的左右鈕、方向鍵往前往後走 WALK_M 公尺；點兩下放大到 1/ZOOM_IN 倍
-const INTRO_HOLD_MS = 500, INTRO_FLY_MS = 2000, FRAME_ASPECT = 0.75, ZOOMED = 0.95, PUSH_PX = 48, GLIDE_MS = 420, MAX_SPEED = 6, WALK_M = 5, FAR_K = 1.6, CROWD_PX = 18, GO_MS = 700, GO_MS_PER_M = 80, GO_MAX_MS = 1800, ZOOM_MS = 500, ZOOM_IN = 0.4, DOUBLE_MS = 320;
+const INTRO_HOLD_MS = 500, INTRO_FLY_MS = 2000, FRAME_ASPECT = 0.75, ZOOMED = 0.95, PUSH_PX = 48, GLIDE_MS = 420, MAX_SPEED = 6, WALK_M = 5, FAR_K = 1.6, CROWD_PX = 18, GO_MS = 700, GO_MS_PER_M = 80, GO_MAX_MS = 1800, ZOOM_MS = 500, ZOOM_IN = 0.4, DOUBLE_MS = 320, SWIPE_PX = 40, S_MAX = 4, DOUBLE_ZOOM = 2.5, PREFETCH = 6;
 const easeInOut = (t) => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2);
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
@@ -31,9 +31,9 @@ const mix = (a, b, t) => ({ target: a.target.clone().lerp(b.target, t), az: a.az
  * areas：[{ id, name, camera, aspect, routes: Set(路線 id) }]（照岩壁順序）；start：打開第幾區；poster：那一區快照的網址（模型畫好前先鋪著，填滿畫面，跟 3D 進場的第一個畫面一樣）；
  * url、background：網址，或還在讀的 Promise；
  * intro：第一次進這個岩場：{ camera, aspect }，全區快照（岩場封面）拍的鏡頭；卡片放大成那張全區快照（poster），模型好了在同一個位置換成 3D，停一下再飛進 start 那一區；
- * sky：背景漸層；onPick(id | null)；onArea(第幾區)。快照鋪好就回傳 { highlight(id), go(第幾區), route(路線 id：走過去再 onPick), area()（目前第幾區）, posterRect(), destroy() }，模型在背景載入。
+ * sky：背景漸層；mode：'free'（預設，自由轉動、縮放）、'fixed'（每一區先畫成一張圖當 2D 看）；onPick(id | null)；onArea(第幾區)。快照鋪好就回傳 { highlight(id), go(第幾區), route(路線 id：走過去再 onPick), area()（目前第幾區）, posterRect(), destroy() }，模型在背景載入。
  */
-export async function mountCrag3d(host, { url, mime, background, marks, sight, nodes, areas, start = 0, intro = null, poster, sky = SKY, onPick = () => {}, onArea = () => {} }) {
+export async function mountCrag3d(host, { url, mime, background, segments, marks, sight, nodes, areas, start = 0, intro = null, poster, sky = SKY, mode = 'free', onPick = () => {}, onArea = () => {} }) {
   host.classList.add('c3d');
   injectStyle(host);
   host.replaceChildren();
@@ -61,7 +61,32 @@ export async function mountCrag3d(host, { url, mime, background, marks, sight, n
   // 不用 LoD（分層細節）：模型是整包載入的，不是 LoD 格式；Android 的點數預算是 100 萬，超過就走 LoD，鏡頭一動整個畫不出來
   const spark = new SparkRenderer({ renderer, enableLod: false });
   scene.add(spark);
-  let splat = null, backdrop = null, dead = false;   // splat：主模型（潑濺或網格）；backdrop：網格模型的潑濺背景
+  let lite = mode === 'fixed';   // lite：手機畫不動幾百萬點時，每一區先畫成一張圖，當 2D 看（縮放、平移的是圖和路線），不再連續重排模型
+  let splat = null, backdrop = null, needSort = true, activeSeg = -1, dead = false;   // splat：目前這一段的主模型；backdrop：目前這一段的潑濺背景
+  const segList = (segments?.length ? [...segments].sort((a, b) => a.from - b.from) : [{ id: 'default', url, mime, background, sky, from: 0, to: Math.max(0, areas.length - 1) }]);
+  const segLoaded = new Map(), segLoading = new Map();
+  const segFor = (x) => {
+    const r = Math.round(x);
+    for (let k = 0; k < segList.length; k++) if (r <= segList[k].to && r >= segList[k].from) return k;
+    let best = 0, bd = Infinity;
+    for (let k = 0; k < segList.length; k++) {
+      const d = Math.abs(x - (segList[k].from + segList[k].to) / 2);
+      if (d < bd) { bd = d; best = k; }
+    }
+    return best;
+  };
+  const activateSeg = (si) => {
+    const entry = segLoaded.get(si);
+    if (!entry || dead || activeSeg === si) return false;
+    if (splat) scene.remove(splat);
+    if (backdrop) scene.remove(backdrop);
+    if (entry.bg) scene.add(entry.bg);
+    scene.add(entry.mesh);
+    splat = entry.mesh; backdrop = entry.bg; needSort = entry.needSort; activeSeg = si;
+    const sk = entry.sky;
+    if (sk) host.style.background = `linear-gradient(${sk[0]}, ${sk[1]} 60%, ${sk[2] ?? sk[1]})`;
+    return true;
+  };
 
   // ── 路線 ──
   const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -107,12 +132,13 @@ export async function mountCrag3d(host, { url, mime, background, marks, sight, n
     const p = areaPose(u);
     return { target: p.target.clone().add(new Vector3(0, off.lift, 0)), az: p.az + off.az, pol: p.pol + off.pol, dist: p.dist * off.zoom };
   };
-  const place = (p, ht = halfTan(u)) => {
-    cam.fov = MathUtils.radToDeg(2 * Math.atan(ht));
-    cam.updateProjectionMatrix();
-    cam.position.set(Math.sin(p.pol) * Math.sin(p.az), Math.cos(p.pol), Math.sin(p.pol) * Math.cos(p.az)).multiplyScalar(p.dist).add(p.target);
-    cam.lookAt(p.target);
-    cam.updateMatrixWorld();
+  const capCam = new PerspectiveCamera(50, 1, 0.05, 2000);   // 畫圖用的鏡頭：跟顯示用的 cam 分開，背景畫其他區時不會動到使用者正在看的路線
+  const place = (p, ht = halfTan(u), c = cam) => {
+    c.fov = MathUtils.radToDeg(2 * Math.atan(ht));
+    c.updateProjectionMatrix();
+    c.position.set(Math.sin(p.pol) * Math.sin(p.az), Math.cos(p.pol), Math.sin(p.pol) * Math.cos(p.az)).multiplyScalar(p.dist).add(p.target);
+    c.lookAt(p.target);
+    c.updateMatrixWorld();
   };
   const clampOff = () => {
     u = MathUtils.clamp(u, 0, last);
@@ -262,7 +288,7 @@ export async function mountCrag3d(host, { url, mime, background, marks, sight, n
   // 停下來後潑濺還在背景排序：一直畫到 Spark 排好（沒在排、不用重排）才停
   let queued = false, lastTime = performance.now(), area = Math.round(u), lastU = u, speed = 0, settling = false, settleSince = 0, calm = 0;
   const kick = () => { settling = true; settleSince = performance.now(); calm = 0; if (!queued) { queued = true; requestAnimationFrame(frame); } };
-  const glb = /gltf/.test(mime ?? '') || /\.glb$/i.test(url), needSort = !glb || !!background;   // 只有網格、沒有潑濺背景：不用排
+  const el0 = renderer.domElement;
   const one = new Uint8Array(4);
   const painted = () => {   // 畫面中間 9 個點大多讀得到模型（不透明）：排好不等於畫出來，手機上第一格要傳到 GPU 才畫得出來，快照不能先淡掉（淡掉就是一片空白）
     const gl = renderer.getContext(), w = gl.drawingBufferWidth, h = gl.drawingBufferHeight;
@@ -318,13 +344,30 @@ export async function mountCrag3d(host, { url, mime, background, marks, sight, n
       if (r.pill) for (const m of [r.pill.off, r.pill.on]) m.uniforms.opacity.value = r.fade * dim;   // 起點被前面的石頭擋住也照樣標號碼（例：梁大隆 6 號）
     }
     for (const r of routes) for (const m of [r.lineMat, r.pill?.off, r.pill?.on]) if (m) m.uniforms.res.value = [W, H];
-    if (splat) renderer.render(scene, cam);
+    if (splat && segList.length > 1) {
+      const wantSeg = segFor(u);
+      if (wantSeg !== activeSeg) {
+        if (segLoaded.has(wantSeg)) {
+          if (activateSeg(wantSeg)) { settling = true; settleSince = performance.now(); calm = 0; }
+        } else { loadSeg?.(wantSeg); }
+      }
+    }
+    if (splat) {
+      if (!lite) renderer.render(scene, cam);
+      else if (cap) { place(areaPose(cap.i), halfTan(cap.i), capCam); renderer.render(scene, capCam); }   // 2D 模式只有畫圖的時候才畫模型
+    }   // 藏起來等排序時不用每格都畫幾百萬點：畫出去的格數越多，GPU 排得越長，排序要讀回結果時就等得越久
     if (!splat) settling = false;   // 還沒有模型：只有路線層，畫一格就好
     else if (settling || onDrawn) {
-      if (!sorted() || (onDrawn && !painted())) calm = 0;
+      if (!sorted() || ((onDrawn || cap) && !painted())) calm = 0;
       else if (!calm++ && onDrawn) renderer.getContext().finish();   // 第一次排好、也讀得到模型：等 GPU 把這一格真的畫完（Android 上模型資料傳到 GPU、畫第一格要很久，主程式卡著時 CSS 的淡出淡入照跑，模型還沒出來路線就先出來）
       if (onDrawn && calm >= CALM_FRAMES) { onDrawn(); onDrawn = null; }   // 模型排好、畫出來了：快照才淡掉、路線才出來
-      if (calm >= CALM_FRAMES || now - settleSince > SETTLE_MAX_MS) settling = false;
+      const timedOut = now - settleSince > SETTLE_MAX_MS;
+      if (cap && (calm >= CALM_FRAMES || timedOut)) {   // 排好、畫出來（或逾時保底）：趁 WebGL 的畫面還在，複製成一張圖並結算，避免切區卡死
+        const c = document.createElement('canvas'), done = cap.ok;
+        c.width = el0.width; c.height = el0.height; c.getContext('2d').drawImage(el0, 0, 0);
+        frames.set(cap.i, c); cap = null; done();
+      }
+      if (calm >= CALM_FRAMES || timedOut) settling = false;
     }
     overlay.render(lines, cam);
     if (moving || anim || vel || fly || onDrawn || settling || speed > 0.05) { queued = true; requestAnimationFrame(frame); }   // 潑濺在背景排序：停下來後畫到穩定為止
@@ -345,10 +388,83 @@ export async function mountCrag3d(host, { url, mime, background, marks, sight, n
       clampOff();
     }
   };
+  // ── 2D 模式：每一區畫成一張圖（frames），縮放、平移只動圖和路線層（路線用 setViewOffset 同步裁切，零視差且放大後擠在一起的牌子會散開） ──
+  const frames = new Map(), v2 = { s: 1, tx: 0, ty: 0 };
+  let cap = null, capChain = Promise.resolve(), goSeq = 0, shown = -1, lastInput = 0;
+  const ghost = document.createElement('canvas');
+  Object.assign(ghost.style, { position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', display: 'none', transformOrigin: '50% 50%' });
+  host.insertBefore(ghost, overlay.domElement);
+  const clearFrames = () => { for (const c of frames.values()) { c.width = 0; c.height = 0; } frames.clear(); };
+  let loadSeg = null;
+  // 單一排程：背景預畫與使用者換區輪流畫，不會互蓋 cap 造成 Promise 永遠不結束
+  const capture = (i) => {
+    if (frames.has(i) || dead) return Promise.resolve();
+    const job = capChain.then(async () => {
+      if (frames.has(i) || dead) return;
+      const si = segFor(i);
+      if (loadSeg) await loadSeg(si);
+      if (dead) return;
+      if (si !== activeSeg) activateSeg(si);
+      return new Promise((ok) => { cap = { i, ok }; calm = 0; settleSince = performance.now(); kick(); });
+    });
+    capChain = job.catch(() => {});
+    return job;
+  };
+  const clamp2d = () => {
+    v2.s = MathUtils.clamp(v2.s, 1, S_MAX);
+    v2.tx = MathUtils.clamp(v2.tx, -(v2.s - 1) * W / 2, (v2.s - 1) * W / 2);
+    v2.ty = MathUtils.clamp(v2.ty, -(v2.s - 1) * H / 2, (v2.s - 1) * H / 2);
+  };
+  const apply2d = () => {   // 圖照 v2 縮放平移；路線層留在同一視角用 setViewOffset 裁切，與 2D 截圖像素對齊
+    clamp2d();
+    ghost.style.transform = `translate(${v2.tx}px, ${v2.ty}px) scale(${v2.s})`;
+    u = shown; off.az = off.pol = off.lift = 0; off.zoom = 1;
+    if (v2.s > 1.0001 || v2.tx || v2.ty) cam.setViewOffset(W, H, (W * (v2.s - 1) / 2 - v2.tx) / v2.s, (H * (v2.s - 1) / 2 - v2.ty) / v2.s, W / v2.s, H / v2.s);
+    else cam.clearViewOffset();
+    kick();
+  };
+  const show2d = (i) => {
+    const f = frames.get(i);
+    if (!f) return;
+    shown = i; v2.s = 1; v2.tx = v2.ty = 0;
+    ghost.width = f.width; ghost.height = f.height; ghost.getContext('2d').drawImage(f, 0, 0);
+    ghost.style.display = 'block'; el0.style.visibility = 'hidden';
+    apply2d();
+  };
+  const goFrame = async (i) => {
+    const seq = ++goSeq;
+    lastInput = performance.now();
+    if (!frames.has(i)) {
+      overlay.domElement.style.opacity = '0';
+      await capture(i);
+      if (dead || seq !== goSeq) return;
+      overlay.domElement.style.opacity = '1';
+    }   // 還沒畫好的區：舊的圖先留著，路線先藏起來（路線跟圖對不上）
+    if (!dead && seq === goSeq) show2d(i);
+  };
+  const prefetch = async () => {   // 使用者沒在動的時候，把其他區也畫好，換區就是立刻
+    const order = base.map((_, i) => i).sort((a, b) => Math.abs(a - shown) - Math.abs(b - shown)).slice(0, PREFETCH);
+    for (const i of order) {
+      while (!dead && (ptrs.size || performance.now() - lastInput < 800)) await new Promise((ok) => setTimeout(ok, 300));
+      if (dead) return;
+      await capture(i);
+    }
+  };
+  const zoom2dAt = (x, y) => {   // 點兩下：放大到那一點，已經放大就縮回
+    const to = v2.s > 1.5 ? { s: 1, tx: 0, ty: 0 } : { s: DOUBLE_ZOOM, tx: (W / 2 - x) * (DOUBLE_ZOOM - 1), ty: (H / 2 - y) * (DOUBLE_ZOOM - 1) };
+    const from = { ...v2 }, t0 = performance.now();
+    const tick = (now) => {
+      const k = Math.min(1, (now - t0) / 220), e = easeInOut(k);
+      v2.s = from.s + (to.s - from.s) * e; v2.tx = from.tx + (to.tx - from.tx) * e; v2.ty = from.ty + (to.ty - from.ty) * e; apply2d();
+      if (k < 1 && !dead) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
   const animate = (to, ms, then, ease) => {
     const from = { u, ...off }, keep = { ...off }, { u: tu, ...rest } = to;   // off 只放偏移量，不能混進 u（不然下一次的起點會被舊的 u 蓋掉，鏡頭先跳到別區再滑回來）
     Object.assign(off, rest); u = tu; clampOff();   // 終點先照範圍收好，動畫結束時不會再跳一下
     to = { u, ...off };
+    if (lite) { Object.assign(off, keep); u = from.u; then?.(); return; }   // 2D 模式不做鏡頭動畫（換區用 goFrame）
     Object.assign(off, keep); u = from.u;
     vel = 0; anim = { from, to, t0: performance.now(), ms, then, ease }; kick();
   };
@@ -359,6 +475,7 @@ export async function mountCrag3d(host, { url, mime, background, marks, sight, n
   const range = () => zoomed() ? [Math.max(0, home - 0.5), Math.min(last, home + 0.5)] : [Math.max(0, home - 1), Math.min(last, home + 1)];
   const toArea = (i) => {
     const to = MathUtils.clamp(i, 0, last);
+    if (lite) return void goFrame(to);
     if (zoomed()) return animate({ u, az: 0, pol: 0, zoom: 1, lift: 0 }, ZOOM_MS, () => toArea(to));
     if (to === u && !off.az && !off.pol && off.zoom === 1 && !off.lift) return;
     animate({ u: to, az: 0, pol: 0, zoom: 1, lift: 0 }, MathUtils.clamp(GO_MS + along(u, to) * GO_MS_PER_M, GO_MS, GO_MAX_MS));
@@ -385,47 +502,72 @@ export async function mountCrag3d(host, { url, mime, background, marks, sight, n
     sized = key; W = w; H = h;
     placeShot();
     renderer.setSize(W, H, false); overlay.setSize(W, H, false);
-    cam.aspect = W / H; cam.updateProjectionMatrix();
+    cam.aspect = capCam.aspect = W / H; cam.updateProjectionMatrix(); capCam.updateProjectionMatrix();
+    if (lite && frames.size) { clearFrames(); if (shown >= 0) goFrame(shown); }
     kick();
   };
   const ro = new ResizeObserver(resize);
   ro.observe(host);
   resize();
   onArea(u);
-  // 模型在背景載入：載好後畫一會兒讓潑濺排好順序（這時 3D 跟快照一模一樣），快照淡出換成 3D，再拉開到整區、路線淡入
+  // 模型在背景載入：先載目前這一區所在的段，畫出來並淡出快照；多段時再背景依距離預載其餘區段
   (async () => {
     // 模型：高斯潑濺（.spz），或岩壁用網格（.glb，照片貼圖、不打光）、四周山林天空用潑濺背景（background，被網格擋住的地方不畫）
-    const load = async (u, glb) => {
+    const loadAsset = async (u, isGlb) => {
       u = await u;   // url 可以是還在讀的 Promise（模型從手機儲存空間讀出來要一點時間，放大動畫不等它）
       const bytes = await (await fetch(u)).arrayBuffer();
-      if (glb) {
+      if (isGlb) {
         const g = await new GLTFLoader().parseAsync(bytes, '');
         g.scene.traverse((o) => { if (o.isMesh) { const old = o.material; o.material = new MeshBasicMaterial({ map: old.map, side: DoubleSide }); old.dispose(); } });
         return Object.assign(g.scene, { dispose: () => g.scene.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); o.material.map?.dispose(); o.material.dispose(); } }) });
       }
       const s = new SplatMesh({ fileBytes: bytes });
-      scene.add(s); await s.initialized;
+      await s.initialized;
       return s;
     };
-    const [m, bg] = await Promise.all([load(url, glb), background ? load(background, false) : null]);
-    if (dead) { m.dispose?.(); bg?.dispose?.(); return; }
-    scene.add(m);
-    splat = m; backdrop = bg;
+    loadSeg = (si) => {
+      if (segLoaded.has(si)) return Promise.resolve(segLoaded.get(si));
+      if (segLoading.has(si)) return segLoading.get(si);
+      const s = segList[si];
+      const p = (async () => {
+        const rawUrl = await s.url;
+        const isGlb = /gltf/.test(s.mime ?? '') || /\.glb$/i.test(rawUrl);
+        const [mesh, bg] = await Promise.all([loadAsset(rawUrl, isGlb), s.background ? loadAsset(s.background, false) : null]);
+        if (dead) { mesh.dispose?.(); bg?.dispose?.(); return null; }
+        const entry = { mesh, bg, sky: s.sky, needSort: !isGlb || !!s.background };
+        segLoaded.set(si, entry);
+        segLoading.delete(si);
+        if (!dead && si === segFor(u) && activeSeg !== si) { activateSeg(si); kick(); }
+        return entry;
+      })().catch((e) => { segLoading.delete(si); throw e; });
+      segLoading.set(si, p);
+      return p;
+    };
+    const startSeg = segFor(start);
+    const first = await loadSeg(startSeg);
+    if (dead || !first) return;
+    activateSeg(startSeg);
     await Promise.race([new Promise((ok) => { onDrawn = ok; kick(); }), new Promise((ok) => setTimeout(ok, 15000))]);   // 等到畫面上真的看得到模型、排好（15 秒只是防卡住）
     onDrawn = null;
+    if (lite) { fly = null; await goFrame(Math.round(u)); prefetch(); }   // 2D：把這一區畫成圖，其他區在背景畫
     shot.style.opacity = veil.style.opacity = '0';
     if (!fly && !cover()) overlay.domElement.style.opacity = '1';   // 手機：快照跟 3D 同一個畫面、不模糊，路線跟著快照淡出同時淡入，不用多等一輪
     await new Promise((ok) => setTimeout(ok, POSTER_MS));
     shot.remove(); veil.remove(); kick();
     if (!fly) overlay.domElement.style.opacity = '1';   // 橫螢幕：快照完全淡掉、看得到 3D 的岩壁之後，路線才淡入
-    if (fly) { fly.t0 = performance.now() + INTRO_HOLD_MS; kick(); return; }   // 全區停一下再飛進去（飛完才走去指定的岩壁、路線）
-    waiting?.(); waiting = null;
+    if (fly) { fly.t0 = performance.now() + INTRO_HOLD_MS; kick(); }   // 全區停一下再飛進去（飛完才走去指定的岩壁、路線）
+    else { waiting?.(); waiting = null; }
+    // 第一段畫面出來之後，依距離在背景預載其餘區段，切到鄰區就能直接無縫切換
+    for (const si of segList.map((_, i) => i).filter((i) => i !== startSeg).sort((a, b) => Math.abs(a - startSeg) - Math.abs(b - startSeg))) {
+      if (dead) break;
+      await loadSeg(si).catch((e) => console.warn('背景預載分段失敗', e));
+    }
   })().catch((e) => { console.warn('3D 模型載入失敗', e); overlay.domElement.style.opacity = '1'; });
 
   // ── 手勢 ──
   const el = renderer.domElement, ptrs = new Map();
   el.style.touchAction = 'none';   // 手勢全部自己處理：不然手機瀏覽器會把左右滑當成返回上一頁、回彈（滑到頭時畫面轉一下又跑回來），中途搶走手勢也會打斷鏡頭動畫（閃一下）
-  let tap = null, lastTap = null, pinch = null, mouseTurn = false, track = [];
+  let swipe = 0, tap = null, lastTap = null, pinch = null, mouseTurn = false, track = [];
   const local = (x, y) => { const r = host.getBoundingClientRect(); return [x - r.left, y - r.top]; };
   const mid = () => { const a = [...ptrs.values()]; return [(a[0][0] + a[1][0]) / 2, (a[0][1] + a[1][1]) / 2, Math.hypot(a[0][0] - a[1][0], a[0][1] - a[1][1]), Math.atan2(a[1][1] - a[0][1], a[1][0] - a[0][0])]; };
   const mPerPx = () => 2 * current().dist * Math.tan(MathUtils.degToRad(cam.fov) / 2) / H;
@@ -462,7 +604,7 @@ export async function mountCrag3d(host, { url, mime, background, marks, sight, n
     el.setPointerCapture(e.pointerId);
     el.style.cursor = 'grabbing';
     ptrs.set(e.pointerId, [e.clientX, e.clientY]);
-    anim = null; vel = 0; push = 0; home = Math.round(u);
+    anim = null; vel = 0; push = 0; home = Math.round(u); swipe = 0;
     tap = ptrs.size === 1 && e.button === 0 ? [e.clientX, e.clientY] : null;
     mouseTurn = ptrs.size === 1 && e.button === 2;
     pinch = ptrs.size === 2 ? mid() : null;
@@ -473,6 +615,15 @@ export async function mountCrag3d(host, { url, mime, background, marks, sight, n
     const [px, py] = ptrs.get(e.pointerId), dx = e.clientX - px, dy = e.clientY - py;
     ptrs.set(e.pointerId, [e.clientX, e.clientY]);
     if (tap && Math.hypot(e.clientX - tap[0], e.clientY - tap[1]) > 8) tap = null;
+    if (lite) {   // 2D：放大後拖是平移，沒放大時橫向拖是換區；兩指縮放（手指底下那一點留在原地）
+      lastInput = performance.now();
+      if (ptrs.size === 1) { if (v2.s > 1.001) { v2.tx += dx; v2.ty += dy; apply2d(); } else swipe += dx; }
+      else if (ptrs.size === 2 && pinch) {
+        const m = mid(), s2 = MathUtils.clamp(v2.s * m[2] / pinch[2], 1, S_MAX), px = (pinch[0] - W / 2 - v2.tx) / v2.s, py = (pinch[1] - H / 2 - v2.ty) / v2.s;
+        v2.tx = m[0] - W / 2 - s2 * px; v2.ty = m[1] - H / 2 - s2 * py; v2.s = s2; pinch = m; apply2d();
+      }
+      return;
+    }
     if (ptrs.size === 1) {
       if (mouseTurn) { off.az -= dx * 0.005; off.pol -= dy * 0.005; }
       else { slideBy(dx); off.lift += dy * mPerPx(); }
@@ -505,13 +656,14 @@ export async function mountCrag3d(host, { url, mime, background, marks, sight, n
         if (s && (!best || d < best[0])) best = [d, r.id];
       }
       if (lastTap && now - lastTap.t < DOUBLE_MS && Math.hypot(x - lastTap.x, y - lastTap.y) < TAP_PX * 1.5) {   // 點兩下只縮放：第一下選到的路線還原
-        onPick(lastTap.before ?? null); lastTap = null; doubleTap(x, y);
+        onPick(lastTap.before ?? null); lastTap = null; if (lite) zoom2dAt(x, y); else doubleTap(x, y);
       } else {
         lastTap = { t: now, x, y, before: highlight };
         onPick(best && best[0] < TAP_PX ? best[1] : null);
       }
       return;
     }
+    if (lite) { if (v2.s <= 1.001 && Math.abs(swipe) > SWIPE_PX) toArea(shown - Math.sign(swipe)); return; }
     if (zoomed() && Math.abs(push) > PUSH_PX) return toArea(home - Math.sign(push));   // 放大時推過這一區的邊緣：縮回整區再滑到那一區
     // 放開：照手指的速度往前滑、越來越慢，停在哪裡就是哪裡（像在岩場裡走，不拉回某一區；拉回去看起來像自己跑回原位）
     const [t0, u0] = track[0] ?? [0, u], v = (u - u0) / Math.max(1, performance.now() - t0) * 1000, vmax = MAX_SPEED / seg(u);
@@ -523,7 +675,7 @@ export async function mountCrag3d(host, { url, mime, background, marks, sight, n
   on('pointercancel', (e) => { tap = null; up(e); });
   on('wheel', (e) => {
     e.preventDefault();
-    if (!splat || fly) return;
+    if (!splat || fly || lite) return;
     anim = null; vel = 0;
     zoomAt(Math.exp(e.deltaY * (e.ctrlKey ? 0.004 : 0.0012)), ...local(e.clientX, e.clientY));
     kick();
@@ -541,6 +693,7 @@ export async function mountCrag3d(host, { url, mime, background, marks, sight, n
       if (d < bd) { bd = d; best = x; }
     }
     const done = () => onPick(id);
+    if (lite) return void goFrame(MathUtils.clamp(Math.round(best), 0, last)).then(done);
     if (Math.abs(best - u) < 0.02 && !zoomed()) return done();
     animate({ u: best, az: 0, pol: 0, zoom: 1, lift: 0 }, MathUtils.clamp(GO_MS + along(u, best) * GO_MS_PER_M, GO_MS, GO_MAX_MS), done);
   };
@@ -551,7 +704,7 @@ export async function mountCrag3d(host, { url, mime, background, marks, sight, n
     go: toWall,
     route: toRoute,   // 換到第幾區的整區畫面：沿著岩壁滑過去，遠的久一點；放大時先縮回整區
     walk(n) {   // 沿著岩壁往前（1）往後（-1）走 WALK_M 公尺（電腦的方向鍵）：連續的步道，不停靠某一區
-      if (fly) return;
+      if (fly || lite) return;
       const to = MathUtils.clamp((anim?.to.u ?? u) + n * WALK_M / seg(u), 0, last);
       animate({ u: to, ...off }, GO_MS);
     },
@@ -562,9 +715,13 @@ export async function mountCrag3d(host, { url, mime, background, marks, sight, n
     },
     destroy() {
       dead = true; ac.abort(); ro.disconnect();
+      if (cap) { const done = cap.ok; cap = null; done(); }
+      clearFrames();
       lines.traverse((x) => { if (x.isMesh) { x.geometry?.dispose(); x.material?.uniforms?.map?.value?.dispose?.(); x.material?.dispose?.(); } });
       for (const r of routes) for (const m of [r.pill?.off, r.pill?.on]) { m?.uniforms?.map?.value?.dispose?.(); m?.dispose?.(); }   // 號碼牌：沒掛在場景上的那組也要放掉
-      splat?.dispose?.(); backdrop?.dispose?.(); scene.remove(spark); spark.dispose();   // 排序的 Worker（帶著幾十 MB 的 WASM 記憶體）不會被垃圾回收，一定要停
+      for (const e of segLoaded.values()) { e.mesh?.dispose?.(); e.bg?.dispose?.(); }
+      segLoaded.clear(); splat = backdrop = null;
+      scene.remove(spark); spark.dispose();   // 排序的 Worker（帶著幾十 MB 的 WASM 記憶體）不會被垃圾回收，一定要停
       for (const r of [renderer, overlay]) { r.dispose(); r.forceContextLoss(); }   // iOS Safari 的 WebGL context 數量有限，進出幾次就用完
       host.replaceChildren();
     },

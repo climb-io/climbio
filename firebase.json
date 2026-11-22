@@ -31,16 +31,7 @@
         ]
       },
       {
-        "source": "/@(hold|studio|3d)/",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "no-cache"
-          }
-        ]
-      },
-      {
-        "source": "/",
+        "source": "**/",
         "headers": [
           {
             "key": "Cache-Control",
@@ -121,6 +112,15 @@
         ]
       },
       {
+        "source": "/w/*/shared.json",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=60, s-maxage=60"
+          }
+        ]
+      },
+      {
         "source": "/w/*/@(wall.json|photo.jpg|thumb.jpg)",
         "headers": [
           {
@@ -148,7 +148,7 @@
         ]
       },
       {
-        "source": "/3d/model-manifest.json",
+        "source": "/3d/manifest.json",
         "headers": [
           {
             "key": "Cache-Control",
@@ -157,7 +157,7 @@
         ]
       },
       {
-        "source": "/3d/*.glb",
+        "source": "/3d/camera-*.json",
         "headers": [
           {
             "key": "Cache-Control",
@@ -166,7 +166,25 @@
         ]
       },
       {
-        "source": "/3d/common-*.json",
+        "source": "/lab/wall2d-cam/**",
+        "headers": [
+          {
+            "key": "Permissions-Policy",
+            "value": "camera=(self), microphone=()"
+          }
+        ]
+      },
+      {
+        "source": "/lab/wall2d-cam/manifest.json",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store"
+          }
+        ]
+      },
+      {
+        "source": "/lab/wall2d-cam/camera-*.json",
         "headers": [
           {
             "key": "Cache-Control",
@@ -250,7 +268,7 @@
         "*.local"
       ],
       "predeploy": [
-        "node tools/functions-predeploy.mjs vendor format/format.js"
+        "node tools/functions-predeploy.mjs vendor format/format.js redpoint/world-data.mjs redpoint/openclimbing-group.mjs redpoint/world-stacks.mjs redpoint/thecrag-links.mjs"
       ]
     },
     {

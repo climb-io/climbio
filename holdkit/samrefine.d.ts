@@ -20,7 +20,7 @@ export interface HoldRefinerConfig {
 }
 export interface HoldRefiner {
   configure(cfg: HoldRefinerConfig): HoldRefinerConfig;
-  traceWall(src: Src, key: string, items: { id: string; poly: Poly; box?: DetectBox }[], status?: Status, opts?: { onHolds?: (part: { id: string; poly: Poly | null }[]) => void }): Promise<{ id: string; poly: Poly | null }[]>;
+  traceWall(src: Src, key: string, items: { id: string; poly: Poly; box?: DetectBox }[], status?: Status, opts?: { onHolds?: (part: { id: string; poly: Poly | null }[]) => void; localFallback?: boolean }): Promise<{ id: string; poly: Poly | null }[]>;
   refine(src: Src, key: string, poly: Poly | null, status?: Status, opts?: { box?: DetectBox; point?: [number, number] }): Promise<Poly | null>;
   warm(): void;
   hasEmb(key: string): Promise<boolean>;

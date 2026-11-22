@@ -4,6 +4,7 @@ import { extractPage, convert, pageVersion, setIdOf } from './thecrag.js';
 import { idbStore, open as openBundle, pending, serve } from './handoff.js';
 import { pool } from './sourcekit/pool.js';
 import { panel } from './panel.js';
+import { t } from './i18n.js';
 import { siteOf } from './sites.js';
 import { discover, loadAreas, prepare as prepareArea } from './climbio-site.js';
 import { loadUnits, prepare as prepareCrag } from './openclimbing.js';
@@ -15,7 +16,7 @@ const COLLECTION = ['Climbio'];   // 收藏的路徑根（最後一層是岩場 
 const REDPOINT = 'https://climbio.app/redpoint/';   // 收好後打開的紅點貓；測試別的站：在擴充的背景頁 chrome.storage.local.set({ redpointUrl })
 const store = idbStore();
 const open = (path) => openBundle(store, path);
-const STEPS = ['讀取頁面', '下載 Topo 圖片', '交給紅點貓'];
+const STEPS = [t('stepRead'), t('stepDownload'), t('stepTransfer')];
 const WEIGHT = [0.05, 0.35, 0.6];   // 三個步驟佔總進度的比例
 const WRITES = 6;                   // 同時處理幾個檔案
 const VERSION = chrome.runtime.getManifest()?.version || '0.2.1';
@@ -23,7 +24,7 @@ const VERSION = chrome.runtime.getManifest()?.version || '0.2.1';
 /** 進度：照三個步驟的比例算總進度，每次更新送一次面板 */
 function progressOf(tabId) {
   const steps = STEPS.map((label) => ({ label, status: 'todo', count: '' }));
-  const state = { kind: 'busy', title: '', steps, progress: 0, version: VERSION };
+  const state = { kind: 'busy', title: '', steps, progress: 0, version: VERSION, ui: Object.fromEntries(['appName','close','processing','countUnit'].map((key) => [key, t(key)])) };
   const send = () => chrome.scripting.executeScript({ target: { tabId }, func: panel, args: [state] }).catch(() => {});
   return {
     state,
@@ -42,7 +43,7 @@ function progressOf(tabId) {
     },
     /** 勾選：options 是 [{ id, label, sub, disabled }]，面板按下按鈕送 { type: 'pick', ids } 給背景程式 */
     pick(title, options) {
-      Object.assign(state, { kind: 'pick', title, options, cta: '收藏', steps: [], progress: 0, message: '', hint: '沒有 Topo（路線圖）的區不收藏。' });
+      Object.assign(state, { kind: 'pick', title, options, cta: t('collect'), steps: [], progress: 0, message: '', hint: t('skipNoTopo') });
       return send();
     },
     /** 導引：這一頁不能收藏時，說明要怎麼做（沒有進度） */
@@ -70,7 +71,7 @@ async function loadImage(url, size) {
 
 async function fetchBlob(url) {
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`圖片 ${res.status}：${url}`);
+  if (!res.ok) throw new Error(t('imageError', res.status, url));
   return res.blob();
 }
 
@@ -101,7 +102,7 @@ async function save(tab, ui) {
     // 不在清單裡的網站：頁面有 <link rel="climbio"> 就是支援「用紅點貓收藏」的網站，網站自己公開資料，不用更新擴充功能
     const [{ result: root } = {}] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: discover }).catch(() => []);
     if (root) return offer(tab, ui, 'climbio', await climbioSource(root), root);
-    return guide('這個網站還不能收藏', '目前支援 theCrag、OpenClimbing、香港攀岩，以及有提供紅點貓收藏的網站。', '請手動打開支援的網站上你要收藏的岩場頁，再按一次。');
+    return guide(t('unsupportedTitle'), t('unsupportedMessage'), t('unsupportedHint'));
   }
   if (site.id === 'hkclimbing') return startHk(tab, ui);
   if (site.id === 'openclimbing') return startOpenClimbing(tab, ui);
@@ -112,15 +113,15 @@ async function save(tab, ui) {
 async function saveTheCrag(tab, ui) {
   // 先安靜地讀頁面：不是岩場頁、或沒有 Topo（路線圖）就只給導引，不顯示進度、不下載
   const [{ result: page }] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: extractPage });
-  if (!page?.routes?.length) return guide('這一頁不是岩場頁', '請手動打開你要收藏的岩場頁（有路線清單的頁面），再按一次「紅點貓收藏」。', '區域頁底下有很多岩場，請先從清單點進其中一個岩場。');
-  if (!page.topos.some((t) => t.image && t.marks.length)) return guide('這一頁沒有 Topo', '這個岩場頁沒有路線圖（Topo），所以不收藏。', '請手動打開有路線圖的岩場頁，再按一次「紅點貓收藏」。');
+  if (!page?.routes?.length) return guide(t('notCragTitle'), t('notCragMessage'), t('notCragHint'));
+  if (!page.topos.some((t) => t.image && t.marks.length)) return guide(t('noTopoTitle'), t('noTopoMessage'), t('noTopoHint'));
   await ui.begin(page.name);
   await ui.step(0);
 
   // 內容指紋跟還在等紅點貓拿走的那份一樣：什麼都不用做
   const v = await pageVersion(page), dir = await open([...COLLECTION, setIdOf(page)]);
   if (dir.version() === v) {
-    return { title: page.name, message: '已經在等紅點貓拿走了', hint: `${page.routes.length} 條路線、${page.topos.length} 張 Topo，內容沒有變動；到紅點貓打開就會匯入` };
+    return { title: page.name, message: t('waiting'), hint: t('waitingHintCrag', page.routes.length, page.topos.length) };
   }
 
   // 圖片：同一張圖只抓一次；抓不到的那張 Topo 略過
@@ -145,8 +146,8 @@ async function saveTheCrag(tab, ui) {
   if (!failed) { await dir.setVersion(v, page.name); await deliver(); }   // 全部好了才交出去；有圖片讀不到就不交，下次會重收
   return {
     title: page.name,
-    message: failed ? '已收藏，有圖片讀不到' : '已交給紅點貓',
-    hint: `${page.routes.length} 條路線、${out.photos.length} 張 Topo${failed ? `（${failed} 張圖片讀不到，這次沒有交給紅點貓，請再按一次）` : '。紅點貓已在新分頁打開，會自動匯入'}`,
+    message: failed ? t('savedPartial') : t('delivered'),
+    hint: [t('cragStats', page.routes.length, out.photos.length), failed ? t('cragRetry', failed) : t('cragSuccess')].join(' '),
   };
 }
 
@@ -160,7 +161,7 @@ async function offer(tab, ui, site, src, url = tab.url) {
   if (!ready.length) return guide(...src.none);
   if (ready.length === 1) return saveUnits(ui, src.title, ready, src.extra);
   await chrome.storage.session.set({ pending: { site, url } });
-  await ui.pick(`${src.title}：要收藏哪幾個${src.noun}？`, src.list.map((x) => ({ id: x.id, label: x.name, sub: x.topos ? `${x.topos} 張 Topo` : '沒有 Topo，不收藏', disabled: !x.topos })));
+  await ui.pick(t('pickQuestion', src.title, src.noun), src.list.map((x) => ({ id: x.id, label: x.name, sub: x.topos ? t('topoCount', x.topos) : t('noTopoOption'), disabled: !x.topos })));
   return { picking: true };
 }
 
@@ -170,7 +171,7 @@ async function climbioSource(root) {
   const top = await fetch(root).then((r) => r.json()).catch(() => ({}));
   const title = (typeof top.name === 'string' ? top.name : top.name?.['zh-Hant'] ?? top.name?.en) || new URL(root).hostname;
   return {
-    title, noun: '區', none: [`${title}還沒有 Topo`, '這個網站上還沒有路線圖（Topo），沒有可以收藏的。', '網站加上 Topo 之後再按一次。'],
+    title, noun: t('unitArea'), none: [t('sourceNoTopoTitle', title), t('sourceNoTopoMessage'), t('sourceNoTopoHint')],
     list: areas.map((a) => ({ id: a.id, name: a.name, topos: a.topos, prepare: () => prepareArea(a) })),
   };
 }
@@ -179,9 +180,9 @@ async function climbioSource(root) {
 async function openclimbingSource(url) {
   const { root, units, skipped } = await loadUnits(url, { keepEmpty: true });
   return {
-    title: root.name || 'OpenClimbing', noun: '岩場',
-    none: ['這個岩場沒有 Topo', '這一頁在 OpenClimbing 上還沒有畫在照片上的路線圖（Topo），或照片的授權不能收，所以不收藏。', '請手動打開有路線圖的岩場或區域頁，再按一次。'],
-    extra: skipped ? `${skipped} 張照片的授權不是 CC 或公眾領域，沒收` : '',
+    title: root.name || 'OpenClimbing', noun: t('unitCrag'),
+    none: [t('openNoTopoTitle'), t('openNoTopoMessage'), t('openNoTopoHint')],
+    extra: skipped ? t('licenseSkip', skipped) : '',
     list: units.map((u) => ({ id: String(u.rel.id), name: u.name, topos: u.topos, prepare: () => prepareCrag(u) })),
   };
 }
@@ -189,15 +190,15 @@ async function openclimbingSource(url) {
 /** 香港攀岩網站的岩場頁：路線是文字、線畫在照片裡，所以要有路線也要有照片 */
 async function startHk(tab, ui) {
   const [{ result: page }] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: extractHk });
-  if (!page?.routes?.length) return guide('這一頁不是岩場頁', '請手動打開 hongkongclimbing.com 上有路線清單的岩壁頁，再按一次「紅點貓收藏」。', '區域頁底下有很多岩壁，請先從清單點進其中一頁。');
-  if (!usablePhotos(page).length) return guide('這一頁沒有夠大的照片', '這個岩壁頁沒有 Topo 照片，或照片長邊不到 800 像素（放大後看不清楚線），所以不收藏。', '請手動打開有照片的岩壁頁，再按一次「紅點貓收藏」。');
-  return offer(tab, ui, 'hkclimbing', { title: page.name, noun: '岩場', none: [], list: [{ id: page.url, name: page.name, topos: usablePhotos(page).length, prepare: () => prepareHk(page) }] });
+  if (!page?.routes?.length) return guide(t('notCragTitle'), t('hkNoCragMessage'), t('hkNoCragHint'));
+  if (!usablePhotos(page).length) return guide(t('hkNoPhotoTitle'), t('hkNoPhotoMessage'), t('hkNoPhotoHint'));
+  return offer(tab, ui, 'hkclimbing', { title: page.name, noun: t('unitCrag'), none: [], list: [{ id: page.url, name: page.name, topos: usablePhotos(page).length, prepare: () => prepareHk(page) }] });
 }
 
 async function startOpenClimbing(tab, ui) {
   let src;
   try { src = await openclimbingSource(tab.url); } catch (e) {
-    if (e.guide) return guide('這一頁不是岩場', '請手動打開 openclimbing.org 上你要收藏的岩場或區域頁（網址是 /relation/…）。', '首頁、地圖、單一路線的頁面不能收藏。');
+    if (e.guide) return guide(t('openInvalidTitle'), t('openInvalidMessage'), t('openInvalidHint'));
     throw e;
   }
   return offer(tab, ui, 'openclimbing', src);
@@ -215,8 +216,8 @@ async function saveUnits(ui, title, chosen, extra = '') {
     const dir = await open([...COLLECTION, p.id]);
     (dir.version() === p.version ? same : todo).push({ p, dir });
   }
-  const names = (list) => list.map(({ p }) => p.name).join('、');
-  if (!todo.length) return { title, message: '已經在等紅點貓拿走了', hint: `${names(same)}：內容沒有變動；到紅點貓打開就會匯入` };
+  const names = (list) => new Intl.ListFormat(chrome.i18n.getUILanguage(), { style: 'long', type: 'conjunction' }).format(list.map(({ p }) => p.name));
+  if (!todo.length) return { title, message: t('waiting'), hint: t('waitingHintUnit', names(same)) };
 
   const sizes = new Map(todo.flatMap(({ p }) => p.photos.map((x) => [x.url, x.size]))), urls = [...sizes.keys()], pics = new Map();
   let got = 0;
@@ -252,14 +253,14 @@ async function saveUnits(ui, title, chosen, extra = '') {
   await deliver();
   return {
     title,
-    message: '已交給紅點貓',
-    hint: [`${names(todo)}（${todo.reduce((n, { p }) => n + p.photos.length, 0)} 張 Topo）${same.length ? `；${names(same)} 內容沒變` : ''}`, extra, '紅點貓已在新分頁打開，會自動匯入'].filter(Boolean).join('。'),
+    message: t('delivered'),
+    hint: [[t('sentHintUnit', names(todo), todo.reduce((n, { p }) => n + p.photos.length, 0)), same.length ? t('changedSame', names(same)) : ''].filter(Boolean).join(' '), extra, t('cragSuccess')].filter(Boolean).join('。'),
   };
 }
 
 // 擴充的檔案換了就自動更新（用「載入未封裝項目」載入的擴充，檔案是直接從資料夾讀的）：載入時算一次這些檔案的指紋，每次按下圖示再算一次，
 // 不一樣就先說一聲、重新載入，不用再去 chrome://extensions 按重新整理。新增檔案時要加進這個清單。
-const FILES = ['manifest.json', 'background.js', 'handoff.js', 'panel.js', 'sites.js', 'hash.js', 'thecrag.js', 'climbio-site.js', 'openclimbing.js', 'hkclimbing.js', 'sourcekit/photo-size.js', 'sourcekit/ids.js', 'sourcekit/pool.js', 'sourcekit/trace.js', 'sourcekit/badge-digits.js', 'sourcekit/openclimbing-read.js', 'sourcekit/preview-layout.js', 'sourcekit/preview-sheet.js'];
+const FILES = ['manifest.json', 'background.js', 'handoff.js', 'panel.js', 'sites.js', 'hash.js', 'thecrag.js', 'climbio-site.js', 'openclimbing.js', 'hkclimbing.js', 'i18n.js', ...['zh_TW', 'zh_CN', 'en', 'ja', 'ko', 'fr', 'es', 'de'].map((locale) => `_locales/${locale}/messages.json`), 'sourcekit/photo-size.js', 'sourcekit/ids.js', 'sourcekit/pool.js', 'sourcekit/trace.js', 'sourcekit/badge-digits.js', 'sourcekit/openclimbing-read.js', 'sourcekit/preview-layout.js', 'sourcekit/preview-sheet.js'];
 async function fingerprint() {
   const parts = await Promise.all(FILES.map(async (f) => (await fetch(chrome.runtime.getURL(f), { cache: 'no-store' })).text()));
   const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(parts.join('\0')));
@@ -272,14 +273,14 @@ chrome.action.onClicked.addListener(async (tab) => {
   try {
     const [before, now] = [await loaded, await fingerprint().catch(() => null)];
     if (before && now && before !== now) {
-      await ui.done('擴充已更新', '已換成新版，請再按一次「紅點貓收藏」', '');
+      await ui.done(t('updatedTitle'), t('updatedMessage'), '');
       setTimeout(() => chrome.runtime.reload(), 400);
       return;
     }
     await finish(ui, await save(tab, ui));
   } catch (e) {
     console.error(e);
-    await ui.fail(e.message);
+    await ui.fail(`${t('failure')} ${e.message || ''}`.trim());
   }
 });
 
@@ -306,18 +307,18 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   const ui = progressOf(sender.tab.id);
   chrome.storage.session.get('pending')
     .then(async ({ pending }) => {
-      if (!pending) throw new Error('找不到剛才的選擇，請再按一次「紅點貓收藏」');
+      if (!pending) throw new Error(t('missingChoice'));
       const src = pending.site === 'climbio' ? await climbioSource(pending.url) : await openclimbingSource(pending.url);
       return saveUnits(ui, src.title, src.list.filter((x) => msg.ids.includes(x.id) && x.topos), src.extra);
     })
-    .then((r) => finish(ui, r), (e) => { console.error(e); return ui.fail(e.message); });
+    .then((r) => finish(ui, r), (e) => { console.error(e); return ui.fail(`${t('failure')} ${e.message || ''}`.trim()); });
 });
 
 // 給 Climbio Studio 直接抓 Google 相簿分享連結與原始照片（=d），繞過瀏覽器對 Google 相簿的 CORS 限制。
 const ALBUM_HOSTS = new Set(['photos.app.goo.gl', 'photos.google.com', 'lh3.googleusercontent.com']);
 function checkAlbumTarget(raw) {
   const u = new URL(String(raw || ''));
-  if (u.protocol !== 'https:' || !ALBUM_HOSTS.has(u.hostname)) throw new Error('不支援的相簿網址');
+  if (u.protocol !== 'https:' || !ALBUM_HOSTS.has(u.hostname)) throw new Error(t('invalidAlbumUrl'));
   return u.href;
 }
 function bytesToB64(bytes) {

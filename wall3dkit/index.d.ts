@@ -68,6 +68,8 @@ export interface Stage {
 export declare function loadPack(base: string): Promise<WallPack>;
 /** 下載模型、岩點標籤（成品包另有快照、沿牆鏡頭），建出舞台 */
 export declare function openStage(base: string, pack: WallPack): Promise<Stage>;
+/** 檔案從別的地方拿（例如剛烘好、還沒發佈的成品）：get(路徑, 是不是 JSON) */
+export declare function openStageWith(pack: WallPack, get: (path: string, json?: boolean) => Promise<Uint8Array | any>): Promise<Stage>;
 /** 成品包只靠 wall.json 和快照就能先建一面牆（快照當照片、烘好的正面外框當岩點）；舊資料包回 null */
 export declare function openFront(base: string, pack: WallPack): Promise<{ sig: string; name: string; snapshot: HTMLCanvasElement; outlines: Outline[] } | null>;
 /** 資料已經在記憶體：glb、每個面的岩點編號、貼圖標籤（uint16 位元組）、每個面的分面 */
@@ -149,6 +151,12 @@ export declare const YAW_RATE: number;
 /** 烘焙（作者端，純函式）：裁切平面外的部分拿掉、寫出標準 glb */
 export interface Plane { n: [number, number, number]; d: number }
 export declare function clipPolygon<T extends { p: [number, number, number] }>(poly: T[], planes: Plane[], spare?: (v: T) => number): T[][];
+/** 修點的外框照描的線切開網格：每條邊跟鏡頭位置定出平面，跨過外框的三角形沿平面切開，小塊照重心投影分給這顆或外面 */
+export declare function cutOutlines(mesh: {
+  positions: ArrayLike<number>; uvs: ArrayLike<number>; fade?: ArrayLike<number>; index: ArrayLike<number>; faceLabels: ArrayLike<number>;
+  cuts: { idx: number; faces: Iterable<number>; eye: number[]; rays: number[][]; poly: [number, number][]; project: (p: number[]) => [number, number] | null; guests?: Set<number> }[];
+  inside: (x: number, y: number, poly: [number, number][]) => boolean;
+}): { positions: Float32Array; uvs: Float32Array; fade: Float32Array; index: Uint32Array; faceLabels: Uint16Array; parent: Uint32Array; inside: Uint32Array };
 export declare function bakeMesh(mesh: { positions: Float32Array; uvs: Float32Array; fade?: Float32Array; index: Uint32Array; faceLabels: Uint16Array; planes: Plane[]; margin?: number }): { positions: Float32Array; uvs: Float32Array; fade: Float32Array; index: Uint32Array; faceLabels: Uint16Array; origin: Uint32Array; removed: number; clipped: number };
 export declare function parseGlb(bytes: Uint8Array): { json: Record<string, unknown>; bin: Uint8Array };
 export declare function sourceTexture(glb: Uint8Array): { image: Uint8Array; mime: string; transform: Record<string, unknown> };

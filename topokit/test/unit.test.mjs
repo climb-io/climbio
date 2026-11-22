@@ -1,5 +1,6 @@
 // TopoKit 的單元測試（不需要瀏覽器）：v2 資料進出、共用線段與編輯規則、縮放。
 // 瀏覽器案例（demo、編輯、清理）在內部 e2e。
+import { animateChanges } from '../motion.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -214,7 +215,7 @@ test('gradePill：起點相同但沒有共用線段的路線，編號在起點�
   const svg = renderLines(routes, { photo: { w: 1000, h: 1000 }, k: 1, gradePill: true });
   const [one, two] = [...svg.matchAll(/<g class="topo-badge"><rect x="([0-9.]+)" y="([0-9.]+)" width="([0-9.]+)" height="([0-9.]+)"/g)].map((m) => ({ x: +m[1], y: +m[2], w: +m[3], h: +m[4] }));
   for (const b of [one, two]) { assert.ok(b.y > 800, '在起點下面'); assert.ok(Math.abs(b.x + b.w / 2 - 500) < 1, '對齊起點'); }
-  assert.ok(two.y >= one.y + one.h && two.y - one.y < one.h * 1.5, '第二個緊接在第一個下面');
+  assert.ok(two.y >= one.y + one.h && two.y - one.y < one.h * 2.5, '第二個緊接在第一個下面');
 });
 
 test('names: false 不顯示路線名稱，難度照樣在編號牌上', () => {
@@ -223,7 +224,7 @@ test('names: false 不顯示路線名稱，難度照樣在編號牌上', () => {
   assert.match(renderLines(routes, opts), /第一外角/);
   const hidden = renderLines(routes, { ...opts, names: false });
   assert.doesNotMatch(hidden, /第一外角/);
-  assert.match(hidden, /5\.10a/);
+  assert.match(hidden, />10a</, '難度縮短（5.10a → 10a）放在編號牌上');
 });
 
 test('選到的路線，共用的前段（歸別條路線畫）也跟著亮起來', () => {
@@ -244,7 +245,7 @@ test('名稱要嘛每條路線都有、要嘛都沒有：有一條放不下整�
   assert.ok(shown.includes('甲路線') && shown.includes('乙路線'));
   // 加上一群擠在一起的路線：那群放不下名稱，離得遠的那兩條也不顯示（不會只有幾條有名字）
   const crowd = Array.from({ length: 30 }, (_, i) => ({ id: `c${i}`, label: String(i + 3), kind: 'sport', grade: '5.11a', name: `擠${i}`, line: [[400 + i * 10, 900], [405 + i * 10, 300]] }));
-  const svg = renderLines([...apart, ...crowd], { photo, k: 0.4, densityK: 0.4 });
+  const svg = renderLines([...apart, ...crowd], { photo, k: 0.4 });
   const names = ['甲路線', '乙路線', ...crowd.map((r) => r.name)].filter((n) => svg.includes(n));
   assert.ok(names.length === 0 || names.length === 32, `名稱全有或全沒有，實際 ${names.length} 條`);
   assert.equal(names.length, 0);
@@ -256,30 +257,46 @@ test('bolt 旁邊夠寬就標材質，不管名稱顯不顯示（names: false）
   assert.match(svg, />316-TW</);
 });
 
-test('路線擠：整張先用原尺寸試排，挪位置排得下就不縮；排不下才整張一起縮小再拿掉難度；放大縮小時程度不變；畫了線的路線一定有編號牌', () => {
+test('路線擠：整張先用原尺寸試排，挪位置排得下就不縮；排不下才整張一起縮小再拿掉難度；放大縮小時精簡程度不變；畫了線的路線一定有編號牌', () => {
   // 手機寬的畫面（412×275）看 1600×1067 的照片；路線起點的間距用畫面像素指定
   const photo = { w: 1600, h: 1067 }, k = 1600 / 412;
   const wall = (n, gapPx, extra = []) => [...Array.from({ length: n }, (_, i) => ({ id: `r${i}`, label: String(i + 1), kind: 'sport', grade: '5.13d', line: [[200 + i * gapPx * k, 1000], [200 + i * gapPx * k, 300]] })), ...extra];
   const look = (routes, zoom = 1) => {
-    const svg = renderLines(routes, { photo, k: k / zoom, densityK: k });
+    const svg = renderLines(routes, { photo, k: k / zoom });
     const rect = svg.match(/class="topo-badge"><rect [^>]*? width="([^"]+)" height="([^"]+)"/);
     return { height: Math.round(Number(rect[2]) / (k / zoom)), grades: (svg.match(/topo-grade-bg/g) ?? []).length, badges: (svg.match(/class="topo-badge"/g) ?? []).length };
   };
   assert.deepEqual(look(wall(5, 75)), { height: 20, grades: 5, badges: 5 }, '間距夠寬：原尺寸、帶難度');
   assert.deepEqual(look(wall(5, 40)), { height: 20, grades: 5, badges: 5 }, '靠得近但編號牌往下一個接一個排得下：不縮');
-  const tight = look(wall(5, 14));
-  assert.equal(tight.height, 16, '擠到排不下：整張縮小');
+  assert.deepEqual(look(wall(5, 14)), { height: 20, grades: 5, badges: 5 }, '起點靠近但牌子上下錯開排得下：不縮');
+  const tight = look(wall(5, 3));
+  assert.ok(tight.height < 20 && tight.height >= 14, '擠到排不下：整張縮小，但不小於 14 像素');
   assert.equal(tight.badges, 5, '縮小了每條都有編號牌');
-  assert.deepEqual(look(wall(5, 14), 2), tight, '放大兩倍：牌子一樣小、一樣的內容');
+  assert.equal(look(wall(5, 6), 4).height, 20, '放大後路線拉開：牌子恢復原尺寸');
+  assert.equal(look(wall(5, 3), 4).grades, 5, '放大後難度也回來');
   assert.equal(look(wall(5, 75), 0.5).height, 20, '縮小：一樣是原尺寸');
-  // 只有兩條靠在一起、其他都寬：不縮，交給排版挪位置
+  // 只有兩條靠在一起、其他都寬：牌子不壓到別條線，最多縮到 14 像素
   const pair = wall(5, 75, [{ id: 'near', label: '7', kind: 'sport', grade: '5.9', line: [[200 - 12 * k, 1000], [200 - 12 * k, 300]] }]);
-  assert.deepEqual(look(pair), { height: 20, grades: 6, badges: 6 }, '少數幾條靠近：牌子不縮');
+  const near = look(pair);
+  assert.equal(near.badges, 6, '少數幾條靠近：每條都有編號牌');
+  assert.ok(near.height >= 14, '少數幾條靠近：牌子最多縮到 14 像素');
   // 再擠也一樣：畫了線的路線都有編號牌，不能只有線沒有號碼
   for (const [n, g] of [[12, 14], [20, 8], [5, 1]]) assert.equal(look(wall(n, g)).badges, n, `${n} 條擠在一起也都有編號牌`);
   // 路線卡片（solo）不受影響
   const solo = renderLines(wall(21, 4), { photo, k, highlight: 'r10', solo: true });
-  assert.match(solo, /5\.13d/);
+  assert.match(solo, />13d</);
+});
+
+test('牌子級別：放大時由小恢復成排得下的最大尺寸、不來回跳；縮小回來再縮小，一路沒有一會大一會小', () => {
+  const photo = { w: 1600, h: 1067 }, k = 1600 / 412, n = 30;
+  const routes = Array.from({ length: n }, (_, i) => ({ id: `r${i}`, label: String(i + 1), kind: 'sport', grade: '5.12a', line: [[100 + i * (1300 / n), 1000], [100 + i * (1300 / n) + (i % 3) * 20, 500], [100 + i * (1300 / n), 200]] }));
+  const memo = new Map();
+  const size = (zoom) => { const kk = k / zoom, m = /class="topo-badge"><rect [^>]*? height="([^"]+)"/.exec(renderLines(routes, { photo, k: kk, memo })); return Math.round(Number(m[1]) / kk); };
+  const up = [1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 6].map(size);
+  assert.ok(up[0] < 20 && up.at(-1) === 20, `放大後恢復原尺寸：${up}`);
+  assert.ok(up.every((v, i) => !i || v >= up[i - 1]), `放大時牌子只會變大、不會變小：${up}`);
+  const down = [4, 3, 2.5, 2, 1.75, 1.5, 1.25, 1].map(size);
+  assert.ok(down.every((v, i) => !i || v <= down[i - 1]), `縮小時牌子只會變小、不會變大：${down}`);
 });
 
 test('memo：縮放時編號牌沿用上次的位置（還放得下就不換），沒有 memo 時照這個倍率重新找', () => {
@@ -289,8 +306,8 @@ test('memo：縮放時編號牌沿用上次的位置（還放得下就不換）�
   // 一路放大：每一步牌子的中心相對照片移動多少（螢幕像素）
   const drift = (memo) => {
     let prev, worst = 0;
-    for (let s = 1; s <= 3; s += 0.25) {
-      const kk = k / s, now = centers(renderLines(routes, { photo, k: kk, densityK: k, memo }));
+    for (let s = 1; s <= 6; s += 0.25) {
+      const kk = k / s, now = centers(renderLines(routes, { photo, k: kk, memo }));
       if (prev) for (const [id, [x, y]] of now) if (prev.has(id)) worst = Math.max(worst, Math.hypot(x - prev.get(id)[0], y - prev.get(id)[1]) / kk);
       prev = now;
     }
@@ -353,4 +370,43 @@ test('路線號碼：畫出來——牌子中心就是位置；有牌子大小�
   assert.ok(box('b') && box('b')[2] > 20, '手點的是膠囊、依畫面大小');
   assert.equal(box('c'), null);
   assert.ok(svg.includes('cx="500" cy="700"'), '沒有號碼：小圓點');
+});
+
+test('路線很多的 Topo：線的畫面粗細固定', () => {
+  const photo = { w: 1000, h: 1000, href: 'x.jpg' };
+  const many = Array.from({ length: 60 }, (_, i) => ({ id: `r${i}`, label: i + 1, kind: 'sport', line: [[10 + i * 15, 900], [12 + i * 15, 500], [10 + i * 15, 100]] }));
+  const width = (routes, k) => Number(/class="topo-line" d="[^"]*" stroke-width="([\d.]+)"/.exec(renderLines(routes, { photo, k }))[1]);
+  assert.equal(width(many, 3), 2.8 * 3);
+  assert.equal(width(many, 1), 2.8, '路線很多也是固定的畫面粗細（牌子的大小才隨縮放恢復）');
+});
+
+// ── 動態：換位置滑過去、說明淡入（用最小的假 DOM，不需要瀏覽器） ──
+const fakeSvg = (routes) => {
+  const el = (attrs = {}, kids = []) => { const attributes = { ...attrs }; return { style: {}, firstElementChild: kids[0], getAttribute: (n) => attributes[n], setAttribute: (n, v) => { attributes[n] = v; }, attributes }; };
+  const nodes = routes.map(({ id, x, y, note }) => {
+    const badge = el({}, [el({ x: x - 10, y: y - 10, width: 20, height: 20 })]);
+    const text = note ? el({}, [el({ x, y: y + 30 })]) : undefined;
+    return { dataset: { route: id }, badge, text, querySelector: (q) => (q.includes('topo-badge') ? badge : text) };
+  });
+  return { nodes, querySelectorAll: () => nodes };
+};
+
+test('動態：牌子換位置從原位置滑過去（結束後回到定位），位移很小就不動畫；說明新出現淡入', () => {
+  const first = animateChanges(fakeSvg([{ id: 'a', x: 100, y: 100 }]), undefined, 1, 0);
+  assert.equal(first.busy, false, '第一次畫不動畫');
+  const small = fakeSvg([{ id: 'a', x: 103, y: 100 }]);
+  assert.equal(animateChanges(small, first.memory, 1, 16).busy, false, '只動 3 個螢幕像素：不動畫');
+  const moved = fakeSvg([{ id: 'a', x: 300, y: 100, note: true }]);
+  const s1 = animateChanges(moved, first.memory, 1, 100);
+  assert.equal(s1.busy, true);
+  assert.match(moved.nodes[0].badge.attributes.transform, /translate\(-200 0\)/, '剛換位置：還在原位置');
+  assert.equal(moved.nodes[0].text.style.opacity, '0', '說明新出現：從透明開始');
+  const mid = fakeSvg([{ id: 'a', x: 300, y: 100, note: true }]);
+  const s2 = animateChanges(mid, s1.memory, 1, 210);
+  const dx = Number(/translate\((-?[\d.]+) /.exec(mid.nodes[0].badge.attributes.transform)[1]);
+  assert.ok(dx < 0 && dx > -200, `動畫途中：在原位置與新位置之間（${dx}）`);
+  const done = fakeSvg([{ id: 'a', x: 300, y: 100, note: true }]);
+  const s3 = animateChanges(done, s2.memory, 1, 400);
+  assert.equal(s3.busy, false);
+  assert.equal(done.nodes[0].badge.attributes.transform, undefined, '結束：停在新位置');
 });

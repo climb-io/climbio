@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-Hant" data-climbio-theme="indoor">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="../../host-redirect.js"></script>
+<title>Wall3D：拍一批照片，得到標好岩點的 3D 牆</title>
+<meta name="description" content="拍一批照片，電腦自動建出 3D 牆並標出每顆岩點。原岩明德 Spraywall 的做法、結果與怎麼拍效果更好。">
+<link rel="canonical" href="https://climbio.app/lab/wall3d/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Climbio">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:url" content="https://climbio.app/lab/wall3d/">
+<meta property="og:title" content="Wall3D：拍一批照片，得到標好岩點的 3D 牆">
+<meta property="og:description" content="拍一批照片，電腦自動建出 3D 牆並標出每顆岩點。原岩明德 Spraywall 的做法、結果與怎麼拍效果更好。">
+<meta property="og:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Wall3D：拍一批照片，得到標好岩點的 3D 牆">
+<meta name="twitter:description" content="拍一批照片，電腦自動建出 3D 牆並標出每顆岩點。原岩明德 Spraywall 的做法、結果與怎麼拍效果更好。">
+<meta name="twitter:image" content="https://climbio.app/icons/brand/app-icon-light-512.png">
+<link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/lab/wall3d/">
+<link rel="alternate" hreflang="en" href="https://climbio.app/lab/wall3d/en/">
+<meta name="theme-color" content="#F7F9FB">
+<link rel="icon" href="../../icons/brand/favicon-64.png">
+<link rel="stylesheet" href="../../css/brand-tokens.css">
+<link rel="stylesheet" href="../../appkit/ui.css">
+<link rel="stylesheet" href="../../css/site-nav.css">
+<link rel="stylesheet" href="../../lab/hold-lab/style.css">
+<link rel="stylesheet" href="../../studio/report-frame.css">
+<style>#w3steps { margin-top: 20px; } .w3-notes { margin-top: 14px; }</style>
+<style>
+  .shot { display: block; width: 100%; height: auto; margin-top: 28px; border-radius: var(--radius-sm); background: #111; }
+  .vision.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  @media (max-width: 800px) { .vision.three { grid-template-columns: 1fr; } }
+  .para { margin-top: 14px; max-width: 40em; color: var(--muted); }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <a class="site-brand" href="../../"><picture><source media="(max-width: 600px)" srcset="../../icons/brand/climbio-mark.svg"><img src="../../icons/brand/climbio-horizontal-light.svg" alt="Climbio" width="110" height="30"></picture></a>
+  <nav class="site-nav" aria-label="網站導覽"><a href="../../">首頁</a><a href="../../studio/">Studio</a><a href="../../lab/" aria-current="true">Lab</a><a href="../../guides/">文件</a><a class="site-language" href="en/" hreflang="en" lang="en">English</a></nav>
+</header>
+<main>
+  <section class="hero" aria-labelledby="t">
+    <h1 id="t"><span>拍一批照片，</span><span>得到標好岩點的 3D 牆。</span></h1>
+    <p class="lede">不用手動描岩點。電腦先在每張照片找出岩點，再讓多張照片投票，決定 3D 牆上每顆岩點的範圍。</p>
+    <img class="shot" src="https://huggingface.co/datasets/climbio/walls3d/resolve/main/walls3d/ghhxkq4pfz7vbfoh/snapshot-48afd7b3eef3.jpg" alt="原岩明德 Spraywall 的 3D 牆" width="2048" height="1024">
+  </section>
+
+  <section aria-labelledby="flow-t">
+    <h2 id="flow-t">怎麼做</h2>
+    <ol id="w3steps"></ol>
+    <div id="w3notes" class="w3-notes"></div>
+    <h3 style="margin-top:28px">為什麼要投票</h3>
+    <p class="para">單張照片的外框會偏一點，把它直接貼到 3D 牆上，外框會整圈溢出牆面。多張照片各偏各的，投票之後互相抵消，外框就貼著岩點。</p>
+  </section>
+
+  <section aria-labelledby="shoot-t">
+    <h2 id="shoot-t">怎麼拍效果更好</h2>
+    <div class="vision"><div><b>沿牆橫移，不要站著轉</b><p>站著轉身沒有視差，電腦算不出深度。每走一小步拍一張，相鄰兩張重疊約七成。</p></div><div><b>左、中、右各走一趟</b><p>每個地方至少從三個角度拍到。偏離正面 15° 以上才算左右。</p></div><div><b>固定鏡頭、鎖定對焦與曝光</b><p>全程同一顆鏡頭，不用數位變焦。長按畫面鎖定對焦與曝光，避開強烈反光與逆光。</p></div><div><b>轉角、上緣、洞穴補拍</b><p>這三處最容易漏。拍完立刻翻一遍，缺的現場補。</p></div></div>
+    <p class="para">約 120～160 張就夠；再多只是重複。</p>
+    <h3 style="margin-top:28px">可以用錄影嗎</h3>
+    <p class="para">還沒試過。錄影的好處是順序自然、視差好；壞處是每格解析度比照片低，還有壓縮與防震。建議 4K、關掉防震、鎖定對焦與曝光，慢慢走，再每秒抽 2～3 張清晰的影格當照片用。效果要實測才知道。</p>
+  </section>
+
+  <section aria-labelledby="lim-t">
+    <h2 id="lim-t">目前的限制</h2>
+    <p class="para">只在原岩明德的兩批照片驗證過。很小的岩點、轉角與洞穴裡面最容易出錯。</p>
+  </section>
+
+  <section aria-labelledby="go-t">
+    <h2 id="go-t">更多</h2>
+    <p class="lede"><a href="../../3d/">看 3D 範例</a>　·　<a href="../../studio/wall3d/">Studio 3D Lab</a>　·　<a href="../hold-lab/">Hold Lab（2D）</a>　·　<a href="https://github.com/climb-io/climbio/blob/main/docs/wall3d-research.md">技術細節（GitHub，給研究者與 AI）</a></p>
+  </section>
+
+  <footer><a href="../../lab/">Climbio Lab</a><a href="../../studio/wall/">Studio Wall</a><a href="../../stats/">資料量</a></footer>
+</main>
+<script src="../../appkit/i18n.js"></script>
+<script src="../../i18n/studio-wall3d/zh.js"></script>
+<script src="../../studio/report-frame.js"></script>
+<script src="../../studio/wall3d/report.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

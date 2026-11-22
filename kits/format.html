@@ -22,13 +22,17 @@
 <link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/kits/format.html">
 <link rel="alternate" hreflang="en" href="https://climbio.app/kits/en/format.html">
 <link rel="stylesheet" href="../css/brand-tokens.css">
+<link rel="stylesheet" href="../css/site-nav.css">
 <link rel="stylesheet" href="../css/pages.css">
 </head>
-<body>
-<header class="pg-top"><a class="pg-brand" href="../"><img src="../icons/brand/climbio-mark.svg" alt=""><span>Climbio</span></a><span class="grow"></span><nav class="pg-nav" aria-label="所有元件"><a href="../">首頁</a><a href="../kits/">所有元件</a><a href="../kits/en/format.html" hreflang="en" lang="en">English</a></nav></header>
+<body class="site-page">
+<header class="site-header">
+  <a class="site-brand" href="../"><picture><source media="(max-width: 600px)" srcset="../icons/brand/climbio-mark.svg"><img src="../icons/brand/climbio-horizontal-light.svg" alt="Climbio" width="110" height="30"></picture></a>
+  <nav class="site-nav" aria-label="網站導覽"><a href="../">首頁</a><a href="../studio/">Studio</a><a href="../lab/">Lab</a><a href="../guides/" aria-current="true">文件</a><a class="site-language" href="../kits/en/format.html" hreflang="en" lang="en">English</a></nav>
+</header>
 <main class="pg">
   <div class="pg-hero">
-    <span class="pg-eyebrow">@climbio/format · Apache-2.0</span>
+    <span class="pg-eyebrow">Climbio 開放元件</span>
     <h1>Climbio Format</h1>
     <p class="pg-lead">攀岩資料的開放交換格式</p>
     <div class="pg-actions"><a class="pg-btn primary" href="https://github.com/climb-io/climbio/tree/main/format">在 GitHub 看原始碼</a></div>
@@ -40,24 +44,15 @@
   <section class="pg-section" aria-labelledby="points">
     <h2 id="points">能做什麼</h2>
     <div class="pg-grid">
-      <article class="pg-card"><span class="pg-num">1</span><h3>以畫面為中心</h3><p>路線、岩點、岩壁都是畫在畫面上的標註，換一張照片或一張地圖照樣適用。</p></article>
-      <article class="pg-card"><span class="pg-num">2</span><h3>詞彙開放</h3><p>核心結構固定，新增路線種類或欄位不用改規格、不用升版本，不認得的資料直接略過。</p></article>
-      <article class="pg-card"><span class="pg-num">3</span><h3>常變的和不變的分開</h3><p>照片與岩點外框收下就能永久快取，路線改了只換疊在上面的圖層。</p></article>
+      <article class="pg-card"><h3>以畫面為中心</h3><p>路線、岩點、岩壁都是畫在畫面上的標註，換一張照片或一張地圖照樣適用。</p></article>
+      <article class="pg-card"><h3>詞彙開放</h3><p>核心結構固定，新增路線種類或欄位不用改規格、不用升版本，不認得的資料直接略過。</p></article>
+      <article class="pg-card"><h3>常變的和不變的分開</h3><p>照片與岩點外框收下就能永久快取，路線改了只換疊在上面的圖層。</p></article>
     </div>
   </section>
-  <section class="pg-section" aria-labelledby="install">
-    <h2 id="install">安裝</h2>
-    <pre><code>npm install @climbio/format</code></pre>
-    <h2 id="example">最小範例</h2>
-    <pre><code>import { validate } from &#39;@climbio/format&#39;;
-
-const errors = validate(doc);   // [] 就是合格
-if (errors.length) console.log(errors.join(&#39;\n&#39;));</code></pre>
-  </section>
-  <section class="pg-section" aria-labelledby="notes">
-    <h2 id="notes">授權與限制</h2>
-    <p class="pg-note">Apache-2.0，沒有相依套件。驗證器只檢查單一檔案，跨檔案的放法與圖檔檢查要自己做；要畫畫面或編輯，用 Climbio 的其他元件。</p>
-    <p class="pg-muted"><a href="../kits/">所有元件</a> · <a href="https://github.com/climb-io/climbio/tree/main/format">GitHub</a> · 給 AI 讀的說明在 GitHub 的 README.md</p>
+  <section class="pg-section" aria-labelledby="next">
+    <h2 id="next">一起改善這項工具</h2>
+    <p>想讓自己的 AI Agent 加入開發？把 Climbio GitHub 專案交給它，技術規格、授權和工作規則都從原始碼取得。</p>
+    <div class="pg-actions"><a class="pg-btn primary" href="https://github.com/climb-io/climbio/tree/main/format">查看 GitHub 專案</a><a class="pg-btn" href="../project/">了解怎麼參與</a></div>
   </section>
   <footer class="pg-foot"><span>Climbio · 所有元件</span><a href="../">首頁</a></footer>
 </main>

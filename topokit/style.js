@@ -1,9 +1,9 @@
 // TopoKit 的樣式（字串）。Viewer 掛載時把它放進所在的 root（shadow root 或 document.head），只放一份。
-// 顏色用 CSS 變數，使用的 App 可以在 .tk 或 <climbio-topo> 上覆蓋：--tk-sport、--tk-sport-on、--tk-other、--tk-other-on、--tk-bolt。
+// 顏色用 CSS 變數，使用的 App 可以在 .tk 或 <climbio-topo> 上覆蓋：--tk-sport、--tk-sport-on、--tk-other、--tk-other-on。
 // 樣式規則移植自龍洞（MIT）src/styles.css 的 .topo-*。
 // English: stylesheet string injected once per root; colours are CSS variables.
 export const CSS = `
-.tk { display: block; overflow: hidden; --tk-sport: #1565c0; --tk-sport-on: #1e7bff; --tk-other: #c8102e; --tk-other-on: #e11d2e; --tk-bolt: #1ea0e6; }
+.tk { display: block; overflow: hidden; --tk-sport: #1565c0; --tk-sport-on: #1e7bff; --tk-other: #c8102e; --tk-other-on: #e11d2e; }
 /* 不受 App 全域樣式影響（例如 App 把所有 svg 圖示設成 stroke: currentColor，會讓 Topo 的字描上外框）；字型固定，各 App 看到同一種字 */
 .tk svg { fill: initial; stroke: initial; stroke-width: initial; stroke-linecap: initial; stroke-linejoin: initial; font-family: system-ui, -apple-system, "SF Pro Text", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif; }
 .tk-stage { position: absolute; inset: 0; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; background: var(--tk-bg, #222); }
@@ -36,10 +36,10 @@ g.topo-route.link { cursor: pointer; outline: none; }
 g.topo-route.link:is(:hover, :focus-visible) { opacity: 1; outline: none; }
 .topo-badge rect { fill: var(--topo-pill); stroke: none; }
 .topo-badge text { fill: #fff; font-weight: 700; font-variant-numeric: tabular-nums; }
-.topo-badge .topo-grade-bg { fill: #fff; stroke: none; }
+.topo-badge .topo-grade-bg { fill: #fff; fill-opacity: 0.88; stroke: none; }
 .topo-badge .topo-grade { fill: var(--topo-pill); font-style: italic; font-weight: 700; }
-.topo-bolt rect { fill: var(--tk-bolt); fill-opacity: 0.6; stroke: none; }
-.topo-bolt.anchor rect { fill: var(--topo-pill); }
+.topo-bolt rect { fill: var(--topo-pill); fill-opacity: 0.8; stroke: none; }
+.topo-bolt.anchor rect { fill-opacity: 1; }
 .topo-bolt text { fill: #fff; font-weight: 700; }
 .topo-note { fill: #fff; paint-order: stroke; stroke: rgba(0, 0, 0, 0.7); stroke-linejoin: round; }
 .topo-bolt text.topo-note { font-weight: 500; }

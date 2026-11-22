@@ -27,6 +27,7 @@ View and edit outdoor topos: draw route lines, bolts and number tags (with grade
 | `render.js` | Route model -> SVG string: `renderLines`, `renderReveal` (runs without a DOM) |
 | `annotate.js` | Layout: smooth paths, text width and wrapping, `Placer` (tag avoidance) |
 | `viewport.js` | Pure functions and constants for zoom, pan, framing, double-tap, swipe |
+| `motion.js` | Post-render motion: tags slide to their new spot, notes fade in (used internally by `TopoViewer`) |
 | `view.js` | `TopoViewer`: photo + SVG, gestures, zoom buttons, events |
 | `editor.js` | `TopoEditor` (extends `TopoViewer`): tools, editing, undo/redo |
 | `style.js` | The component CSS string `CSS` |
@@ -131,6 +132,8 @@ Invariants:
 - v2 has no shared segments; a fork copies the leading points. Segments whose end points are equal count as shared and are drawn once. Code that produces route lines must make collinear routes share one set of points; simplifying each route separately shifts the shared part slightly and every route draws its own.
 - Adding a point on a shared segment or moving a shared point moves the forked routes together.
 - A route with a drawn line always has a number tag, placed at the first candidate if nothing fits.
+- The tag is a route-colored circle (white number) with the grade as a small white label below it (`5.11a` is shortened to `11a`); the circle's top touches the route start. If the start is too close to the photo's bottom edge, the drawn line starts further up the line (display only, data unchanged).
+- In crowded topos tags shrink first, then drop the grade; zooming in spreads routes apart and the tags recover to the largest size that fits, with hysteresis so the size never flickers.
 - Only routes in `editLayer` can change; the layer from `toLayer()` passes `validate` from `@climbio/format`.
 - Tag positions do not depend on which route is selected; what you see while editing is the final result, except the route being edited keeps its ends as-is and shows handles.
 
@@ -169,7 +172,7 @@ editor.setTool('line');
 - `TopoViewer`, `TopoEditor` and the component need a browser DOM and SVG; `renderLines`, `readTopo`, `writeLayer` and the line and view functions run in Node.
 - The photo loads from `href` and must be readable cross-origin by the browser; the component only reads https or same-origin URLs.
 - By default `wheel` zooms only with Ctrl/Cmd held (Viewer), so the page still scrolls.
-- The font is fixed (system font), independent of the app's; colors use the CSS variables `--tk-sport`, `--tk-sport-on`, `--tk-other`, `--tk-other-on`, `--tk-bolt`, `--tk-bg`.
+- The font is fixed (system font), independent of the app's; colors use the CSS variables `--tk-sport`, `--tk-sport-on`, `--tk-other`, `--tk-other-on`, `--tk-bg`.
 - Appearance matches Longdong's screenshot baselines (`baseline/`); changing the layout algorithm means re-shooting the baselines.
 
 ## 8. Verification
@@ -178,4 +181,5 @@ editor.setTool('line');
 |---|---|
 | Layout matches Longdong `TopoLines` item by item, v2 round trip (output passes `validate`), shared segments, zoom | `node --test topokit/test/unit.test.mjs` (also part of `npm run test:quick`) |
 | Tag layout for crowded routes | `node --test tools/topokit-render.test.mjs` |
+| Every topo in the public crags × phone widths 320–768 × zoom 1–6: tags do not overlap, cross other routes, drop below 14 px or leave the photo | `node tools/topokit-audit.mjs` (needs network; `--verbose` lists problems) |
 | Browser: demo, editing, touch, cleanup | internal e2e cases; external-install flow internal e2e cases |

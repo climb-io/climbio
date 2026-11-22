@@ -2,15 +2,17 @@ import { collectionGroups, collectionRestorePlan, exportCollections } from '../a
 import { createBackupUI } from '../appkit/backup-ui.mjs';
 import { database } from './db.js';
 // 紅點貓：最簡單好用的 Guidebook 閱讀器。版面照岩點貓（docs/style.md），顏色是戶外白底深海藍（css/brand-tokens.css 的 outdoor），對話框、提示用 AppKit。
-//   首頁：收到的岩場是卡片，點了照片飛進下一頁、長按出現動作；右下地球打開「世界」（Climbio Studio 發佈的岩場與 OpenClimbing 全球 Topo 岩場）。
+//   首頁：收到的岩場是卡片，點了照片飛進下一頁、長按出現動作；右下「＋」展開朋友互傳和「世界」（Climbio Studio 發佈的岩場與 OpenClimbing 全球 Topo 岩場）。
 //   右上頭像：共用 AppKit 帳號選單、全來源岩壁／路線統計、加到主畫面、備份與復原；不放簽名設定。
 //   收岩場像岩點貓收線的開箱：先問、入口照片從骨架到清楚、每面岩壁的小圖一張張到齊、揭曉。
 // 資料全部是 Climbio 公開格式 v2，存在這支手機（db.js）；收送見 io.js。不登入也能完整使用。
 // English: Redpoint — a minimal guidebook reader: browse crags from the world, open topos, track ticks; v2 documents stored in IndexedDB.
 import '../topokit/element.js';
+import { renderLines } from '../topokit/render.js';
+import { CSS as TOPO_CSS } from '../topokit/style.js';
 import { fitSize } from '../topokit/viewport.js';
 import { pickGrade } from '../topokit/data.js';
-import { readCrag3d, sharedModelId, mountCrag3d } from '../crag3dkit/index.js';
+import { readCrag3d, cragModelIds, mountCrag3d } from '../crag3dkit/index.js';
 import { allDocs, deleteDocs, deletePhotos, getDoc, getMeta, getPhoto, putDocs, putPhoto, setMeta } from './db.js';
 import { publishDataset } from '../studio/dataset-publish.js';
 import { datasetOps } from '../studio/service.js';
@@ -24,6 +26,7 @@ import { groupOpenClimbingCrags, cragDisplayName, UNNAMED_PLACES } from './openc
 import { theCragUrl, theCragLinks } from './thecrag-links.mjs';
 import { autoMergeCandidates } from './auto-merge.mjs';
 import { layout, layers, mergeWorld, worldItemsFrom } from './world-stacks.mjs';
+import { buildWorldFile, hydrateWorld } from './world-data.mjs';
 import '../mapkit/element.js';
 
 const $ = (id) => document.getElementById(id);
@@ -207,8 +210,10 @@ async function ensureHome() {
 
 async function addToHome(doc) {
   const g = await getDoc(state.home);
-  if (g.items.some((i) => itemId(i) === doc.id)) return;
-  await putDocs([check({ ...g, items: [...g.items, { href: `${doc.id}.json`, id: doc.id, ...(doc.name ? { name: doc.name } : {}), t: now() }], t: now() })]);
+  if (!g.items.some((i) => itemId(i) === doc.id))
+    await putDocs([check({ ...g, items: [...g.items, { href: `${doc.id}.json`, id: doc.id, ...(doc.name ? { name: doc.name } : {}), t: now() }], t: now() })]);
+  // 收下／匯入時就產生朋友互傳的小圖，不在進入分享清單時處理照片。
+  await saveNearbyThumb(doc).catch((e) => console.warn('朋友互傳縮圖', e));
 }
 
 /** 照片網址：存在手機的用 blob，沒下載到的用原本的 https 網址。同一張照片的網址留著用（key：p＝照片、c＝岩場入口照片、s＝拍的照片），
@@ -226,10 +231,52 @@ function keyedUrl(key, blob) {
   return urlCache.get(key);
 }
 function forgetUrl(...ids) {
-  for (const id of ids) for (const k of ['p', 'c', 's']) {
+  for (const id of ids) for (const k of ['p', 'c', 's', 'n']) {
     const url = urlCache.get(`${k}:${id}`);
     if (url) URL.revokeObjectURL(url);
     urlCache.delete(`${k}:${id}`);
+  }
+}
+/** 朋友互傳的 256×256 方形縮圖，直接從手機本機儲存讀取。 */
+const nearbyThumbKey = (id) => `nearby-thumb:${id}`;
+async function nearbyThumbUrl(id) {
+  if (urlCache.has(`n:${id}`)) return urlCache.get(`n:${id}`);
+  const packed = await getMeta(nearbyThumbKey(id));
+  const thumb = packed && await AppKit.idb.unpackBlob(packed);
+  return thumb ? keyedUrl(`n:${id}`, thumb) : '';
+}
+async function saveNearbyThumb(doc) {
+  if (!doc) return;
+  let blob = null;
+  if (doc.kind === 'set') {
+    blob = await getPhoto(doc.coverId ?? doc.id);
+    if (!blob) {
+      const docs = await allDocs();
+      for (const view of viewsIn(docs, flatSet(docs, doc))) {
+        if (view.surface !== 'photo') continue;
+        blob = await getPhoto(view.id);
+        if (blob) break;
+      }
+    }
+  } else if (doc.kind === 'view' && doc.surface === 'photo') blob = await getPhoto(doc.id);
+  // ZIP 匯入的合法 JPEG 可能沒有 MIME type，讓解碼器判斷，失敗就保留原照片備援。
+  if (!blob) return;
+  const square = await AppKit.photo.squareThumb(blob);
+  await setMeta(nearbyThumbKey(doc.id), await AppKit.idb.packBlob(square));
+  // 縮圖更新時，只釋放舊的朋友互傳 URL，不影響頁面上正在看的照片。
+  const old = urlCache.get(`n:${doc.id}`);
+  if (old) URL.revokeObjectURL(old);
+  urlCache.delete(`n:${doc.id}`);
+}
+/** 舊收藏在首頁開啟後逐筆補圖，不讓朋友互傳畫面等待圖片解碼。 */
+async function backfillNearbyThumbs() {
+  const home = await getDoc(state.home), docs = await allDocs();
+  const byId = new Map(docs.map((d) => [d.id, d]));
+  for (const entry of home?.items ?? []) {
+    const doc = byId.get(itemId(entry));
+    if (!doc || await getMeta(nearbyThumbKey(doc.id))) continue;
+    await saveNearbyThumb(doc).catch((e) => console.warn('補做朋友互傳縮圖', e));
+    await new Promise((resolve) => setTimeout(resolve, 40));
   }
 }
 /** 沒有 key 的一次性網址（開箱中的預覽） */
@@ -428,6 +475,8 @@ async function removeDoc(doc, views = doc.kind === 'set' ? doc.items.map(itemId)
   }
   await deleteDocs([...gone]);
   await deletePhotos([...gone]);
+  await setMeta(nearbyThumbKey(doc.id), null);
+  for (const d of also) await setMeta(nearbyThumbKey(d.id), null);
   forgetUrl(...gone);
   const sources = (await getMeta('sources')) ?? {};
   for (const d of [doc, ...also]) delete sources[d.id];
@@ -755,7 +804,9 @@ async function openPack(id, fromPic, { replace = false, fresh = false } = {}) { 
   id = await shownId(id);   // 岩場被合併進一張卡片：打開那張卡片
   state.pack = id;
   if (!(await fillPack())) return void (state.pack = '');   // 內容先填好、圖解開，再換頁：先換頁再填會露出上一個岩場或空白
-  const docs = await allDocs(), set = docs.find((d) => d.id === id), model = model3dOf(docs, flatSet(docs, set)), snap = model && (await modelUsable(model.props.model.id)) ? model : null;   // 離線又沒有模型檔：退回 2D 的岩場頁
+  const docs = await allDocs(), set = docs.find((d) => d.id === id), flat = flatSet(docs, set), model = model3dOf(docs, flat);
+  const ids = model ? cragModelIds(cragOf(docs, flat).order.map((vid) => docs.find((d) => d.id === vid))) : [];
+  const snap = model && ids.length && (await Promise.all(ids.map(modelUsable))).every(Boolean) ? model : null;   // 離線又沒有模型檔：退回 2D 的岩場頁
   if (snap) await open3d(snap, fromPic, { replace, crag: true });   // 整個岩場是一個 3D 模型：岩場頁就是 3D（岩壁小卡不用了）
   else await enter('pack', packClosed, fromPic ? { from: fromPic, src: fromPic.src, rect: packBannerRect, card: replace ? { box: 'cards', id } : undefined } : {}, { replace });   // 沒有照片可以飛（例如圖釘沒有預覽圖）就直接換頁
   if (!fresh) for (const m of isMerged(set) ? flatSet(docs, set).members : [set]) updatePack(m.id).catch((e) => console.warn('更新岩場', e));
@@ -772,10 +823,13 @@ async function updatePack(id) {
   const sources = (await getMeta('sources')) ?? {}, local = await getDoc(id);
   if (!sources[id] || /\.zip$/i.test(new URL(sources[id], location.href).pathname) || local?.kind !== 'set') return;
   const received = (await getMeta('received')) ?? {};
-  // 不認人的發佈（docs/proposals/crag-open-versions.md）：更新是新的專案，只自動換成「收下那一版的後代」，後代之中取世界清單排序最前的；別人的改編（不是後代）不自動換
+  // 不認人的發佈（docs/proposals/crag-open-versions.md）：更新是新的專案，自動換成「收下那一版的後代」裡世界清單排序最前的（最新的一版）；
+  // 一次刪很多的大改 Studio 發成另一本（不是後代），不會自動換過去
   const floor = received[id] ?? local.t ?? 0, mine = projectOf(sources[id]);
   const books = mine && Backend().caps.guidebooks ? await Backend().listGuidebooks().catch(() => []) : [];
-  const descendants = books.flatMap((b) => [b, ...(b.others ?? [])]).filter((v) => v.id !== mine && (v.lineage ?? []).includes(mine));
+  // 不列入世界的書（世界清單沒有）：問伺服器這本所有的版本
+  const unlisted = mine && Backend().guidebookVersions && !books.some((b) => versionIds(b).has(mine)) ? await Backend().guidebookVersions(mine).catch(() => []) : [];
+  const descendants = [...books, ...unlisted].flatMap((b) => [b, ...(b.others ?? [])]).filter((v) => v.id !== mine && (v.lineage ?? []).includes(mine));
   for (const d of descendants) {
     const res = await ShareTools.open(d.url, { cache: 'no-cache' }).catch(() => null), head = res?.ok ? await res.json().catch(() => null) : null;
     if (head?.id === id && head.t > floor) return applyUpdate(id, d.url, sources, received, local);
@@ -812,6 +866,7 @@ async function applyUpdate(id, url, sources, received, local) {
   for (const [vid, blob] of got.photos) await putPhoto(vid, blob);
   const cover = got.preview ? await cropTop(got.preview, got.root.props.preview).catch(() => null) : null;
   if (cover) await putPhoto(id, cover);
+  await saveNearbyThumb(got.root).catch((e) => console.warn('更新朋友互傳縮圖', e));
   await deleteDocs([...gone]);
   await deletePhotos([...gone]);
   forgetUrl(id, ...got.photos.keys(), ...gone);
@@ -823,10 +878,10 @@ async function applyUpdate(id, url, sources, received, local) {
 }
 /** 3D 模型檔在手機裡、或現在有網路能載才進 3D；離線又沒有檔就不進（進去只會卡在載入） */
 const modelUsable = async (id) => !!(await getPhoto(id)) || navigator.onLine !== false;
-/** 岩場的每張 Topo 都是同一個 3D 模型拍的快照（而且手機裡有那個模型）：回傳第一面岩壁的快照，不是就回 null */
+/** 岩場的每張 Topo 都是 3D 模型的快照（同一模型或分段多模型，而且手機裡有那些模型）：回傳第一面岩壁的快照，不是就回 null */
 function model3dOf(docs, set) {
-  const views = cragOf(docs, set).order.map((id) => docs.find((d) => d.id === id)), id = sharedModelId(views);
-  return id && docs.some((d) => d.id === id) ? views[0] : null;
+  const views = cragOf(docs, set).order.map((id) => docs.find((d) => d.id === id)), ids = cragModelIds(views);
+  return ids.length && ids.every((id) => docs.some((d) => d.id === id)) ? views[0] : null;
 }
 const packBannerRect = () => $('packBanner').querySelector('img').getBoundingClientRect();
 const packClosed = () => {
@@ -875,13 +930,27 @@ function cragOf(docs, set) {
     sections.get(key).walls.push(w);
   }
   const list = [...sections.values()].sort(byOrder);
-  // 同一面岩壁、同一顆石頭的幾張 Topo：照上面最小的路線編號排（跟路線書一樣由 1 開始往後）
-  const firstNo = new Map();
-  for (const w of walls.values()) for (const v of w.views) {
-    const nums = layersOn(docs, v.id).flatMap((l) => l.marks ?? []).map((m) => Number(m.props?.label)).filter(Number.isFinite);
-    firstNo.set(v.id, nums.length ? Math.min(...nums) : Infinity);
+  // 同一面岩壁、同一顆石頭的幾張 Topo：先放畫了這面岩壁最多路線的（借來的照片，主要內容是別面岩壁的就排後面），再照這面岩壁最小的路線編號排（跟路線書一樣由 1 開始往後）
+  const rank = new Map();
+  for (const w of walls.values()) {
+    const mine = new Set([...nodes.values()].filter((r) => r.type === 'route' && r.parent === w.node.id).map((r) => r.id));
+    for (const v of w.views) {
+      const ids = layersOn(docs, v.id).flatMap((l) => l.marks ?? []).filter((m) => mine.has(m.node));
+      const nums = ids.map((m) => Number(m.props?.label)).filter(Number.isFinite);
+      rank.set(`${w.node.id}|${v.id}`, { n: new Set(ids.map((m) => m.node)).size, first: nums.length ? Math.min(...nums) : Infinity });
+    }
+    w.views.sort((a, b) => {
+      const x = rank.get(`${w.node.id}|${a.id}`), y = rank.get(`${w.node.id}|${b.id}`);
+      return y.n - x.n || x.first - y.first;
+    });
   }
-  for (const w of walls.values()) w.views.sort((a, b) => firstNo.get(a.id) - firstNo.get(b.id));
+  // 每面岩壁卡片的第一張照片不跟別面重複：照片少的岩壁先選（只有一張可借的先拿走它），其他岩壁換成下一張還沒被當卡片照片的
+  const leads = new Set();
+  for (const w of [...walls.values()].sort((a, b) => a.views.length - b.views.length)) {
+    const i = w.views.findIndex((v) => !leads.has(v.id));
+    if (i > 0) w.views.unshift(...w.views.splice(i, 1));
+    leads.add(w.views[0].id);
+  }
   for (const s of list) {
     s.walls.sort(byOrder);
     for (const w of s.walls) w.routes.sort((a, b) => (a.props?.order ?? 0) - (b.props?.order ?? 0));
@@ -1021,7 +1090,7 @@ function renderInstallHint() {
   renderSyncHint(ready);
 }
 // 同步自己的其他裝置：收下第一個岩場後在首頁提示一次（可關閉）；配對過、不支援、或正在顯示「加到主畫面」時不顯示。入口一直在「更多」選單
-const syncHintOff = () => AppKit.store.get('redpoint.syncHintX', false) === true || AppKit.nearby.paired('redpoint') > 0 || !AppKit.nearby.supported();
+const syncHintOff = () => AppKit.store.get('redpoint.syncHintX', false) === true || AppKit.nearby.paired() > 0 || !AppKit.nearby.supported();
 function renderSyncHint(ready = AppKit.store.get('redpoint.receivedOnce', false) === true) {
   $('rpSyncBar').hidden = !ready || syncHintOff() || !$('rpInstallBar').hidden;
 }
@@ -1041,7 +1110,7 @@ async function openAcct() {
   $('acName').textContent = AppKit.nearby.nickname() || T('nicknameUnset');
   $('avatar').setAttribute('aria-expanded', 'true');
   $('acSync').hidden = !AppKit.nearby.supported();
-  const nPaired = AppKit.nearby.paired('redpoint');
+  const nPaired = AppKit.nearby.paired();
   $('acSyncVal').textContent = nPaired ? T('syncPaired').replace('{n}', nPaired) : '';
   $('acInstall').hidden = !install || install.standalone || !(install.ios || install.android);   // 關閉首頁提醒後，仍可從設定自行安裝
   const mergeHomeDoc = await getDoc(state.home), docs = await allDocs();
@@ -1051,11 +1120,11 @@ async function openAcct() {
   $('acAutoMerge').hidden = !autoMergeCandidates(mergeHomeDoc, docs).length;
   $('acct').hidden = false;
 }
-// ── 語言：選擇記在 climbio.lang（跟岩點貓共用，AppKit.i18n 管）；換了就重畫目前看得到的首頁，地圖與 Topo 的名稱跟著換語言 ──
+// ── 語言：只跟瀏覽器語言（AppKit.i18n 管），地圖與 Topo 的名稱依目前語言 ──
 function syncLang() {
-  const l = globalThis.AppKit.i18n.lang;
-  $('view').setAttribute('lang', l === 'zh' ? 'zh-Hant' : l);
-  for (const id of ['cmapView', 'wayView']) $(id).setAttribute('lang', l);
+  const l = globalThis.AppKit.i18n.lang, bcp = l === 'zh' ? 'zh-Hant' : l === 'zh-CN' ? 'zh-Hans' : l;
+  $('view').setAttribute('lang', bcp);
+  for (const id of ['cmapView', 'wayView']) $(id).setAttribute('lang', bcp);
 }
 const closeAcct = () => {
   $('acct').hidden = true;
@@ -1064,53 +1133,38 @@ const closeAcct = () => {
 
 // ── 世界：Climbio Studio 發佈的岩場與 OpenClimbing 全球 Topo 岩場 ──
 const WORLD_STORE = 'redpoint.world';
-let openClimbingCrags = null;
-/** 合併後的完整世界（記憶體）：{ books, oc, tree }；tree 只依地理分組，不把所在國家排第一 */
+/** 合併後的完整世界（記憶體）：{ books, oc, tree }；tree 只依地理分組，不把所在國家排第一（world-data.mjs 的 hydrateWorld） */
 let worldPack = null, worldPackWait = null;
 /** OpenClimbing 岩場的預覽圖（HF 資料集）：合併的岩場用路線最多的那個區 */
 const ocPreview = (crag) => {
   const m = crag.members ? crag.members.filter((x) => x.pv).sort((a, b) => (b.topoRoutes || 0) - (a.topoRoutes || 0))[0] : crag.pv ? crag : null;
   return m ? `${OC_DATA}${m.osmId}/preview.jpg` : '';
 };
-function parseOpenClimbing(json) {
-  const allCrags = (json.crags || []).map((c) => ({
-    id: `osm:relation:${c.id}`,
-    osmId: c.id,
-    name: cragDisplayName(c.n, c.ap, c.at) || UNNAMED_PLACES[c.id] || T('unnamedCrag'),
-    at: c.at,
-    routes: c.rc,
-    topoRoutes: c.tc, // 索引只計候選 path，不保證 Commons 照片實際可轉換
-    pv: c.pv, // 1：climbio/crags 的 openclimbing/<id>/ 有預覽圖（tools/openclimbing-previews.py 做的，只收 CC 與公眾領域的照片）
-    country: c.cc,
-    climbTypes: c.ct,
-    areaPath: c.ap,
-    url: `https://openclimbing.org/relation/${c.id}`,
-    theCragUrl: theCragUrl(c.tcu),
-    source: 'openclimbing',
-  }));
-  return groupOpenClimbingCrags(allCrags);
+/** 讀進來的世界補上語系文字：沒有名字的岩場（伺服器合成時不知道語系）叫「未命名」 */
+function hydrateStored(file) {
+  const pack = hydrateWorld(file);
+  if (!pack) return null;
+  const unnamed = T('unnamedCrag');
+  for (const c of pack.oc) { if (!c.name) c.name = unnamed; for (const m of c.members ?? []) if (!m.name) m.name = unnamed; }
+  return pack;
 }
-async function fetchOpenClimbingCrags() {
-  if (openClimbingCrags) return openClimbingCrags;
-  const res = await fetch(`${OC_DATA}index.json`);
-  if (!res.ok) throw new Error(res.statusText);
-  openClimbingCrags = parseOpenClimbing(await res.json());
-  return openClimbingCrags;
-}
-/** 讀上次存下的完整合併結果；舊版只存 Guidebook 陣列，不算完整，不當成可直接顯示的樹 */
-function readStoredWorld() {
-  const raw = AppKit.store.get(WORLD_STORE);
-  if (raw && !Array.isArray(raw) && Array.isArray(raw.books) && Array.isArray(raw.oc)) {
-    const books = raw.books.filter((b) => b?.id);
-    return { books, oc: raw.oc, tree: mergeWorld(books, raw.oc) };
+/** 取最新的世界檔：主網讀雲端預先合成好的（一個檔案）；沒有雲端服務、或雲端的讀不到時，在手機上用同一份程式從開放資料集合成 */
+async function fetchWorldFile() {
+  const backend = Backend();
+  if (backend.loadWorld) {
+    try { const file = await backend.loadWorld(); if (hydrateWorld(file)) return file; } catch (e) { /* 改用手機自己合成 */ }
   }
-  return null;
+  const [res, books] = await Promise.all([
+    fetch(`${OC_DATA}index.json`),
+    backend.caps.guidebooks ? backend.listGuidebooks().catch(() => []) : [],
+  ]);
+  if (!res.ok) throw new Error(res.statusText);
+  return buildWorldFile(books, await res.json());
 }
-function booksFromStore() {
-  const pack = readStoredWorld();
-  if (pack) return pack.books;
-  const raw = AppKit.store.get(WORLD_STORE);
-  return Array.isArray(raw) ? raw.filter((b) => b?.id) : [];
+/** 讀上次存下的世界檔；舊版存的是 { books, oc }，不算，等這次抓新的 */
+function readStoredWorld() {
+  const file = AppKit.store.get(WORLD_STORE);
+  return file && !Array.isArray(file) ? hydrateStored(file) : null;
 }
 function packFromStore() {
   if (worldPack) return worldPack;
@@ -1118,35 +1172,15 @@ function packFromStore() {
   if (pack) worldPack = pack;
   return pack;
 }
-function rememberWorld(books, oc, { persist = true } = {}) {
-  worldPack = { books, oc, tree: mergeWorld(books, oc) };
-  if (persist) AppKit.store.set(WORLD_STORE, { books, oc });   // 存不下就每次重拿
-  return worldPack;
-}
-/** 抓兩份來源、合成三層樹並記住；同時只跑一次。refresh 時仍共用進行中的那一次 */
+/** 抓世界檔、合成記憶體裡的樹並記住；同時只跑一次。refresh 時仍共用進行中的那一次 */
 async function loadWorld({ refresh = false } = {}) {
   if (worldPack && !refresh) return worldPack;
   if (worldPackWait) return worldPackWait;
-  const prev = worldPack ?? readStoredWorld();
-  const cachedBooks = prev?.books?.length ? prev.books : booksFromStore();
   const run = (async () => {
-    const listed = Backend().caps.guidebooks ? Backend().listGuidebooks() : Promise.resolve([]);
-    listed.catch(() => {});
-    let oc = Array.isArray(prev?.oc) ? prev.oc : null, ocOk = false;
-    try {
-      oc = await fetchOpenClimbingCrags();
-      ocOk = true;
-    } catch (e) { /* 離線或失敗就用上次合成的 OpenClimbing */ }
-    let books = cachedBooks, booksOk = false;
-    try {
-      books = await listed;
-      booksOk = true;
-    } catch (e) {
-      if (!books.length && !(oc ?? []).length) throw e;
-    }
-    const ocOut = ocOk ? oc : (Array.isArray(oc) ? oc : []);
-    const booksOut = booksOk ? books : cachedBooks;
-    return rememberWorld(booksOut, ocOut, { persist: ocOk || (booksOk && Array.isArray(prev?.oc)) });
+    const file = await fetchWorldFile();
+    worldPack = hydrateStored(file);
+    AppKit.store.set(WORLD_STORE, file);   // 存不下就每次重拿
+    return worldPack;
   })();
   worldPackWait = run;
   try {
@@ -1158,7 +1192,7 @@ async function loadWorld({ refresh = false } = {}) {
 const prefetchWorld = () => { loadWorld().catch(() => {}); };
 
 async function openWorld() {
-  enter('world', () => { worldPath = []; worldRects = []; render(); });   // 離開世界就回到最上層，下次從國家開始（返回紀錄也是一層一層退完才離開）
+  enter('world', () => { worldPath = []; worldRects = []; worldQuery = ''; $('worldSearch').value = ''; render(); });   // 離開世界就回到最上層，下次從國家開始（返回紀錄也是一層一層退完才離開）
   worldSig = '';
   const apply = async (pack) => {
     if ($('world').hidden || !pack) return;
@@ -1200,12 +1234,16 @@ async function haveBook(b) {
   const hit = sources.find(([, url]) => url === b.url) ??
     sources.find(([, url]) => projectOf(url) && known.has(projectOf(url))) ??
     (b.osmId && (await getDoc(ocIdOf(`osm:relation:${b.osmId}`))) ? [ocIdOf(`osm:relation:${b.osmId}`)] : null);
-  return hit && (await getDoc(hit[0])) ? hit[0] : null;
+  if (hit && (await getDoc(hit[0]))) return hit[0];
+  // 朋友互傳收下的沒有來源網址（mem://），但岩場 id 就是專案 id：手機裡有這本書的任何一個版本也算收過，不再下載成第二份
+  for (const id of known) if (typeof id === 'string' && (await getDoc(id))?.kind === 'set') return id;
+  return null;
 }
 // ── 世界：立體卡堆。國家 → 地區 → 岩場（分層與排列見 world-stacks.mjs）；GPS 與區域只用來分組、排位置，沒有地圖 ──
 let worldBooks = [], worldOc = [], worldTree = [], worldHave = { books: new Map(), sources: new Set(), groups: new Set() };
 let worldPath = [];   // 目前在哪一層：[]＝國家；[國家]＝地區（岩場不多的國家直接是岩場）；[國家, 地區]＝岩場
 let worldRects = [];   // 每一層點進去的那一疊在畫面上的位置：返回時收回到這裡
+let worldQuery = '';   // 搜尋字；有字時顯示跨層的搜尋結果
 let worldBusy = false, worldShown = 0, worldIo = null, worldSig = '', worldScroll = 0;
 const worldNote = (text, busy = false) => { $('worldNote').hidden = !text; $('worldHead').textContent = text; $('worldNote').classList.toggle('busy', busy); };
 const worldItems = () => worldItemsFrom(worldBooks, worldOc);   // Guidebook 在前；同一本書的其他版本也各一筆
@@ -1308,7 +1346,7 @@ function worldCard(it) {
       id: it.key, img: b.preview || b.thumb || '', cropTop: true, name: b.name, sub: got ? T('received') : new Date(b.t).toLocaleDateString(langTag()),
       go: true,   // 點卡片就是下載，不另外放「下載」標籤
       onOpen: (pic) => (pack ? openPack(pack, pic) : receive(b.url, { cover: bookCover(b) })),
-      actions: () => [{ icon: 'share', label: T('share'), run: () => shareLink(b.url, b.name) }],
+      actions: () => [{ icon: 'share', label: T('share'), run: () => shareLink(b.url) }],
     });
   }
   // OpenClimbing 的岩場：預覽圖在 climbio/crags 的 openclimbing/；沒有的灰底；名稱、路線數；點了下載或打開
@@ -1316,7 +1354,7 @@ function worldCard(it) {
   return card({
     id: it.key, img: ocPreview(crag), cropTop: true, name: crag.name, sub: got ? T('received') : (crag.routes ? T('routesN', crag.routes) : ''), go: true,
     onOpen: () => openOpenClimbingCrag(crag),
-    actions: () => [{ icon: 'share', label: T('share'), run: () => shareLink(crag.url, crag.name) }],
+    actions: () => [{ icon: 'share', label: T('share'), run: () => shareLink(crag.url) }],
   });
 }
 /** 岩場卡片一批 24 張，捲到底才接著放：只載入看得到的圖 */
@@ -1336,10 +1374,38 @@ function fillCrags(grid, items, count = 24) {
     worldIo.observe(sentinel);
   }
 }
+/** 搜尋：依岩場名稱，或所在國家、地區名稱，跨所有層找出岩場（Guidebook 在前、其餘依名稱） */
+function worldSearchItems(q) {
+  const norm = (s) => String(s ?? '').toLowerCase(), has = (s) => norm(s).includes(q);
+  const seen = new Set(), out = [];
+  const add = (items, byGroup) => items.forEach((i) => {
+    if (seen.has(i.key) || !(byGroup || has(i.book?.name) || has(i.crag?.name))) return;
+    seen.add(i.key);
+    out.push(i);
+  });
+  for (const c of worldTree) {
+    const cm = has(worldTitleOf(c)) || has(c.cc);
+    if (c.regions) for (const r of c.regions) add(r.items, cm || has(worldTitleOf(r)));
+    else add(c.items, cm);
+  }
+  const byName = (a, b) => String((a.book ?? a.crag).name).localeCompare(String((b.book ?? b.crag).name), undefined, { numeric: true });
+  return [...out.filter((i) => i.book).sort(byName), ...out.filter((i) => !i.book).sort(byName)];
+}
 /** 畫目前這一層（keep：重畫但留在原位，已經放出來的岩場卡片數不變） */
 function drawWorld({ keep = false } = {}) {
   worldIo?.disconnect();
-  const stage = $('worldStage'), lv = worldLevel(), top = stage.scrollTop, count = worldShown;
+  const stage = $('worldStage'), q = worldQuery.trim().toLowerCase(), top = stage.scrollTop, count = worldShown;
+  $('worldSearchBox').hidden = !worldTree.length;
+  $('world').classList.toggle('has-search', !!worldTree.length);
+  if (q) {
+    const items = worldSearchItems(q), grid = el('div', { className: 'w-crags' });
+    worldNote(items.length ? '' : T('noResults'));
+    stage.replaceChildren(grid);
+    fillCrags(grid, items, keep ? count : 24);
+    stage.scrollTop = keep ? top : 0;
+    return;
+  }
+  const lv = worldLevel();
   worldNote(lv.title);
   if (lv.nodes) {
     const grid = el('div', { className: 'w-piles' });
@@ -1396,7 +1462,8 @@ async function refreshWorld() {
   worldSig = '';
   drawWorld({ keep: true });
 }
-addEventListener('resize', () => { if (!$('world').hidden && worldTree.length && $('worldStage').querySelector('.w-piles')?.style.getPropertyValue('--cols') !== String(worldCols())) drawWorld(); });
+$('worldSearch').addEventListener('input', () => { worldQuery = $('worldSearch').value; drawWorld(); });
+addEventListener('resize', () => { if (!$('world').hidden && worldTree.length && !worldQuery && $('worldStage').querySelector('.w-piles')?.style.getPropertyValue('--cols') !== String(worldCols())) drawWorld(); });
 // 頁面藏起來時裡面的捲動位置會掉：再顯示時放回去
 $('worldStage').addEventListener('scroll', () => { if (!$('world').hidden) worldScroll = $('worldStage').scrollTop; }, { passive: true });
 new MutationObserver(() => { if (!$('world').hidden) $('worldStage').scrollTop = worldScroll; }).observe($('world'), { attributes: true, attributeFilter: ['hidden'] });
@@ -1625,7 +1692,7 @@ async function receive(url, { ask: confirmFirst = false, at = null, replace = fa
   $('rvName').classList.add('drop');
   $('rvCount').textContent = root.kind === 'set' ? `${T('wallsN', wallCount([...got.docs.values()], root))}${got.skipped.length ? T('skippedN', got.skipped.length) : ''}` : '';
   cardBox.append(el('span', { className: 'rv-tape', textContent: T(root.kind === 'set' ? 'tapeCrag' : 'tapeTopo') }));
-  navigator.vibrate?.(15);
+  if (navigator.userActivation?.hasBeenActive) navigator.vibrate?.(15);
   $('rvGo').textContent = T(root.kind === 'set' ? 'openCrag' : 'openTopo');
   $('rvGo').hidden = false;
   $('rvGo').onclick = async () => {
@@ -1659,12 +1726,12 @@ function askReceive({ root, from, download = false }) {   // download：從世�
 // ── 分享：岩場、Topo 給一個連結；收來的岩場直接傳原本的網址，自己的打包傳上主網 ──
 /** 發佈的岩場（/p/<專案 id>/index.json）用固定的分享網址 /p/<專案 id>，發佈完就有、不用登入；其他的傳 /?topo=<網址> */
 /** at：收的人打開後直接到岩場裡的這張照片 */
-async function shareLink(src, name, at) {
+async function shareLink(src, at) {
   const target = `/?topo=${encodeURIComponent(src)}${at ? `&at=${encodeURIComponent(at)}` : ''}`;
   // 公開的岩場（網站的 /p/<id>/index.json，或開放資料集 climbio/crags 裡的 crags/<id>/index.json）：傳短的 /p/<id>
   const published = /^https:\/\/(?:[^/]+\/p|huggingface\.co\/datasets\/climbio\/crags\/resolve\/main\/crags)\/([0-9a-z]{16})\/index\.json$/.exec(src);
   const link = published ? `${location.origin}/p/${published[1]}${at ? `?at=${encodeURIComponent(at)}` : ''}` : location.origin + target;
-  const how = await sendLink(link, name);
+  const how = await sendLink(link);
   if (how !== 'cancelled') toast(T(how === 'shared' ? 'linkShared' : 'linkCopied'));
 }
 
@@ -1686,20 +1753,20 @@ async function bundleOf(id, doc, own = false) {
  */
 const nearbyAdapter = {
   app: 'redpoint', label: '紅點貓', suggested: async () => (await getMeta('author')) || '',
-    // trusted：對方是配對過的自己的裝置——個人收藏（不能公開分享）也帶，攀爬紀錄一起同步；給別人的照舊只放能分享的
+    // 朋友互傳可手動選擇個人收藏；只在「我的裝置」自動同步攀登紀錄，且兩種模式都不會公開資料。
     list: async (trusted) => {
       const [home, docs] = [await getDoc(state.home), await allDocs()];
-      const picked = home.items.map((i) => docs.find((d) => d.id === itemId(i))).filter((d) => d && (d.kind === 'set' || (d.surface === 'photo' && shareable(d))))
-        .filter((d) => trusted || d.kind !== 'set' || !personalSet(docs, d))   // 個人收藏只給自己的裝置
+      const picked = home.items.map((i) => docs.find((d) => d.id === itemId(i)))
+        .filter((d) => d && (d.kind === 'set' || (d.kind === 'view' && d.surface === 'photo')))
         .reverse();
-      const items = await Promise.all(picked.map(async (d) => ({ id: d.id, name: nameOf(d), img: (d.kind === 'set' ? await coverUrl(docs, flatSet(docs, d)) : await photoUrl(d)) || '', sub: d.kind === 'set' ? T('crag') : 'Topo', v: [String(d.t ?? 0)], t: d.t ?? 0 })));
+      const items = await Promise.all(picked.map(async (d) => ({ id: d.id, name: nameOf(d), img: (await nearbyThumbUrl(d.id).catch(() => '')) || (d.kind === 'set' ? await coverUrl(docs, flatSet(docs, d)) : await photoUrl(d)) || '', sub: d.kind === 'set' ? T('crag') : 'Topo', v: [String(d.t ?? 0)], t: d.t ?? 0 })));
       // 攀登記錄（整份）：自己的裝置之間一定同步，不用對方有那個岩場，直接備份到自己的電腦；內容一樣（雜湊相同）就不再傳
       const all = trusted ? logsAll() : {};
       return Object.keys(all).length ? [...items, { id: LOGS_ID, name: T('climbLog'), sub: '', v: [logsHash(all)] }] : items;
     },
     pack: async (id, trusted) => {
       if (id === LOGS_ID) return { entry: 'logs-all.json', files: [{ path: 'logs-all.json', bytes: new TextEncoder().encode(JSON.stringify(logsAll())) }] };
-      const { files } = await bundleOf(id, await getDoc(id), trusted);
+      const { files } = await bundleOf(id, await getDoc(id), true); // 朋友互傳也包含個人收藏；公開分享仍須通過 shareable 規則
       const out = await Promise.all(files.map(async (f) => ({ path: f.name, bytes: new Uint8Array(await f.blob.arrayBuffer()) })));
       const log = trusted ? logsRead()[id] : null;
       if (log) out.push({ path: 'logs.json', bytes: new TextEncoder().encode(JSON.stringify({ id, log })) });
@@ -1733,13 +1800,89 @@ function mergeLog({ id, log }) {
   AppKit.store.set(LOG_KEY, logs);
 }
 
+// ── 分享一張 Topo：圖片（版面跟岩點貓同一套，appkit/share-image.js）或連結。有點選路線就以那條路線為主，沒有就是整張 Topo ──
+const SHARE_PX = 2400;   // 底圖長邊上限
+const SHARE_FONT = 'system-ui, -apple-system, "SF Pro Text", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif';
+/** 底圖：照片＋Topo 的線與編號牌（跟畫面上看到的同一份 renderLines）；回 { size, canvas, focus }，focus 是路線佔的範圍（底圖像素） */
+async function topoBase(view, routes, routeId) {
+  const img = new Image();
+  img.src = view.href;
+  await img.decode();
+  const s = Math.min(1, SHARE_PX / Math.max(img.naturalWidth, img.naturalHeight)), w = Math.round(img.naturalWidth * s), h = Math.round(img.naturalHeight * s);
+  const k = Math.max(view.w, view.h) / 900;   // 一個螢幕像素＝幾個照片像素
+  const lines = renderLines(routes, { photo: { w: view.w, h: view.h }, k, highlight: routeId || undefined, solo: !!routeId, ui: 1.5, naturalEnds: true });
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${view.w} ${view.h}"><style>${TOPO_CSS}text{font-family:${SHARE_FONT}}</style><g class="tk">${lines}</g></svg>`;
+  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+  const layer = new Image();
+  layer.src = url;
+  await layer.decode().finally(() => URL.revokeObjectURL(url));
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const g = canvas.getContext('2d');
+  g.drawImage(img, 0, 0, w, h);
+  g.drawImage(layer, 0, 0, w, h);
+  // 路線的範圍：沿著線每隔一小段放一個框（含牌子的留白）
+  const line = routes.find((r) => r.id === routeId)?.line ?? [], f = w / view.w, step = Math.max(view.w, view.h) * 0.02, half = Math.max(view.w, view.h) * 0.03 * f, focus = [];
+  line.forEach(([x, y], i) => {
+    const prev = line[i - 1], n = prev ? Math.max(1, Math.ceil(Math.hypot(x - prev[0], y - prev[1]) / step)) : 1;
+    for (let j = 1; j <= n; j++) {
+      const cx = (prev ? prev[0] + ((x - prev[0]) * j) / n : x) * f, cy = (prev ? prev[1] + ((y - prev[1]) * j) / n : y) * f;
+      focus.push({ x0: cx - half, y0: cy - half, x1: cx + half, y1: cy + half });
+    }
+  });
+  return { size: { w, h }, canvas, focus };
+}
+
+/** 一張 Topo 的分享圖：有指定路線就是那條路線的難度與名稱，沒有就是岩壁名稱 */
+async function topoShareImage(viewId, routeId) {
+  const { view } = await topoData(viewId), routes = topoEl.viewer?.routes ?? [], route = routes.find((r) => r.id === routeId);
+  const mark = new Image();
+  mark.src = '../icons/cats/redpoint-cat.svg';
+  await mark.decode();
+  const base = await topoBase(view, routes, route?.id);
+  return AppKit.shareImage.make({
+    size: base.size, base: base.canvas, focus: base.focus, grade: route?.grade ?? '', name: route ? route.name ?? '' : nameOf(view),
+    by: credit(view.attribution), fmt: 'story', logo: AppKit.shareImage.imageLogo(mark), lang: AppKit.i18n.lang,
+  });
+}
+
+async function shareTopoMenu() {
+  const id = state.topo;
+  let url = '';
+  try {
+    UI.toast(T('shareImage'), { busy: true });
+    const { blob, name } = await topoShareImage(id, $('view').getAttribute('highlight') ?? '');
+    UI.hideToast();
+    const file = new File([blob], name, { type: 'image/jpeg' });
+    url = URL.createObjectURL(blob);
+    const how = await ask({ body: [el('img', { src: url, alt: '', style: 'display:block;max-width:100%;max-height:60vh;margin:0 auto;border-radius:12px' })],
+      buttons: [{ label: T('cancel') }, { label: T('shareImage'), value: 'image' }, { label: T('shareLink'), value: 'link', primary: true }] });
+    if (how?.button === 'image') { if ((await AppKit.share.sendFile(file, { strictGesture: true })) === 'blocked') toast(T('shareReady'), 4000); }
+    else if (how?.button === 'link') await share(id);
+  } catch (e) {
+    UI.hideToast();
+    toast(e.message, 5000);
+  } finally {
+    if (url) URL.revokeObjectURL(url);
+  }
+}
+
 async function share(id) {
   try {
     const doc = await getDoc(id), sources = (await getMeta('sources')) ?? {};
-    if (sources[id]) return await shareLink(sources[id], nameOf(doc));
+    if (sources[id]) return await shareLink(sources[id]);
     // 收來的岩場裡的照片：傳岩場原本的網址，打開直接到這張（不另外打包上傳；只有自己拍的、還沒在網路上的才上傳）
     const home = (await allDocs()).find((d) => d.kind === 'set' && sources[d.id] && d.items.some((i) => itemId(i) === id));
-    if (home) return await shareLink(sources[home.id], nameOf(doc), id);
+    if (home) return await shareLink(sources[home.id], id);
+    // 已經公開的不再上傳：自己分享過的（記著專案 id），或匯入、附近交換收來的（組合 id 就是原專案 id，公開資料集已有）。沒有編輯功能，重傳只會多出一樣的副本
+    const shared = (await getMeta('shared')) ?? {};
+    if (shared[id]) return await shareLink(`${location.origin}/p/${shared[id]}/index.json`);
+    if (Backend().caps.share && navigator.onLine !== false) {
+      const pub = new URL(`/p/${id}/index.json`, location.href).href;
+      const res = await ShareTools.open(pub, { cache: 'no-cache' }).catch(() => null), head = res?.ok ? await res.json().catch(() => null) : null;
+      if (head?.id === id) return await shareLink(pub);
+    }
     const { files, count, left } = await bundleOf(id, doc);
     if (Backend().caps.share) {
       // 公開沿用共用暱稱，只保留授權確認，不再另問簽名。
@@ -1759,7 +1902,7 @@ async function share(id) {
       UI.hideToast();
       await setMeta('sources', { ...sources, [id]: url });
       if (left) toast(T('leftLocal', left), 4000);
-      return await shareLink(url, nameOf(doc));
+      return await shareLink(url);
     }
     const how = await send(await AppKit.files.zip(files), `${AppKit.files.safeName(nameOf(doc))}.zip`, nameOf(doc));
     if (how !== 'cancelled') toast(T('zipDone', how, count, left), 4000);
@@ -2116,18 +2259,21 @@ let posterRect = () => null;
 async function open3d(view, fromPic = null, { replace = false, route, crag = false } = {}) {
   const m = view.props.model, model = await getDoc(m.id);
   const docs = await allDocs(), pop = $('m3dPop'), where = $('m3dWhere'), sheet = $('m3dSheet');
-  // 模型、路線、各面岩壁與鏡頭、全區快照：照格式讀出來（節點只讀包著這個模型的組合：收過同一個岩場的別的版本時，路線 id 可能一樣）
-  const { marks, sight, nodes, owners, areas: found, overview: coverShot } = readCrag3d(docs, model.id);
+  const activeSet = state.pack ? docs.find((d) => d.id === state.pack) : docs.find((d) => d.kind === 'set' && d.items?.some((i) => (i.id ?? i.href?.replace(/\.json$/, '')) === view.id));
+  const ids = activeSet ? cragModelIds(cragOf(docs, flatSet(docs, activeSet)).order.map((id) => docs.find((d) => d.id === id))) : [model.id];
+  const validIds = ids.length && ids.every((id) => docs.some((d) => d.id === id)) ? ids : [model.id];
+  // 模型、路線、各面岩壁與鏡頭、全區快照：照格式讀出來（節點只讀包著這些模型的組合：收過同一個岩場的別的版本時，路線 id 可能一樣）
+  const { segments: segs, marks, sight, nodes, owners, areas: found, overview: coverShot } = readCrag3d(docs, validIds);
   const byNode = new Map(nodes.map((n) => [n.id, n]));
   const areas = found.map((a) => ({ ...a, name: a.name || T('unnamed') }));
   // 從岩場卡片進來：回到上次離開時最近的那面岩壁（記在這台，存不了就從第一面）；指定路線、Topo 進來的照那張
-  const wallKey = `redpoint.wall3d.${model.id}`, saved = crag && !route ? (() => { try { return areas.findIndex((a) => a.id === localStorage.getItem(wallKey)); } catch { return -1; } })() : -1;
+  const packSet = state.pack && docs.find((d) => d.id === state.pack), set = packSet ? flatSet(docs, packSet) : owners[0];
+  const wallKey = `redpoint.wall3d.${set?.id ?? model.id}`, saved = crag && !route ? (() => { try { return areas.findIndex((a) => a.id === localStorage.getItem(wallKey)); } catch { return -1; } })() : -1;
   const start = saved >= 0 ? saved : Math.max(0, areas.findIndex((a) => a.id === view.props.node));
   // 第一次進來（還沒記過停在哪）、橫的螢幕（電腦）：卡片放大成全區快照（岩場封面，掛在岩場節點、記著拍的鏡頭），模型好了從那裡往前飛進第一面，一路只放大不縮小；
   // 直的螢幕（手機）看全區要先縮很小再放大，直接進第一面
   const overview = crag && !route && saved < 0 && innerWidth > innerHeight ? coverShot ?? null : null;
   const poster = overview ?? areas[start]?.snapshot ?? view;
-  const packSet = state.pack && docs.find((d) => d.id === state.pack), set = packSet ? flatSet(docs, packSet) : owners[0];
   where.querySelector('b').textContent = nameOf(set ?? view);
   where.querySelector('span').textContent = '';
   // 右上分享、清單上方的原始資料／交通／地圖：跟岩場頁同一組按鈕（岩場頁藏著，內容在 fillPack 填好）
@@ -2153,10 +2299,16 @@ async function open3d(view, fromPic = null, { replace = false, route, crag = fal
   await enter('m3d', () => { model3d?.destroy(); model3d = null; if (crag) return packClosed(); }, {
     from: fromPic, src: fromPic?.src, card: replace ? { box: 'cards', id: crag ? state.pack : view.id } : undefined,
     prepare: async () => {
-      const bg = model.props?.background && (await getDoc(model.props.background));   // 岩壁用網格時的潑濺背景（另一個模型畫面）
-      const m = model3d = await mountCrag3d($('m3dView'), { url: photoUrl(model), mime: model.mime, background: bg ? photoUrl(bg) : undefined,   // 模型讀出來要一點時間：不等，放大動畫先開始
+      const bgMap = new Map();
+      const segments = await Promise.all(segs.map(async (s) => {
+        const bgId = s.model.props?.background;
+        const bgDoc = bgId && (bgMap.get(bgId) ?? bgMap.set(bgId, await getDoc(bgId)).get(bgId));
+        return { id: s.id, url: photoUrl(s.model), mime: s.model.mime, background: bgDoc ? photoUrl(bgDoc) : undefined, sky: s.model.props?.sky, from: s.from, to: s.to };
+      }));
+      const curSeg = segments.find((s) => start >= s.from && start <= s.to) ?? segments[0];
+      const m = model3d = await mountCrag3d($('m3dView'), { url: curSeg.url, mime: curSeg.mime, background: curSeg.background, segments,   // 分段載入：先載目前區段，其餘背景預載
          poster: await photoUrl(poster), marks, sight, nodes, areas,
-        start, intro: overview ? { camera: overview.props.model.camera, aspect: overview.w / overview.h } : null, sky: model.props?.sky, onPick: pick, onArea });
+        start, intro: overview ? { camera: overview.props.model.camera, aspect: overview.w / overview.h } : null, sky: curSeg.sky ?? model.props?.sky, mode: new URLSearchParams(location.search).get('3d') || 'free', onPick: pick, onArea });
       posterRect = () => m.posterRect();   // 返回時 3D 已經關掉，縮回小卡還要用這個位置
       if (route) m.route(route);
     },
@@ -2194,8 +2346,22 @@ function closeTopo() {
 }
 
 // ── 事件 ──
-AppKit.nearby.bind($('worldNearby'), 'send', nearbyAdapter);
-$('fabBtn').onclick = $('emptyGo').onclick = () => openWorld().catch((e) => toast(e.message, 5000));
+const fab = $('fab'), fabBtn = $('fabBtn');
+const closeFab = () => {
+  fab.removeAttribute('data-open');
+  fabBtn.setAttribute('aria-expanded', 'false');
+  for (const b of fab.querySelectorAll('.rarc-btn')) b.tabIndex = -1;
+};
+fabBtn.onclick = () => {
+  const open = !fab.hasAttribute('data-open');
+  fab.toggleAttribute('data-open', open);
+  fabBtn.setAttribute('aria-expanded', String(open));
+  for (const b of fab.querySelectorAll('.rarc-btn')) b.tabIndex = open && !b.hidden ? 0 : -1;
+};
+AppKit.nearby.bind($('worldNearby'), 'send', nearbyAdapter, closeFab);
+$('fabWorld').onclick = () => { closeFab(); openWorld().catch((e) => toast(e.message, 5000)); };
+$('emptyGo').onclick = () => openWorld().catch((e) => toast(e.message, 5000));
+document.addEventListener('pointerdown', (e) => { if (!e.target.closest('#fab')) closeFab(); }, true);
 // 第一次使用（首頁還沒有岩場）：直接看一個 3D 岩場範例（大砲岩），知道岩場可以做成 3D 路線圖
 const DEMO_3D = 'rw9oa7t1taemt9zj';
 $('emptyTry3d').onclick = () => receive(`https://huggingface.co/datasets/climbio/crags/resolve/main/crags/${DEMO_3D}/index.json`).catch((e) => toast(e.message, 5000));   // 在 App 裡直接收：不整頁重載（省一次冷啟動）
@@ -2302,7 +2468,7 @@ $('acExport').onclick = () => { closeAcct(); redpointBackup.backup(); };
 $('acImport').onclick = () => { closeAcct(); redpointBackup.restore(); };
 $('acAutoMerge').onclick = () => autoMergeHome().catch((e) => toast(e.message, 5000));
 $('acSync').onclick = () => { closeAcct(); openNearby('devices'); };
-$('acHelp').onclick = () => { closeAcct(); window.open('../guides/redpoint-manual.html', '_blank', 'noopener,noreferrer'); };
+$('acHelp').onclick = () => { closeAcct(); window.open(AppKit.i18n.guideUrl('redpoint-manual.html'), '_blank', 'noopener,noreferrer'); };
 $('acInstall').onclick = () => { closeAcct(); installRedpoint(); };
 for (const id of ['packBack', 'worldBack', 'rvClose', 'cmapBack', 'wayBack']) $(id).onclick = back;
 $('packShare').onclick = () => share(state.pack);
@@ -2351,7 +2517,7 @@ wide.addEventListener('change', syncFit);
 syncFit();
 $('closeTopo').onclick = back;
 $('closeM3d').onclick = back;
-$('shareTopo').onclick = () => share(state.topo);
+$('shareTopo').onclick = () => shareTopoMenu();
 
 // ── 開始 ──
 AppKit.account.footer($('acFoot'), { version: globalThis.CLIMBIO_VERSION, sourcesHref: 'sources.html' });
@@ -2391,6 +2557,7 @@ const link = startupParams.get('topo'), linkAt = startupParams.get('at');
 const enterWorld = !link && startupParams.get('world') === '1';
 if (link || enterWorld) history.replaceState({ rp: 0 }, '', location.pathname);
 await render();
+setTimeout(() => backfillNearbyThumbs().catch((e) => console.warn('補做朋友互傳縮圖', e)), 0);
 self.akBooted?.();   // 開機完成：告訴 recover.js 的看門狗（沒呼叫到會被當成開機失敗，自動清快取重載）
 if (link) receive(link, { at: linkAt });
 else if (enterWorld) openWorld().catch((e) => toast(e.message, 5000));

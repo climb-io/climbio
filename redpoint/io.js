@@ -3,9 +3,9 @@
 //       組合沿著 items 往下讀（層數不限），圖層順著 href 讀它的畫面，照片和 3D 模型下載一份存在手機；每份都先過 validate。
 //   送：一張 Topo 或一整組打包成 ZIP（index.json 是組合，其他檔案用相對路徑），用系統的分享，不能分享就下載；
 //       主網的公開分享把檔案（toFiles）放進 Climbio 的公開資料集，連結是 /p/<組合 id>。
-//       只有 origin 是 self 或 authorized 的照片畫面才出得去：紙本、來源不明的照片沒有 origin，留在這支手機。
+//       公開發佈只允許 origin 為 self 或 authorized；私人朋友互傳或自己的裝置同步可帶 personal，仍須遵守來源授權。
 // validate 用全域的 ClimbioFormat（../format/format.js），ZIP 用 AppKit.files（../appkit/files.js），頁面先載入。
-// English: import (URL / JSON / ZIP) and export (ZIP) of v2 documents; only self/authorized photos leave the device.
+// English: only self/authorized photos may be published; private exchanges can include personal collections subject to source rights.
 
 const T = (key, ...args) => globalThis.AppKit?.i18n?.t(key, ...args) ?? key;   // 語言包（i18n/redpoint）：頁面載入；Node 測試沒有 AppKit 就回傳 key
 
@@ -30,7 +30,7 @@ export function credit(attribution) {
   }).join('；');
 }
 
-/** 可以傳給別人的畫面：自己的或有授權的。personal（外站匯入，只供自己備用）、沒有 origin（只在本機）都不能 */
+/** 允許公開分享的畫面：自己的或有授權的。私人朋友互傳另走 toFiles({ own: true })，不會放進公開資料集。 */
 export const shareable = (doc) => doc?.origin === 'self' || doc?.origin === 'authorized';
 
 /** 只收 https、附近交換收到的包（mem://，見 appkit/share-tools.js 的 open），或同一個網站（測試用） */
@@ -215,7 +215,7 @@ export async function fromFiles(files) {
  * 回傳 { files: [{ name, blob }]（入口是 index.json）, count, left }：left 是留在手機、沒放進去的照片數（沒有 origin）。
  * 公開分享把這些檔案放進 Climbio 的公開資料集；沒有後端的站壓成一個 ZIP 檔分享。
  */
-export async function toFiles(start, { docOf, photoOf, layersOn, wrap, nodesOf = async () => new Map(), own = false }) {   // own：自己的裝置之間同步，個人收藏也帶（不能公開分享的規則只管分享給別人）
+export async function toFiles(start, { docOf, photoOf, layersOn, wrap, nodesOf = async () => new Map(), own = false }) {   // own：私人直傳（朋友互傳、我的裝置）；可包含 personal。公開分享必須為 false。
   const out = new Map(), files = [], carried = new Map();   // carried：這包用到的節點（路線、上層的區域），隨著打包，單獨拿到就完整
   let left = 0;
   const all = await nodesOf();   // 這支手機裡所有節點（id → 節點）：路線的名稱、難度在組合的 nodes，不在圖層裡
@@ -277,8 +277,8 @@ export async function toFiles(start, { docOf, photoOf, layersOn, wrap, nodesOf =
 
 
 /** 用系統的分享送連結；不能分享就複製。回傳 'shared'、'copied' 或 'cancelled' */
-export const sendLink = async (url, title) => {
-  const how = await globalThis.AppKit.share.sendLink(url, { title });
+export const sendLink = async (url) => {
+  const how = await globalThis.AppKit.share.sendLink(url);
   if (how === 'failed') throw new Error('clipboard');
   return how;
 };

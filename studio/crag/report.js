@@ -6,7 +6,7 @@
 //   level：error（不修不能發佈或建立）、check（要人看一眼）
 //   路線 status：ok、check（reasons 說原因：unassigned 還沒分到岩壁、stub 沒描出線只放了記號、no-topo 沒有任何照片上的線）
 //   at：這條路線來自大綱的哪裡（{ line, row }），只在報告裡，不寫進公開格式
-import { STUB, WALL_TYPES } from './model.js';
+import { STUB, WALL_TYPES, mapCenter } from './model.js';
 
 const T = (...a) => AppKit.i18n.t(...a);
 const name = (n) => (n == null ? '' : typeof n === 'string' ? n : (n['zh-Hant'] ?? Object.values(n)[0] ?? ''));
@@ -17,8 +17,9 @@ export function outlineReport(r, { missing = [], position } = {}) {
   const { book } = r.state;
   const issues = r.warnings.filter(w => w !== T('cdNoCragPosition')).map(message => ({ level: 'check', code: 'outline', message }));
   if (missing.length) issues.push({ level: 'error', code: 'missing-images', files: missing, message: T('cgMissingImages', missing.slice(0, 5).join(T('cgListSep')) + (missing.length > 5 ? '…' : '')) });
-  const at = r.position?.position || position;
+  const at = r.position?.position || position || mapCenter(r.state.map, book.nodes);
   if (!at) issues.push({ level: 'error', code: 'no-position', message: T('cdNoCragPosition') });
+  if (!book.props?.['author:country']) issues.push({ level: 'check', code: 'no-country', message: T('cdNoCountry') });   // 紅點貓世界照國家分組：發佈前要有（大綱「國家：tw」或發佈時 --country）
   const byId = new Map(book.nodes.map(n => [n.id, n]));
   const routes = book.nodes.filter(n => n.type === 'route').map(n => {
     const reasons = isWall(byId.get(n.parent)) ? [] : ['unassigned'];
@@ -29,9 +30,9 @@ export function outlineReport(r, { missing = [], position } = {}) {
 
 /**
  * 建好的書（公開格式 v2 的組合，與它的圖層；Studio 存的圖層還留著 author:stub）→ 報告。
- * photos：照片的 view（有拍攝位置也算有位置）；at：路線 id → 大綱的位置（建書前另外對過名稱）
+ * photos：照片的 view（有拍攝位置也算有位置）；map：地圖畫面（畫了岩場的形狀也算有位置）；at：路線 id → 大綱的位置（建書前另外對過名稱）
  */
-export function bookReport({ book, layers = [], photos = [], at = new Map() }) {
+export function bookReport({ book, layers = [], photos = [], map, at = new Map() }) {
   const byId = new Map(book.nodes.map(n => [n.id, n]));
   const marks = new Map();   // 路線 id → 'line'（真的線或號碼）或 'stub'
   for (const l of layers) for (const m of l.marks || []) {
@@ -40,7 +41,7 @@ export function bookReport({ book, layers = [], photos = [], at = new Map() }) {
     if (marks.get(m.node) !== 'line') marks.set(m.node, kind);
   }
   const crag = book.nodes.find(n => n.type === 'crag');
-  const pos = crag?.geo?.coordinates || photos.find(v => v.camera?.position)?.camera.position;
+  const pos = crag?.geo?.coordinates || photos.find(v => v.camera?.position)?.camera.position || mapCenter(map, book.nodes);
   const issues = pos ? [] : [{ level: 'error', code: 'no-position', message: T('cdNoPosition') }];
   const routes = book.nodes.filter(n => n.type === 'route').map(n => {
     const reasons = [];

@@ -82,6 +82,8 @@ AppKit.i18n.add('redpoint', 'fr', {
   // Monde
   world: "Monde",
   findingCrags: "Recherche de sites…",
+  findCrag: "Rechercher sites, régions ou pays",
+  noResults: "Aucun site correspondant",
   loadFailed: (msg) => `Échec du chargement : ${msg}`,
   noPublicCrags: "Aucun site public pour l'instant",
   emptyTitle: "Récupère ton premier site dans le monde",

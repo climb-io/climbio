@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { parseDataPath, siteData, gymData, routesData, sendSiteData } = require('./site-data');
+const { parseDataPath, siteData, gymData, routesData, sharedData, sendSiteData } = require('./site-data');
 const { HF_BASE } = require('./projects');
 const { validate } = require('./format');
 
@@ -14,12 +14,12 @@ test('只認 /climbio.json、/w/gym/{岩館}.json、/w/{牆 id}/routes.json、th
 
 // 假的 Firestore：gymIndex/all、gymWalls、shared/{pid}、wallRoutes/{pid}
 const snap = (id, d) => ({ id, exists: !!d, get: (k) => d && d[k] });
-function fakeDb({ index, walls = {}, shared = {}, wallRoutes = {} }) {
+function fakeDb({ index, walls = {}, shared = {}, wallRoutes = {}, datasets = {} }) {
   return { collection: (name) => {
     if (name === 'gymIndex') return { doc: () => ({ get: async () => snap('all', index) }) };
     if (name === 'gymWalls') return { doc: (id) => ({ get: async () => snap(id, walls[id]) }), where: (_f, _op, gym) => ({ orderBy: () => ({ limit: () => ({ get: async () => ({
       docs: Object.entries(walls).filter(([, w]) => w.gym === gym).sort((a, b) => b[1].t - a[1].t).map(([id, w]) => snap(id, w)) }) }) }) }) };
-    const data = name === 'shared' ? shared : wallRoutes;
+    const data = name === 'shared' ? shared : name === 'datasets' ? datasets : wallRoutes;
     return { doc: (id) => ({ get: async () => snap(id, data[id]) }) };
   } };
 }
@@ -75,4 +75,25 @@ test('/w/{牆 id}/thumb.jpg：清單上的牆導向資料集裡的縮圖；不�
   const listed = await send(fakeDb({ walls: { aaaaaaaa0001: { gym: 'g', name: '牆', n: 0, t: 1, src: SRC, hf: 'walls/wallproject00001/v2/' } } }));
   assert.deepEqual(listed.redirect, [302, `${HF_BASE}walls/wallproject00001/v2/aaaaaaaa0001.thumb.jpg`]);
   assert.equal((await send(fakeDb({}))).status, 404);
+});
+
+test('岩館的牆面：3D 牆帶 props.model，縮圖和入口在 3D 牆的資料集，通過驗證', async () => {
+  const A = 'aaaaaaaaaaaaaaaa', hf = `walls3d/${A}/`;
+  const db = fakeDb({ walls: { [A]: { gym: '原岩明德', name: '明德 3D', n: 0, t: 9, m3d: 1, repo: 'walls3d', hf, src: { project: A, path: 'index.json' } } } });
+  const d = await gymData({ db, gym: '原岩明德', origin });
+  assert.deepEqual(validate(d), []);
+  assert.equal(d.items[0].props.model, '3d');
+  assert.equal(d.items[0].props.thumb, `https://huggingface.co/datasets/climbio/walls3d/resolve/main/${hf}thumb.jpg`);
+  assert.ok(d.items[0].href.endsWith(`${hf}index.json`));
+});
+
+test('shared.json：App 讀公開牆的線用（作者只給雜湊、帶版本、新的在前），沒公開的牆 published: false', async () => {
+  const db = fakeDb({ shared: { aaaaaaaa0001: { src: SRC } }, datasets: { [SRC.project]: { version: 3 } },
+    wallRoutes: { aaaaaaaa0001: { routes: { r1: { uid: 'k:abc', t: 5, r: '{}' }, r2: { uid: 'k:def', t: 9, r: '{}' } } } } });
+  const got = await sharedData({ db, pid: 'aaaaaaaa0001' });
+  assert.equal(got.published, true); assert.equal(got.ver, 3); assert.deepEqual(got.src, SRC);
+  assert.deepEqual(got.routes.map(x => x.rid), ['r2', 'r1']);
+  assert.match(got.routes[0].u, /^[0-9a-f]{16}$/); assert.ok(!JSON.stringify(got).includes('k:abc'));
+  assert.deepEqual(await sharedData({ db, pid: 'bbbbbbbb0002' }), { published: false, routes: [] });
+  assert.deepEqual(parseDataPath('/w/abcdefgh1234/shared.json'), { kind: 'wall', pid: 'abcdefgh1234', file: 'shared.json' });
 });

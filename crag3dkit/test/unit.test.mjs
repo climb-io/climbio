@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { readCrag3d, sharedModelId, readSight, routeVisibility, pickName, pickGrade } from '../index.js';
+import { readCrag3d, sharedModelId, cragModelIds, readSight, routeVisibility, pickName, pickGrade } from '../index.js';
 
 const ex = (f) => JSON.parse(fs.readFileSync(new URL(`../../format/examples/${f}.json`, import.meta.url), 'utf8'));
 const docs = ['crag3d', 'crag3d-model', 'crag3d-overview', 'crag3d-wall', 'crag3d-routes'].map(ex);
@@ -39,11 +39,29 @@ test('readCrag3d：節點只讀包著這個模型的組合', () => {
   assert.equal(readCrag3d([...docs, other], model.id).areas[0].name, '範例岩壁');
 });
 
-test('sharedModelId：全部是同一個模型的快照才回 id', () => {
+test('sharedModelId / cragModelIds：單模型與分段多模型辨識、readCrag3d 讀取分段模型與區段對照', () => {
   assert.equal(sharedModelId([wall, overview]), model.id);
   assert.equal(sharedModelId([wall, { props: {} }]), null);
   assert.equal(sharedModelId([wall, { props: { model: { id: 'another' } } }]), null);
   assert.equal(sharedModelId([]), null);
+  assert.deepEqual(cragModelIds([wall, overview]), [model.id]);
+  assert.deepEqual(cragModelIds([wall, { props: {} }]), []);
+
+  const set = structuredClone(docs[0]);
+  set.nodes.push({ id: 'w2', type: 'wall', parent: 'sample3dcrag', name: '二號壁', props: { order: 1 } });
+  const m2 = { ...structuredClone(model), id: 'model2', href: 'model2.spz' };
+  const s2 = { ...structuredClone(wall), id: 'snap2', props: { node: 'w2', model: { id: m2.id, camera: wall.props.model.camera } } };
+  const l2 = { ...structuredClone(layer), id: 'layer2', on: m2.id, marks: [] };
+  set.items.push({ id: m2.id, href: `${m2.id}.json` }, { id: s2.id, href: `${s2.id}.json` }, { id: l2.id, href: `${l2.id}.json` });
+  const views = [wall, s2];
+  assert.equal(sharedModelId(views), null);
+  assert.deepEqual(cragModelIds(views), [model.id, m2.id]);
+  const multi = readCrag3d([...docs, set, m2, s2, l2], cragModelIds(views));
+  assert.equal(multi.models.length, 2);
+  assert.equal(multi.segments.length, 2);
+  assert.deepEqual(multi.segments.map((s) => [s.id, s.from, s.to]), [[model.id, 0, 0], [m2.id, 1, 1]]);
+  assert.equal(multi.areas[1].modelId, m2.id);
+  assert.equal(readCrag3d([...docs, m2], [model.id, 'missing']), null);
 });
 
 test('遮擋表：解碼後的大小跟規格一致，路線 2 的第三個點從正面近處看得到、遠處被擋', async () => {

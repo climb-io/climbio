@@ -7,8 +7,8 @@ export const THUMB = 480, UPLOADS = 4;
 const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
 export const sha256 = async bytes => hex(await crypto.subtle.digest('SHA-256', bytes));
 const isImage = path => /\.(jpe?g|png|webp)$/i.test(path);
-/** 縮圖的檔名：照片不用縮圖的（預覽、岩場縮圖、本來就是縮圖）回 null */
-export const thumbPath = path => (isImage(path) && !/^(preview|thumb)\.jpg$/.test(path) && !path.endsWith('.thumb.jpg') ? `${path.replace(/\.[^.]+$/, '')}.thumb.jpg` : null);
+/** 縮圖的檔名：照片不用縮圖的（預覽、岩場縮圖、本來就是縮圖、原始檔 source/）回 null */
+export const thumbPath = path => (isImage(path) && !/^(preview|thumb)\.jpg$/.test(path) && !path.endsWith('.thumb.jpg') && !path.startsWith('source/') ? `${path.replace(/\.[^.]+$/, '')}.thumb.jpg` : null);
 
 /** 瀏覽器縮圖：長邊 THUMB 的 JPEG（0.8）；照片比 THUMB 小就維持原尺寸 */
 export async function browserThumb(bytes) {

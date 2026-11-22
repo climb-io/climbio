@@ -1,0 +1,17 @@
+.lab-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: clamp(28px, 4vw, 56px); }
+.lab-grid .lab { display: flex; flex-direction: column; min-width: 0; padding: 8px; background: var(--brand-surface); color: var(--brand-text); border: 1px solid var(--brand-line-strong); border-radius: var(--pg-radius); }
+.lab-photo { width: 100%; aspect-ratio: 8 / 5; object-fit: cover; display: block; border-radius: var(--pg-radius-sm); }
+.lab-info { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 16px; }
+.lab-heading { display: flex; align-items: center; gap: 12px; }
+.lab-grid .lab-heading h2, .lab-info p { margin: 0; }
+.lab-info p, .lab-actions .pg-link { color: var(--brand-text-muted); }
+.lab-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin-top: auto; }
+.lab-actions .pg-btn { width: auto; padding-inline: 16px; }
+.lab-actions .pg-btn.primary { background: var(--brand-action); color: var(--brand-on-action); }
+.lab-actions .pg-btn.primary:hover { background: var(--brand-action-hover); }
+.lab-actions .pg-link, .lab-data-actions .pg-link { display: inline-flex; align-items: center; min-height: 44px; }
+.lab-actions :focus-visible { outline-color: var(--brand-action); }
+.lab-data-actions { margin-top: 16px; align-items: flex-start; }
+.lab-data-actions .pg-btn { width: auto; }
+@media (max-width: 680px) { .lab-grid { grid-template-columns: minmax(0, 1fr); } }
+.lab-grid + .lab-data { border-top: 1px solid var(--pg-line); padding-top: clamp(24px, 4vw, 42px); }

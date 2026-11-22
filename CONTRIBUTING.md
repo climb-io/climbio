@@ -2,6 +2,8 @@
 
 Thanks for helping. Issues and pull requests are welcome in English or Traditional Chinese. 中文版：[CONTRIBUTING.zh-Hant.md](CONTRIBUTING.zh-Hant.md).
 
+This guide is for **external contributors**. Maintainers use a separate lightweight workflow in the private repository.
+
 ## Before you start
 
 - Read [README.en.md](README.en.md) and [docs/README.md](docs/README.md) (Traditional Chinese). Product behavior is specified in `docs/`; if you change behavior, update the matching doc.
@@ -38,7 +40,7 @@ The maintainers develop in a private repository and publish this repository as o
 - Every user-visible string goes into all language packs in `i18n/` (the check script fails if keys differ). Write the product name as `Climbio` in user-visible text.
 - Use the CSS variables for brand colors (`--accent` and friends); do not hardcode color values.
 - New features should work without a server. A feature that needs the backend goes behind `Backend.caps`; keep Firebase-specific code in `backend/firebase.js`.
-- **License boundary:** everything, including every Kit (`holdkit/`, `routekit/`, `topokit/`, `mapkit/`, `appkit/`, `sourcekit/`), is AGPL-3.0. Only `format/` and `docs/route-format.md` are Apache-2.0 and must not import or copy AGPL code or models. Contributions are accepted under the license of the directory they touch (AGPL-3.0, or Apache-2.0 inside `format/`); there is no CLA and no commercial license.
+- **License boundary:** everything, including every Kit (`holdkit/`, `routekit/`, `topokit/`, `mapkit/`, `wall3dkit/`, `crag3dkit/`, `appkit/`, `sourcekit/`), is AGPL-3.0. Only `format/` and `docs/route-format.md` are Apache-2.0 and must not import or copy AGPL code or models. Contributions are accepted under the license of the directory they touch (AGPL-3.0, or Apache-2.0 inside `format/`); there is no CLA and no commercial license.
 - Do not commit secrets, service-account files, personal data, or photos you do not own.
 
 ## Checks

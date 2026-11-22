@@ -50,6 +50,54 @@ export function clipPolygon(poly, planes, spare = () => 0) {
   return pieces;
 }
 
+// 修點的外框照描的線切開網格：修點是從一個鏡頭描的多邊形，每條邊跟鏡頭位置定出一個平面，跨過外框的三角形沿這些平面切開，
+// 切出來的小塊照重心投影在不在多邊形裡分給這顆或外面。這樣光暈和點選的範圍就是描的線（量體的直線邊是直線），
+// 不會變成貼圖像素或三角面的鋸齒（量體的邊在側面，一個像素拉得很長）。
+// cuts：[{ idx, faces（要看的面，原本的編號）, eye（鏡頭位置）, rays（多邊形每個頂點從鏡頭出去的方向）, poly（畫面座標）, project(p)→[x,y]|null, guests（裝在上面、留給自己的岩點編號） }]，座標都在模型的座標系。
+// 回傳新的 positions/uvs/fade/index/faceLabels，和 parent（每個新三角形是原本第幾個）、inside（每個新三角形落在哪顆修點的外框裡，0 是都不在）
+export function cutOutlines({ positions, uvs, fade, index, faceLabels, cuts, inside: within }) {
+  const P = Array.from(positions), UV = Array.from(uvs), FD = fade ? Array.from(fade) : new Array(positions.length / 3).fill(0);
+  const I = Array.from(index), L = Array.from(faceLabels), parent = L.map((_, f) => f), ins = new Array(L.length).fill(0);
+  const kids = new Map();   // 原本的面 → 現在的面（切過的變好幾個）
+  const get = (i) => ({ p: [P[i * 3], P[i * 3 + 1], P[i * 3 + 2]], uv: [UV[i * 2], UV[i * 2 + 1]], f: FD[i], k: i });
+  const add = (v) => { if (v.k !== undefined) return v.k; const k = P.length / 3; P.push(...v.p); UV.push(...v.uv); FD.push(v.f); v.k = k; return k; };
+  for (const c of cuts) {
+    const n = c.poly.length, planes = [];
+    for (let e = 0; e < n; e++) {
+      const a = c.rays[e], b = c.rays[(e + 1) % n], nn = [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+      const [x0, y0] = c.poly[e], [x1, y1] = c.poly[(e + 1) % n];
+      planes.push({ n: nn, d: dot(nn, c.eye), box: [Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1)] });
+    }
+    const todo = [...c.faces].flatMap(f => kids.get(f) || [f]);
+    for (const f of todo) {
+      const v = [0, 1, 2].map(j => get(I[f * 3 + j]));
+      if (v[0].k === v[1].k || v[1].k === v[2].k || v[0].k === v[2].k) continue;   // 隱藏的面
+      const s = v.map(x => c.project(x.p));
+      if (s.some(x => !x)) continue;
+      const inV = s.map(([x, y]) => within(x, y, c.poly));
+      const bx = [Math.min(s[0][0], s[1][0], s[2][0]), Math.min(s[0][1], s[1][1], s[2][1]), Math.max(s[0][0], s[1][0], s[2][0]), Math.max(s[0][1], s[1][1], s[2][1])];
+      const cross = planes.filter(q => q.box[0] <= bx[2] && q.box[2] >= bx[0] && q.box[1] <= bx[3] && q.box[3] >= bx[1]);
+      const L0 = L[f], label = (inP) => inP ? ((c.guests && c.guests.has(L0)) ? L0 : c.idx) : (L0 === c.idx ? 0 : L0);
+      if (inV[0] === inV[1] && inV[1] === inV[2] && !cross.length) { L[f] = label(inV[0]); if (inV[0]) ins[f] = c.idx; continue; }
+      let pieces = [v];
+      for (const q of cross) pieces = pieces.flatMap(p => split(p, x => dot(q.n, x) - q.d).filter(x => x.length >= 3));
+      const tris = [];
+      for (const p of pieces) for (let k = 1; k < p.length - 1; k++) tris.push([p[0], p[k], p[k + 1]]);
+      const orig = parent[f], list = kids.get(orig) || [f];
+      tris.forEach((t, j) => {
+        const g = j === 0 ? f : L.length;
+        const ctr = [0, 1, 2].map(a => (t[0].p[a] + t[1].p[a] + t[2].p[a]) / 3), sc = c.project(ctr), inP = !!sc && within(sc[0], sc[1], c.poly);
+        const lab = label(inP);
+        if (j > 0) { I.push(0, 0, 0); L.push(lab); parent.push(orig); ins.push(0); list.push(g); } else L[g] = lab;
+        I[g * 3] = add(t[0]); I[g * 3 + 1] = add(t[1]); I[g * 3 + 2] = add(t[2]);
+        if (inP) ins[g] = c.idx;
+      });
+      kids.set(orig, list);
+    }
+  }
+  return { positions: Float32Array.from(P), uvs: Float32Array.from(UV), fade: Float32Array.from(FD), index: Uint32Array.from(I), faceLabels: Uint16Array.from(L), parent: Uint32Array.from(parent), inside: Uint32Array.from(ins) };
+}
+
 // 自動的切面（地面、天花板、外緣拉直）切口外半個岩點間距內不切岩點，Studio 的切線（cut）照切：跟 stage.js 的 frameTest 同一條規則
 const sparesHolds = (q) => q.kind !== 'cut';
 

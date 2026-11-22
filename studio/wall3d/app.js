@@ -6,8 +6,11 @@
 // 岩點在不在的規則跟岩點貓同一份（wall3dkit/stage.js）
 import { Scene, PerspectiveCamera, WebGLRenderer, MeshBasicMaterial, BufferGeometry, BufferAttribute, Raycaster, Vector2, Vector3, Box3, Color, DoubleSide, SRGBColorSpace, DataTexture, NearestFilter, UnsignedByteType, MeshBVH, acceleratedRaycast } from '../../wall3dkit/vendor/three.js';
 import { createPublishUI } from '../publish-ui.js';
+import { enabled as backendEnabled } from '../backend.js';
 import { publishAnonymous, publishText } from '../publisher.js';
 import { openDb } from '../published.js';
+import { applyPatch } from './patch.js';
+import { YAW_MAX } from '../../wall3dkit/walkcam.js';
 import { packSurfaces, goneHolds, parseModel, u16, frameShader, FRAME_MAX, hull, simplify, inside } from '../../wall3dkit/stage.js';
 
 const $ = (id) => document.getElementById(id);
@@ -56,7 +59,34 @@ $('open').onclick = async () => {
     gateError(e);
   }
 };
+// 檔案輸入（沒有畫面、只給程式放檔案）：工作檔（wall.json、模型、面標籤，有的話 base-wall.json、thumb.jpg）放進瀏覽器私有檔案系統（OPFS）再打開。
+// 資料夾選擇器要使用者真的點，自動化工具（代理）做不到；檔案輸入可以直接放檔案，不用本機網址、不用本機資料夾。
+// 可以分幾次放（自動化工具一次有大小上限）：收齊 wall.json 和它指到的模型、面標籤就打開
+const given = new Map();
+$('files').onchange = async () => {
+  try {
+    for (const f of $('files').files) given.set(f.name, f);
+    $('files').value = '';
+    const wall = given.get('wall.json'); if (!wall) return;
+    const doc = JSON.parse(await wall.text());
+    if (!/^[0-9a-z]{16}$/.test(doc.id || '') || !doc.model || !doc.faces) throw new Error('not a pack');
+    if (!given.has(doc.model) || !given.has(doc.faces)) return;
+    const dir = await (await navigator.storage.getDirectory()).getDirectoryHandle(`wall3d-${doc.id}`, { create: true });
+    for (const f of given.values()) { const w = await (await dir.getFileHandle(f.name, { create: true })).createWritable(); await w.write(f); await w.close(); }
+    given.clear();
+    await open(dir);
+  } catch (e) { given.clear(); gateError(e); }
+};
 // 從已發佈的版本接著精修：下載基底（原模型、原始岩點與分面）加那一版的 patch，在選的空資料夾重建工作檔。要有 patch（這個機制之後發佈的版本才有）
+let srcOut = null;   // 一鍵試用：存檔同時寫回哪裡（本機伺服器的網址，或同步服務的 { url, pid, token }）
+async function writeBack(name, text) {
+  if (!srcOut) return;
+  let r;
+  if (typeof srcOut === 'string') r = await fetch(srcOut + name, { method: 'PUT', body: text });
+  else if (name === 'feedback3d.json') r = await fetch(srcOut.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Studio-Trial': srcOut.token }, body: JSON.stringify({ op: 'feedback', pid: srcOut.pid, text }) });
+  else throw new Error(T('w3TrialReadOnly'));   // 手機試用連結只能回報，不能改牆
+  if (!r.ok) throw new Error(`${name}：HTTP ${r.status}`);
+}
 const RESTORE_BASE = /^http:\/\/(127\.0\.0\.1|localhost)/.test(location.origin) ? 'https://climbio.app' : location.origin;
 async function restore(pid, given) {
   const dir = given || await showDirectoryPicker({ mode: 'readwrite', id: 'climbio-wall3d' });
@@ -66,12 +96,7 @@ async function restore(pid, given) {
     const patch = await get('patch.json', true), baseBytes = await get('base-wall.json'), doc = JSON.parse(new TextDecoder().decode(baseBytes));
     const files = [['base-wall.json', baseBytes], [doc.model, await get(`base-${doc.model}`)], [doc.faces, await get(`base-${doc.faces}`)]];
     // 工作檔 = 基底加最終決定：隱藏的面、裁切平面、不是岩點、修點（都是完整的最終狀態，不是差異）
-    const hidden = new Set(patch.hidden), off = new Set(patch.off);
-    doc.surfaces.list.forEach((x, i) => { if (hidden.has(i)) x.hidden = true; else delete x.hidden; });
-    doc.surfaces.frame.planes = patch.planes;
-    doc.holds.forEach(h => { if (off.has(h.id)) h.off = 1; else delete h.off; });
-    if (patch.edits?.length) doc.edits = patch.edits; else delete doc.edits;
-    if (patch.gym) doc.gym = patch.gym;
+    applyPatch(doc, patch);
     files.push(['wall.json', new TextEncoder().encode(JSON.stringify(doc))]);
     for (const [name, data] of files) { const w = await (await dir.getFileHandle(name, { create: true })).createWritable(); await w.write(data); await w.close(); }
     if (!(await published.get(doc.id)).last) await published.add(doc.id, { id: pid, name: doc.name || '', gym: doc.gym || '', t: Date.now() });   // 下一版的 origin 接在這一版後面
@@ -91,6 +116,57 @@ if (linkPid) (async () => {
     catch (e) { if (e.name !== 'NotFoundError') throw e; await restore(linkPid, dir); }
   } catch (e) { gateError(e.message === 'no patch' ? new Error(T('w3NoPatch')) : e); }
 })();
+// 一鍵試用 #src=<工作資料夾的網址>&step=try（tools/studio.mjs try3d 在本機開的伺服器）：不用選資料夾，工作檔放進瀏覽器的私有檔案系統（OPFS）打開；
+// 存檔（wall.json）和試用的回報（feedback3d.json）同時寫回那個網址（PUT），代理在資料夾裡就讀得到
+const srcHash = new URLSearchParams(location.hash.slice(1)), srcBase = srcHash.get('src');
+let srcStep = srcHash.get('step');
+// 手機也能試用 #sync=<專案 id>&t=<試用權杖>&step=try（&u=<同步服務網址>，沒有就是 Climbio 的）：tools/studio.mjs try3d 在接了同步服務的專案發的連結，
+// 檔案從同步服務下載，回報寫回同步服務（代理 pull 就拿到）；權杖只能讀這個專案、寫回回報
+const TRIAL_DIR = 'trial';   // 代理先烘好的試用成品（tools/studio.mjs try3d）
+const SYNC_DEFAULT = 'https://asia-east1-firebase-climbio.cloudfunctions.net/studioSync';
+const syncPid = srcHash.get('sync'), syncToken = srcHash.get('t'), syncUrl = srcHash.get('u') || SYNC_DEFAULT;
+async function syncGetter() {
+  const head = { 'X-Studio-Trial': syncToken };
+  const r = await fetch(syncUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', ...head }, body: JSON.stringify({ op: 'pull', pid: syncPid }) });
+  if (!r.ok) throw new Error(r.status === 401 ? T('w3TrialExpired') : `HTTP ${r.status}`);
+  const files = (await r.json()).project.files || {};
+  return async (name, need) => {
+    const f = files[name];
+    if (!f) { if (need) throw new Error(`${name}：沒有`); return null; }
+    const one = async (q) => { const x = await fetch(`${syncUrl}?pid=${syncPid}&${q}`, { headers: head, cache: 'no-store' }); if (!x.ok) throw new Error(`${name}：HTTP ${x.status}`); return new Uint8Array(await x.arrayBuffer()); };
+    if (!f.parts) return one(`path=${encodeURIComponent(name)}`);
+    const parts = []; for (const sha of f.parts) parts.push(await one(`sha=${sha}`));   // 大檔（模型）一段一段接起來
+    const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0)); let at = 0; for (const p of parts) { out.set(p, at); at += p.length; }
+    return out;
+  };
+}
+if ((srcBase && /^\/[\w./-]*\/$/.test(srcBase)) || (syncPid && /^[0-9a-z]{16}$/.test(syncPid) && syncToken)) (async () => {
+  const b = syncPid ? StudioShell.busy(T('w3Restoring')) : null;
+  try {
+    const get = syncPid ? await syncGetter() : async (name, need) => { const r = await fetch(srcBase + name, { cache: 'no-store' }); if (r.ok) return new Uint8Array(await r.arrayBuffer()); if (need) throw new Error(`${name}：HTTP ${r.status}`); return null; };
+    const wall = await get('wall.json', true), doc = JSON.parse(new TextDecoder().decode(wall));
+    if (!/^[0-9a-z]{16}$/.test(doc.id || '') || !doc.model || !doc.faces) throw new Error('not a pack');
+    const dir = await (await navigator.storage.getDirectory()).getDirectoryHandle(`wall3d-${doc.id}`, { create: true });
+    const names = [doc.model, doc.faces, 'review3d.json', 'feedback3d.json', ...ClimbioWall3dReport.FILES.map(n => `${n}-summary.json`)];
+    const files = [['wall.json', wall], ...await Promise.all(names.map(async n => [n, await get(n, n === doc.model || n === doc.faces)]))];
+    for (const [name, data] of files) {
+      if (!data) { await dir.removeEntry(name).catch(() => {}); continue; }   // 資料夾裡沒有的，私有檔案系統裡上次的也拿掉
+      const w = await (await dir.getFileHandle(name, { create: true })).createWritable(); await w.write(data); await w.close();
+    }
+    // 代理先烘好的試用成品（trial/）：一起放進來，試用直接打開，不用在手機上烘
+    await dir.removeEntry(TRIAL_DIR, { recursive: true }).catch(() => {});
+    const man = await get(`${TRIAL_DIR}/manifest.json`, false).catch(() => null), list = man && JSON.parse(new TextDecoder().decode(man)).files;
+    if (Array.isArray(list) && list.every(n => /^[\w.-]+$/.test(n))) {
+      const tdir = await dir.getDirectoryHandle(TRIAL_DIR, { create: true });
+      for (const [n, data] of [['manifest.json', man], ...await Promise.all(list.map(async n => [n, await get(`${TRIAL_DIR}/${n}`, true)]))]) {
+        const w = await (await tdir.getFileHandle(n, { create: true })).createWritable(); await w.write(data); await w.close();
+      }
+    }
+    srcOut = syncPid ? { url: syncUrl, pid: syncPid, token: syncToken } : srcBase;
+    b?.close();
+    await open(dir);
+  } catch (e) { b?.close(); gateError(e); }
+})();
 if (want) handles.get(want).then(h => { if (h && $('gate') && !$('gate').hidden) { remembered = h; $('open').textContent = T('w3OpenRemembered', h.name); } });
 
 // 岩點的範圍照貼圖空間的標籤畫（跟岩點貓一樣，邊緣不受三角面大小影響）；修過的、新補的岩點沒有貼圖標籤，照三角面上色
@@ -109,6 +185,15 @@ vec2 studioAt(ivec2 p){p=clamp(p,ivec2(0),ivec2(int(studioSize)-1));vec2 t=texel
 vec2 studioWeight(vec2 uv){vec2 p=uv*studioSize-.5;ivec2 i=ivec2(floor(p));vec2 f=fract(p);return mix(mix(studioAt(i),studioAt(i+ivec2(1,0)),f.x),mix(studioAt(i+ivec2(0,1)),studioAt(i+ivec2(1,1)),f.x),f.y);}
 `;
 async function bytes(dir, name) { return new Uint8Array(await (await (await dir.getFileHandle(name)).getFile()).arrayBuffer()); }
+// 3D 重建流程的量測（四份 *-summary.json，studio/wall3d/report.js）、AI 逐顆檢查的紀錄（review3d.json，review.js）：有才出「報告」步驟
+async function measurements(dir) {
+  const F = ClimbioWall3dReport.FILES;
+  try { const got = await Promise.all(F.map(n => bytes(dir, `${n}-summary.json`))); return Object.fromEntries(F.map((n, i) => [n, JSON.parse(new TextDecoder().decode(got[i]))])); }
+  catch (e) { if (e.name === 'NotFoundError') return null; throw e; }
+}
+measurements.review = async (dir) => { try { return JSON.parse(new TextDecoder().decode(await bytes(dir, 'review3d.json'))); } catch (e) { if (e.name === 'NotFoundError') return null; throw e; } };
+// 人試用的回報（feedback3d.json，feedback.js）：沒有就是空的
+measurements.feedback = async (dir) => { try { return JSON.parse(new TextDecoder().decode(await bytes(dir, 'feedback3d.json'))); } catch (e) { if (e.name === 'NotFoundError') return ClimbioWall3dFeedback.empty(); throw e; } };
 
 async function open(dir) {
   let doc;
@@ -147,7 +232,8 @@ async function open(dir) {
   for (let f = 0; f < tris; f++) if (faceLabels[f]) byHold[faceLabels[f] - 1]?.push(f);
   const cent = new Float32Array(tris * 3);   // 每個面的中心（模型座標）：點到切掉的地方時找出同一條切線切掉的面
   for (let f = 0; f < tris; f++) for (let j = 0; j < 3; j++) cent[f * 3 + j] = (pos[f * 9 + j] + pos[f * 9 + 3 + j] + pos[f * 9 + 6 + j]) / 3;
-  S = { lab, dir, doc, faceLabels, faceSurfaces, surface, scene, byHold, tris, framed, cent, base: faceLabels.slice(), edits: new Map((doc.edits || []).map(e => [e.id, e.m3])), added: [] };
+  const report = await measurements(dir), review = await measurements.review(dir), fb = await measurements.feedback(dir);
+  S = { report, review, fb, lab, dir, doc, faceLabels, faceSurfaces, surface, scene, byHold, tris, framed, cent, base: faceLabels.slice(), edits: new Map((doc.edits || []).map(e => [e.id, e.m3])), added: [] };
   for (const id of S.edits.keys()) if (!doc.holds.some(h => h.id === id)) S.added.push(id);
   reapply();
   S.bySurface = doc.surfaces.list.map(() => []);
@@ -157,6 +243,7 @@ async function open(dir) {
   $('wallName').textContent = doc.name || doc.id;
   $('gate').hidden = true; $('work').hidden = false; $('steps').hidden = false;
   stage = doc.surfaces.frame.planes.length || doc.surfaces.list.some(x => x.hidden) ? 'holds' : 'model';   // 還沒切過先切模型；切過的（含接著精修的公開版本）直接修岩點
+  if (srcStep === 'try') { stage = 'try'; srcStep = null; }   // 一鍵試用的連結直接到試用
   setStage(stage, true);
   paint(); fit(); draw();
 }
@@ -296,6 +383,19 @@ function wallHit(nx = 0, ny = 0) {
   ray.firstHitOnly = true;
   return h || null;
 }
+// 從目前鏡頭看 target：第一個打到、沒被藏或切掉的面是不是 faces 裡的（截圖選鏡頭用）
+function sees(target, faces) {
+  ray.firstHitOnly = false;
+  ray.set(camera.position, target.clone().sub(camera.position).normalize());
+  const inv = S.surface.matrixWorld.clone().invert(), planes = S.doc.surfaces.frame.planes;
+  const h = ray.intersectObject(S.surface, false).find((x) => {
+    if (S.doc.surfaces.list[S.faceSurfaces[x.faceIndex]]?.hidden) return false;
+    const p = x.point.clone().applyMatrix4(inv).toArray();
+    return !planes.some((q) => outside(q, p));
+  });
+  ray.firstHitOnly = true;
+  return !!h && faces.has(h.faceIndex);
+}
 function hit(e) {
   const r = renderer.domElement.getBoundingClientRect();
   ray.setFromCamera(new Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), camera);
@@ -413,14 +513,25 @@ function reapply() {
     cam.aspect = m3.a; cam.position.fromArray(m3.c, 0); cam.quaternion.fromArray(m3.c, 3); cam.updateMatrixWorld(true); cam.updateProjectionMatrix();
     const poly = m3.p; let x0 = 1, y0 = 1, x1 = 0, y1 = 0;
     for (const [x, y] of poly) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+    // 裝在上面的小岩點（量體上的 chip）留給它自己，規則跟 wall3dkit 的 applyEdit 一樣：別顆的面六成以上在多邊形裡、不到多邊形裡的一半
+    const cand = [], tot = new Map(), ins = new Map();
+    let insAll = 0;
     for (let f = 0; f < S.tris; f++) {
       w.set(c[f * 3], c[f * 3 + 1], c[f * 3 + 2]).applyMatrix4(mw);
-      const q = w.clone().project(cam), x = (q.x + 1) / 2, y = (1 - q.y) / 2;
+      const q = w.project(cam), x = (q.x + 1) / 2, y = (1 - q.y) / 2;
       if (q.z < -1 || q.z > 1 || x < x0 - 0.03 || x > x1 + 0.03 || y < y0 - 0.03 || y > y1 + 0.03) continue;
+      const inP = inside(x, y, poly), l = F[f];
+      cand.push(f, inP ? 1 : 0); if (inP) insAll++;
+      if (l && l !== idx) { tot.set(l, (tot.get(l) || 0) + 1); if (inP) ins.set(l, (ins.get(l) || 0) + 1); }
+    }
+    const guest = new Set([...ins].filter(([l, k]) => k >= 0.6 * tot.get(l) && k < 0.5 * insAll).map(([l]) => l));
+    for (let k = 0; k < cand.length; k += 2) {
+      const f = cand[k];
+      w.set(c[f * 3], c[f * 3 + 1], c[f * 3 + 2]).applyMatrix4(mw);
       const dist = dir.subVectors(w, cam.position).length(); look.set(cam.position, dir.normalize());
       const hit = look.intersectObject(S.surface, false)[0];
       if (hit && hit.faceIndex !== f && hit.distance < dist - 0.003) continue;   // 從那個角度被擋住的不動
-      if (inside(x, y, poly)) F[f] = idx; else if (F[f] === idx) F[f] = 0;
+      if (cand[k + 1]) { if (!guest.has(F[f])) F[f] = idx; } else if (F[f] === idx) F[f] = 0;
     }
   }
   S.byHold = Array.from({ length: n + S.added.length }, () => []);
@@ -508,6 +619,7 @@ addEventListener('keydown', (e) => {
   if (!S || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
   const k = e.key.toLowerCase(), mod = e.metaKey || e.ctrlKey;
   if (mod && k === 's') { e.preventDefault(); if (!$('save').disabled) $('save').click(); return; }
+  if (stage === 'try') { if (k === 'escape') tryPick(null); return; }   // 試用只看、回報，不改（操作在成品舞台上）
   if (mod && (k === 'z' || k === 'y')) { e.preventDefault(); if (!edit) { if (k === 'y' || e.shiftKey) redo(); else undo(); } return; }
   if (mod || e.altKey) return;
   if (k === 'escape') { if (edit) endEdit(false); else if (mode !== 'pick') setMode('pick'); else if (sel != null) select(null); return; }
@@ -598,18 +710,218 @@ function setMode(m) {
   $('view').classList.toggle('cutting', m === 'cut' || m === 'draw' || m === 'add');
   if (S) { paint(); draw(); }
 }
-// 兩個階段：模型（切直線、隱藏牆面）、岩點（精修岩點）；步驟列跟著換
+// 階段：模型（切直線、隱藏牆面）、岩點（精修岩點）、報告（有量測才有）；步驟列跟著換
 function setStage(st, first = false) {
   if (edit) return;
   stage = st; sel = null; hot = null; mode = 'pick';
   for (const b of document.querySelectorAll('#toolbar button')) b.hidden = b.dataset.stage !== st;
   setMode('pick'); syncBar(); renderSteps();
+  $('report').hidden = st !== 'report';
+  $('histbar').hidden = st === 'try'; $('tryList').hidden = st !== 'try'; $('holdInfo').hidden = st === 'try';   // 試用只看、回報，不改；畫面只留牆和這一輪的回報
+  tryPick(null);
+  if (st === 'try') { renderTry(); tryOpen().catch((e) => { console.error(e); $('saveState').textContent = T('w3SaveFailed', e.message); }); } else tryClose();
+  if (st === 'report') { const r = ClimbioWall3dReport.build(S.report, T, S.review && ClimbioWall3dReview.status(S.doc, S.review)); ClimbioReportFrame.steps($('rpSteps'), r.steps); ClimbioReportFrame.notes($('rpNotes'), { defn: r.defn }); }
   if (S && !first) { paint(); draw(); }
 }
 function renderSteps() {
-  StudioShell.steps($('steps'), [{ id: 'walls', label: T('w3StepWalls') }, { id: 'model', label: T('w3StepModel'), on: stage === 'model' }, { id: 'holds', label: T('w3StepHolds'), on: stage === 'holds' }, { id: 'publish', label: T('w3Publish') }],
-    id => { if (id === 'walls') location.href = '../wall/'; else if (id === 'publish') openPublish(); else setStage(id); });
+  StudioShell.steps($('steps'), [{ id: 'model', label: T('w3StepModel'), on: stage === 'model' }, { id: 'holds', label: T('w3StepHolds'), on: stage === 'holds' },
+    ...(S?.report || S?.review ? [{ id: 'report', label: T('w3StepReport'), on: stage === 'report' }] : []), { id: 'try', label: T('w3StepTry'), on: stage === 'try' }, { id: 'publish', label: T('w3Publish') }],
+    id => { if (id === 'publish') openPublish(); else setStage(id); });
   $('steps').querySelector('[data-step="publish"]').id = 'publish';
+}
+
+// ---- 試用（發佈前人看過這一版）：跟發佈後在岩點貓定線看到的一樣——工作檔在瀏覽器裡烘成成品（bakePack，跟發佈同一份），
+// 用岩點貓同一個舞台（wall3dkit 的 Stage）和沿牆鏡頭：從整面牆飛進牆前，拖曳沿牆走、捏合／滾輪靠近、兩指左右（滑鼠右鍵）調角度，放手彈回。
+// 點岩點亮它的光暈，寫一句哪裡不對（feedback3d.json，feedback.js）；點牆上其他地方也能回報（例如漏了一顆）。代理修完再試用；看完沒問題按「試用完」 ----
+const Fb = globalThis.ClimbioWall3dFeedback;
+let tryAt = null;   // 要回報的地方 { hold：岩點 id（牆上沒有岩點的地方是 null）, point：模型座標, camera：當時的鏡頭 }
+let trial = null;   // 烘好的成品舞台 { sig, stage, view, inside }
+const TRY_FLY_MS = 1400, tryEase = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : 1 - (1 - x) ** 3);
+function tryPaint() {
+  if (!trial) return;
+  const on = !!(tryAt && tryAt.hold);   // 跟岩點貓定線一樣：選了岩點底圖換暗彩，那顆原色加光暈
+  trial.stage.paint({ holds: on ? { [tryAt.hold]: 'sel' } : {}, mode: on ? 'dim' : 'photo', colors: { sel: '#D4FF4F' } });
+}
+function tryPick(at) {
+  tryAt = at;
+  $('tryBar').hidden = !at;
+  if (at) {
+    // 只有兩種：點不到想點的那顆（量體上的小點、漏掉的岩點）、外框不對（光暈溢出、缺一塊、兩顆連在一起、不是岩點）；一點就回報
+    $('tryChips').replaceChildren(...['cantPick', 'outline'].map((k) => {
+      const b = Object.assign(document.createElement('button'), { type: 'button', textContent: T('w3Try_' + k) });
+      b.onclick = () => sendTry(T('w3Try_' + k), k);
+      return b;
+    }));
+    // 放在點的地方旁邊，不蓋住岩點：避開整顆岩點在畫面上的範圍（下方放不下改上方，都放不下放空間大的那邊、蓋到最少）
+    const bar = $('tryBar'), host = $('tryStage'), W = host.clientWidth, H = host.clientHeight;
+    bar.style.left = '0px'; bar.style.top = '0px'; bar.style.transform = 'none';
+    const bw = bar.offsetWidth, bh = bar.offsetHeight, [x, y] = at.at || [W / 2, H / 2], gap = 12;
+    const box = (at.hold && trial && trial.stage.screenBox(at.hold)) || [x - 16, y - 16, x + 16, y + 16];
+    const top = 12, bottom = H - 64 - bh, below = box[3] + gap, above = box[1] - gap - bh;
+    bar.style.left = `${Math.min(Math.max(x - bw / 2, 12), W - bw - 12)}px`;
+    bar.style.top = `${below <= bottom ? below : above >= top ? above : H - box[3] > box[1] ? bottom : top}px`;
+  }
+  tryPaint();
+}
+// 這一版的成品舞台：代理先烘好的（工作資料夾的 trial/，tools/studio.mjs try3d 放的，manifest.json 的 sig 對得上這一版）直接打開；
+// 沒有或過期才在瀏覽器裡烘（跟發佈同一份成品）；試用、AI 看光暈都用它
+async function prebaked(sig) {
+  try {
+    const d = await S.dir.getDirectoryHandle(TRIAL_DIR), m = JSON.parse(new TextDecoder().decode(await bytes(d, 'manifest.json')));
+    if (m.sig !== sig || !Array.isArray(m.files)) return null;
+    return new Map(await Promise.all(m.files.map(async n => [n, await bytes(d, n)])));
+  } catch { return null; }
+}
+async function bakeTrial(busy = true) {
+  const sig = Fb.sig({ ...S.doc, edits: [...S.edits].map(([id, m3]) => ({ id, m3 })) });
+  if (!trial || trial.sig !== sig) {
+    if (trial) { trial.stage.dispose(); trial = null; }
+    let files = await prebaked(sig);
+    const b = busy && !files ? StudioShell.busy(T('w3TryBaking')) : { close() {} };
+    try {
+      const { openStageWith } = await import('../../wall3dkit/stage.js');
+      if (!files) {
+        const { bakePack } = await import('../../wall3dkit/bakepack.js');
+        const [glb, faces] = await Promise.all([bytes(S.dir, S.doc.model), bytes(S.dir, S.doc.faces)]);
+        const doc = { ...S.doc, ...(S.edits.size ? { edits: [...S.edits].map(([id, m3]) => ({ id, m3 })) } : {}) };
+        files = new Map((await bakePack({ doc, glb, faces })).files.map(f => [f.path, f.bytes]));
+      }
+      const pack = JSON.parse(new TextDecoder().decode(files.get('wall.json')));
+      const stage = await openStageWith(pack, async (path, json) => { const x = files.get(path); if (!x) throw new Error(path); return json ? JSON.parse(new TextDecoder().decode(x)) : x; });
+      trial = { sig, stage, files, view: null, inside: null };
+    } finally { b.close(); }
+  }
+  return trial;
+}
+// 代理先烘好試用的成品（tools/studio.mjs try3d）：{ sig, files: { 路徑: base64 } }
+async function trialPack() {
+  const t = await bakeTrial(false), b64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode(...u8.subarray(i, i + 0x8000)); return btoa(s); };
+  return { sig: t.sig, files: Object.fromEntries([...t.files].map(([n, x]) => [n, b64(x)])) };
+}
+// 進試用：掛上成品舞台、從整面牆飛進牆前
+async function tryOpen() {
+  await bakeTrial();
+  if (stage !== 'try') return;
+  const host = $('tryStage'), st = trial.stage;
+  host.hidden = false; st.mount(host);
+  const W = host.clientWidth, H = host.clientHeight, bw = Math.min(W, H * st.snapW / st.snapH);
+  trial.view = { s: 1, tx: (W - bw) / 2, ty: (H - bw * st.snapH / st.snapW) / 2, bw };
+  st.glide = null; st.setView(trial.view); tryPaint();
+  if (!st.along) return;
+  const t0 = performance.now();
+  const v1 = await st.flyIn({ ...trial.view }, () => tryEase((performance.now() - t0) / TRY_FLY_MS), null).catch(() => null);
+  if (v1) { trial.view = { ...trial.view, ...v1 }; st.setView(trial.view); trial.inside = { ...v1 }; Object.assign(st.glide || (st.glide = {}), { s: v1.s, tx: v1.tx, ty: v1.ty }); }
+}
+function tryClose() { if (trial) trial.stage.unmount(); $('tryStage').hidden = true; }
+// 手勢換成 2D 視角的變化，再換成沿牆走（岩點貓 js/wall3d.js 的 walk 同一套：手指按著的牆跟著手指，走到盡頭退回上一個）
+function tryWalk(at = null) {
+  const st = trial && trial.stage; if (!st) return;
+  const n = st.walk(trial.view, at);
+  if (n === false) { if (trial.inside) trial.view = { ...trial.view, ...trial.inside }; }
+  else if (n) trial.view = { ...trial.view, ...n };
+  trial.inside = { s: trial.view.s, tx: trial.view.tx, ty: trial.view.ty };
+  if (st.glide) Object.assign(st.glide, trial.inside);
+  st.setView(trial.view);
+}
+(() => {
+  const host = $('tryStage'), pts = new Map();
+  let start = null, moved = false, angle = false, last = null;
+  const xy = (e) => { const r = host.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  host.addEventListener('contextmenu', e => e.preventDefault());
+  host.addEventListener('pointerdown', (e) => {
+    if (!trial) return;
+    host.setPointerCapture(e.pointerId); pts.set(e.pointerId, xy(e));
+    if (pts.size === 1) { start = { at: xy(e), t: performance.now() }; moved = false; angle = e.button === 2; }
+    last = [...pts.values()].map(p => [...p]);
+  });
+  host.addEventListener('pointermove', (e) => {
+    if (!trial || !pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, xy(e));
+    const now = [...pts.values()], v = trial.view, st = trial.stage;
+    if (start && Math.hypot(now[0][0] - start.at[0], now[0][1] - start.at[1]) > 6) moved = true;
+    if (!moved || !last || last.length !== now.length) { last = now.map(p => [...p]); return; }
+    if (now.length === 1) {
+      const dx = now[0][0] - last[0][0], dy = now[0][1] - last[0][1];
+      if (angle) st.angle(dx); else { v.tx += dx; v.ty += dy; tryWalk(now[0]); }
+    } else {
+      const d0 = Math.hypot(last[1][0] - last[0][0], last[1][1] - last[0][1]), d1 = Math.hypot(now[1][0] - now[0][0], now[1][1] - now[0][1]);
+      const m0 = [(last[0][0] + last[1][0]) / 2, (last[0][1] + last[1][1]) / 2], m1 = [(now[0][0] + now[1][0]) / 2, (now[0][1] + now[1][1]) / 2], k = d1 / Math.max(d0, 1);
+      if (Math.abs(Math.log(k)) < 0.004 && Math.abs(m1[0] - m0[0]) > Math.abs(m1[1] - m0[1])) { angle = true; st.angle(m1[0] - m0[0]); }   // 兩指同向左右：調角度
+      else { v.tx = m1[0] - (m0[0] - v.tx) * k; v.ty = m1[1] - (m0[1] - v.ty) * k; v.s *= k; tryWalk(m1); }
+    }
+    last = now.map(p => [...p]);
+  });
+  const up = (e) => {
+    if (!pts.has(e.pointerId)) return;
+    pts.delete(e.pointerId); last = [...pts.values()].map(p => [...p]);
+    if (pts.size) return;
+    const st = trial && trial.stage;
+    if (st && angle) st.settle();   // 偷看放手：彈回軌道
+    if (st && st.wc && st.wc.coarse) { st.wc.coarse = false; st.wc.clamp(); tryWalk(); }
+    if (st && start && !moved && performance.now() - start.t < 500 && e.type === 'pointerup') tryTap(...start.at);
+    start = null; angle = false;
+  };
+  host.addEventListener('pointerup', up); host.addEventListener('pointercancel', up);
+  host.addEventListener('wheel', (e) => {
+    if (!trial) return;
+    e.preventDefault();
+    const at = xy(e), v = trial.view, k = Math.exp(-e.deltaY * 0.002);
+    v.tx = at[0] - (at[0] - v.tx) * k; v.ty = at[1] - (at[1] - v.ty) * k; v.s *= k; tryWalk(at);
+  }, { passive: false });
+})();
+// 點一下：點到岩點就是回報那顆（亮光暈），點到牆上其他地方記那一點
+function tryTap(x, y) {
+  const st = trial.stage, r5 = v => +v.toFixed(5), id = st.pick(x, y);
+  st.aimRay(trial.view, x, y); const h = st.firstHit();
+  if (!id && !h) { tryPick(null); return; }
+  const cam = st.camera;
+  tryPick({ at: [x, y], hold: id || null, point: h ? h.point.toArray().map(r5) : null, camera: [...cam.position.toArray(), ...cam.quaternion.toArray()].map(r5), aspect: r5(cam.aspect) });
+}
+async function saveFb() {
+  const w = await (await S.dir.getFileHandle('feedback3d.json', { create: true })).createWritable();
+  await w.write(JSON.stringify(S.fb, null, 1)); await w.close();
+  await writeBack('feedback3d.json', JSON.stringify(S.fb, null, 1));
+}
+async function sendTry(text, kind) {
+  if (!text || !tryAt) return;
+  S.fb = Fb.add(S.fb, { ...(tryAt.hold ? { hold: tryAt.hold } : {}), kind, point: tryAt.point, camera: tryAt.camera, aspect: tryAt.aspect, text });
+  try { await saveFb(); $('saveState').textContent = T('w3TrySaved'); } catch (e) { $('saveState').textContent = T('w3SaveFailed', e.message); }
+  tryPick(null); renderTry();
+}
+$('tryDone').onclick = async () => {
+  try {
+    if (dirty) { await saveDoc(); $('save').disabled = true; }   // 試用的是存好的這一版
+    S.fb = Fb.markTried(S.fb, S.doc); await saveFb(); $('saveState').textContent = T('w3Tried');
+  } catch (e) { $('saveState').textContent = T('w3SaveFailed', e.message); }
+  renderTry();
+};
+// 回報清單：平常收成右上一個「回報 N」，點開才列（不擋牆）；點一筆回到那顆，還沒處理的可以收回
+let tryListOpen = false;
+function renderTry() {
+  const st = Fb.status(S.doc, S.fb), list = $('tryList');
+  $('tryDone').textContent = T(st.tried ? 'w3TriedAlready' : 'w3TryDone');
+  $('tryDone').disabled = st.tried || st.open.length > 0;
+  list.replaceChildren();
+  if (!st.open.length) { tryListOpen = false; return; }
+  const head = Object.assign(document.createElement('button'), { type: 'button', className: 'tryHead', textContent: T('w3TryCount', st.open.length) });
+  head.setAttribute('aria-expanded', String(tryListOpen));
+  head.onclick = () => { tryListOpen = !tryListOpen; renderTry(); };
+  list.append(head);
+  if (!tryListOpen) return;
+  for (const it of st.open) {
+    const row = document.createElement('div'); row.className = 'tryItem';
+    const go = Object.assign(document.createElement('button'), { type: 'button', className: 'tryGo', textContent: it.text });
+    go.onclick = () => {   // 回到那顆：沿牆鏡頭走到框住它的位置，亮它的光暈
+      if (!trial || !it.hold) return;
+      tryListOpen = false; renderTry();
+      tryAt = { hold: it.hold }; tryPaint();
+      trial.stage.frameTo([it.hold]).then((v) => { if (v) { trial.view = { ...trial.view, ...v }; trial.inside = { ...v }; if (trial.stage.glide) Object.assign(trial.stage.glide, v); trial.stage.setView(trial.view); } });
+    };
+    const del = Object.assign(document.createElement('button'), { type: 'button', className: 'tryDel', textContent: T('w3TryRemove') });
+    del.onclick = async () => { S.fb.items = S.fb.items.filter(x => x.id !== it.id); await saveFb().catch(() => {}); renderTry(); };
+    row.append(go, del);
+    list.append(row);
+  }
 }
 
 // ---- 存檔：只寫回 wall.json ----
@@ -617,6 +929,7 @@ async function saveDoc() {
   if (S.edits.size) S.doc.edits = [...S.edits].map(([id, m3]) => ({ id, m3 })); else delete S.doc.edits;
   const w = await (await S.dir.getFileHandle('wall.json')).createWritable();
   await w.write(JSON.stringify(S.doc)); await w.close();
+  await writeBack('wall.json', JSON.stringify(S.doc));
   dirty = false; $('saveState').textContent = T('w3Saved');
 }
 $('save').onclick = async () => {
@@ -688,18 +1001,229 @@ const pubUI = createPublishUI({
       res = await publishAnonymous({ id, name, type: 'wall3d', files, meta: { gym, ...(last ? { origin: last } : {}) }, onProgress });
       await published.add(S.doc.id, { id, name, gym, t: Date.now() });
     } finally { pubUI.run.close(); }
-    pubUI.set({ link: `${location.origin.replace(/^http:\/\/(127\.0\.0\.1|localhost).*/, 'https://climbio.app')}/hold/?m3d=${id}`, summary: null, message: T('w3Published', res.version), go: { text: T('w3PublishAgain') } });
+    pubUI.set({ link: `${location.origin.replace(/^http:\/\/(127\.0\.0\.1|localhost).*/, 'https://climbio.app')}/hold/?m3d=${id}`, summary: null, message: T('w3Published', res.version), go: { hidden: true } });
   },
 });
 function openPublish() {
   if (!S) return;
   gymInput.value = S.doc.gym || '';
-  pubUI.set({ message: '', summary: { intro: T('w3PubIntro'), items: [T('w3PubItemModel'), T('w3PubItemBase'), T('w3PubItemLicense')] }, go: { text: T('w3Publish'), disabled: false } });
+  pubUI.set({ message: backendEnabled ? '' : T('stPubOff'), summary: { intro: T('w3PubIntro'), items: [T('w3PubItemModel'), T('w3PubItemBase'), T('w3PubItemLicense')] }, go: { text: T('w3Publish'), hidden: false, disabled: !backendEnabled } });
   pubUI.open();
 }
 // 步驟列（跟 Wall 同一種）：牆面回 Wall、岩點是這一頁、發佈打開發佈對話框
 addEventListener('beforeunload', (e) => { if (dirty) e.preventDefault(); });
-export { open, cut };
+
+
+// 鏡頭對著一顆岩點（faces：這顆的面）：從它的正面（偏回牆的正面一點）看；轉角、側牆、量體下的岩點那個方向會被別的牆面擋住，
+// 依序改試它自己的法線、牆的正面、再靠近一點，取第一個看得到這顆的；都看不到照第一個。動的是 Studio 的 camera
+function aimHold(faces) {
+  const P = S.surface.geometry.attributes.position, mw = S.surface.matrixWorld, v = new Vector3(), a = new Vector3(), b = new Vector3(), n = new Vector3(), box = new Box3();
+  for (const f of faces) {
+    const p0 = v.fromBufferAttribute(P, f * 3).applyMatrix4(mw).clone(), p1 = a.fromBufferAttribute(P, f * 3 + 1).applyMatrix4(mw).clone(), p2 = b.fromBufferAttribute(P, f * 3 + 2).applyMatrix4(mw).clone();
+    box.expandByPoint(p0).expandByPoint(p1).expandByPoint(p2);
+    n.add(p1.sub(p0).cross(p2.sub(p0)));   // 面積加權的法線
+  }
+  const center = box.getCenter(new Vector3()), r = Math.max(box.getSize(new Vector3()).length() / 2, 0.04), dist = (r * 1.7) / Math.tan(Math.PI * 25 / 180);
+  camera.aspect = 1; camera.updateProjectionMatrix();
+  // 從這顆的正面（偏回牆的正面一點）看；轉角、側牆、量體下的岩點那個方向會被別的牆面擋住，
+  // 依序改試它自己的法線、牆的正面、再靠近一點，取第一個看得到這顆的
+  const own = n.lengthSq() ? n.clone().normalize() : facing.clone();
+  if (own.dot(facing) < 0) own.negate();   // 模型的三角面繞向不一定朝外：轉到朝鏡頭那一側
+  const dirs = [own.clone().lerp(facing, 0.3).normalize(), own, facing];
+  const mine = new Set(faces), place = (d, k) => { camera.position.copy(center).addScaledVector(d, dist * k); camera.up.copy(up); camera.lookAt(center); camera.updateMatrixWorld(true); };
+  let found = false;
+  for (const k of [1, 0.6, 0.35]) {
+    for (const d of dirs) {
+      if (d.dot(own) < -0.1) continue;   // 從背面看不到
+      place(d, k); if (sees(center, mine)) { found = true; break; }
+    }
+    if (found) break;
+  }
+  if (!found) place(dirs[0], 1);
+  return found;
+}
+// ---- AI 看圖（tools/studio.mjs look3d 用無畫面瀏覽器呼叫）：一顆一張，左邊原樣、右邊畫上外框，從這顆的正面看。
+// 鏡頭記下來：AI 在右半張重描的多邊形照這個鏡頭變成修點（edits 的 m3），跟人在這頁修外框是同一種資料 ----
+async function shots(ids, size = 256) {
+  const all = [...S.doc.holds.map(h => h.id), ...S.added], out = [];
+  const tile = Object.assign(document.createElement('canvas'), { width: size * 2, height: size }), g = tile.getContext('2d');
+  renderer.setSize(size, size, false); camera.aspect = 1; camera.updateProjectionMatrix();
+  const saved = { p: camera.position.clone(), q: camera.quaternion.clone() }, hotWas = S.lab.uniforms.studioHot.value;
+  try {
+    for (const id of ids) {
+      const i = all.indexOf(id), faces = i < 0 ? [] : S.byHold[i], m3 = S.edits.get(id);
+      if (m3) {
+        // 修過、補畫的：用修的那個鏡頭看，邊線就是那個多邊形（成品照貼圖像素、從這個鏡頭看得到又在多邊形裡的算這顆，跟畫出來的一樣）
+        camera.position.fromArray(m3.c, 0); camera.quaternion.fromArray(m3.c, 3); camera.aspect = m3.a || 1; camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
+      } else {
+        if (!faces.length) { out.push({ id, empty: true }); continue; }
+        aimHold(faces);
+      }
+      S.lab.uniforms.studioHot.value = 0; renderer.render(S.scene, camera); g.drawImage(renderer.domElement, 0, 0, size, size);
+      if (!m3) {
+        // 右邊：原樣的畫面加上這顆實際範圍的邊線（上色跟沒上色的兩張比出範圍，邊界是貼圖像素），岩點本身不被蓋住，偏移、溢出看得出來
+        g.drawImage(renderer.domElement, size, 0, size, size);
+        const plain = g.getImageData(0, 0, size, size).data;
+        S.lab.uniforms.studioHot.value = i + 1; renderer.render(S.scene, camera); g.drawImage(renderer.domElement, size, 0, size, size);
+        const lit = g.getImageData(size, 0, size, size), d = lit.data, mask = new Uint8Array(size * size);
+        for (let p = 0; p < size * size; p++) mask[p] = Math.abs(d[p * 4] - plain[p * 4]) + Math.abs(d[p * 4 + 1] - plain[p * 4 + 1]) + Math.abs(d[p * 4 + 2] - plain[p * 4 + 2]) > 30 ? 1 : 0;
+        d.set(plain);
+        for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+          const p = y * size + x;
+          if (!mask[p] || (x > 0 && mask[p - 1] && x < size - 1 && mask[p + 1] && y > 0 && mask[p - size] && y < size - 1 && mask[p + size])) continue;
+          for (const q of [p, p + 1, p + size]) if (q < size * size) { d[q * 4] = 212; d[q * 4 + 1] = 255; d[q * 4 + 2] = 79; }   // 邊線兩像素寬
+        }
+        g.putImageData(lit, size, 0);
+      } else {
+        g.drawImage(renderer.domElement, size, 0, size, size);
+        g.save(); g.beginPath(); g.rect(size, 0, size, size); g.clip(); g.beginPath(); m3.p.forEach(([x, y], k) => (k ? g.lineTo(size + x * size, y * size) : g.moveTo(size + x * size, y * size))); g.closePath();
+        g.lineWidth = 2; g.strokeStyle = '#D4FF4F'; g.stroke(); g.restore();
+      }
+      const r5 = x => +x.toFixed(5);
+      out.push({ id, c: [...camera.position.toArray(), ...camera.quaternion.toArray()].map(r5), a: camera.aspect, jpg: tile.toDataURL('image/jpeg', 0.85) });
+    }
+  } finally { camera.position.copy(saved.p); camera.quaternion.copy(saved.q); camera.up.copy(up); S.lab.uniforms.studioHot.value = hotWas; draw(); }
+  return out;
+}
+// 人試用回報的畫面（look3d 給代理看）：照回報時的鏡頭，回報的岩點上色、點的位置畫圈
+async function trialShots(items, size = 512) {
+  const all = [...S.doc.holds.map(h => h.id), ...S.added], out = [], mw = S.surface.matrixWorld;
+  const c = Object.assign(document.createElement('canvas'), { width: size, height: size }), g = c.getContext('2d');
+  renderer.setSize(size, size, false);
+  const saved = { p: camera.position.clone(), q: camera.quaternion.clone(), a: camera.aspect }, hotWas = S.lab.uniforms.studioHot.value;
+  try {
+    for (const it of items) {
+      camera.position.fromArray(it.camera, 0); camera.quaternion.fromArray(it.camera, 3); camera.aspect = 1; camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
+      const i = it.hold ? all.indexOf(it.hold) : -1;
+      S.lab.uniforms.studioHot.value = i >= 0 ? i + 1 : 0; renderer.render(S.scene, camera); g.drawImage(renderer.domElement, 0, 0, size, size);
+      if (it.point) {   // 成品跟工作檔是同一套模型座標（烘焙只切三角形）
+        const q = new Vector3(...it.point).applyMatrix4(mw).project(camera);
+        g.beginPath(); g.arc((q.x + 1) / 2 * size, (1 - q.y) / 2 * size, size / 20, 0, Math.PI * 2); g.lineWidth = 3; g.strokeStyle = '#FF5C5C'; g.stroke();
+      }
+      out.push({ id: it.id, jpg: c.toDataURL('image/jpeg', 0.85) });
+    }
+  } finally { camera.position.copy(saved.p); camera.quaternion.copy(saved.q); camera.aspect = saved.a; camera.updateProjectionMatrix(); S.lab.uniforms.studioHot.value = hotWas; draw(); }
+  return out;
+}
+// AI 看光暈（tools/studio.mjs look3d --glow）：跟岩點貓點選後看到的一樣——烘好的成品、沿牆鏡頭走到框住這顆的位置（看線同一個 frameTo），
+// 左邊原樣、右邊點選後（底圖灰階、這顆原色加光暈）。鏡頭記下來：AI 在右半張重描的多邊形照這個鏡頭變成修點
+// wide：量體看全形——鏡頭退遠一點（1.2 倍）、裁大一點（亮的範圍三倍、至少畫面的四分之一），只亮到一部分的量體也看得到整個外形，照直線邊描完整
+async function glowShots(ids, size = 320, wide = false) {
+  const t = await bakeTrial(false), st = t.stage, out = [], R = 960;   // 用 960 渲染，再裁出這顆附近放大（沿牆鏡頭框住一顆時還是退得比較遠）
+  const host = document.createElement('div');
+  host.style.cssText = `position:fixed;left:0;top:0;width:${R}px;height:${R}px;z-index:-1`;
+  document.body.append(host); st.mount(host);
+  const tile = Object.assign(document.createElement('canvas'), { width: size * 2, height: size }), g = tile.getContext('2d');
+  const grab = () => { const c = Object.assign(document.createElement('canvas'), { width: R, height: R }), x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(st.renderer.domElement, 0, 0, R, R); return c; };
+  const bw = Math.min(R, R * st.snapW / st.snapH), view = { s: 1, tx: (R - bw) / 2, ty: (R - bw * st.snapH / st.snapW) / 2, bw };
+  try {
+    st.renderer.setPixelRatio(1); st.glide = null; st.setView(view); st.walk(view);   // 站上沿牆鏡頭（frameTo 要從軌道上出發）
+    const shoot = (holds, mode) => { st.paint({ holds, mode, colors: { sel: '#D4FF4F' } }); st.draw(); return grab(); };
+    // 備用鏡頭（沿牆鏡頭怎麼轉都看不到）：不經過沿牆鏡頭，直接照 st.camera 畫（光暈的後製跟 draw 一樣）
+    const fixed = (holds, mode) => {
+      st.paint({ holds, mode, colors: { sel: '#D4FF4F' } });
+      const r = st.renderer, route = Object.keys(holds).length > 0;
+      if (route) st.glowMask(); r.setRenderTarget(null); r.render(st.scene, st.camera); if (route) st.glowComposite();
+      return grab();
+    };
+    const all = [...S.doc.holds.map(h => h.id), ...S.added], saved = { p: camera.position.clone(), q: camera.quaternion.clone() };
+    // 每顆都從同一個起點走過去：接著上一顆的位置走，結果會跟著順序變（轉角、cave 附近會停在斜看的地方）
+    const home = st.wc && { s: st.wc.s, v: st.wc.v, d: st.wc.d, want: st.wc.want, yaw: st.wc.yaw };
+    for (const id of ids) {
+      if (home) { Object.assign(st.wc, home); st.wc.clamp(); st.wc.apply(); }
+      const v = await st.frameTo([id], null, 1);
+      if (!v) { out.push({ id, empty: true }); continue; }
+      if (wide && st.wc) { st.wc.d *= 1.2; st.wc.clamp(); st.wc.apply(); }
+      // 光暈亮起的範圍（有沒有選這顆的差）→ 這顆在畫面上的位置
+      const lighted = (draw = shoot) => {
+        const base = draw({}, 'dim'), lit = draw({ [id]: 'sel' }, 'dim');
+        const a = base.getContext('2d').getImageData(0, 0, R, R).data, b = lit.getContext('2d').getImageData(0, 0, R, R).data;
+        let x0 = R, y0 = R, x1 = -1, y1 = -1;
+        for (let p = 0; p < R * R; p++) if (Math.abs(a[p * 4] - b[p * 4]) + Math.abs(a[p * 4 + 1] - b[p * 4 + 1]) + Math.abs(a[p * 4 + 2] - b[p * 4 + 2]) > 30) { const x = p % R, y = (p / R) | 0; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+        return x1 < 0 ? null : { lit, box: [x0, y0, x1, y1] };
+      };
+      // 側牆、量體後面的岩點：沿牆鏡頭正面看不到，使用者會調角度（±30°）看——照樣轉過去拍
+      let got = lighted();
+      for (const k of [1, -1, 0.5, -0.5]) { if (got || !st.wc) break; st.wc.yaw = k * YAW_MAX; st.wc.clamp(); st.wc.apply(); got = lighted(); }
+      let photo = shoot({}, 'photo'), via = 'walk';
+      // 不在這裡把角度轉回 0：下面記的鏡頭要是拍這張圖的那一個（轉過角度才看得到的，AI 在圖上描的線才會落在對的地方）；下一顆從 home 重新出發
+      if (!got) {
+        // 岩點貓的沿牆鏡頭看不到這顆（記成 via: 'front'，發佈後點不到，要另外處理）：從它的正面、避開遮擋看，光暈照樣檢查
+        const i = all.indexOf(id), faces = i < 0 ? [] : S.byHold[i];
+        if (faces.length) {
+          aimHold(faces); st.camera.position.copy(camera.position); st.camera.quaternion.copy(camera.quaternion);
+          st.camera.aspect = 1; st.camera.updateProjectionMatrix(); st.camera.updateMatrixWorld(true);
+          got = lighted(fixed); photo = fixed({}, 'photo'); via = 'front';
+        }
+      }
+      if (!got) { out.push({ id, empty: true }); continue; }   // 怎麼看都看不到這顆
+      const { lit, box: [x0, y0, x1, y1] } = got;
+      const side = Math.min(R, wide ? Math.max(R * 0.25, (Math.max(x1 - x0, y1 - y0) + 1) * 3) : Math.max(96, (Math.max(x1 - x0, y1 - y0) + 1) * 2)), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+      const sx = Math.min(Math.max(cx - side / 2, 0), R - side), sy = Math.min(Math.max(cy - side / 2, 0), R - side);
+      g.drawImage(photo, sx, sy, side, side, 0, 0, size, size); g.drawImage(lit, sx, sy, side, side, size, 0, size, size);
+      const r5 = x => +x.toFixed(5), cam = st.camera;
+      // 沿牆鏡頭的投影另有裁切（setViewOffset）、長寬比是快照的：修點只記位置、方向，套用時是 50°、正方形、沒裁切的鏡頭。
+      // 同一個位置換投影是畫面上的線性換算：std = [sx, ox, sy, oy]，標準鏡頭的 NDC = (sx·x + ox, sy·y + oy)
+      cam.updateMatrixWorld(true);
+      const std = new PerspectiveCamera(50, 1, 0.005, 100); std.position.copy(cam.position); std.quaternion.copy(cam.quaternion); std.updateMatrixWorld(true); std.updateProjectionMatrix();
+      const [q0, q1] = [[-1, -1], [1, 1]].map(([x, y]) => new Vector3(x, y, 0.5).unproject(cam).project(std));
+      const sxk = (q1.x - q0.x) / 2, syk = (q1.y - q0.y) / 2, map = [sxk, q0.x + sxk, syk, q0.y + syk].map(r5);
+      // 裁切的範圍記成視窗：AI 在右半張描的多邊形換回整個畫面的比例，再換到標準鏡頭（review3d），跟這個位置一起變成修點
+      out.push({ id, via, c: [...cam.position.toArray(), ...cam.quaternion.toArray()].map(r5), a: 1, std: map, crop: [sx / R, sy / R, side / R].map(r5), jpg: tile.toDataURL('image/jpeg', 0.85) });
+    }
+    camera.position.copy(saved.p); camera.quaternion.copy(saved.q); camera.updateMatrixWorld(true);
+  } finally { st.unmount(); host.remove(); }
+  return out;
+}
+// AI 檢查的前兩階段（tools/studio.mjs check3d）：烘好的成品，岩點之前先看牆。
+// model：整面牆從正面、低處、左前、右前看，再沿牆腳、牆頂各拍幾張近看——模型完整嗎、上下左右的切口是不是直線、有沒有切太貼岩點、牆腳有沒有糊掉的貼圖。
+// path：岩點貓的沿牆鏡頭（直的手機畫面）由右走到左，最遠和中間兩個距離、平視和低頭看下半部各一排——每面牆（內角兩側、cave）的下半部都看得清楚、不會對著牆外。
+// 回傳 [{ name, jpg }]，path 另回最遠距離點不到的岩點數
+async function checkShots(kind, size = 480) {
+  const t = await bakeTrial(false), st = t.stage, out = [];
+  const W = kind === 'path' ? 390 : size * 1.5, H = kind === 'path' ? 664 : size;
+  const host = document.createElement('div'); host.style.cssText = `position:fixed;left:0;top:0;width:${W}px;height:${H}px;z-index:-1`;
+  document.body.append(host); st.mount(host);
+  const snap = (name) => { const c = Object.assign(document.createElement('canvas'), { width: W, height: H }); c.getContext('2d').drawImage(st.renderer.domElement, 0, 0, W, H); out.push({ name, jpg: c.toDataURL('image/jpeg', 0.85) }); };
+  const render = (cam) => { st.paint({ holds: {}, mode: 'photo' }); st.renderer.setRenderTarget(null); st.renderer.render(st.scene, cam || st.camera); };
+  try {
+    st.renderer.setPixelRatio(1); st.renderer.setSize(W, H);
+    if (kind === 'model') {
+      const P = st.holdPos, c = new Vector3(), up = new Vector3(...st.pack.up).normalize(), fr = new Vector3(...st.pack.front).normalize().projectOnPlane(up).normalize(), rt = new Vector3().crossVectors(up, fr).normalize();   // 面對牆時的右手邊
+      for (const p of P) c.add(p); c.multiplyScalar(1 / P.length);
+      const xs = P.map(p => p.clone().sub(c).dot(rt)), hs = P.map(p => p.clone().sub(c).dot(up)), x0 = Math.min(...xs), x1 = Math.max(...xs), h0 = Math.min(...hs), h1 = Math.max(...hs), span = Math.max(x1 - x0, h1 - h0);
+      const cam = new PerspectiveCamera(50, W / H, 0.01, 100);
+      const at = (name, x, h, d, lx = x, lh = h, side = 0) => {
+        cam.position.copy(c).addScaledVector(rt, x).addScaledVector(up, h).addScaledVector(fr, d).addScaledVector(rt, side);
+        cam.up.copy(up); cam.lookAt(c.clone().addScaledVector(rt, lx).addScaledVector(up, lh)); cam.updateProjectionMatrix(); cam.updateMatrixWorld(true); render(cam); snap(name);
+      };
+      at('整面・正面', 0, 0, span * 1.05); at('整面・低處往上', 0, h0 - 0.3, span * 0.8, 0, 0);
+      at('整面・左前', 0, 0, span * 0.75, 0, 0, -span * 0.55); at('整面・右前', 0, 0, span * 0.75, 0, 0, span * 0.55);
+      for (let k = 0; k < 4; k++) { const x = x0 + (x1 - x0) * (k + 0.5) / 4; at(`牆腳 ${k + 1}/4`, x, h0 + 0.2, 1.6, x, h0 - 0.1); }
+      for (let k = 0; k < 4; k++) { const x = x0 + (x1 - x0) * (k + 0.5) / 4; at(`牆頂 ${k + 1}/4`, x, h1 - 0.3, 1.6, x, h1 + 0.1); }
+      at('左端', x0 + 0.3, 0, 1.8, x0 - 0.2, 0); at('右端', x1 - 0.3, 0, 1.8, x1 + 0.2, 0);
+      return { shots: out };
+    }
+    // 沿牆鏡頭（岩點貓同一套）：直的手機畫面
+    const bw = Math.min(W, H * st.snapW / st.snapH), view = { s: 1, tx: (W - bw) / 2, ty: (H - bw * st.snapH / st.snapW) / 2, bw };
+    st.glide = null; st.setView(view); st.introNext = true; st.walkAlong(view);
+    const wc = st.wc; if (!wc) return { shots: out };
+    const dMax = wc.dMax, missed = wc.missedHolds(dMax).length, N = 8;
+    for (const [dk, dName] of [[1, '最遠'], [0.6, '中間']]) {
+      wc.d = dMax * dk; wc.clamp(); wc.want = wc.d; const [A, B] = wc.sRange();
+      for (const [vName, vf] of [['平視', () => wc.eye ?? wc.v0], ['看下半部', () => wc.floor !== undefined ? (wc.floor + wc.eye) / 2 - 0.2 : wc.v0 - 0.5]]) {
+        for (let i = 0; i < N; i++) {
+          wc.s = B + (A - B) * i / (N - 1); wc.v = vf(); wc.yaw = 0; wc.clamp(); wc.apply();
+          const cam = st.camera; cam.clearViewOffset(); cam.aspect = W / H; cam.near = 0.005; cam.far = 100; cam.updateProjectionMatrix(); st.renderer.setSize(W, H); render(); snap(`${dName}・${vName}・由右往左 ${i + 1}/${N}`);   // 照沿牆鏡頭自己的視角（直的手機畫面），不用 2D 畫面留下的投影裁切
+        }
+      }
+    }
+    return { shots: out, missed, dMax };
+  } finally { st.unmount(); host.remove(); }
+}
+// 烘好的成品舞台（命令列、量測用）
+const trialStage = async () => (await bakeTrial(false)).stage;
+export { open, cut, shots, trialShots, glowShots, checkShots, trialStage, trialPack };
 export const current = () => S;
 export const view = () => ({ camera, target });
 export const editing = () => edit;

@@ -18,10 +18,18 @@
 <meta name="twitter:description" content="從拍下一面牆到分享一條路線。">
 <meta name="twitter:image" content="https://climbio.app/icons/cats/hold-cat-512.png">
 <title>岩點貓使用說明｜Climbio</title>
+<script src="../doc-language.js"></script>
 <link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/guides/hold-manual.html">
 <link rel="alternate" hreflang="en" href="https://climbio.app/en/guides/hold-manual.html">
+<link rel="alternate" hreflang="zh-Hans" href="https://climbio.app/zh-cn/guides/hold-manual.html">
+<link rel="alternate" hreflang="ja" href="https://climbio.app/ja/guides/hold-manual.html">
+<link rel="alternate" hreflang="fr" href="https://climbio.app/fr/guides/hold-manual.html">
+<link rel="alternate" hreflang="ko" href="https://climbio.app/ko/guides/hold-manual.html">
+<link rel="alternate" hreflang="es" href="https://climbio.app/es/guides/hold-manual.html">
+<link rel="alternate" hreflang="de" href="https://climbio.app/de/guides/hold-manual.html">
 <link rel="icon" href="../icons/cats/hold-cat.svg" type="image/svg+xml">
 <link rel="stylesheet" href="../css/brand-tokens.css">
+<link rel="stylesheet" href="../css/site-nav.css">
 <link rel="stylesheet" href="../css/pages.css">
 <style>
 .pg.doc .pg-steps { padding-left: 0; }
@@ -33,8 +41,11 @@
 .pg-scroll table { margin: 0; }
 </style>
 </head>
-<body>
-<header class="pg-top"><a class="pg-brand" href="../"><img src="../icons/brand/climbio-mark.svg" alt=""><span>Climbio</span></a><span class="grow"></span><nav class="pg-nav" aria-label="相關頁面"><a href="../hold/">開啟岩點貓</a><a href="hold.html">運作方式</a><a href="../studio/">Studio</a><a href="../en/guides/hold-manual.html" hreflang="en" lang="en">English</a></nav></header>
+<body class="site-page">
+<header class="site-header docs-header">
+  <a class="site-brand" href="../"><picture><source media="(max-width: 600px)" srcset="../icons/brand/climbio-mark.svg"><img src="../icons/brand/climbio-horizontal-light.svg" alt="Climbio" width="110" height="30"></picture></a>
+  <nav class="site-nav" aria-label="文件語言"><a href="../guides/">文件</a></nav>
+</header>
 <main class="pg doc" id="main">
 <header class="pg-hero">
 <h1>岩點貓使用說明</h1>
@@ -50,7 +61,7 @@
 <li><strong>定線</strong>：選難度、起攀和完攀，完成後就能看線和分享。</li>
 </ol>
 <nav class="toc" aria-label="使用說明目錄">
-<a href="#install">安裝</a><a href="#wall">新增岩牆</a><a href="#detect">自動辨識</a><a href="#adjust">修正岩點</a><a href="#route">定線</a><a href="#view">看線</a><a href="#logs">完攀</a><a href="#share">分享</a><a href="#nearby">附近交換</a><a href="#devices">我的裝置</a><a href="#discover">找牆面</a><a href="#backup">備份</a><a href="#offline">離線</a><a href="#lab">3D</a><a href="#faq">常見問題</a>
+<a href="#install">安裝</a><a href="#wall">新增岩牆</a><a href="#detect">自動辨識</a><a href="#adjust">修正岩點</a><a href="#route">定線</a><a href="#view">看線</a><a href="#logs">完攀</a><a href="#share">分享</a><a href="#nearby">朋友互傳</a><a href="#devices">我的裝置</a><a href="#discover">找牆面</a><a href="#backup">備份</a><a href="#offline">離線</a><a href="#lab">3D</a><a href="#faq">常見問題</a>
 </nav>
 </section>
 
@@ -127,7 +138,7 @@
 
 <section class="pg-section" id="logs" aria-labelledby="logs-title">
 <h2 id="logs-title">完攀紀錄</h2>
-<p>看線時按右下「✓」記為完攀，再按取消。只有「完成／未完成」，沒有嘗試次數、日期或 Flash。</p>
+<p>看線時按右下完攀鈕記為完攀，再按取消。只有「完成／未完成」，沒有嘗試次數、日期或 Flash。</p>
 <p>牆面清單可依完攀／未完攀篩選，並依難度或時間排序。紀錄存在這台裝置。換裝置時可用備份復原或「我的裝置」。</p>
 </section>
 
@@ -137,19 +148,19 @@
 <ul>
 <li><strong>收到朋友的連結：</strong>先確認來源與內容，再加入自己的裝置。</li>
 <li><strong>公開分享：</strong>連結可讓朋友查看可操作的路線，公開牆面也會出現在找牆面的清單。</li>
-<li><strong>附近交換：</strong>到「找牆面」右上角選擇附近的朋友，對方確認後直接收下牆面與路線。</li>
+<li><strong>朋友互傳：</strong>首頁「＋」選擇「傳給朋友」，挑選附近的人與要傳的牆面，對方確認後收下。</li>
 </ul>
 <p class="pg-note">分享牆面不會公開整支手機的資料。公開前確認照片作者、岩館同意與隱私。</p>
 </section>
 
 <section class="pg-section" id="nearby" aria-labelledby="nearby-title">
-<h2 id="nearby-title">傳給別人（附近交換）</h2>
+<h2 id="nearby-title">朋友互傳</h2>
 <ol class="pg-steps">
-<li>兩台裝置連上同一個可互相連線的 Wi-Fi，開啟岩點貓，在「找牆面」右上角按附近交換圖示。</li>
+<li>兩台裝置連上同一個可互相連線的 Wi-Fi，開啟岩點貓，首頁按「＋」→「傳給朋友」。</li>
 <li>選擇「附近的人」及要傳的牆面，可一次選擇多位朋友，按「傳給 N 人」。</li>
 <li>對方看見收到邀請後按「收下」，牆面照片、岩點與路線就會傳到對方裝置；也可以按「不要」。</li>
 </ol>
-<p>不必事先配對。朋友收到的是本機資料，不會因此公開；你的完攀紀錄、個人設定及裝置金鑰不會傳給朋友。</p>
+<p>不必事先配對。朋友收到的是本機資料，不會因此公開；你的完攀紀錄、個人設定及裝置金鑰不會傳給朋友。<a href="friends.html">朋友互傳完整介紹</a></p>
 <p class="pg-note">找不到對方時，確認兩台在同一個 Wi-Fi；部分訪客網路會禁止裝置直連。只有連線服務未設定或無法連上時，才會出現 QR code 備援，依畫面提示互相掃描。QR code 不用於一般找人。</p>
 </section>
 
@@ -206,7 +217,7 @@
 <details class="pg-more"><summary>想整理大量照片、拼接牆面或做 3D</summary><p>大量編輯用 <a href="../studio/">Studio</a>；3D 與辨識研究見 <a href="../lab/">Lab</a>。</p></details>
 </section>
 
-<footer class="pg-foot"><span>Climbio · 岩點貓使用說明</span><span><a href="#main">回到頂端</a> · <a href="hold.html">運作方式</a> · <a href="../kits/">進階操作規格</a></span></footer>
+<footer class="pg-foot docs-footer"><span>© 2026 Climbio</span><nav aria-label="網站資訊"><a href="../privacy.html">隱私權</a><a href="../terms.html">使用條款</a></nav></footer>
 </main>
 </body>
 </html>

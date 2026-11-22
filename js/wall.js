@@ -556,8 +556,6 @@
     if (state.wall && state.wall.id === x.w.id) openRoute(x.r.id);
   }
   $('editRouteBtn').onclick = () => { $('edMenu').hidden = true; enterRouteEdit(); };
-  $('prevRoute').onclick = () => stepRoute(-1);
-  $('nextRoute').onclick = () => stepRoute(1);
   $('edBack').onclick = () => history.back();
 
   // ---------- 返回鍵／返回手勢：首頁 ← 牆面頁 ← 編輯（裁切也算一層）----------
@@ -703,7 +701,7 @@
     if (state.img && view.bw && Math.abs(baseSize(st.clientWidth, st.clientHeight)[0] - view.bw) > 0.5) layoutStage();
   }
   // 照片最大放大到 1 個照片像素＝4 個螢幕點（至少 10 倍）：高解析的牆小岩點很多，10 倍還小到調不了外框
-  const baseMaxScale = () => Math.max(MAX_SCALE, 4 * (state.w || 0) / (view.bw || Infinity));
+  const baseMaxScale = () => RouteKit.maxScaleOf(state.w || 0, view.bw || Infinity);   // 算法在 kit（routekit/viewport.js）
   // 一般的放大（飛到岩點、貼合路線）照這個上限。3D 牆另外有硬上限：最小縮放已經放大了（填滿畫面），鏡頭走近時裁切的放大倍數也跟著變大，
   // 上限要乘上最小縮放，不然拖、捏合時 3D 算出的視角被夾住、跟手指對不上
   const maxScale = baseMaxScale;
@@ -711,6 +709,7 @@
   // 定線、單點編輯（手機）：上下浮著的工具列蓋住照片一截。可以拖的範圍多留這兩段，照片最上、最下的岩點都拖得到工具列外面點得到
   function editPads() {
     if ($('editor').hidden || state.routeView) return [0, 0];
+    if (editorUi && state.mode === 'route') return editorUi.pads($('stage'));   // 定線：上下浮著的是 kit 操作介面（RouteKit.EditorUI）的列
     const st = $('stage').getBoundingClientRect(), top = $('editor').querySelector('.ed-top'), bot = $('editor').querySelector('.ed-bottom');
     return [Math.max(0, top.getBoundingClientRect().bottom - st.top), Math.max(0, st.bottom - bot.getBoundingClientRect().top)];
   }
@@ -737,6 +736,15 @@
     const fill = Math.max(1, Math.min(st.clientHeight / ((b.y1 - b.y0) * k), baseMaxScale()));
     return state.routeView ? Math.max(1, Math.min(fill, routeFloor)) : fill;   // 看路線圖：路線比畫面寬時整條放進畫面，最小縮放降到那個倍數（見 fitBox）   // 岩點的高度填滿畫面；寬度超出的左右拖
   }
+  // 縮小的下限：手機照 minScale（岩點高度填滿畫面，寬的牆左右拖）。電腦的畫面寬，3D 牆還有空間就能縮到整個岩點範圍放進畫面（寬度也放得下）為止，
+  // 但不比 0.25 倍小；起始視角（fitAll）照舊是 minScale，只有縮放的下限放寬。看路線圖維持路線視角的規則
+  function zoomFloor() {
+    const m = minScale();
+    if (!state.wall || !state.wall.m3d || state.routeView || !view.bw || !matchMedia('(min-width: 900px)').matches) return m;
+    const b = holdsBox(); if (!b) return m;
+    const st = $('stage'), k = view.bw / state.w, wide = st.clientWidth / Math.max(1, (b.x1 - b.x0) * k);
+    return Math.min(m, Math.max(0.25, wide));
+  }
   // 整面牆的視角（最小縮放、岩點範圍置中）
   function fitAll() {
     const st = $('stage'), s = minScale(), b = state.wall && state.wall.m3d ? holdsBox() : null, k1 = view.bw / state.w * s;
@@ -745,17 +753,17 @@
   }
   // 縮放、位移套上邊界：圖比框小時置中，比框大時不讓邊緣露出空白（上下多留工具列蓋住的那段）
   function clampView(s, tx, ty) {
-    const stage = $('stage'), W = stage.clientWidth, H = stage.clientHeight, [pt, pb] = editPads();
-    s = Math.min(hardMaxScale(), Math.max(state.w3d && state.w3d.tilted && state.w3d.along ? 0 : minScale(), s));   // 沿牆走的鏡頭：裁切固定（快照高度＝畫面高度），可能比 2D 的最小縮放還小
-    const w = view.bw * s, h = view.bh * s;
+    const stage = $('stage'), W = stage.clientWidth, H = stage.clientHeight, pads = editPads();
+    const lo = state.w3d && state.w3d.tilted && state.w3d.along ? 0 : zoomFloor();   // 沿牆走的鏡頭：裁切固定（快照高度＝畫面高度），可能比 2D 的最小縮放還小
     // 3D 牆走近、轉過角度後，快照外面也畫得出牆：拖到快照的邊碰到畫面中央為止
     // （正面快照只框到岩點外一小圈，鏡頭走到最外側、最高、最低的岩點時目標會落在快照外面；範圍放寬一個快照的大小，不然拖到那裡就卡住）
-    if (state.w3d && state.w3d.tilted) return { s, tx: Math.min(W / 2 + w, Math.max(W / 2 - 2 * w, tx)), ty: Math.min(H / 2 + h, Math.max(H / 2 - 2 * h, ty)) };
-    tx = w <= W ? (W - w) / 2 : Math.min(0, Math.max(W - w, tx));
-    // 範圍連續：圖剛好放得下、上下工具列高度不同（pt≠pb）時，不會從置中一下跳到貼邊（放大到下緣靠近工具列會抖一下）
-    const [ft, fb] = fitPads(), mid = ft + (H - ft - fb - h) / 2;
-    ty = Math.min(Math.max(pt, mid), Math.max(Math.min(H - pb - h, mid), ty));
-    return { s, tx, ty };
+    if (state.w3d && state.w3d.tilted) {
+      s = Math.min(hardMaxScale(), Math.max(lo, s));
+      const w = view.bw * s, h = view.bh * s;
+      return { s, tx: Math.min(W / 2 + w, Math.max(W / 2 - 2 * w, tx)), ty: Math.min(H / 2 + h, Math.max(H / 2 - 2 * h, ty)) };
+    }
+    // 其餘（縮放下限、邊界、置中、工具列讓出的範圍）是 kit 的同一份：routekit/viewport.js 的 clampView，內嵌頁的縮放平移也用它
+    return RouteKit.clampView(s, tx, ty, { W, H, bw: view.bw, bh: view.bh, pads, maxScale: hardMaxScale(), minScale: lo, fitPads: fitPads() });
   }
   // 看路線圖的起始視角（路線視角）：路線（所在那一組）的岩點剛好放進畫面（四周留邊、上面避開標題），最多放大到照片填滿畫面，路線放中間。
   // 橫的照片在直的手機上不會上下大片黑邊；很寬的路線放大得少，最寬就是整張照片
@@ -772,31 +780,20 @@
     const b = r && view.bw ? groupBox(r) : null;
     return b ? fitBox(b) : fitAll();
   }
+  // 路線所在那一組的岩點範圍、把範圍放進畫面的視角：算法在 kit（routekit/fit.js，內嵌頁看路線同一份），這裡只接岩點貓的資料（路線順序、別張照片的岩點、標籤、邊界）
   function groupBox(r, withLabels = false) {
-    let box = null, keep = 0, found = false;
-    const grow = (b, q, hs) => {
-      if (!b || !withLabels) return b;
-      const rects = placeTypeLabels(hs, q, labelUnit(q), true).flatMap(l => l.foot ? [l.rect] : [l.rect, l.tape]);
-      return rects.reduce((a, c) => ({ x0: Math.min(a.x0, c.x0), y0: Math.min(a.y0, c.y0), x1: Math.max(a.x1, c.x1), y1: Math.max(a.y1, c.y1) }), b);
-    };
-    for (const q of sortedRoutes()) {
-      const hs = holdsOf(q).filter(h => !farKey(h.id)), b = hs.length ? grow(bbox(hs.flatMap(h => h.poly)), q, hs) : null, own = b ? fitBox(b).s : 0;   // 別張照片的岩點不算進視角
-      const u = b && box && { x0: Math.min(box.x0, b.x0), y0: Math.min(box.y0, b.y0), x1: Math.max(box.x1, b.x1), y1: Math.max(box.y1, b.y1) };
-      if (u && fitBox(u).s >= GROUP_KEEP * Math.max(keep, own)) { box = u; keep = Math.max(keep, own); }
-      else { if (found) break; box = b; keep = own; }
-      if (q === r) found = true;
-    }
-    return found ? box : null;
+    return RouteKit.groupBox(sortedRoutes(), r, {
+      holdsOf: q => holdsOf(q).filter(h => !farKey(h.id)),   // 別張照片的岩點不算進視角
+      labelRects: withLabels ? (hs, q) => placeTypeLabels(hs, q, labelUnit(q), true).flatMap(l => l.foot ? [l.rect] : [l.rect, l.tape]) : null,
+      fit: b => fitBox(b),
+    });
   }
   // 把照片上的範圍 b（四周留邊、上面避開標題）放進畫面的視角，最多放大到照片填滿畫面
   function fitBox(b) {
-    const st = $('stage'), W = st.clientWidth, H = st.clientHeight, k = view.bw / state.w, side = 32;
-    const top = parseFloat(getComputedStyle($('vwBack')).top) + 52;   // 返回鈕和標題那一列（含安全區）
-    const s = Math.min(maxScale(), Math.max(1, Math.min(Math.max(W / view.bw, H / view.bh),
-      (W - 2 * side) / ((b.x1 - b.x0) * k), (H - top - side) / ((b.y1 - b.y0) * k))));
-    if (state.routeView) routeFloor = s;
-    const k1 = k * s;
-    return clampView(s, W / 2 - (b.x0 + b.x1) / 2 * k1, (top + H - side) / 2 - (b.y0 + b.y1) / 2 * k1);
+    const st = $('stage'), top = parseFloat(getComputedStyle($('vwBack')).top) + 52;   // 返回鈕和標題那一列（含安全區）
+    const f = RouteKit.fitBoxIn(b, { W: st.clientWidth, H: st.clientHeight, bw: view.bw, bh: view.bh, maxScale: maxScale() }, { photoW: state.w, topInset: top });
+    if (state.routeView) routeFloor = f.s;
+    return clampView(f.s, f.tx, f.ty);
   }
   // 3D 牆進定線一條還沒有點的新線：從整面牆飛近（不然一進來太小，要自己放大才能選點）。
   // 飛到最近定的那條線（自己的、有點、出線最晚）的路線視角；還沒定過就是牆的中央、照片的高度填滿畫面
@@ -826,11 +823,11 @@
   // 手機單點編輯：復原、刪除的膠囊浮在選到的岩點下方（下面放不下就放上方），跟著縮放、拖曳、改形狀移動；岩點移出畫面時停在畫面邊緣
   function placeHoldActions() {
     const el = $('holdActions'), h = state.selected;
-    if (state.mode !== 'holds' || !h || el.hidden) return;
-    const st = $('stage').getBoundingClientRect(), k = view.bw * view.s / state.w, b = bbox(h.poly);
+    if (state.mode !== 'holds' || !(h || state.lasso) || el.hidden) return;
+    const st = $('stage').getBoundingClientRect(), k = view.bw * view.s / state.w;
     const w = el.offsetWidth, ht = el.offsetHeight, gap = 18, top = Math.max(st.top + 70, $('samProg').hidden ? 0 : $('samProg').getBoundingClientRect().bottom + 12), bottom = st.bottom - 26 - ht;
     if (state.lasso) { el.style.left = `${Math.round(st.right - 12 - w)}px`; el.style.top = `${Math.round(bottom)}px`; return; }
-    const cx = st.left + view.tx + (b.x0 + b.x1) / 2 * k, y0 = st.top + view.ty + b.y0 * k, y1 = st.top + view.ty + b.y1 * k;
+    const b = bbox(h.poly), cx = st.left + view.tx + (b.x0 + b.x1) / 2 * k, y0 = st.top + view.ty + b.y0 * k, y1 = st.top + view.ty + b.y1 * k;
     const below = y1 + gap, above = y0 - gap - ht, fits = (y) => y >= top && y <= bottom;
     const y = fits(below) ? below : fits(above) ? above : Math.min(bottom, Math.max(top, below));
     el.style.left = `${Math.round(Math.min(st.right - 12 - w, Math.max(st.left + 12, cx - w / 2)))}px`;
@@ -869,8 +866,9 @@
     step();
   }
   function zoomAt(s, px, py) {   // px, py：框內座標，縮放時這一點不動
-    const k = Math.min(hardMaxScale(), Math.max(state.w3d && state.w3d.tilted && state.w3d.along ? 0 : minScale(), s)) / view.s;   // 沿牆走的鏡頭：裁切固定，縮放交給鏡頭（見 clampView）
-    setView(view.s * k, px - (px - view.tx) * k, py - (py - view.ty) * k);
+    const k = Math.min(hardMaxScale(), Math.max(state.w3d && state.w3d.tilted && state.w3d.along ? 0 : zoomFloor(), s)) / view.s;   // 沿牆走的鏡頭：裁切固定，縮放交給鏡頭（見 clampView）
+    const v = RouteKit.zoomAround(view, view.s * k, px, py);   // 以 (px, py) 這一點不動縮放（kit 的同一份）
+    setView(v.s, v.tx, v.ty);
   }
   // ---------- 首頁卡片 ----------
   // 正方形照片、名稱疊在下緣、右上角進度環（完攀幾成）
@@ -900,5 +898,6 @@
   function toggleShowAll() {
     state.showAll = !state.showAll;
     pressBtns('.outline-btn', state.showAll);
+    if (editorUi) editorUi.update();
     render();
   }

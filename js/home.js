@@ -6,7 +6,7 @@
   // ---------- 首頁「⋯」選單、下方選單（語言、攀爬紀錄、個人資料、牆面、路線、岩館）：打開時多一層紀錄，返回鍵先關掉選單 ----------
   // 點外面、取消、選好了：關掉並退回這一層；接著開別的頁面或對話框的（拍照、接收分享、使用說明…）只關選單，
   // 留下的這一層之後返回時跳過。選單換選單（例如「⋯」→ 語言）共用同一層
-  const LAYERS = ['homeMenu', 'gradeSheet', 'wallSheet', 'routeSheet', 'gymSheet', 'addSheet', 'sideSheet'];
+  const LAYERS = ['homeMenu', 'gradeSheet', 'wallSheet', 'routeSheet', 'addSheet', 'sideSheet'];
   const menuLayer = () => !!(history.state && history.state.s === 'menu');
   function openLayer(id) {
     $(id).hidden = false;
@@ -14,7 +14,7 @@
   }
   function toggleHomeMenu() {
     if (!$('homeMenu').hidden) return dismissMenu();
-    const dev = deviceId(), nPaired = AppKit.nearby.paired('hold');
+    const dev = deviceId(), nPaired = AppKit.nearby.paired();
     $('hmSyncVal').textContent = nPaired ? t('syncPaired').replace('{n}', nPaired) : '';
     $('statsBtn').hidden = true;   // 沒有紀錄就不顯示
     loadTotals().then(v => {
