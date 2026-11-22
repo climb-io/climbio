@@ -9,7 +9,8 @@ const projects = [{ id: 'g1', type: 'guidebook', name: 'Yzeron', url: 'https://x
 
 test('世界檔：只放 Guidebook 與 OpenClimbing 岩場，3D 牆不進去', async () => {
   const file = JSON.parse(await buildWorldJson({ projects, fetchImpl: async () => ok, now: () => 7 }));
-  assert.deepEqual([file.v, file.t], [1, 7]);
+  const { WORLD_VERSION } = await import('../redpoint/world-data.mjs');
+  assert.deepEqual([file.v, file.t], [WORLD_VERSION, 7]);
   assert.deepEqual(file.books.map(b => b.id), ['g1']);
   assert.equal(file.oc.length, 1);
   assert.deepEqual(file.tree.map(c => c.cc).sort(), ['fr', 'tw']);

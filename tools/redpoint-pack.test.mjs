@@ -1,11 +1,14 @@
 // 合併檔（pack.json）：發佈把所有 JSON 合起來，紅點貓匯入一次讀回，請求數從「每個檔案一次」降到幾次；
 // 沒有 pack 的舊專案、pack 讀不到都照逐檔讀，結果一樣
-import { test } from 'node:test';
+import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import AppKit from '../appkit/index.mjs';
 import * as M from '../studio/crag/model.js';
 import * as P from '../studio/crag/publish.js';
+
+const realFetch = globalThis.fetch;
+afterEach(() => { globalThis.fetch = realFetch; });   // 假的 fetch 只在這個測試裡有效，不留給同一個程序裡後面的測試
 import { fromUrl, fromFiles } from '../redpoint/io.js';
 globalThis.AppKit = AppKit;
 

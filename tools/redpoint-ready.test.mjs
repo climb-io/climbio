@@ -1,9 +1,12 @@
 // 收下前的確認：ready 完成之前只讀目錄，照片等使用者按「收下」才下載；取消（ready 拒絕）就不下載
-import { test } from 'node:test';
+import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { fromUrl } from '../redpoint/io.js';
+
+const realFetch = globalThis.fetch;
+afterEach(() => { globalThis.fetch = realFetch; });   // 假的 fetch 只在這個測試裡有效，不留給同一個程序裡後面的測試
 
 globalThis.ClimbioFormat = { validate: createRequire(import.meta.url)('../format/format.js').validate };
 globalThis.location = { href: 'https://x.test/redpoint/' };

@@ -4,7 +4,7 @@
   "scripts": {
     "check": "node tools/check.mjs",
     "check:strict": "node tools/check.mjs --strict",
-    "test": "node --import ./tools/hide-windows.mjs --test --experimental-test-isolation=none tools/*.test.mjs functions/*.test.js",
+    "test": "node --import ./tools/hide-windows.mjs --import ./tools/test-locale.mjs --test --test-timeout=120000 --experimental-test-isolation=none tools/*.test.mjs functions/*.test.js",
     "test:e2e": "playwright test",
     "test:smoke": "playwright test --project=android-chromium routekit.spec.mjs backend-none.spec.mjs mobile.spec.mjs --grep \"RouteViewer|沒有後端|一般牆面可存入\"",
     "test:boot": "playwright test --project=android-chromium boot-smoke.spec.mjs",

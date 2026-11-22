@@ -35,7 +35,7 @@ const watched = (cmd, argv) => new Promise((done) => {
   child.on('close', (code, sig) => { clearInterval(dog); done(code ?? (sig ? 1 : 0)); });
 });
 if (unit.length) {
-  const code = await watched(process.execPath, ['--import', './tools/hide-windows.mjs', '--test', '--test-timeout=120000', '--test-force-exit', ...shared, ...unit]);
+  const code = await watched(process.execPath, ['--import', './tools/hide-windows.mjs', '--import', './tools/test-locale.mjs', '--test', '--test-timeout=120000', '--test-force-exit', ...shared, ...unit]);
   if (code !== 0) process.exit(code);
 }
 if (e2e && cases.length) {
