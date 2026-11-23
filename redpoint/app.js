@@ -2421,7 +2421,8 @@ face($('rpHomeAvatar'), null);
 install = globalThis.AppKit.install.track({ dismissedKey: 'redpoint.installDismissedAt', installedKey: 'redpoint.installed', onChange: renderInstallHint });
 renderInstallHint();
 // 帳號恢復不擋本機首頁與分享連結；網路慢時仍能先看已存的 Topo。
-prefetchWorld();   // 開機就抓 OpenClimbing 與 Guidebook，合成三層樹（不擋首頁與開機檢查）
+// 開機就抓 OpenClimbing 與 Guidebook，合成三層樹（不擋首頁與開機檢查）；點連結進來時先讓出頻寬給要收的內容，收完（或收不到）再抓
+if (new URLSearchParams(location.search).get('topo')) setTimeout(prefetchWorld, 6000); else prefetchWorld();
 await ensureHome();
 // 深層連結：?topo= 直接收路線／Guidebook；?world=1 直接打開世界。
 // 保留原本的普通 /redpoint/ 首頁；世界是 App 內的一頁，返回仍回到首頁。

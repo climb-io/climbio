@@ -260,9 +260,10 @@ function createFileHandler({ db, hosts = [], previewPage = null, readJson: read 
     const doc = await docOf(id);
     if (!doc || !['guidebook', 'wall3d'].includes(doc.type)) return res.set('Cache-Control', CACHE_CONTROL).status(404).type('text/plain').send('not found');
     const at = String(req.query?.at ?? ''), base = baseOf(doc), icon = { url: `${origin}/icons/cats/${doc.type === 'guidebook' ? 'redpoint' : 'hold'}-cat-512.png` };
-    let target, meta;
+    let target, meta, set = null;
     if (doc.type === 'guidebook') {
-      const set = await read(base + ENTRY), item = /^[0-9a-z]{1,40}$/.test(at) && set && (set.items || []).find(i => i.id === at);
+      set = await read(base + ENTRY);
+      const item = /^[0-9a-z]{1,40}$/.test(at) && set && (set.items || []).find(i => i.id === at);
       const view = item && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(item.href || '') ? await read(base + item.href) : null;
       target = `${origin}/redpoint/?topo=${encodeURIComponent(base + ENTRY)}${/^[0-9a-z]{1,40}$/.test(at) ? `&at=${at}` : ''}`;
       meta = cragPreview({ name: doc.name, set, view });
@@ -273,7 +274,7 @@ function createFileHandler({ db, hosts = [], previewPage = null, readJson: read 
     }
     const image = { url: doc.files.has(PREVIEW) ? base + PREVIEW : doc.files.has(THUMB) ? base + THUMB : icon.url };
     return res.set('Cache-Control', REVALIDATE).status(200).type('html')
-      .send(previewPage({ url: `${origin}/p/${id}${at ? `?at=${encodeURIComponent(at)}` : ''}`, target, ...meta, image, line: true }));
+      .send(previewPage({ url: `${origin}/p/${id}${at ? `?at=${encodeURIComponent(at)}` : ''}`, target, ...meta, image, line: true, handoff: doc.type === 'guidebook' && set && JSON.stringify(set).length < 300e3 ? { url: base + ENTRY, doc: set } : null, files: doc.type === 'guidebook' ? [base + ENTRY] : [] }));   // 岩場：預覽頁讀到的入口直接交給 App（太大或讀不到就轉進前先開始下載）
   }
   return async (req, res) => {
     res.set('Access-Control-Allow-Origin', '*');

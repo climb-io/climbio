@@ -5,6 +5,10 @@
 set -e
 cd "$(dirname "$0")"
 site=${1:-climbio}
+# Windows 的 python3 常是 WindowsApps 的別名：它開的子行程看不到真的 AppData\Local（Playwright 的瀏覽器在那裡），社群分享圖畫不出來；有 py 啟動器就用它
+PY=python3
+command -v py >/dev/null 2>&1 && PY="py -3"
+export PYTHONIOENCODING=utf-8   # 工具會印中文；Windows 主控台預設 cp1252 會直接出錯
 case "$site" in climbio|climbio-dev|climbio-eric) ;; *) echo "不認得的網站：$site（climbio、climbio-dev 或 climbio-eric）" >&2; exit 1 ;; esac
 rm -rf dist
 mkdir -p dist
@@ -36,15 +40,17 @@ done
 git archive --format=zip --prefix=redpoint-collect/ -o dist/redpoint-collect/redpoint-collect.zip HEAD:extension
 # 測試站在打包階段產生有 DEV 標籤的獨立 App 圖示與安裝名稱；正式站不碰正式資產。
 if [ "$site" != "climbio" ]; then
-  python3 tools/dev-app-icons.py dist
+  $PY tools/dev-app-icons.py dist
 fi
 # 社群分享首頁橫幅：用已公開的真實岩場照片與官方 Logo 產生 1200×630 JPEG。
-python3 tools/social-cover.py dist
+$PY tools/social-cover.py dist
 [ -s dist/social/climbio-home.jpg ] || { echo "社群分享圖產生失敗" >&2; exit 1; }
+[ -s dist/social/climbio-home-warm.jpg ] || { echo "繁中首頁分享圖缺少" >&2; exit 1; }
 # 測試站自己的網址被分享時，社群爬蟲也要拿到測試站的封面（正式 canonical 不變）。
 if [ "$site" != "climbio" ]; then
   for f in dist/index.html dist/zh-cn/index.html dist/en/index.html dist/ja/index.html dist/ko/index.html dist/de/index.html dist/es/index.html dist/fr/index.html; do
     sed -i.bak "s@https://climbio.app/social/climbio-home.jpg@https://$site.web.app/social/climbio-home.jpg@g" "$f"
+    sed -i.bak "s@https://climbio.app/social/climbio-home-warm.jpg@https://$site.web.app/social/climbio-home-warm.jpg@g" "$f"
     rm -f "$f.bak"
   done
 fi

@@ -242,6 +242,47 @@
     return out;
   }
 
-  const api = { mk, count, fillPoly, polyMask, components, keepBiggest, fillHoles, cleanMask, erode, dilate, open, close, despike, trimSpikes, contour, approxPoly, maskToPoly, simplifyPoly, polyOp, validPoly, repair, dupPairs, area };
+  // ---- 手動修正（同岩點貓 js/draw.js 的 despike、lassoOutline）----
+  // 外框上的細尖：往外伸出去又折回來（或往內切進去）的一小段——根部寬度不到這段長度的 1/6、整段很薄、不到整顆的 8%——剪掉，
+  // 多半是沿著縫隙、陰影多描了一條，或拖頂點時旁邊的頂點留在外面拉成一根針；20° 以上的尖角和有寬度的凸塊不動。keep：不能剪的頂點（剛拖的那個）
+  function trimPolySpikes(poly, keep = -1) {
+    const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]), kept = keep >= 0 ? poly[keep] : null;
+    let p = poly;
+    for (let pass = 0; pass < 12; pass++) {
+      const n = p.length, whole = Math.abs(area(p));
+      let cut = null;
+      for (let i = 0; i < n && !cut; i++) for (let k = 1; k <= 3 && n - k >= 4 && !cut; k++) {
+        const seg = Array.from({ length: k + 2 }, (_, j) => p[(i + j) % n]), a = seg[0], b = seg[k + 1];
+        if (kept && seg.slice(1, -1).includes(kept)) continue;
+        let L = 0; for (let j = 0; j <= k; j++) L += d(seg[j], seg[j + 1]);
+        const c = d(a, b), sa = Math.abs(area(seg));
+        if (c * 6 <= L && sa <= c * L / 2 && sa < whole * 0.08) cut = new Set(Array.from({ length: k }, (_, j) => (i + 1 + j) % n));
+      }
+      if (!cut) break;
+      p = p.filter((_, i) => !cut.has(i));
+    }
+    return p;
+  }
+  // 圈起來：手畫的圈變成外框。去掉繞過起點多畫的那一段，前後各 2 點平均掉手抖，再省掉偏差不到 px（螢幕上約 1 px）的點
+  function lassoOutline(pts, px) {
+    const d0 = p => Math.hypot(p[0] - pts[0][0], p[1] - pts[0][1]), far = Math.max(...pts.map(d0));
+    let end = pts.length, near = Infinity;
+    for (let i = pts.length >> 1; i < pts.length; i++) if (d0(pts[i]) < near) { near = d0(pts[i]); end = i + 1; }
+    const raw = near < far * 0.25 ? pts.slice(0, end) : pts, n = raw.length;
+    if (n < 5) return raw;
+    const avg = raw.map((_, i) => [0, 1, 2, 3, 4].reduce((s, k) => { const q = raw[(i + k - 2 + n) % n]; return [s[0] + q[0] / 5, s[1] + q[1] / 5]; }, [0, 0]));
+    const seg = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy, t = L ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L)) : 0; return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
+    const dp = list => {
+      let worst = 0, at = 0;
+      for (let i = 1; i < list.length - 1; i++) { const dd = seg(list[i], list[0], list[list.length - 1]); if (dd > worst) { worst = dd; at = i; } }
+      return worst <= px ? [list[0], list[list.length - 1]] : [...dp(list.slice(0, at + 1)).slice(0, -1), ...dp(list.slice(at))];
+    };
+    let opp = 0;
+    avg.forEach((p, i) => { if (Math.hypot(p[0] - avg[0][0], p[1] - avg[0][1]) > Math.hypot(avg[opp][0] - avg[0][0], avg[opp][1] - avg[0][1])) opp = i; });
+    const out = [...dp(avg.slice(0, opp + 1)).slice(0, -1), ...dp([...avg.slice(opp), avg[0]]).slice(0, -1)];
+    return out.map(p => [+p[0].toFixed(1), +p[1].toFixed(1)]);
+  }
+
+  const api = { mk, count, fillPoly, polyMask, components, keepBiggest, fillHoles, cleanMask, erode, dilate, open, close, despike, trimSpikes, contour, approxPoly, maskToPoly, simplifyPoly, polyOp, validPoly, repair, dupPairs, area, trimPolySpikes, lassoOutline };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.RefineGeo = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

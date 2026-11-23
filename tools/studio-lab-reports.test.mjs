@@ -67,7 +67,7 @@ test('3D 牆的工作資料夾：每顆要發佈的岩點都要 AI 看過才問�
     writeFileSync(join(look, 'h4.jpg'), 'jpg');
     assert.throws(() => review([{ n: 4, v: 'unsure', note: '看不準' }]), /keep、off、reshape、retake/);   // 看不準也要自己判斷
     assert.throws(() => review([{ n: 4, v: 'retake' }]), /retake 要寫 note/);
-    review([{ n: 1, v: 'keep' }, { n: 2, v: 'off' }, { n: 3, v: 'reshape', poly: [[0, 0], [128, 0], [128, 256]] }, { n: 4, v: 'retake', note: '左下角照片太糊' }]);
+    review([{ n: 1, v: 'keep' }, { n: 2, v: 'off', why: '貼紙' }, { n: 3, v: 'reshape', poly: [[0, 0], [128, 0], [128, 256]] }, { n: 4, v: 'retake', note: '左下角照片太糊' }]);
     const w = wall();
     assert.equal(w.holds[1].off, 1);
     assert.deepEqual(w.edits, [{ id: 'h3', m3: { c: cam, p: [[0, 0], [0.5, 0], [0.5, 1]], a: 1 } }]);

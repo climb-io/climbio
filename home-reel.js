@@ -1,4 +1,5 @@
 // 八語首頁共用，點擊或左滑前進，右滑回上一幕，方向鍵也可換幕。
+if (/[?&]still\b/.test(location.search)) document.documentElement.classList.add('still'); // 截圖用：關掉轉場
 (() => {
   const frames = [...document.querySelectorAll('.reel-frame')];
   const reel = document.querySelector('.reel');
@@ -10,6 +11,7 @@
   const apps = finale.querySelector('#apps');
   const shortcut = reel.querySelector('.reel-shortcut');
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
+  const folio = reel.querySelector('.reel-folio');
   const aliases = {
     hold: 'hold-private', 'hold-climb': 'hold-private', 'hold-share': 'friend-exchange',
     'hold-community-set': 'hold-public', 'hold-community-view': 'hold-public',
@@ -41,7 +43,7 @@
       if (motion.matches) advance();
       else timer = setTimeout(advance, 2400);
     } else if (playing) {
-      timer = setTimeout(advance, 5500);
+      timer = setTimeout(advance, 6500);
     }
   }
 
@@ -56,6 +58,7 @@
       if (active) frame.removeAttribute('aria-hidden');
       else frame.setAttribute('aria-hidden', 'true');
     }
+    if (folio) folio.textContent = `${current + 1}／${frames.length}`;
     frames.slice(current, current + 2).forEach(frame => {
       frame.querySelector('.reel-photo').loading = 'eager';
     });

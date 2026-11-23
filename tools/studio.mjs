@@ -67,6 +67,7 @@ import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { SYNC_URL, studioAuth } from './studio-auth.mjs';
+import { DELETE_REASONS, HOLD_RULES } from './hold-rubric.mjs';
 import { applyPatch as applyWall3dPatch } from '../studio/wall3d/patch.js';
 import { WORK_DIR, HUMAN_ONLY, questionsFromReport, publishQuestion, approval, refresh, isOpen, waitingFor, decide, stateOf, summary, merge, recordId, pendingPatches, hash } from '../studio/work/ledger.js';
 import { reasonText } from '../studio/crag/report.js';
@@ -628,6 +629,11 @@ async function publish(dir) {
   if (index.type !== 'walls') fail(`${root} 不是牆的分享包（index.json 的 type 是 ${index.type}）；岩場用 node tools/guidebook.mjs publish，3D 用 Studio 發佈`);
   const ok = approvedOrFail(P);
   const names = readdirSync(root).filter(n => WALL_FILE.test(n));
+  // 代理流程（tools/wall-batch.mjs，包在 <牆>/pack、旁邊有 run.json）做的牆：一定要帶 verify 寫的研究記錄，開放資料集才有完整的過程
+  if (existsSync(join(root, '..', 'run.json'))) for (const v of names.filter(n => /^[0-9a-z]{8,40}\.json$/.test(n)).map(n => readJson(join(root, n), null)).filter(d => d?.surface === 'photo')) {
+    const rec = readJson(join(root, `${v.id}.edits.json`), null);
+    if (!rec?.ai?.verified) fail(`${v.id} 沒有代理流程的研究記錄（${v.id}.edits.json 的 ai）：先跑 node tools/wall-batch.mjs verify <工作資料夾>，通過才會寫出來`);
+  }
   const docs = names.filter(n => n.endsWith('.json') && n !== 'index.json').map(n => readJson(join(root, n)));
   const gym = docs.map(d => d?.props?.gym).find(g => typeof g === 'string' && g) || '';
   if (!gym) fail('牆的畫面沒有岩館名稱（props.gym）：公開牆一定要有岩館名稱，補上再發佈');
@@ -737,8 +743,9 @@ async function look3d(P) {
   if (glow) console.log(`光暈的標準：光暈要剛好包住這一顆整顆岩點、外圈平順。光暈溢到牆面或別顆、只亮一部分、亮到的不是岩點、中間挖洞或缺一塊、形狀怪（尖角、碎片、條紋）都不算過：不是岩點 off，範圍不對 reshape（poly 是右半張的像素 0～${shotSize}，沿岩點邊緣描）`);
   for (const f of sheets) console.log(`  ${f}`);
   if (empty) console.log(`${empty} 顆在模型上沒有範圍（看不到，沒有圖）：判斷 off`);
-  console.log(`逐張看完，每顆都要有判斷，寫成 JSON 陣列 [{ "n": 編號, "v": "keep|off|reshape|retake", "poly": [[x,y]…], "note": "…" }]，跑 node tools/studio.mjs review3d ${P.dir} <判斷.json>`);
-  console.log('標準跟人在 Studio 逐顆修一樣，從嚴：右半張的邊線要貼著岩點邊緣。膠帶、貼紙、商標、螺絲孔、陰影、牆板碎片、同一顆被拆開的碎塊 off；邊線偏移、溢到牆面或別顆、只圍到一部分、凹處被填滿的 reshape（poly 是右半張的像素 0～256，沿岩點邊緣描）。看不準也要自己判斷（不交給人）；只有這一區的照片明顯不夠、糊到認不出才 retake，note 寫哪裡不夠');
+  console.log(`逐張看完，每顆都要有判斷，寫成 JSON 陣列 [{ "n": 編號, "v": "keep|off|reshape|retake", "why": "off 的理由", "poly": [[x,y]…], "note": "…" }]，跑 node tools/studio.mjs review3d ${P.dir} <判斷.json>`);
+  console.log(`判斷準則（跟岩館牆共用，tools/hold-rubric.mjs）：\n${HOLD_RULES.map((r, i) => `${i + 1} ${r}`).join('\n')}`);
+  console.log(`off（不是岩點）一定要寫 why：${DELETE_REASONS.join('、')} 其中一個（模型上看不到的寫「看不到」）；說不出就 keep。右半張的邊線要貼著岩點邊緣：邊線偏移、溢到牆面或別顆、只圍到一部分、凹處被填滿的 reshape（poly 是右半張的像素 0～256，沿岩點邊緣描）。看不準也要自己判斷（不交給人）；只有這一區的照片明顯不夠、糊到認不出才 retake，note 寫哪裡不夠`);
 }
 
 /** AI 檢查的前兩階段出圖：model（模型完整、切口直、不貼岩點）、path（沿牆鏡頭由右走到左，每面牆的下半部看得清楚）。圖在 .studio/work/check/，看完 answer 那一題 */
@@ -807,6 +814,7 @@ function review3d(P, file) {
     if (!id || !shot) { errs.push(`找不到 ${x.id || `#${x.n}`}（要是這次 look3d 出圖的岩點）`); continue; }
     if (!exported.has(id)) { errs.push(`${id} 已經不在要發佈的岩點裡`); continue; }
     if (x.v === 'off') {
+      if (!(DELETE_REASONS.includes(x.why) || (shot.empty && x.why === '看不到'))) { errs.push(`${id}：off 要寫 why（${DELETE_REASONS.join('／')}${shot.empty ? '／看不到' : ''}）；說不出是哪一種就是岩點，答 keep`); continue; }
       const h = doc.holds.find(h => h.id === id);
       if (h) h.off = 1;   // 原本的岩點標 off；修過的外框也拿掉（不然還會從別顆搶走面，例如量體的碎塊重描成整顆，拿掉後量體挖一個洞）
       doc.edits = (doc.edits || []).filter(e => e.id !== id);   // 補畫的直接拿掉
@@ -821,7 +829,7 @@ function review3d(P, file) {
       if (!shot.empty) { mkdirSync(join(P.dir, '.studio', 'evidence'), { recursive: true }); copyFileSync(join(P.work, 'look', `${id}.jpg`), join(P.dir, '.studio', 'evidence', `${id}.jpg`)); }
     } else if (x.v !== 'keep') { errs.push(`${id}：v 要是 keep、off、reshape、retake（AI 自己判斷到底；只有照片明顯不夠才 retake）`); continue; }
     const re = (review.holds[id]?.re || 0) + (x.v === 'reshape' ? 1 : 0);
-    review.holds[id] = { v: x.v, by, at, sig: Wall3dReview.sig(doc, id), ...(x.note ? { note: x.note } : {}), ...(re ? { re } : {}) };
+    review.holds[id] = { v: x.v, by, at, sig: Wall3dReview.sig(doc, id), ...(x.v === 'off' ? { why: x.why } : {}), ...(x.note ? { note: x.note } : {}), ...(re ? { re } : {}) };
     count[x.v] = (count[x.v] || 0) + 1;
   }
   if (errs.length) fail(`判斷有問題，全部沒有寫入：\n${errs.join('\n')}`);

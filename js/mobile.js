@@ -435,7 +435,8 @@
   // Android 交給系統（裝了 App 就開 App，不然是預設瀏覽器）；iPhone 沒辦法自動跳，先提示改用 Safari 開啟。兩種都照常在這裡收線
   function leaveInApp(href) {
     if (!inApp) return Promise.resolve();
-    if (isAndroid) { location.href = inst.intentUrl(href); return Promise.resolve(); }
+    // 頁面載完才交給系統：載入途中換頁會打斷 load（收線比首頁更早開始，這裡可能在載入中被呼叫）
+    if (isAndroid) return new Promise((res) => { const go = () => { location.href = inst.intentUrl(href); res(); }; if (document.readyState === 'complete') go(); else addEventListener('load', go, { once: true }); });
     return isIos ? showAlert(t('inAppRecvIos')) : Promise.resolve();
   }
   const PCLAND = document.documentElement.classList.contains('pcland');   // 電腦：只有介紹頁＋連結卡（index.html 開頭判斷）

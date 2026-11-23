@@ -229,8 +229,10 @@ test('固定分享網址的預覽內容：岩場有路線數，分享 Topo 時�
   const { get } = fileSetup({ hosts: HOSTS, previewPage, readJson });
   const crag = JSON.parse((await get(`/p/${GID}`)).body), topo = JSON.parse((await get(`/p/${GID}?at=photo0000000001`)).body);
   assert.deepEqual([crag.description, topo.title, topo.description], ['龍洞・2 條路線・紅點貓 Topo', '騙人的牆', '熱海岩場・2 條路線・紅點貓 Topo']);
+  assert.deepEqual([crag.handoff.doc.name, crag.handoff.url.endsWith('/index.json')], [set.name, true], '預覽頁讀到的入口直接交給 App');
   const bare = JSON.parse((await fileSetup({ hosts: HOSTS, previewPage, readJson: async () => null }).get(`/p/${GID}`)).body);
   assert.equal(bare.description, '紅點貓 Topo');
+  assert.equal(bare.handoff, null, '讀不到入口就不交接');
 });
 
 test('世界的清單：同一本書最新的一版排第一（就算舊的下載比較多），舊的放 others', async () => {

@@ -8,6 +8,11 @@
   const HF = 'https://huggingface.co/onnx-community/sam2.1-hiera-base-plus-ONNX/resolve/main/onnx/';
   const ENC = 'vision_encoder';   // fp32；fp16 的 WebGPU 特徵有 5% 誤差，沒量過對外框的影響，先用 fp32
   const SIDE = 1024, POOL_MAX = 6, STEP = 256;
+  // 有些顯示卡（例如 Windows 的 Intel 內顯）用 WebGPU 建模型、第一次編碼會一直卡住、不報錯：等太久就當成跑不動，改用 WASM
+  // 卡住的 WebGPU 模型還佔著 onnxruntime，同一頁不能再建 WASM 的（Session already started）：記住這台不用 WebGPU，請人重新整理
+  const GPU_WAIT = 90000, NO_GPU = 'climbio.sam.noGpu';
+  const stuck = () => { try { localStorage.setItem(NO_GPU, '1'); } catch (e) { /* 存不了就下次再等一次 */ } const e = new Error(T('hlSamGpuStuck')); e.stuck = true; return e; };
+  const slow = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(stuck()), ms))]);
   const MEAN = [0.485, 0.456, 0.406], STD = [0.229, 0.224, 0.225];
   let enc = null, decS = null, decM = null, ep = '', photo = null, toWasm = null;   // toWasm：WebGPU 跑不動時改建 WASM 的編碼器   // photo：目前這次推論用的照片 { key, w, h, ctx（整張照片的畫布）}
   // 可以同時放幾張照片（編輯器的 edit、背景整批的 batch），推論時才切換；編碼結果用「照片＋視窗」當鍵
@@ -54,14 +59,14 @@
   async function load(progress = () => {}) {
     if (enc) return ep;
     await loadOrt();
-    let gpu = false; try { gpu = !!(navigator.gpu && await navigator.gpu.requestAdapter()); } catch (e) { gpu = false; }
+    let gpu = false; try { gpu = localStorage.getItem(NO_GPU) !== '1' && !!(navigator.gpu && await navigator.gpu.requestAdapter()); } catch (e) { gpu = false; }
     ort.env.wasm.numThreads = Math.min(4, navigator.hardwareConcurrency || 1);
     const [m, d] = await Promise.all([cached(`${HF}${ENC}.onnx`), cached(`${HF}${ENC}.onnx_data`, (a, t) => progress(T('hlSamDownload'), t ? a / t : 0))]);
     progress(T('hlSamLoading'), 1);
     const make = p => ort.InferenceSession.create(m, { executionProviders: [p], externalData: [{ path: `${ENC}.onnx_data`, data: d }] });
     ep = gpu ? 'webgpu' : 'wasm';
     toWasm = async e => { console.warn('WebGPU 跑不動，改用 WASM：', e.message); ep = 'wasm'; toWasm = null; enc = await make(ep); };
-    try { enc = await make(ep); } catch (e) { if (!gpu) throw e; await toWasm(e); }
+    try { enc = gpu ? await slow(make(ep), GPU_WAIT) : await make(ep); } catch (e) { if (!gpu || e.stuck) { if (e.stuck) toWasm = null; throw e; } await toWasm(e); }
     const dec = async f => ort.InferenceSession.create(await (await fetch(`models/${f}`)).arrayBuffer(), { executionProviders: ['wasm'] });
     [decS, decM] = await Promise.all([dec('decoder_single.onnx'), dec('decoder_multi.onnx')]);
     return ep;
@@ -94,7 +99,7 @@
     const px = cx.getImageData(0, 0, SIDE, SIDE).data, x = new Float32Array(3 * SIDE * SIDE), n = SIDE * SIDE;
     for (let i = 0; i < n; i++) for (let k = 0; k < 3; k++) x[k * n + i] = (px[i * 4 + k] / 255 - MEAN[k]) / STD[k];
     const feed = () => enc.run({ pixel_values: new ort.Tensor('float32', x, [1, 3, SIDE, SIDE]) });
-    let o; try { o = await feed(); } catch (e) { if (ep !== 'webgpu' || !toWasm) throw e; await toWasm(e); o = await feed(); }
+    let o; try { o = await (ep === 'webgpu' && toWasm ? slow(feed(), GPU_WAIT) : feed()); } catch (e) { if (ep !== 'webgpu' || !toWasm || e.stuck) throw e; await toWasm(e); o = await feed(); }
     toWasm = null;   // 跑過一次就不用再留著模型的位元組（300 MB）
     const v = { win, s, f: [o['image_embeddings.0'], o['image_embeddings.1'], o['image_embeddings.2']] };
     pool.set(key, v);
@@ -218,7 +223,7 @@
   // 整面牆重描要編碼幾個視窗（每個約 2.3 秒 WebGPU、5.5 秒 WASM），事先估時間用
   async function estimate(boxes, w, h) {
     const wins = new Set(boxes.map(b => windowAt([(b[0] + b[2]) / 2, (b[1] + b[3]) / 2], sizeFor(b), { w, h }).join(','))).size;
-    let gpu = false; try { gpu = !!(navigator.gpu && await navigator.gpu.requestAdapter()); } catch (e) { gpu = false; }
+    let gpu = false; try { gpu = localStorage.getItem(NO_GPU) !== '1' && !!(navigator.gpu && await navigator.gpu.requestAdapter()); } catch (e) { gpu = false; }
     return { windows: wins, seconds: wins * (gpu ? 2.3 : 5.5), gpu };
   }
   // 模型（編碼器）下載過了沒

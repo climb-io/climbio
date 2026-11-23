@@ -73,7 +73,7 @@ export function photosOf(state, wallId) {
 export function addWall(state, name) {
   const names = new Set(walls(state).map(w => text(w.name)));
   let n = walls(state).length + 1;
-  while (names.has(T('cdWallN', n))) n++;
+  while (names.has(T('cdWallN', n)) && n < 10000) n++;   // 上限：語言包沒載入時文字不隨 n 變，不然會無限迴圈
   const crag = cragOf(state);   // 有岩場節點（轉換、匯入的書）就放在岩場底下，不然路線清單會多出一個大區域
   const wall = { id: newId(), type: 'wall', name: name || T('cdWallN', n), ...(crag ? { parent: crag.id } : {}) };
   state.book.nodes.push(wall);

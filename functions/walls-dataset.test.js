@@ -56,7 +56,7 @@ test('發佈：不登入，寫進 walls/<id>/v1/ 與根目錄的 walls.jsonl；F
   assert.deepEqual([idx.owner, idx.type, idx.name, idx.version, idx.latest, idx.at], ['', 'walls', '測試牆', 1, 1, 2e12]);
   const row = JSON.parse(store.text);
   assert.deepEqual([row.id, row.gym, row.dir, row.w, row.h, row.holds, row.photoBytes, row.license], [WID, '測試館', `walls/${WID}/v1/`, 640, 480, 2, 7, 'CC-BY-SA-4.0']);
-  assert.deepEqual(row.edits, { reviewed: true, deleted: 1, added: 2, reshaped: 0, flagged: 2 });
+  assert.deepEqual(row.edits, { reviewed: true, by: 'human', deleted: 1, added: 2, reshaped: 0, flagged: 2 });   // Studio 人按「逐顆檢查完了」
 });
 
 test('發佈新版本後重算岩館清單（用到這個包的牆）；重算失敗不影響發佈', async () => {

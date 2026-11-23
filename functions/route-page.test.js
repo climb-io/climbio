@@ -13,14 +13,14 @@ test('只認 /r/{牆 id}/{路線 id}（結尾斜線可有可無），後面可�
 // 假的 Firestore：shared/{pid}、wallRoutes/{pid}
 const snap = (d) => ({ exists: !!d, data: () => d, get: (k) => d && d[k] });
 const frag = JSON.stringify({ nodes: [{ id: 'h1', type: 'hold' }, { id: 'r1', type: 'route', name: '白白白', t: 5, props: { holds: { h1: 's' } } }], marks: [{ node: 'h1', geometry: { type: 'Polygon', coordinates: [[[0, 0], [4, 0], [4, 4], [0, 0]]] } }, { node: 'r1', geometry: { type: 'Point', coordinates: [1, 1] } }] });
-const docs = { 'shared/abcdefgh1234': { owner: 'u1', src: { project: 'wallproject00001', path: 'abcdefgh1234.json' } }, 'wallRoutes/abcdefgh1234': { routes: { r1: { uid: 'u1', t: 5, r: frag } } } };
+const docs = { 'shared/abcdefgh1234': { owner: 'u1', src: { project: 'wallproject00001', path: 'abcdefgh1234.json' } }, 'gymWalls/abcdefgh1234': { gym: 'g', name: 'w', hf: 'walls/wallproject00001/v2/' }, 'wallRoutes/abcdefgh1234': { routes: { r1: { uid: 'u1', t: 5, r: frag } } } };
 const db = { collection: (name) => ({ doc: (id) => ({ get: async () => snap(docs[`${name}/${id}`]) }) }) };
 const args = { origin: 'https://climbio.web.app', pid: 'abcdefgh1234', rid: 'r1' };
 
 test('route.json：這條路線疊在牆上的圖層，href 指到牆；沒有這條回 null', async () => {
   const d = await routeData({ db, ...args });
   assert.deepEqual(validate(d), []);
-  assert.deepEqual([d.kind, d.on, d.href, d.nodes.map(n => n.id)], ['layer', 'abcdefgh1234', 'https://climbio.web.app/p/wallproject00001/abcdefgh1234.json', ['h1', 'r1']]);
+  assert.deepEqual([d.kind, d.on, d.href, d.nodes.map(n => n.id)], ['layer', 'abcdefgh1234', 'https://huggingface.co/datasets/climbio/walls/resolve/main/walls/wallproject00001/v2/abcdefgh1234.json', ['h1', 'r1']]);
   assert.equal(await routeData({ db, ...args, rid: 'r9' }), null);
 });
 
@@ -29,6 +29,7 @@ test('頁面：標題、說明跳脫 HTML，轉進 App 收這條線', () => {
     image: { url: 'https://x/y.jpg', width: 1200, height: 630 } });
   assert.match(html, /og:title" content="&lt;b&gt;&quot;V5&quot;&lt;\/b&gt;"/);
   assert.match(html, /og:description" content="a&amp;b"/);
+  assert.ok(html.includes('<h1>&lt;b&gt;&quot;V5&quot;&lt;/b&gt;</h1><p>a&amp;b</p>'), '轉進 App 前先畫出標題與預留版面（同源換頁會留著舊頁到 App 畫出來）');
   assert.match(html, /location\.replace\("https:\/\/climbio\.web\.app\/\?p=abcdefgh1234&r=r1"\)/);
   assert.match(html, /summary_large_image/);
   assert.doesNotMatch(html, /http-equiv="refresh"/);   // Facebook 的爬蟲會跟著 meta refresh 走，拿不到預覽圖
@@ -38,7 +39,8 @@ test('頁面：標題、說明跳脫 HTML，轉進 App 收這條線', () => {
 });
 
 test('連結預覽頁：標題是路線的名稱，圖是岩點貓；沒有這條線用預設標題', async () => {
-  const handler = createPageHandler({ db, hosts: ['climbio.web.app'] });
+  const noWall = { collection: (name) => ({ doc: (id) => ({ get: async () => snap(name === 'gymWalls' ? undefined : docs[`${name}/${id}`]) }) }) };   // 牆沒登記在清單：預覽用預設圖
+  const handler = createPageHandler({ db: noWall, hosts: ['climbio.web.app'] });
   const get = (path) => new Promise(resolve => { const res = { headers: {}, set(k, v) { this.headers[k] = v; return this; }, status() { return this; }, send(b) { resolve(b); }, redirect(c, u) { resolve(u); } }; handler({ path, get: k => (k === 'host' ? 'climbio.web.app' : undefined) }, res); });
   const ok = await get('/r/abcdefgh1234/r1/');
   assert.match(ok, /og:title" content="白白白"/);
@@ -74,4 +76,14 @@ test('牆的連結 /r/{牆 id}/：預覽頁有牆名、岩館、路線數、縮�
   assert.ok(html.includes('walls/wallproject00001/v1/abcdefgh1234.thumb.jpg'));
   assert.ok(html.includes('https://climbio.web.app/hold/?wall=wallproject00001/abcdefgh1234.json'));
   assert.equal(await get('/r/zzzzzzzz9999/'), 'https://climbio.web.app/');
+});
+
+test('頁面：查到路線圖層就交給 App（sessionStorage），不再另外預先下載 route.json；</script> 不會斷開', () => {
+  const layer = { kind: 'layer', nodes: [{ id: 'r1', name: '</script><b>' }] };
+  const html = page({ origin: 'https://climbio.web.app', pid: 'abcdefgh1234', rid: 'r1', title: 't', description: 'd', image: { url: 'https://x/y.jpg' },
+    handoff: { url: 'https://climbio.web.app/r/abcdefgh1234/r1/route.json', doc: layer } });
+  assert.doesNotMatch(html, /keepalive/);
+  assert.equal(html.split('</script>').length, 2);
+  const m = /setItem\('climbio\.handoff',(".*?")\)\}catch/.exec(html);
+  assert.deepEqual(JSON.parse(JSON.parse(m[1].replace(/\u003c/g, '<'))).doc, layer);
 });

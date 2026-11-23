@@ -46,7 +46,7 @@ async function gymData({ db, gym, origin }) {
 // 岩點貓公開牆的線（wallRoutes，見 walls.js）：每條存的是圖層的片段 { nodes, marks }，併起來就是一個圖層；
 // 牆的畫面（照片、岩點）在擁有者發佈的包裡（/p/{專案}/{牆 id}.json），Climbio 不收照片，所以圖層的 href 指到那裡。沒有（不是這種牆、那條線不在）回 null
 async function wallRoutesLayer({ db, origin, pid, rid }) {
-  const [doc, w] = await Promise.all([db.collection('shared').doc(pid).get(), db.collection('wallRoutes').doc(pid).get()]);
+  const [doc, w, g] = await Promise.all([db.collection('shared').doc(pid).get(), db.collection('wallRoutes').doc(pid).get(), db.collection('gymWalls').doc(pid).get()]);
   if (!doc.exists || !doc.get('src') || !w.exists) return null;
   const all = Object.entries(w.get('routes') || {}).map(([id, x]) => ({ id, t: x.t || 0, f: JSON.parse(x.r) }));
   const items = rid ? all.filter(x => x.id === rid) : all.sort((a, b) => b.t - a.t).slice(0, MAX_ROUTES);
@@ -56,9 +56,16 @@ async function wallRoutesLayer({ db, origin, pid, rid }) {
     for (const n of f.nodes || []) if (!nodes.has(n.id)) nodes.set(n.id, n);
     marks.push(...(f.marks || []));
   }
-  const src = doc.get('src');   // 3D 牆的畫面是模型包的入口 index.json，公開牆是 {牆 id}.json
-  return { climbio: 2, kind: 'layer', id: fixedId(origin, pid, rid), on: pid, href: `${origin}/p/${src.project}/${src.path === 'index.json' ? 'index.json' : `${pid}.json`}`, t: Math.max(0, ...items.map(x => Number(x.f.nodes && (x.f.nodes.find(n => n.id === x.id) || {}).t) || 0)),
-    license: 'CC-BY-SA-4.0', nodes: [...nodes.values()], marks };
+  // 沒登記在岩館牆面清單（gymWalls）的牆已經收回或過期，不是公開牆
+  const hf = g.exists && g.get('hf');
+  if (!hf) return null;
+  const src = doc.get('src'), plain = src.path !== 'index.json', base = g.get('m3d') ? hfBase({ repo: g.get('repo') }) : HF_BASE;   // 3D 牆的畫面是模型包的入口 index.json，公開牆是 {牆 id}.json
+  // 牆的畫面、縮圖、照片都直接指到資料集（不經 /p/ 函式再轉址）；縮圖、照片的位置也寫在圖層，收線的人不用等讀完牆的畫面才知道。3D 牆沒有照片
+  // 讀的人拿到牆的畫面後會核對照片網址，對不上就照畫面的 href 重讀
+  const props = { ...(g.get('gym') ? { gym: String(g.get('gym')) } : {}), ...(plain ? { thumb: `${base}${hf}${pid}.thumb.jpg`, photo: `${base}${hf}${pid}.jpg` } : {}) };
+  return { climbio: 2, kind: 'layer', id: fixedId(origin, pid, rid), on: pid, href: `${base}${hf}${plain ? `${pid}.json` : 'index.json'}`,
+    t: Math.max(0, ...items.map(x => Number(x.f.nodes && (x.f.nodes.find(n => n.id === x.id) || {}).t) || 0)),
+    license: 'CC-BY-SA-4.0', ...(Object.keys(props).length ? { props } : {}), nodes: [...nodes.values()], marks };
 }
 // 路線圖層（這面牆公開的路線，或 rid 那一條）；沒有（不是公開牆、那條線不在）回 null
 const routesData = ({ db, origin, pid, rid = '' }) => wallRoutesLayer({ db, origin, pid, rid });

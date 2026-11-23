@@ -1,0 +1,140 @@
+/* 細節微調（只動字型、字距、小字可讀性、第一格遮罩深淺；版面不變） */
+/* 1. 中文字型順序：先用繁中字型，避免系統字型落到簡中字形 */
+.reel-page { font-family: "Noto Sans TC", "Noto Sans CJK TC", "PingFang TC", "Microsoft JhengHei", system-ui, -apple-system, sans-serif; }
+/* 2. 大標字距稍微放鬆，中文字不擠在一起 */
+.reel h1, .reel h2 { letter-spacing: -.015em; }
+/* 3. 第一格：沿用原本由右往左的遮罩，只把右側加深，字不再壓在花花的岩點上 */
+@media (min-width: 1024px) and (min-height: 600px) {
+  .hold-intro { --shade: linear-gradient(270deg, rgba(10,19,13,.95) 0%, rgba(10,19,13,.86) 44%, rgba(10,19,13,.32) 66%, rgba(10,19,13,.10) 85%); }
+}
+@media (max-width: 1023px) {
+  .hold-intro { --shade: linear-gradient(0deg, rgba(10,19,13,.94) 0%, rgba(10,19,13,.78) 40%, rgba(10,19,13,.18) 75%); }
+}
+/* 4. 目錄說明與頁尾小字：最小 13px、提高不透明度 */
+.finale-apps small, .finale-labs small { font-size: max(13px, 1vw); color: rgba(255,250,240,.92); }
+.finale-legal { font-size: 13px; }
+.finale-legal a { color: rgba(255,250,240,.9); }
+/* 截圖用：?still 關掉轉場，避免交叉淡入時拍到上一格 */
+.still *, .still *::before, .still *::after { transition: none !important; animation: none !important; }
+/* 5. 第二格手機版：兩個人和被指著的牆都要在畫面裡。
+   直式手機只看得到照片寬度約三成：原本 41% 只拍到牆和一個側臉，100% 又看不到她指的牆。
+   做法：照片高度縮到 78%（等於把照片稍微縮小，可見寬度從約 31% 增加到約 39%），焦點靠右 100%，
+   照片底部用遮罩淡進原本的深色底，文字仍在原位、沿用原本的漸層。只在 ≤760px 生效，桌機不變。 */
+@media (max-width: 760px) {
+  .friend-intro { --focal: 100% 50%; }
+  .friend-intro .reel-photo { height: 78%; -webkit-mask-image: linear-gradient(180deg, #000 72%, transparent 100%); mask-image: linear-gradient(180deg, #000 72%, transparent 100%); }
+  /* 6. 第四格手機版：原本焦點 50% 把兩位攀岩者切到畫面最左邊、男生只剩半個。改成 33%，兩個人都在畫面裡，上方仍是高聳的岩壁和樹林。 */
+  .crag-intro { --focal: 33% 50%; }
+  /* 7. 第三格手機版：攀岩指南（地圖）原本落在大標底下看不到。照片高度縮到 80%（照片稍微縮小，畫面裡同時放得下粉袋、鞋子、指南和筆電），
+     焦點從 66% 改成 64%，指南移到大標上方；照片底部一樣淡進原本的深色底。 */
+  .collector-intro { --focal: 64% 50%; }
+  .collector-intro .reel-photo { height: 80%; -webkit-mask-image: linear-gradient(180deg, #000 72%, transparent 100%); mask-image: linear-gradient(180deg, #000 72%, transparent 100%); }
+}
+/* 8. 大標一律照意思分兩行（每個 .reel-phrase 一行），不讓寬螢幕把兩句併成一行、把「轉折」吃掉。 */
+.reel :is(h1, h2) .reel-phrase { display: block; }
+/* 9. 第一格換新照片（一般岩友下班後試爬，hero-tryclimb.webp）：焦點桌機 52% 50%、手機 42% 46%。
+   新照片右半是空的素色牆，不需要原本那麼重的遮罩；改輕一點，免得把她的臉、伸出去的手壓暗。 */
+.hold-intro { --focal: 52% 50%; }
+@media (min-width: 1024px) and (min-height: 600px) {
+  .hold-intro { --shade: linear-gradient(270deg, rgba(10,19,13,.86) 0%, rgba(10,19,13,.66) 34%, rgba(10,19,13,.14) 56%, rgba(10,19,13,0) 74%); }
+}
+@media (max-width: 760px) {
+  .hold-intro { --focal: 42% 46%; }
+}
+/* 10. 第一格桌機：在原本 12 欄裡把文字欄往右挪一欄（7/span 6 → 8/span 5），髮髻和臉不會碰到大標。
+   16:9 螢幕（1280×720、1920×1080）照片剛好填滿、焦點調不動，所以只能動文字欄。 */
+@media (min-width: 1024px) and (min-height: 600px) {
+  .hold-intro { --copy-column: 8 / span 5; }
+}
+/* 11. 第五格頁尾：GitHub（只留圖示）、使用條款、隱私權移出目錄，變成貼在畫面底部左下角的一行小字，
+   左緣對齊大標的版心（同一條 gutter），和目錄之間留白隔開，像印刷稿角落的版權行。
+   只在目錄出現時跟著淡入，跟原本的時機一樣。 */
+.climbio-intro .finale-legal {
+  position: absolute; z-index: 2; margin: 0;
+  /* 圖示 path 從 x=0 開始，中文字有約 1–2px 的字身留白；補 1.25px 讓圖示的可見左緣和大標／內文的可見左緣切齊 */
+  left: calc(var(--reel-gutter) + 1.25px + env(safe-area-inset-left));
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  display: flex; align-items: center; gap: 18px;
+  font-size: 13px; letter-spacing: .03em; line-height: 1;
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity 440ms ease, visibility 0s;
+}
+.climbio-intro[data-apps-visible] .finale-legal { opacity: 1; visibility: visible; pointer-events: auto; transition-delay: 120ms, 0ms; }
+.climbio-intro .finale-legal a { color: rgba(255,250,240,.8); }
+.climbio-intro .finale-legal a:hover { color: var(--reel-paper); }
+.climbio-intro .finale-legal .finale-source { display: inline-flex; width: auto; height: auto; margin: 0; border-radius: 0; }
+.climbio-intro .finale-legal .finale-source svg { width: 15px; height: 15px; }
+@media (max-width: 760px) {
+  .climbio-intro .finale-legal { bottom: calc(14px + env(safe-area-inset-bottom)); gap: 16px; left: calc(var(--reel-gutter) + 1px + env(safe-area-inset-left)); }
+}
+/* 12. 中型桌機（置中配置）沒有左對齊的大標可以對，頁尾改對齊目錄的左欄圖示（目錄寬 720px 置中、項目內距 8px）。 */
+@media (min-width: 761px) and (max-width: 1099px), (min-width: 761px) and (max-height: 679px) {
+  .climbio-intro .finale-legal { left: calc((100% - min(100% - 2 * var(--reel-gutter), 720px)) / 2 + 7px); }
+}
+
+/* ===== 13–22. 整體質感細節（11/23 22:45，Kant：照建議都做） ===== */
+/* 13. 照片統一調色＋極淡底片顆粒：AI 生成的第一格和實拍照片放在一起不再突兀；第四格偏冷，稍微補暖。 */
+.reel-photo { filter: saturate(.9) contrast(1.03); }
+.hold-intro .reel-photo { filter: saturate(.84) contrast(1.02); }
+.crag-intro .reel-photo { filter: saturate(.86) contrast(1.03) sepia(.12); }
+.reel-frame::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: .10; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+/* 14. 大標：中文兩行需要呼吸，行高 1.12 → 1.19；字重固定 700（760 沒有對應字重，各平台會落到不同粗細）。 */
+.reel h1, .reel h2 { line-height: 1.19; font-weight: 700; }
+/* 15. 內文：兩行短句收緊成一組，88% 白讓大標和內文主次分明。 */
+.reel-desc { line-height: 1.55; color: rgba(255,250,240,.88); }
+.reel-sentence + .reel-sentence { margin-top: .1em; }
+/* 16. 入口連結（第 1–4 格）：圖示 48 → 34px，標籤中等字重加一點字距；四個圖示統一放進和目錄一樣的淺色小方框。 */
+.reel-app { gap: 10px; font-weight: 500; letter-spacing: .04em; }
+.reel-app img { width: 34px; height: 34px; padding: 4px; border-radius: 8px; background: #f7f9f5; box-sizing: border-box; }
+/* 17. 換頁：淡入 0.75s 慢進慢出；文字比照片晚 0.12s 出現；停留時間在 home-reel.js 改成 6.5s。 */
+.reel-frame { transition: opacity 750ms ease-in-out, visibility 0s linear 750ms; }
+.reel-frame[data-active] { transition-delay: 0s; }
+.reel-photo { transition: transform 900ms ease-out; }
+.reel-frame:not(.climbio-intro) .reel-copy, .climbio-intro .reel-copy { opacity: 0; transition: opacity 600ms ease-in-out 120ms, transform 700ms ease-out 120ms; }
+.reel-frame[data-active] .reel-copy { opacity: 1; }
+/* 18. 頁碼：左下角一行小字「1／5」，字級、顏色、位置和第五格頁尾那行一樣；目錄出現時讓位給頁尾。 */
+.reel-folio {
+  position: absolute; z-index: 4; margin: 0; pointer-events: none;
+  left: calc(var(--reel-gutter) + 1.25px + env(safe-area-inset-left));
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  font-size: 13px; line-height: 1; letter-spacing: .08em; color: rgba(255,250,240,.66);
+  font-variant-numeric: tabular-nums; transition: opacity 300ms ease;
+}
+.reel:has(.climbio-intro[data-apps-visible]) .reel-folio { opacity: 0; }
+@media (max-width: 760px) {
+  .reel-folio { left: calc(var(--reel-gutter) + 1px + env(safe-area-inset-left)); bottom: calc(14px + env(safe-area-inset-bottom)); }
+}
+/* 19. 目錄：Lab 區小一級、淡到 80%，先看到四隻貓，再看到給開發者的項目。 */
+.climbio-intro .finale-labs a { opacity: .8; }
+.climbio-intro .finale-labs a:hover { opacity: 1; }
+.climbio-intro .finale-labs img { width: 32px; height: 32px; padding: 4px; }
+.climbio-intro .finale-labs strong { font-size: .92em; }
+@media (max-width: 760px) { .climbio-intro .finale-labs img { width: 26px; height: 26px; padding: 3px; } }
+/* 20. 中英混排：中英文之間一律半形空格（HTML 已統一），支援的瀏覽器再交給 text-autospace；英文用同一套字型、同字重。 */
+.reel-page { text-autospace: normal; }
+/* 21. 減少動態效果：不硬切，改 0.2s 淡入淡出；照片和文字不位移。 */
+@media (prefers-reduced-motion: reduce) {
+  .reel-frame { transition: opacity 200ms linear, visibility 0s linear 200ms !important; }
+  .reel-frame[data-active] { transition-delay: 0s !important; }
+  .reel-photo, .reel-copy, .directory-content { transform: none !important; }
+  .reel-copy { transition: opacity 200ms linear !important; }
+}
+/* 截圖用 ?still 要放在最後，蓋過上面所有轉場 */
+.still *, .still *::before, .still *::after { transition: none !important; animation: none !important; }
+/* 22. 大標改 700 字重後，中文字左側留白跟著字級變大約 2–3px；頁尾的 GitHub 圖示和頁碼改用跟大標字級同比例的位移，
+   讓可見左緣繼續和大標／內文切齊（1280／1440／1920 實測）。中型桌機仍對齊目錄圖示，手機維持 +1px。 */
+@media (min-width: 1100px) and (min-height: 680px) {
+  .climbio-intro .finale-legal, .reel-folio { left: calc(var(--reel-gutter) + clamp(1px, .18vw, 2.8px) + env(safe-area-inset-left)); }
+}
+/* 23. 第一格換成重新生成的照片（11/24）：桌機用橫式（右側較暗、留給文字），直式手機改用另外生成的直式構圖，
+   臉、伸出去的手和下一顆點都在上半部，下半部是暗的地墊，大標放在那裡。直式照片寬於螢幕，焦點偏右一點保住臉和手。 */
+@media (max-width: 760px) and (orientation: portrait) {
+  .hold-intro { --focal: 56% 50%; }
+}
+/* 24. 第一格 1024–1279 寬（4:3 左右）：照片左右被裁比較多，髮髻離大標只剩 30px；焦點往右移，人往左讓出空間。 */
+@media (min-width: 1024px) and (max-width: 1279px) and (min-height: 600px) {
+  .hold-intro { --focal: 64% 50%; }
+}

@@ -1,6 +1,7 @@
-// Studio Wall 的岩點編輯器：一面牆的照片和岩點，選取、長按補點與重描、合併、刪除、裁切範圍。
+// Studio Wall 的岩點編輯器：一面牆的照片和岩點，選取、長按、圈起來、重描、合併、刪除、裁切範圍。
 // RefineEditor.open({ photo, holds, crop, name, boxes, onSave(holds), onCrop(crop) }) ；改動停手 1.5 秒交給 onSave 存檔。
-// 外框都用 HoldKit 在本機算（新增、重描一顆，幾十毫秒、不下載模型）；SAM2 只在 app.js 整面重描，結果掛在岩點的 sam 上，
+// 手動修正跟岩點貓的單點編輯同一套（docs/app.md「長按」「圈起來」）：頂點把手（擠在一起的併成一個）、拖完剪細尖、圈起來補點或重畫、重描合格就直接換上。
+// 重描：這台存過 SAM2 模型（電腦版）用 SAM2 貼齊，否則用 HoldKit 在本機算；整面 SAM2 在 app.js，結果掛在岩點的 sam 上，
 // 跟原外框不同的列進要看的，在這裡選「採用 SAM2」或「保留原外框」。
 (function (root) {
 'use strict';
@@ -10,11 +11,11 @@ const T = AppKit.i18n.t;
 const loadImage = blob => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error(T('hlPhotoOpenFail'))); i.src = URL.createObjectURL(blob); });
 const status = msg => { $('saveMsg').textContent = msg || ''; };
 // ---- 校正 ----
-// 操作：點岩點選取（細的岩點邊緣附近也點得到）、拖曳平移、滾輪縮放。選到岩點：拖頂點、拖邊上的小點新增頂點、點兩下頂點刪掉；
-// Shift 點選或拖出範圍可以多選，選兩顆以上能合併。長按（原地按住 0.5 秒，跟岩點貓一樣）：按在岩點上（或外框外一點點）是重描那顆，
-// 按在空白處是補一顆：先給以按的位置為中心、大小參考附近岩點的方框，HoldKit 辨識出的外框有效就換上，成為候選；拖頂點調整，採用才加進去。
+// 操作：點岩點選取（細的岩點邊緣附近也點得到）、拖曳平移、滾輪縮放。選到岩點：拖頂點、拖邊中點新增頂點、點兩下頂點刪掉；
+// Shift 點選或拖出範圍可以多選，選兩顆以上能合併。長按（原地按住 0.5 秒，跟岩點貓一樣）：按在岩點上（或外框外一點點）是選它（太小就放大），
+// 按在空白處是打開「圈」：畫一圈補上這顆，放開後自動重描貼齊（不合用就留著畫的圈）。外框只在人動手時才變。
 // 觸控（iPad、手機）：雙指開合縮放、平移；「多選」按鈕代替 Shift；手指點的範圍放大（tol）。
-const V = { active: false, crop: null, edgeAt: null, tool: '', lp: 0, redo: [], mouse: null, img: null, ana: null, holds: [], sel: [], vert: -1, hover: null, flaggedOnly: false, scale: 1, tx: 0, ty: 0, drag: null, undo: [], timer: 0, cand: null, dups: new Map(), multi: false, coarse: false, fingers: new Map(), pinch: null, boxes: [] };
+const V = { active: false, crop: null, tool: '', lp: 0, redo: [], mouse: null, img: null, ana: null, holds: [], sel: [], vert: -1, hover: null, flaggedOnly: false, scale: 1, tx: 0, ty: 0, drag: null, undo: [], timer: 0, lasso: null, busy: false, dups: new Map(), multi: false, coarse: false, fingers: new Map(), pinch: null, boxes: [] };
 const cv = $('cv'), cx = cv.getContext('2d'), TOL = 8;
 const handset = document.documentElement.classList.contains('ak-handset');   // 手機版面（appkit/landing.js）：選取後的動作列固定在底部
 const holdOf = id => V.holds.find(h => h.id === id);
@@ -32,6 +33,7 @@ const snap = () => JSON.stringify({ sel: V.sel, holds: V.holds });   // 復原�
 const toImg = (x, y) => [(x - V.tx) / V.scale, (y - V.ty) / V.scale];
 const toScr = (x, y) => [x * V.scale + V.tx, y * V.scale + V.ty];
 const bboxOf = p => { const xs = p.map(q => q[0]), ys = p.map(q => q[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; };
+const round1 = q => [Math.round(q[0] * 10) / 10, Math.round(q[1] * 10) / 10];
 function area(p) { let a = 0; for (let i = 0; i < p.length; i++) { const [x0, y0] = p[i], [x1, y1] = p[(i + 1) % p.length]; a += x0 * y1 - x1 * y0; } return Math.abs(a) / 2; }
 function inside(p, x, y) { let c = false; for (let i = 0, j = p.length - 1; i < p.length; j = i++) if ((p[i][1] > y) !== (p[j][1] > y) && x < (p[j][0] - p[i][0]) * (y - p[i][1]) / (p[j][1] - p[i][1]) + p[i][0]) c = !c; return c; }
 function edgeDist(p, x, y) {   // 點到外框邊的最短距離（影像座標）
@@ -53,7 +55,7 @@ function hit(x, y) {   // 點在裡面的取最小的；沒有就取邊緣 TOL �
 }
 async function open(o) {
   V.name = o.name || ''; V.onSave = o.onSave || null; V.onCrop = o.onCrop || null; V.boxes = o.boxes || [];
-  V.sel = []; V.undo = []; V.redo = []; V.cand = null; V.dups = new Map(); V.tool = ''; V.vert = -1; V.flaggedOnly = false; V.crop = o.crop || null; V.ana = null;
+  V.sel = []; V.undo = []; V.redo = []; V.lasso = null; V.samImg = null; V.dups = new Map(); V.tool = ''; V.vert = -1; V.flaggedOnly = false; V.crop = o.crop || null; V.ana = null;
   V.img = o.photo instanceof Blob ? await loadImage(o.photo) : o.photo;
   V.holds = o.holds.map(h => ({ ...h, flags: h.flags || [] }));
   V.orig = new Map(o.holds.map(h => [h.id, JSON.stringify(h.poly)]));   // 存檔時用來標「改過形狀」「自己畫的」
@@ -61,7 +63,7 @@ async function open(o) {
   fit(); refreshDups(); refreshSide(); draw();
   const f = needLook(); if (f.length) select(V.dups.has(f[0].id) && !f[0].flags.length && !pending(f[0]) ? [f[0].id, ...V.dups.get(f[0].id)] : [f[0].id], true);
 }
-async function close() { if (!V.active) return; clearTimeout(V.timer); await save(); V.active = false; V.tool = ''; }
+async function close() { if (!V.active) return; clearTimeout(V.timer); await save(); V.active = false; V.tool = ''; V.lasso = null; }
 function refreshDups() {   // 同一顆被偵測成多個框：開啟、改動後都重算
   V.dups = new Map();
   for (const [a, b] of G.dupPairs(V.holds, V.img.width, V.img.height)) {
@@ -76,7 +78,36 @@ function path(p) { cx.beginPath(); p.forEach(([x, y], i) => i ? cx.lineTo(x, y) 
 function outlineOf(box) {
   V.ana = V.ana || HoldKit.analysis(V.img, V.img.width, V.img.height);
   const poly = HoldKit.simplifyPoly(HoldKit.boxToPoly(box[0], box[1], box[2], box[3], HoldKit.outlineContext(V.ana, [box])));
-  return poly && poly.length >= 3 ? poly.map(q => [Math.round(q[0] * 10) / 10, Math.round(q[1] * 10) / 10]) : null;
+  return poly && poly.length >= 3 ? poly.map(round1) : null;
+}
+// 頂點把手（同岩點貓 js/draw.js 的 handleList）：螢幕上離不到 HANDLE_GAP 的連續頂點併成一個（idx＝包含的頂點），拖它時合成一點；
+// 放大就分得開。把手不到 3 個（岩點在螢幕上太小）就不放，放大再調。把手之間短於 MIN_EDGE 就不放邊中點
+const HANDLE_GAP = 14, MIN_EDGE = 28;
+function handleList(poly) {
+  const px = 1 / V.scale, groups = [];
+  poly.forEach((p, i) => {
+    const g = groups[groups.length - 1], f = g && poly[g[0]];
+    if (g && Math.hypot(p[0] - f[0], p[1] - f[1]) < HANDLE_GAP * px) g.push(i); else groups.push([i]);
+  });
+  if (groups.length > 1) {   // 頭尾相接：最後一組離第一組太近就併進去
+    const last = groups[groups.length - 1], f = poly[last[0]], g0 = poly[groups[0][0]];
+    if (Math.hypot(f[0] - g0[0], f[1] - g0[1]) < HANDLE_GAP * px) groups[0] = groups.pop().concat(groups[0]);
+  }
+  if (groups.length < 3) return { pts: [], mids: [] };
+  const pts = groups.map(idx => { const p = poly[idx[idx.length >> 1]]; return { kind: 'v', i: idx[0], idx, x: p[0], y: p[1] }; });
+  const mids = [];
+  groups.forEach((g, k) => {
+    const i = g[g.length - 1], p = poly[i], q = poly[groups[(k + 1) % groups.length][0]];
+    if (Math.hypot(q[0] - p[0], q[1] - p[1]) >= MIN_EDGE * px) mids.push({ kind: 'm', i, x: (p[0] + q[0]) / 2, y: (p[1] + q[1]) / 2 });
+  });
+  return { pts, mids };
+}
+// 把手包含好幾個頂點：合成一個放在 p，回傳新的外框和那一點的位置
+function mergeHandle(poly, idx, p) {
+  const drop = new Set(idx), out = [];
+  let at = -1;
+  poly.forEach((q, i) => { if (i === idx[0]) { at = out.length; out.push(p); } else if (!drop.has(i)) out.push(q); });
+  return { poly: out, i: at };
 }
 function draw() {
   const k = devicePixelRatio, u = 1 / V.scale;
@@ -107,56 +138,62 @@ function draw() {
     cx.strokeStyle = '#d4ff4f'; cx.lineWidth = 2.5 * u; cx.strokeRect(r.x, r.y, r.w, r.h);
     cx.fillStyle = '#d4ff4f'; for (const [x, y] of [[r.x, r.y], [r.x + r.w, r.y], [r.x, r.y + r.h], [r.x + r.w, r.y + r.h]]) cx.fillRect(x - 6 * u, y - 6 * u, 12 * u, 12 * u);
   }
-  const ep = V.tool ? null : editPoly();
-  if (ep) {   // 頂點與邊中點（邊上任何一點都能拖出新頂點，游標靠近時顯示會加在哪）
-    ep.forEach(([x, y], i) => {
-      const [nx, ny] = ep[(i + 1) % ep.length];
-      cx.fillStyle = 'rgba(212,255,79,.45)'; cx.beginPath(); cx.arc((x + nx) / 2, (y + ny) / 2, 3.5 * u, 0, 7); cx.fill();
-      cx.fillStyle = i === V.vert ? '#ff3d6e' : '#d4ff4f'; cx.strokeStyle = '#111'; cx.lineWidth = u;
-      cx.beginPath(); cx.arc(x, y, (V.coarse ? 9 : 6) * u, 0, 7); cx.fill(); cx.stroke();
-    });
-    if (V.edgeAt) { cx.fillStyle = '#fff'; cx.strokeStyle = '#d4ff4f'; cx.lineWidth = 2 * u; cx.beginPath(); cx.arc(V.edgeAt[0], V.edgeAt[1], 5 * u, 0, 7); cx.fill(); cx.stroke(); }
+  const ep = V.tool || V.lasso ? null : editPoly();
+  if (ep && !(V.drag && V.drag.vert && V.drag.moved)) {   // 把手：白色頂點、黃色邊中點（拖的時候收起來，只看外框和放大鏡）
+    const { pts, mids } = handleList(ep);
+    for (const m of mids) { cx.beginPath(); cx.arc(m.x, m.y, 4 * u, 0, 7); cx.fillStyle = 'rgba(250,204,21,.75)'; cx.fill(); cx.lineWidth = 1.5 * u; cx.strokeStyle = 'rgba(0,0,0,.6)'; cx.stroke(); }
+    for (const v of pts) { cx.beginPath(); cx.arc(v.x, v.y, 6.5 * u, 0, 7); cx.fillStyle = v.idx.includes(V.vert) ? '#ff3d6e' : '#fff'; cx.fill(); cx.lineWidth = 2.5 * u; cx.strokeStyle = '#facc15'; cx.stroke(); }
   }
-  if (V.cand) { path(V.cand.poly); cx.fillStyle = 'rgba(212,255,79,.25)'; cx.fill(); cx.strokeStyle = '#d4ff4f'; cx.lineWidth = 3 * u; cx.setLineDash([8 * u, 5 * u]); cx.stroke(); cx.setLineDash([]); }
+  const lp = V.drag && V.drag.loop;
+  if (lp && lp.length > 1) {   // 畫到一半的圈：白線加深色描邊，起點黃點
+    cx.lineCap = 'round'; cx.beginPath(); lp.forEach(([x, y], i) => i ? cx.lineTo(x, y) : cx.moveTo(x, y));
+    cx.lineWidth = 6 * u; cx.strokeStyle = 'rgba(0,0,0,.55)'; cx.stroke(); cx.lineWidth = 3 * u; cx.strokeStyle = '#fff'; cx.stroke();
+    cx.beginPath(); cx.arc(lp[0][0], lp[0][1], 5 * u, 0, 7); cx.fillStyle = '#facc15'; cx.fill(); cx.lineCap = 'butt';
+  }
   if (V.drag && V.drag.marquee) { const [a, b] = V.drag.marquee; cx.strokeStyle = '#fff'; cx.lineWidth = u; cx.setLineDash([6 * u, 4 * u]); cx.strokeRect(a[0], a[1], b[0] - a[0], b[1] - a[1]); cx.setLineDash([]); }
   loupe();
   placeBar();
   toolState();
 }
-// 拖頂點時手指或游標蓋住頂點：在頂點上方（放不下改下方）放一個放大鏡，照原圖像素畫，十字線是頂點會落的位置
+// 拖頂點時手指或游標蓋住頂點：放大鏡在上方（太靠上才換到下方，換邊要多過 40 px，不會上下跳），照原圖像素畫，十字線是頂點會落的位置；
+// 比畫面再放大 2.5 倍，畫面已經放很大時最多到照片 1 px＝3 個螢幕點、至少 1.5 倍（同岩點貓）
+let loupeBelow = false;
 function loupe() {
   const d = V.drag; if (!d || !d.vert || !d.moved) return;
   const p = editPoly(); if (!p || !p[V.vert]) return;
-  const R = 56, Z = 3, k = devicePixelRatio, r = cv.getBoundingClientRect(), [sx, sy] = toScr(...p[V.vert]), [vx, vy] = p[V.vert];
-  const lx = Math.min(r.width - R - 8, Math.max(R + 8, sx)), ly = sy - R - 72 < 64 ? sy + R + 72 : sy - R - 72, s = V.scale * Z * k;
+  const R = 60, Z = Math.max(1.5, Math.min(2.5, 3 / V.scale)), k = devicePixelRatio, r = cv.getBoundingClientRect(), [sx, sy] = toScr(...p[V.vert]), [vx, vy] = p[V.vert];
+  const up = sy - 60 - 2 * R;
+  if (!d.loupe) { loupeBelow = up < 8; d.loupe = true; } else if (loupeBelow ? up >= 48 : up < 8) loupeBelow = !loupeBelow;
+  const lx = Math.min(r.width - R - 8, Math.max(R + 8, sx)), ly = loupeBelow ? sy + 60 + R : sy - 60 - R, s = V.scale * Z * k;
   cx.setTransform(1, 0, 0, 1, 0, 0); cx.save();
   cx.beginPath(); cx.arc(lx * k, ly * k, R * k, 0, 7); cx.clip();
   cx.fillStyle = '#111'; cx.fillRect((lx - R) * k, (ly - R) * k, 2 * R * k, 2 * R * k);
   cx.setTransform(s, 0, 0, s, lx * k - vx * s, ly * k - vy * s);
-  cx.drawImage(V.img, 0, 0); cx.lineJoin = 'round'; path(p); cx.strokeStyle = '#d4ff4f'; cx.lineWidth = 2 / (V.scale * Z); cx.stroke();
+  cx.drawImage(V.img, 0, 0); cx.lineJoin = 'round'; path(p);
+  cx.strokeStyle = 'rgba(0,0,0,.5)'; cx.lineWidth = 2.5 / (V.scale * Z); cx.stroke(); cx.strokeStyle = '#facc15'; cx.lineWidth = 1.5 / (V.scale * Z); cx.stroke();
   cx.restore(); cx.setTransform(1, 0, 0, 1, 0, 0);
   cx.strokeStyle = '#fff'; cx.lineWidth = 3 * k; cx.beginPath(); cx.arc(lx * k, ly * k, R * k, 0, 7); cx.stroke();
-  cx.strokeStyle = '#ff3d6e'; cx.lineWidth = k; cx.beginPath(); cx.moveTo((lx - 9) * k, ly * k); cx.lineTo((lx + 9) * k, ly * k); cx.moveTo(lx * k, (ly - 9) * k); cx.lineTo(lx * k, (ly + 9) * k); cx.stroke();
+  cx.lineWidth = 1.5 * k; cx.beginPath(); cx.moveTo((lx - 9) * k, ly * k); cx.lineTo((lx + 9) * k, ly * k); cx.moveTo(lx * k, (ly - 9) * k); cx.lineTo(lx * k, (ly + 9) * k); cx.stroke();
 }
-// 浮動工具列：跟著選到的岩點（或候選）走，在旁邊；只放當下用得到的動作
+// 浮動工具列：跟著選到的岩點走，在旁邊；只放當下用得到的動作
 function placeBar() {
   const bar = $('bar'), r = cv.getBoundingClientRect();
   let items = [], poly = null;
   const one = V.sel.length === 1 ? holdOf(V.sel[0]) : null;
   if (V.tool === 'crop') { items = [[T('done'), 'crop', true, 'go'], [T('hlRNoCrop'), 'noCrop', !!V.crop]].filter(x => x[2]); }
-  else if (V.cand) { poly = V.cand.poly; items = V.vert >= 0 ? [[T('hlDelVertex'), 'del', true]] : [[T('hlAccept'), 'accept', true, 'go'], [T('cancel'), 'cancel', true]]; }
+  else if (V.lasso) { poly = one ? one.poly : null; items = [[T('cancel'), 'cancel', true]]; }   // 圈的時候只留取消（Esc 也是）
   else if (V.sel.length >= 2) { poly = V.sel.flatMap(id => holdOf(id).poly); items = [[T('hlMerge'), 'merge', true, 'go'], [T('hlNotDup'), 'notDup', V.sel.some(id => (V.dups.get(id) || []).some(o => V.sel.includes(o)))], [T('hlDelete'), 'del', true]].filter(x => x[2]); }
   else if (one && V.vert >= 0) { poly = one.poly; items = [[T('hlDelVertex'), 'del', true, 'go']]; }
   else if (one) {
     poly = one.poly;
     items = pending(one) ? [[T('hlPickSam'), 'pickSam', true, 'go'], [T('hlKeepHk'), 'keepHk', true]]
       : [...(one.flags.length ? [[T('hlOk'), 'accept', true, 'go']] : []), ...(V.dups.has(one.id) ? [[T('hlMergeDup'), 'mergeDup', true, 'go'], [T('hlNotDup'), 'notDup', true]] : [])];
-    items.push([T('hlRetrace'), 'retrace', true], [T('hlSmooth'), 'smooth', true], [T('hlDelete'), 'del', true]);
+    items.push([T('hlLasso'), 'lasso', true], [V.busy ? T('hlRetracingOne') : T('hlRetrace'), 'retrace', true], [T('hlSmooth'), 'smooth', true], [T('hlDelete'), 'del', true]);
   }
-  if (!items.length || V.drag && (V.drag.pan && V.drag.moved || V.drag.vert && V.drag.moved)) { bar.classList.remove('on'); return; }
+  if (!items.length || V.drag && (V.drag.pan && V.drag.moved || V.drag.vert && V.drag.moved || V.drag.loop)) { bar.classList.remove('on'); return; }
   const sig = items.map(i => i[0]).join('|');
   if (bar.dataset.sig !== sig) { bar.dataset.sig = sig; bar.replaceChildren(...items.map(([t, a, , c]) => { const e = document.createElement('button'); e.textContent = t; if (c) e.className = c; e.onclick = () => act(a).catch(er => flash(er.message)); return e; })); }
-  bar.classList.toggle('fix', !poly || handset);   // 手機、沒有岩點可以跟的（裁切）由 CSS 固定在底部；電腦、平板跟著外框走
+  bar.classList.toggle('fix', !poly || handset);   // 手機、沒有岩點可以跟的（裁切、圈新的一顆）由 CSS 固定在底部；電腦、平板跟著外框走
   if (poly && !handset) {
     const b = bboxOf(poly), [x0, y0] = toScr(b[0], b[1]), [x1, y1] = toScr(b[2], b[3]);
     bar.style.left = Math.max(90, Math.min(r.width - 90, (x0 + x1) / 2)) + 'px';
@@ -192,12 +229,15 @@ function refreshSide() {
   toolState();
 }
 function select(ids, center) {
-  V.sel = ids.filter(id => holdOf(id)); V.vert = -1; V.cand = null;
+  V.sel = ids.filter(id => holdOf(id)); V.vert = -1; V.lasso = null; cv.style.cursor = 'default';
   if (center && V.sel.length) {
     const b = bboxOf(V.sel.flatMap(id => holdOf(id).poly)), w = b[2] - b[0], h = b[3] - b[1], r = cv.getBoundingClientRect();
     const [x0, y0] = toScr(b[0], b[1]), [x1, y1] = toScr(b[2], b[3]);
     if (center === 'soft') {   // 已經在畫面裡就不動；不在才平移過去，縮放不變
       if (x0 < 20 || y0 < 20 || x1 > r.width - 20 || y1 > r.height - 20) { V.tx += r.width / 2 - (x0 + x1) / 2; V.ty += r.height / 2 - (y0 + y1) / 2; }
+    } else if (center === 'small') {   // 長按選到的小岩點（螢幕上比指尖 44 px 小）：移到畫面中間、放大到約畫面寬的 1/3；夠大就不動（同岩點貓）
+      const sz = Math.max(w, h);
+      if (sz * V.scale < 44) { V.scale = Math.min(12, r.width / 3 / (sz || 1)); V.tx = r.width / 2 - (b[0] + w / 2) * V.scale; V.ty = r.height / 2 - (b[1] + h / 2) * V.scale; }
     } else {
       V.scale = Math.min(r.width / (w * 5), r.height / (h * 5), 6);
       V.tx = r.width / 2 - (b[0] + w / 2) * V.scale; V.ty = r.height / 2 - (b[1] + h / 2) * V.scale;
@@ -214,7 +254,7 @@ function step(dir, soft) {   // soft＝只換選取、完全不動視角（沒�
 }
 function change(fn) {
   V.undo.push(snap()); if (V.undo.length > 50) V.undo.shift(); V.redo = [];
-  fn(); V.cand = null; refreshDups(); refreshSide(); draw();
+  fn(); refreshDups(); refreshSide(); draw();
   dirty();
 }
 const outHolds = () => V.holds.map(h0 => {   // 存出去的岩點：改過形狀記 edited、自己畫的記 manual（App 同一套意思）；flags、dupOk 由存的人決定要不要留
@@ -232,72 +272,105 @@ async function save() {
 }
 const newId = () => 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 4);
 function flash(t) { const m = $('msg'); m.textContent = t; m.style.display = 'block'; clearTimeout(flash.t); flash.t = setTimeout(() => { m.style.display = 'none'; }, 2500); }
-// 重描一顆：HoldKit 用它的外接框算出外框當候選，採用才換上
-function trace(box, target) {
-  const poly = outlineOf(box);
-  if (!poly) { flash(T('hlNoTrace')); return; }
-  V.cand = { poly, target: target || null }; V.sel = target ? [target] : []; V.vert = -1;
-  refreshSide(); draw();
-}
-// 長按空白處補一顆：以按的位置為中心的方框，大小取最近幾顆岩點外接框的中位數（沒有岩點就取照片短邊的 1/20），
-// 碰到旁邊的岩點就把那一邊縮到岩點的邊上（按的位置周圍留 6 像素），不超出照片；HoldKit 辨識出的外框包住按的位置、沒有蓋到別的岩點才用，
-// 不然就給這個方框，拖頂點調整
-function addAt(p) {
-  const W = V.img.width, H = V.img.height, M = 6;
-  const near = V.holds.map(h => { const b = bboxOf(h.poly); return { b, d: Math.hypot((b[0] + b[2]) / 2 - p[0], (b[1] + b[3]) / 2 - p[1]) }; }).sort((a, b) => a.d - b.d).slice(0, 5).map(n => n.b);
-  const med = k => near.map(b => b[k + 2] - b[k]).sort((a, b) => a - b)[near.length >> 1];
-  const w = near.length ? med(0) : Math.min(W, H) / 20, h = near.length ? med(1) : Math.min(W, H) / 20;
-  const box = [Math.max(0, p[0] - w / 2), Math.max(0, p[1] - h / 2), Math.min(W, p[0] + w / 2), Math.min(H, p[1] + h / 2)];
-  const area0 = b => (b[2] - b[0]) * (b[3] - b[1]);
-  for (const o of V.holds) {
-    const b = bboxOf(o.poly);
-    if (b[0] >= box[2] || b[2] <= box[0] || b[1] >= box[3] || b[3] <= box[1]) continue;
-    let best = null;
-    for (const [i, v] of [[0, b[2]], [2, b[0]], [1, b[3]], [3, b[1]]]) {   // 把方框的一邊縮到岩點的邊上，留下面積最大、按的位置還在裡面的那種
-      const t = box.slice(); t[i] = v;
-      if (t[2] - t[0] < 2 * M || t[3] - t[1] < 2 * M || p[0] < t[0] + M || p[0] > t[2] - M || p[1] < t[1] + M || p[1] > t[3] - M) continue;
-      if (!best || area0(t) > area0(best)) best = t;
-    }
-    if (best) box.splice(0, 4, ...best);
+// 貼齊一個外框：這台存過 SAM2 模型（電腦版，不會為了這個下載 300 MB）就用 SAM2 以外框當提示描；沒有或描不出來就用 HoldKit 從外接框算
+async function fitOutline(poly) {
+  if (!handset && root.RefineSam && await RefineSam.isCached()) {
+    try {
+      await RefineSam.load();
+      if (V.samImg !== V.img) { RefineSam.setPhoto(V.img, 'edit'); V.samImg = V.img; }
+      const p = await RefineSam.fit(poly);
+      if (p && p.length >= 3) return p.map(round1);
+    } catch (e) { console.warn('SAM2 重描失敗，改用 HoldKit：', e.message); }
   }
-  let poly = null;
-  try { poly = outlineOf(box); } catch (e) { /* 辨識失敗：用方框 */ }
-  const cen = o => { const b = bboxOf(o.poly); return [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2]; };
-  if (!poly || !inside(poly, ...p) || V.holds.some(o => inside(poly, ...cen(o)))) poly = [[box[0], box[1]], [box[2], box[1]], [box[2], box[3]], [box[0], box[3]]].map(q => q.map(v => Math.round(v * 10) / 10));
-  V.cand = { poly, target: null }; V.sel = []; V.vert = -1; refreshSide(); draw();
+  return outlineOf(bboxOf(poly));
 }
-// 長按：按在岩點上（或外框外一點點）重描那顆，按在空白處補一顆
+// a 有幾成在 b 裡面（在 a 的外接框裡取樣 16×16）
+function overlapIn(a, b) {
+  const [x0, y0, x1, y1] = bboxOf(a), dx = (x1 - x0) / 16, dy = (y1 - y0) / 16;
+  let n = 0, k = 0;
+  for (let i = 0; i < 16; i++) for (let j = 0; j < 16; j++) { const x = x0 + (i + 0.5) * dx, y = y0 + (j + 0.5) * dy; if (!inside(a, x, y)) continue; n++; if (inside(b, x, y)) k++; }
+  return n ? k / n : 0;
+}
+// 「重描」：用目前的外框當提示重算。結果有效、包住原本的中心、不壓到旁邊的岩點（一半以上蓋在這顆上面的不算）、面積是原本的 1/5～5 倍才換上
+// （算一步，復原拿得回來）；不合格留著原本的並提示（同岩點貓）。重描途中這顆被改、刪、復原了，晚回來的結果不用。
+// auto：畫完圈自動貼齊，靜靜地做（不合格、失敗都留著畫的圈、不提示），換上時併進畫圈那一步，復原一次回到畫圈之前
+async function retrace(id, { auto = false } = {}) {
+  const h = holdOf(id); if (!h || V.busy) return;
+  const before = h.poly, key = JSON.stringify(before), W = V.img.width, H = V.img.height;
+  const b = bboxOf(before), mid = [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2], c = inside(before, ...mid) ? mid : before[0], a0 = area(before);
+  V.busy = true; placeBar();
+  let poly = null;
+  try { poly = await fitOutline(before); } catch (e) { if (!auto) flash(T('hlRetraceFail', e.message)); }
+  finally { V.busy = false; }
+  const cur = holdOf(id);
+  if (!V.active || !cur || JSON.stringify(cur.poly) !== key) { if (V.active) draw(); return; }
+  poly = poly && G.trimPolySpikes(poly);
+  const others = V.holds.filter(o => o.id !== id && overlapIn(o.poly, before) < 0.5);
+  const good = poly && G.validPoly(poly, W, H) && inside(poly, ...c) && area(poly) / a0 > 0.2 && area(poly) / a0 < 5
+    && !others.some(o => { const ob = bboxOf(o.poly), oc = [(ob[0] + ob[2]) / 2, (ob[1] + ob[3]) / 2]; return inside(poly, ...oc) || overlapIn(o.poly, poly) > 0.5; });
+  if (!good) { if (!auto) flash(T('hlRetraceKept')); draw(); return; }
+  if (auto) { cur.poly = poly; refreshDups(); refreshSide(); draw(); dirty(); }
+  else change(() => { cur.poly = poly; settle(cur); });
+}
+// 圈起來：手畫的圈（去掉繞過起點多畫的一段、手抖）就是外框；有選到的岩點就換掉它，沒有就補一顆（同岩點貓 finishLasso）。放開後自動重描貼齊
+function finishLasso(loop) {
+  const k = V.scale, closed = loop.map(round1), W = V.img.width, H = V.img.height;
+  if (closed.length < 6 || area(closed) * k * k < 400) { flash(T('hlLassoSmall')); draw(); return; }   // 畫得太小，多半是手滑；還在圈，可以再畫
+  const poly = G.lassoOutline(closed, 1 / k);
+  if (!G.validPoly(poly, W, H)) { flash(T('hlLassoFail')); draw(); return; }
+  const target = V.lasso && V.lasso.target && holdOf(V.lasso.target);
+  let id = target ? target.id : newId();
+  V.lasso = null; cv.style.cursor = 'default';
+  change(() => {
+    if (target) { target.poly = poly; settle(target); } else V.holds.push({ id, poly, source: 'manual', score: 1, flags: [] });
+    V.sel = [id]; V.vert = -1;
+  });
+  retrace(id, { auto: true });
+}
+function startLasso(target) {
+  V.lasso = { target: target || null }; V.vert = -1; V.sel = target ? [target] : []; cv.style.cursor = 'crosshair';
+  flash(T(target ? 'hlLassoRedo' : 'hlLassoHint')); refreshSide(); draw();
+}
+// 長按：按在岩點上（或外框外一點點）選它，太小就放大；按在空白處打開「圈」補一顆（外框只在人動手時才變）
 function longPress(p) {
   const h = hit(...p);
-  if (h) { select([h.id], false); trace(bboxOf(h.poly), h.id); } else addAt(p);
+  if (h) select([h.id], 'small'); else startLasso(null);
 }
-const setTool = t => { V.tool = V.tool === t ? '' : t; V.cand = null; if (V.tool === 'crop') V.sel = []; cv.style.cursor = 'default'; refreshSide(); draw(); };
+const setTool = t => { V.tool = V.tool === t ? '' : t; V.lasso = null; if (V.tool === 'crop') V.sel = []; cv.style.cursor = 'default'; refreshSide(); draw(); };
+function delVertex() {   // 刪掉選到的頂點（併在一起的把手整組刪），至少留 3 點
+  const one = V.sel.length === 1 ? holdOf(V.sel[0]) : null, ep = one && one.poly; if (!ep) return;
+  const g = handleList(ep).pts.find(v => v.idx.includes(V.vert)), drop = new Set(g ? g.idx : [V.vert]);
+  if (ep.length - drop.size < 3) { V.vert = -1; draw(); return; }
+  change(() => { one.poly = ep.filter((_, i) => !drop.has(i)); settle(one); });
+  V.vert = -1; draw();
+}
 async function act(a) {
   const one = V.sel.length === 1 ? holdOf(V.sel[0]) : null;
   if (a === 'next') step(1); else if (a === 'prev') step(-1);
   else if (a === 'crop') setTool(a);
   else if (a === 'noCrop') { V.crop = null; if (V.onCrop) V.onCrop(null); refreshSide(); draw(); }
-  else if (a === 'retrace' && one) trace(bboxOf(one.poly), one.id);
+  else if (a === 'retrace' && one) await retrace(one.id);
+  else if (a === 'lasso' && one) startLasso(one.id);
   else if (a === 'cancel' && V.tool === 'crop') setTool('crop');
-  else if (a === 'cancel') { V.cand = null; V.sel = V.tool ? V.sel : []; V.tool = ''; V.vert = -1; cv.style.cursor = 'default'; refreshSide(); draw(); }
+  else if (a === 'cancel' && V.lasso) { const t = V.lasso.target; V.lasso = null; cv.style.cursor = 'default'; V.sel = t && holdOf(t) ? [t] : []; refreshSide(); draw(); }   // 從岩點進來的回到它，長按空白處進來的不補
+  else if (a === 'cancel') { V.sel = V.tool ? V.sel : []; V.tool = ''; V.vert = -1; cv.style.cursor = 'default'; refreshSide(); draw(); }
   else if (a === 'notDup' && V.sel.length) {
     const keep = (id, o) => V.sel.length === 1 || V.sel.includes(o);
     change(() => { for (const id of V.sel) { const h = holdOf(id), partners = (V.dups.get(id) || []).filter(o => keep(id, o)); h.dupOk = [...new Set([...(h.dupOk || []), ...partners])]; } });
     step(1, true);
   }
-  else if (a === 'accept' && V.cand) { const c = V.cand; change(() => { if (c.target) { const h = holdOf(c.target); h.poly = c.poly; settle(h); V.sel = [c.target]; } else { const id = newId(); V.holds.push({ id, poly: c.poly, source: 'detect', score: 1, flags: [] }); V.sel = [id]; } }); }
   else if (a === 'accept' && one) { change(() => { one.flags = []; one.dupOk = [...new Set([...(one.dupOk || []), ...(V.dups.get(one.id) || [])])]; }); step(1, true); }
   else if (a === 'pickSam' && one && pending(one)) { change(() => { one.poly = one.sam.poly; one.sam.pick = 'sam'; one.flags = []; }); step(1, true); }
   else if (a === 'keepHk' && one && pending(one)) { change(() => { one.sam.pick = 'keep'; one.flags = []; }); step(1, true); }
-  else if (a === 'del' && V.vert >= 0 && editPoly() && editPoly().length > 3) { const ep = editPoly(), v = V.vert; if (V.cand) { ep.splice(v, 1); V.vert = -1; draw(); } else { change(() => { ep.splice(v, 1); settle(one); }); V.vert = -1; } }
+  else if (a === 'del' && V.vert >= 0 && one) delVertex();
   else if (a === 'del' && V.sel.length) { const ids = new Set(V.sel); change(() => { V.holds = V.holds.filter(h => !ids.has(h.id)); V.sel = []; }); }   // 刪完不跳走，畫面維持原樣
   else if (a === 'smooth' && one) { const p = G.polyOp([one.poly], { trim: true }); if (JSON.stringify(p) === JSON.stringify(one.poly)) flash(T('hlNothingTidy')); else change(() => { one.poly = p; settle(one); }); }
   else if (a === 'merge' || a === 'mergeDup') {
     const ids = one && V.dups.has(one.id) ? [one.id, ...V.dups.get(one.id)] : V.sel;
     if (ids.length >= 2) { const hs = ids.map(holdOf), poly = G.polyOp(hs.map(h => h.poly), { close: 0.03 }); change(() => { const keep = hs.reduce((m, h) => area(h.poly) > area(m.poly) ? h : m); keep.poly = poly; settle(keep); V.holds = V.holds.filter(h => h === keep || !ids.includes(h.id)); V.sel = [keep.id]; }); }
   }
-  else if (a === 'redo' && V.redo.length) { V.undo.push(snap()); const o = JSON.parse(V.redo.pop()); V.holds = o.holds; V.sel = o.sel; V.vert = -1; V.cand = null; refreshDups(); refreshSide(); draw(); dirty(); }
-  else if (a === 'undo' && V.undo.length) { V.redo.push(snap()); const o = JSON.parse(V.undo.pop()); V.holds = o.holds; V.sel = o.sel; V.vert = -1; V.cand = null; refreshDups(); refreshSide(); draw(); dirty(); }
+  else if (a === 'redo' && V.redo.length) { V.undo.push(snap()); const o = JSON.parse(V.redo.pop()); V.holds = o.holds; V.sel = o.sel; V.vert = -1; V.lasso = null; refreshDups(); refreshSide(); draw(); dirty(); }
+  else if (a === 'undo' && V.undo.length) { V.redo.push(snap()); const o = JSON.parse(V.undo.pop()); V.holds = o.holds; V.sel = o.sel; V.vert = -1; V.lasso = null; refreshDups(); refreshSide(); draw(); dirty(); }
   else if (a === 'all') { V.flaggedOnly = !V.flaggedOnly; refreshSide(); draw(); }
   else if (a === 'multi') { V.multi = !V.multi; refreshSide(); }
 }
@@ -310,23 +383,19 @@ addEventListener('keydown', e => {
     return;
   }
   if (k === 'z' && e.shiftKey) { e.preventDefault(); act('redo'); return; }
-  if (k === 'escape') { act('cancel'); return; }
-  if (k === 'enter' && V.cand) { act('accept'); return; }
-  const map = { c: 'crop', j: 'next', arrowdown: 'next', k: 'prev', arrowup: 'prev', a: 'accept', x: 'del', delete: 'del', backspace: 'del', z: 'undo', b: 'all', m: 'merge', r: 'retrace', d: 'notDup', s: 'smooth' };
+  if (k === 'escape') { if (V.drag && V.drag.loop) { V.drag = null; draw(); return; } act('cancel'); return; }   // 畫到一半先丟掉這一圈，再按一次離開圈
+  const map = { c: 'crop', j: 'next', arrowdown: 'next', k: 'prev', arrowup: 'prev', a: 'accept', x: 'del', delete: 'del', backspace: 'del', z: 'undo', b: 'all', m: 'merge', r: 'retrace', l: 'lasso', d: 'notDup', s: 'smooth' };
   if (map[k]) { e.preventDefault(); const a = map[k]; act(a === 'accept' && V.sel.length === 1 && holdOf(V.sel[0]) && pending(holdOf(V.sel[0])) ? 'keepHk' : a).catch(er => flash(er.message)); }
 });
-// 可以拖頂點、加頂點的外框：目前的候選（框出來的、手畫的），沒有就是單選的那顆岩點
-const editPoly = () => V.cand ? V.cand.poly : V.sel.length === 1 && holdOf(V.sel[0]) ? holdOf(V.sel[0]).poly : null;
-function handleAt(x, y) {   // 螢幕座標：頂點優先；其次邊上任何一點（長線段中間也能拖出新頂點）→ { i, mid: true, pt: 影像座標 }
+// 可以拖頂點、加頂點的外框：單選的那顆岩點
+const editPoly = () => V.sel.length === 1 && holdOf(V.sel[0]) ? holdOf(V.sel[0]).poly : null;
+// 螢幕座標碰到哪個把手：頂點容錯 20 px、邊中點 14 px，兩種都在範圍內時選比較近的（同岩點貓 hitHandle）；觸控再放大
+function handleAt(x, y) {
   const p = editPoly(); if (!p) return null;
-  const sx = q => q[0] * V.scale + V.tx, sy = q => q[1] * V.scale + V.ty;
-  for (let i = 0; i < p.length; i++) if (Math.hypot(sx(p[i]) - x, sy(p[i]) - y) <= tol(11)) return { i };
-  let best = null, bd = tol(8);
-  for (let i = 0; i < p.length; i++) {
-    const a = p[i], b = p[(i + 1) % p.length], ax = sx(a), ay = sy(a), dx = sx(b) - ax, dy = sy(b) - ay, L = dx * dx + dy * dy || 1;
-    const t = Math.max(0.02, Math.min(0.98, ((x - ax) * dx + (y - ay) * dy) / L)), d = Math.hypot(ax + t * dx - x, ay + t * dy - y);
-    if (d < bd) { bd = d; best = { i, mid: true, pt: [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])] }; }
-  }
+  const { pts, mids } = handleList(p);
+  let best = null, bd = Infinity;
+  for (const v of pts) { const [sx, sy] = toScr(v.x, v.y), d = Math.hypot(sx - x, sy - y); if (d < tol(20) * (V.coarse ? 0.75 : 1) && d < bd) { bd = d; best = v; } }
+  for (const m of mids) { const [sx, sy] = toScr(m.x, m.y), d = Math.hypot(sx - x, sy - y); if (d < tol(14) * (V.coarse ? 0.75 : 1) && d < bd) { bd = d; best = m; } }
   return best;
 }
 // 裁切框：螢幕座標在框的哪個邊或角（位元：1 左 2 右 4 上 8 下）；框裡面是 16（整個移動）；都不是回 0（拖出新框）
@@ -357,13 +426,13 @@ cv.addEventListener('wheel', e => {
 }, { passive: false });
 function endDrag() {   // 放開事件沒送到（右鍵選單、Ctrl＋點擊、視窗失焦、手勢取消）時收掉拖曳，不然白框和平移會卡住、下一次點擊被當成接續
   if (!V.drag) return;
-  clearTimeout(V.lp); V.drag = null; cv.style.cursor = 'default'; draw();
+  clearTimeout(V.lp); V.drag = null; cv.style.cursor = V.lasso ? 'crosshair' : 'default'; draw();
 }
 cv.addEventListener('pointercancel', endDrag);
 cv.addEventListener('lostpointercapture', endDrag);
 cv.addEventListener('contextmenu', e => e.preventDefault());
 addEventListener('blur', endDrag);
-// 雙指：開合縮放、一起移動平移（照兩指中點）；第二指放下就取消第一指正在做的（框、逐點手畫的那一點）
+// 雙指：開合縮放、一起移動平移（照兩指中點）；第二指放下就取消第一指正在做的（框、畫到一半的圈）
 const mid = () => { const [a, b] = [...V.fingers.values()]; return { x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2, d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1 }; };
 function startPinch() {
   clearTimeout(V.lp); V.drag = null; const m = mid(); V.pinch = { ...m, scale: V.scale, tx: V.tx, ty: V.ty }; draw();
@@ -382,15 +451,14 @@ cv.addEventListener('pointerdown', e => {
   const [x, y] = local(e), p = toImg(x, y);
   capture(e);
   if (V.tool === 'crop') { const r = V.crop || { x: 0, y: 0, w: V.img.width, h: V.img.height }, m = cropEdge(x, y, r); V.drag = { crop: m || 32, p, r: { ...r } }; return; }
+  if (V.lasso) { V.drag = { loop: [round1(p)], last: [x, y], moved: true }; draw(); return; }   // 圈：拖一圈，不平移、不拖頂點
   const hv = handleAt(x, y);
   if (hv) {
-    const poly = editPoly();
-    V.drag = { vert: true, cand: !!V.cand, snap: V.cand ? null : snap(), moved: false, x, y };
-    if (hv.mid) { poly.splice(hv.i + 1, 0, hv.pt); V.drag.moved = true; V.vert = hv.i + 1; } else V.vert = hv.i;
-    V.drag.off = [poly[V.vert][0] - p[0], poly[V.vert][1] - p[1]];   // 頂點不跳到手指下，保持按下時的相對位置
+    V.drag = { vert: true, hh: hv, snap: snap(), moved: false, x, y };
+    V.vert = hv.kind === 'v' ? hv.i : -1;
+    V.drag.off = [hv.x - p[0], hv.y - p[1]];   // 頂點不跳到手指下，保持按下時的相對位置
     draw(); return;
   }
-  if (V.cand) { V.cand = null; refreshSide(); draw(); }
   V.vert = -1;
   V.drag = { x, y, tx: V.tx, ty: V.ty, p, moved: false, shift: e.shiftKey || V.multi };
   if (!V.tool && !e.shiftKey && !V.multi && !e.altKey) {   // 長按：原地按住 0.5 秒（拖曳、Shift、Alt 不算）
@@ -408,19 +476,30 @@ cv.addEventListener('pointermove', e => {
   }
   if (!V.drag && e.pointerType === 'touch') return;   // 手指沒有懸停
   if (!V.drag && V.tool === 'crop') { const m = cropEdge(x, y, V.crop || { x: 0, y: 0, w: V.img.width, h: V.img.height }); cv.style.cursor = !m ? 'crosshair' : m === 16 ? 'move' : (m & 3 && m & 12) ? 'nwse-resize' : m & 3 ? 'ew-resize' : 'ns-resize'; return; }
+  if (!V.drag && V.lasso) return;
   if (!V.drag) {
     const h = hit(...toImg(x, y)), prev = V.hover;
     V.hover = h || null; if ((prev && prev.id) !== (h && h.id)) draw();
-    const hd = V.tool ? null : handleAt(x, y), ea = hd && hd.mid ? hd.pt : null;
-    const same = (!ea && !V.edgeAt) || (ea && V.edgeAt && ea[0] === V.edgeAt[0] && ea[1] === V.edgeAt[1]);
-    if (!same) { V.edgeAt = ea; draw(); }
-    cv.style.cursor = hd ? 'move' : h ? 'pointer' : 'default';
+    cv.style.cursor = !V.tool && handleAt(x, y) ? 'move' : h ? 'pointer' : 'default';
     return;
   }
   const d = V.drag;
   if (d.crop) { V.crop = dragCrop(d, toImg(x, y)); draw(); return; }
-  if (d.long) return;   // 長按之後手指移動不做事（候選用頂點調整）
-  if (d.vert) { const q = toImg(x, y); d.moved = true; editPoly()[V.vert] = [q[0] + d.off[0], q[1] + d.off[1]]; draw(); return; }
+  if (d.loop) { if (Math.hypot(x - d.last[0], y - d.last[1]) < 3) return; d.last = [x, y]; d.loop.push(round1(toImg(x, y))); draw(); return; }   // 每隔 3 個螢幕像素記一點
+  if (d.long) return;   // 長按之後手指移動不做事
+  if (d.vert) {
+    if (!d.moved) {
+      if (Math.hypot(x - d.x, y - d.y) < 4) return;
+      d.moved = true;
+      const h = holdOf(V.sel[0]), hh = d.hh;
+      if (hh.kind === 'm') { V.vert = hh.i + 1; h.poly.splice(V.vert, 0, [hh.x, hh.y]); }   // 拖邊中點：插入新頂點
+      else if (hh.idx.length > 1) { const m = mergeHandle(h.poly, hh.idx, [hh.x, hh.y]); h.poly = m.poly; V.vert = m.i; }   // 擠在一起的頂點：合成一個再拖
+      else V.vert = hh.i;
+    }
+    const q = toImg(x, y);
+    editPoly()[V.vert] = round1([Math.min(V.img.width, Math.max(0, q[0] + d.off[0])), Math.min(V.img.height, Math.max(0, q[1] + d.off[1]))]);
+    draw(); return;
+  }
   if (!d.moved && Math.hypot(x - d.x, y - d.y) > tol(4)) { d.moved = true; clearTimeout(V.lp); if (d.shift) d.marquee = [d.p, d.p]; else d.pan = true; }
   if (!d.moved) return;
   if (d.marquee) { d.marquee[1] = toImg(x, y); draw(); return; }
@@ -432,12 +511,16 @@ cv.addEventListener('pointerup', e => {
   const pinching = !!V.pinch; liftFinger(e);
   if (pinching) { V.drag = null; return; }   // 雙指放開：剩下的那指不接著拖
   clearTimeout(V.lp);
-  const d = V.drag; V.drag = null; cv.style.cursor = 'default'; if (!d) return;
+  const d = V.drag; V.drag = null; cv.style.cursor = V.lasso ? 'crosshair' : 'default'; if (!d) return;
+  if (d.loop) { finishLasso(d.loop); return; }
   if (d.long) { draw(); return; }
   if (d.crop) { const c = V.crop; if (c && c.x <= 0 && c.y <= 0 && c.w >= V.img.width && c.h >= V.img.height) V.crop = null; if (V.onCrop) V.onCrop(V.crop); refreshSide(); draw(); return; }
   if (d.vert) {
-    if (d.cand) { V.edgeAt = null; draw(); return; }   // 候選還沒變成岩點，改它不用進復原
-    if (d.moved) { V.undo.push(d.snap); if (V.undo.length > 50) V.undo.shift(); V.redo = []; settle(holdOf(V.sel[0])); refreshDups(); refreshSide(); dirty(); }
+    if (d.moved) {
+      const h = holdOf(V.sel[0]);
+      h.poly = G.trimPolySpikes(h.poly, V.vert);   // 拖完把細尖剪掉（剛拖的這個頂點不動，可能是故意拉尖的）
+      V.undo.push(d.snap); if (V.undo.length > 50) V.undo.shift(); V.redo = []; settle(h); V.vert = -1; refreshDups(); refreshSide(); dirty();
+    }
     draw(); return;
   }
   if (d.marquee) { const [a, b] = d.marquee, x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]), y0 = Math.min(a[1], b[1]), y1 = Math.max(a[1], b[1]); select(V.holds.filter(h => { const bb = bboxOf(h.poly); return bb[0] >= x0 && bb[2] <= x1 && bb[1] >= y0 && bb[3] <= y1; }).map(h => h.id), false); return; }
@@ -445,8 +528,8 @@ cv.addEventListener('pointerup', e => {
   else draw();
 });
 cv.addEventListener('dblclick', e => {
-  const [x, y] = local(e), hv = V.tool ? null : handleAt(x, y);   // 雙擊頂點：刪掉
-  if (hv && !hv.mid) { V.vert = hv.i; act('del').catch(er => flash(er.message)); }
+  const [x, y] = local(e), hv = V.tool || V.lasso ? null : handleAt(x, y);   // 雙擊頂點：刪掉
+  if (hv && hv.kind === 'v') { V.vert = hv.i; delVertex(); }
 });
 addEventListener('resize', () => { if (V.active) { size(); draw(); } });
 // 手機的底部面板：要看的清單往上展開；點了清單就收起來，照片回到整個畫面

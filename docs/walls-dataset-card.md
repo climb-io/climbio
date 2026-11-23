@@ -31,7 +31,7 @@ from huggingface_hub import hf_hub_download
 import pandas as pd
 
 walls = pd.read_json(hf_hub_download("climbio/walls", "walls.jsonl", repo_type="dataset"), lines=True)
-reviewed = walls[walls.edits.apply(lambda e: bool(e and e["reviewed"]))]   # 人工逐顆檢查過的牆
+reviewed = walls[walls.edits.apply(lambda e: bool(e and e["reviewed"]))]   # 逐顆檢查完的牆（人或 AI 代理，by 欄位分得出來）
 ```
 
 `dir` 是這面牆最新版本的資料夾。只下載要的牆（不會抓到舊版本）：
@@ -57,7 +57,9 @@ walls/<牆包 id>/v<版本>/
   index.json                     這個包的入口
 walls/<牆包 id>/routes.json      大家在岩點貓定的路線（每天更新一次；不分版本；不含帳號）
 research/hold-lab/<牆包 id>/       同一張照片各處理步驟（手機偵測、MobileSAM、SAM2、人工修正）的岩點外框與跟人工答案的比較；只有做過這項比較的牆才有
-  stages.json                    各步驟的岩點外框，每顆外框的好壞（可用、切掉一角、外框太大、多認、漏掉），以及每 100 顆真實岩點裡外框可直接用幾顆；人工做了什麼（沒動、微調、重畫、手畫、刪除）
+  stages.json                    各步驟的岩點外框，每顆外框的好壞（可用、切掉一角、外框太大、多認、漏掉），以及每 100 顆真實岩點裡外框可直接用幾顆；人工做了什麼（沒動、微調、重畫、手畫、刪除）。
+                                 runs：同一張照片用別的流程重跑的結果（不影響 stages），每筆 { id, at, tool, agent, rubric, note, file, stages: [{ id, name, ids, polys, count, vsHuman: { found, ok, extra } }] }，vsHuman 是跟 stages 的 human 比、每 100 顆真實岩點
+  runs/<run id>.edits.json       那次重跑的完整研究記錄（格式同 <牆 id>.edits.json，含 ai：判斷準則、每一步的題目與判斷）
   photo.jpg                      比較用的照片（長邊 1600）
   summary.json                   有哪些步驟
                                  Hold Lab 展示頁（https://climbio.app/lab/hold-lab/）與 Studio Wall 的報告讀各步外框，數字自己重算
@@ -75,7 +77,7 @@ research/hold-lab/<牆包 id>/       同一張照片各處理步驟（手機偵�
 | `w`、`h` | 照片寬高（像素） |
 | `holds` | 岩點數 |
 | `photoBytes`、`photoSha256` | 照片大小、雜湊 |
-| `edits` | 沒精修過是 `null`；否則 `{ reviewed, deleted, added, reshaped, flagged }`：是否逐顆檢查完、各類修正的數量 |
+| `edits` | 沒精修過是 `null`；否則 `{ reviewed, by, deleted, added, reshaped, flagged }`：是否逐顆檢查完、誰檢查的（`human`、`ai`、`ai+human`；舊資料沒有這欄）、各類修正的數量 |
 | `routes` | 匯出的路線數 |
 | `license` | `CC-BY-SA-4.0` |
 
@@ -86,8 +88,9 @@ research/hold-lab/<牆包 id>/       同一張照片各處理步驟（手機偵�
 - 牆的 `<牆 id>.json` 是**最後結果**（人工修過之後）。自動結果 = 最後結果，拿掉 `added` 列的岩點，加回 `deleted` 的岩點（`{ id, poly }`，外框是自動的），再把 `reshaped` 的岩點外框換成它帶的自動外框（`{ id, poly, iou }`）。
 - `deleted`：誤偵測（自動有、人工刪掉）。`added`：漏偵測（人工補的岩點 id 列表）。`reshaped`：外框不準（重疊 IoU 低於 0.9）；小修不記。三者都沒有的岩點就是自動結果跟最後結果一致。
 - `flagged`：`{ 岩點 id: 旗標 }`，自動結果標為「要看」的岩點，沒改的也留著，用來校準信心。
-- **`reviewed` 為 true 的牆，沒被改的岩點才能當正確答案**；沒有 `reviewed` 的牆，沒改的岩點只代表「沒人看過」。
+- **`reviewed` 為 true 的牆，沒被改的岩點才能當正確答案**；沒有 `reviewed` 的牆，沒改的岩點只代表「沒人看過」。檢查完可以是人（Studio Wall 按「逐顆檢查完了」），也可以是 AI 代理流程通過完成閘門；`reviews` 列出每一次檢查 `{ by, kind, at }`（`by` 是 `human:<名稱>` 或 `agent:<代理>`，`kind` 是 `human` 或 `ai-verify`），人在 AI 之後再看過會多一筆。要只用人工答案就挑 `reviews` 裡有 `human` 的，或沒有 `ai` 的舊記錄。
 - `tools` 記偵測與 SAM 模型版本，`sha256` 是照片雜湊。
+- **AI 代理做的牆多一個 `ai`**，是完整的處理過程：`agent`（哪個代理）、`rubric`（判斷準則全文 `text` 和雜湊 `sha256`，同一個雜湊＝同一套準則）、`policy`（分級規則的門檻）、`sam2`（每顆 SAM2 重描的外框、旗標、跟原外框的 IoU、是否直接採用：`{ 岩點 id: { poly, flags, iou, pick } }`）、`log`（照時間排的每一步：`step` 是 `auto-sam`、`auto-dup`、`dup`、`sam`、`recheck`、`audit`、`overview`、`shapes`、`shapecheck`、`auto-volume-ok`；`items` 是題目（岩點 id 或照片座標的框），`decisions` 是代理的判斷，刪除帶理由如 `delete:貼紙`；`added` 是這一步新加的外框：量體或漏掉的岩點）、`result`（最後的岩點數、量體數、AI 補畫、刪除按理由統計、抽查錯誤率）。
 - **手機精修**（岩點貓已不再上傳牆，只有以前公開的牆有這種記錄；現在的牆都由 Studio 發佈）：從岩點貓公開的牆，作者自己改過、手畫、刪掉的岩點也記成 edits.json（`tools.by` 是 `phone`，`reviewed` 一定是 false）。這種牆的 `<牆 id>.json` 維持自動結果，不是最後結果：`deleted` 帶自動外框，`reshaped` 的 `poly` 是自動外框，`added` 是手畫岩點 id，`final` 是 `{ 岩點 id: 最後外框 }`（改過的和手畫的）。
 
 ## 資料的來源與保管

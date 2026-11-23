@@ -56,10 +56,11 @@ Studio 是一個 PWA（範圍 \`/studio/\`，圖示用母品牌），已取代 \
 
 ### 首頁社群分享封面
 
-- 首頁八種語言共用一張 1200×630 JPG 社群封面，使用首頁現有的真實戶外岩場照片 `demo/reel/crag-guidebook.webp` 與**官方** `icons/brand/climbio-horizontal-dark.svg`，不重畫角色與 Logo。
-- 封面由 `tools/social-cover.py` 在網站打包時產生為 `dist/social/climbio-home.jpg`，**原始照片與正式 App icon 不修改**。部署流程在生成之前準備 Pillow／CairoSVG。
+- 繁中首頁（`/`）用另一張 1200×630 JPG：`social/climbio-home-warm.jpg`（第 1 幕照片加上「下班了，手還不想下班」）。檔案進版控，`og:image` 與 `twitter:image` 指到 `https://climbio.app/social/climbio-home-warm.jpg`。
+- 其餘七種語言首頁共用一張 1200×630 JPG 社群封面，使用首頁現有的真實戶外岩場照片 `demo/reel/crag-guidebook.webp` 與**官方** `icons/brand/climbio-horizontal-dark.svg`，不重畫角色與 Logo。
+- 那張共用封面由 `tools/social-cover.py` 在網站打包時產生為 `dist/social/climbio-home.jpg`，**原始照片與正式 App icon 不修改**。部署流程在生成之前準備 Pillow／CairoSVG。它不會覆寫繁中的 `climbio-home-warm.jpg`。
 - `og:image`、`twitter:image` 都使用該 JPEG 的正式絕對 URL；首頁使用 `summary_large_image`，提供 Open Graph 的尺寸、格式與替代文字。翻譯頁共用無語言障礙的主視覺，文字由各頁的 `og:title`／`og:description` 提供。
-- `tools/social-meta.mjs` 必須保留首頁的封面設定，不能被重新產生 meta 的工具覆寫成 512×512 方形 App 圖示。
+- `tools/social-meta.mjs` 必須保留首頁的封面設定：繁中根目錄用暖色封面，其他語言用產生的封面，不能被重新產生 meta 的工具覆寫成 512×512 方形 App 圖示。
 
 ## 母品牌明暗模式、網站小圖示與社群頭像
 

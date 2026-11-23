@@ -100,20 +100,24 @@
   // 拿到圖層後牆、縮圖（圖層的 props.thumb；舊的圖層沒有就等牆的 props.thumb）同時下載，牆到了就開始下載照片。
   // 收線不用登入、不連 Firebase：從連結那台伺服器讀。任何網域的連結都收
   // 連結是分享包裡的一條線（{ wall: 路線圖層的網址, rid }）時照片編號看圖層疊在哪面牆；have(pid)＝手上有沒有這面牆（有就不下載照片、不給原始岩點檔）
-  function fetchShared({ src, wall, pid, rid }, { onProgress = () => {}, onInfo = () => {}, havePhoto = false, needBase = true, have = null } = {}) {
+  function fetchShared({ src, wall, pid, rid }, { onProgress = () => {}, onInfo = () => {}, havePhoto = false, needBase = true, have = null, given = null } = {}) {   // given：預覽頁已經交來的路線圖層（不用再下載）
     const ac = new AbortController();
     let wantPic = needBase && !havePhoto;
     // 站上的縮圖先下載成 data: 網址：別的網域的圖直接畫進畫布，畫布就不能再讀（開箱卡片要讀像素做灰階）
     let thumb = '';
     const thumbFrom = (url) => get(url, ac.signal).then(r => r.blob()).then(dataUrl).then(x => (thumb = x)).catch(() => '');
     const done = (async () => {
-      const layerUrl = wall || `${src}route.json`, layer = await getDoc(layerUrl, 'layer', ac.signal);
+      const layerUrl = wall || `${src}route.json`, layer = given && !ClimbioFormat.validate(given).length && given.kind === 'layer' ? given : await getDoc(layerUrl, 'layer', ac.signal);
       const viewUrl = resolve(layer.href || '', layerUrl), lp = layer.props || {};
       if (wall && PID_RE.test(layer.on || '')) { pid = layer.on; if (have && await have(pid)) { havePhoto = true; needBase = wantPic = false; } }
       if (layer.on !== pid || !layer.href) throw new Error(T('shareNotFound'));
       const first = RouteKit.fromFormat({}, [layer]).routes.find(r => r.id === rid);   // 牆還沒到：岩點的外框之後才有
       if (!first) throw new Error(T('shareNotFound'));
       const view = getDoc(viewUrl, 'view', ac.signal);
+      // 圖層指了照片在哪（props.photo）：跟牆的畫面同時下載，不用等畫面讀完才開始；畫面指的照片對不上再重讀
+      const hint = havePhoto || !needBase && !wantPic || typeof lp.photo !== 'string' || !/^https:\/\//.test(lp.photo) ? '' : lp.photo;
+      const early = hint ? getPhoto({ href: hint }, hint, ac.signal) : null;
+      if (early) early.catch(() => {});
       let thumbJob = wantPic && typeof lp.thumb === 'string' ? thumbFrom(resolve(lp.thumb, layerUrl)) : null;
       onInfo({ ownerName: first.author, route: first });
       const preview = wantPic && /^data:image\/(jpeg|png|webp);base64,/.test(lp.preview || '') ? lp.preview : '';
@@ -123,7 +127,7 @@
       if (v.id !== pid || v.surface !== 'photo') throw new Error(T('shareNotFound'));
       const { base, routes } = wallOf(v, [layer]), route = routes.find(r => r.id === rid);
       if (!route) throw new Error(T('shareNotFound'));
-      const photo = havePhoto ? null : getPhoto(v, viewUrl, ac.signal);
+      const photo = havePhoto ? null : early && resolve(v.href, viewUrl) === hint ? early : getPhoto(v, viewUrl, ac.signal);
       if (photo) photo.catch(() => {});   // 失敗在下面 await 時才丟出
       if (!thumbJob && wantPic && v.props && typeof v.props.thumb === 'string') thumbJob = thumbFrom(resolve(v.props.thumb, viewUrl));
       const doc = { author: route.author, gym: String(lp.gym || '') }, shown = thumb;

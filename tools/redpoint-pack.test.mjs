@@ -11,6 +11,7 @@ const realFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = realFetch; });   // 假的 fetch 只在這個測試裡有效，不留給同一個程序裡後面的測試
 import { fromUrl, fromFiles } from '../redpoint/io.js';
 globalThis.AppKit = AppKit;
+await import('../i18n/studio-crag-data/zh.js');   // 岩壁名稱（cdWallN）在這個語言包；沒載入時 newBook／addPhoto 會取不到文字
 
 const { validate } = createRequire(import.meta.url)('../format/format.js');
 globalThis.ClimbioFormat = { validate };

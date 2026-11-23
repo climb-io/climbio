@@ -27,9 +27,12 @@ const unesc = s => s.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&amp
 
 const isHomepage = rel => /^(?:index\.html|(?:zh-cn|en|ja|ko|de|es|fr)\/index\.html)$/.test(rel);
 const HOME_IMAGE = '/social/climbio-home.jpg';
+const ZH_HOME_IMAGE = '/social/climbio-home-warm.jpg';
 const HOME_IMAGE_ALT = 'Climbio official logo and climbers viewing a rock wall';
+const ZH_HOME_IMAGE_ALT = '一位岩友下班後在岩館試爬，旁邊寫著「下班了，手還不想下班」';
 
 function imageFor(rel) {
+  if (rel === 'index.html') return ZH_HOME_IMAGE;
   if (isHomepage(rel)) return HOME_IMAGE;
   if (/^(en\/)?guides\/hold|^hold\//.test(rel)) return '/icons/cats/hold-cat-512.png';
   if (/^(en\/)?guides\/redpoint|^redpoint/.test(rel)) return '/icons/cats/redpoint-cat-512.png';
@@ -62,13 +65,13 @@ for (const rel of walk(root).sort()) {
       '<meta property="og:image:type" content="image/jpeg">',
       '<meta property="og:image:width" content="1200">',
       '<meta property="og:image:height" content="630">',
-      `<meta property="og:image:alt" content="${HOME_IMAGE_ALT}">`,
+      `<meta property="og:image:alt" content="${esc(rel === 'index.html' ? ZH_HOME_IMAGE_ALT : HOME_IMAGE_ALT)}">`,
     ]),
     `<meta name="twitter:card" content="${isHomepage(rel) ? 'summary_large_image' : 'summary'}">`,
     `<meta name="twitter:title" content="${ogTitle ?? esc(title)}">`,
     `<meta name="twitter:description" content="${ogDesc ?? esc(desc)}">`,
     `<meta name="twitter:image" content="${ORIGIN}${imageFor(rel)}">`,
-    ...(!isHomepage(rel) ? [] : [`<meta name="twitter:image:alt" content="${HOME_IMAGE_ALT}">`]),
+    ...(!isHomepage(rel) ? [] : [`<meta name="twitter:image:alt" content="${esc(rel === 'index.html' ? ZH_HOME_IMAGE_ALT : HOME_IMAGE_ALT)}">`]),
   ];
   const before = html;
   html = html.replace(/[ \t]*<meta (?:property="og:[^"]*"|name="twitter:[^"]*")[^>]*>\n?/gi, '')

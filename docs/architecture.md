@@ -10,7 +10,7 @@
 
 | 網址 | 內容 |
 |---|---|
-| `/`（`index.html`、`entry.js`、`home-reel.js`、`css/home.css`） | 單一視窗滿版輪播。每幕用一張照片和一段文字，前五幕各有對應入口。第六幕的文案先出現，接著原地展開應用、Studio、文件、Lab 和 GitHub 的入口。文件頁集中開發工具與岩場資料。帶著 App 參數進來時，`entry.js` 在畫面出來前依內容轉進對應的 App（`?topo=` 給紅點貓，路線連結的 `?p=` 給岩點貓） |
+| `/`（`index.html`、`entry.js`、`home-reel.js`、`css/home.css`；繁中另加 `css/warm.css`） | 單一視窗滿版輪播，八語共用腳本與版面。繁中首頁的文案、照片與暖色調整只在根目錄 `index.html` 與 `css/warm.css`，其他語言首頁不套用。每幕用一張照片和一段文字，前四幕各有對應入口。最後一幕的文案先出現，接著原地展開應用、Studio、文件與 Lab 的入口；GitHub、使用條款、隱私權在畫面左下角。文件頁集中開發工具與岩場資料。帶著 App 參數進來時，`entry.js` 在畫面出來前依內容轉進對應的 App（`?topo=` 給紅點貓，路線連結的 `?p=` 給岩點貓） |
 | `/lab/`、`/lab/en/` | 岩點精修、3D 重建與開放資料集。Hold Lab 比較工具在 `/lab/hold-lab/`（岩點報告跟 Studio Wall 共用，見 docs/studio-wall.md 的「岩點報告」） |
 | `/guides/`、`/en/guides/` | 文件索引、App 操作手冊、Studio 指南及開發資源；`/kits/` 與 `/kits/en/` 由 `tools/build-kits.mjs` 產生 |
 | `/en/` | 英文首頁，首頁依裝置語言自動選擇繁中或英文，文件頁依瀏覽器語言自動導向 |

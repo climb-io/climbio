@@ -147,7 +147,7 @@
   </section>
   <section id="aiBox" aria-labelledby="aiTitle">
     <h2 id="aiTitle" data-i18n="stAi">交給 AI</h2>
-    <p data-i18n="stAiIntro">Studio 是給 AI 代理做事、你來確認的：整理照片、轉換路線書、偵測岩點都交給它，你只看結果、按發佈。</p>
+    <p data-i18n="stAiIntro">Studio 是給 AI 代理做事、你來確認的：整理照片、轉換路線書、偵測岩點、整合進你的 App 都交給它，你只看結果、按發佈。</p>
     <ol class="ai-steps">
       <li><b data-i18n="stAiSetup">設定一次</b><span data-i18n="stAiSetupText">準備一個能在你電腦上執行程式的 AI 代理（例如 Claude Code、Codex），把 Climbio 的 GitHub 專案交給它；要裝什麼、怎麼做，它照專案裡的說明自己處理。</span><a href="https://github.com/climb-io/climbio" target="_blank" rel="noopener">github.com/climb-io/climbio</a></li>
       <li><b data-i18n="stAiTell">交代任務</b><span data-i18n="stAiTellText">把下面的句子複製給它，換成你的資料夾或網址：</span>
@@ -156,6 +156,7 @@
           <li><q data-i18n-html="stAiTaskCrag">用 Climbio Studio 把 <b>〔老岩場的路線書：檔案或網頁〕</b> 轉成手機上好閱讀的紅點貓格式（Guidebook）。先讀專案的 AGENTS.md，再跑 node tools/studio.mjs start crag 〔資料夾〕 〔路線書檔案或網址〕 照它印的做；AI 能判斷的都自己做完，做好告訴我專案資料夾在哪，只有發佈要問我，做不到的如實說卡在哪。</q><button type="button" class="btn" data-copy data-i18n="stAiCopy">複製</button></li>
           <li><q data-i18n-html="stAiTaskBook">用 Climbio Studio 把這份路線書 <b>〔Word、PDF 或網址〕</b> 轉成 Guidebook。先讀專案的 AGENTS.md，再跑 node tools/studio.mjs start book 〔資料夾〕 〔路線書〕 照它印的做；AI 能判斷的都自己做完，做好告訴我專案資料夾在哪，只有發佈要問我，做不到的如實說卡在哪。</q><button type="button" class="btn" data-copy data-i18n="stAiCopy">複製</button></li>
           <li><q data-i18n-html="stAiTask3d">用 Climbio 的 3D 重建流程把 <b>〔影片或照片資料夾〕</b> 做成 3D 牆。先讀專案的 AGENTS.md，再跑 node tools/studio.mjs start 3d 〔3D 牆資料夾〕 照它印的做；AI 能判斷的都自己做完，只有發佈要問我，做不到的如實說卡在哪。</q><button type="button" class="btn" data-copy data-i18n="stAiCopy">複製</button></li>
+          <li><q data-i18n-html="stAiTaskApp">用 Climbio 的內嵌頁把已發佈的牆面（<b>〔牆 id〕</b>）整合進我們的岩館 App：看線、定線都放進現有的路線頁。先讀專案的 AGENTS.md，再讀 docs/gym-agent.md 和 docs/embed.md 照做，用 init 的 wallId；定好的路線用 submit 提交，記下回傳的 routeId 對應我們的使用者。需要我決定或提供的才問我，做完告訴我怎麼驗收，做不到的如實說卡在哪。</q><button type="button" class="btn" data-copy data-i18n="stAiCopy">複製</button></li>
         </ul>
       </li>
       <li><b data-i18n="stAiCheck">你來確認</b><span data-i18n="stAiCheckText">AI 做好會告訴你專案資料夾。打開它，看 AI 的判斷、需要時修正，最後按發佈；AI 判斷不了、資料不夠的才會問你。</span>

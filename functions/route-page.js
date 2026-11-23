@@ -28,7 +28,10 @@ const js = (v) => JSON.stringify(v).replace(/</g, '\\u003c');   // 放進 <scrip
 // （下載完時這頁已經不在，回應不進 HTTP 快取）。所以只先下載圖層：App 一打開就讀它；牆、縮圖要等圖層到了才讀，先下載只會重複下載
 const fetchAhead = (files) => (files.length ? `${js(files)}.forEach(function(u){try{fetch(u,{keepalive:true}).catch(function(){})}catch(e){}});` : '');
 const routeFiles = (origin, pid, rid) => [`${origin}/r/${pid}/${encodeURIComponent(rid)}/route.json`];
-function previewPage({ url, target, title, description, image, line = false, files = [] }) {
+// handoff：預覽頁已經查到的文件 { url, doc }（路線圖層、岩場入口），轉進 App 前存進 sessionStorage（預覽頁和 App 同源、同一個分頁），
+// App 一開就有路線資料，不用再呼叫一次 route.json；存不進去（無痕、換瀏覽器）就照常下載
+const stash = (h) => (h ? `try{sessionStorage.setItem('climbio.handoff',${js(JSON.stringify(h))})}catch(e){}` : '');
+function previewPage({ url, target, title, description, image, line = false, files = [], handoff = null }) {
   const go = line
     ? `var u=${js(target)};if(/Line\\//i.test(navigator.userAgent))u+=(u.indexOf('?')<0?'?':'&')+'openExternalBrowser=1';location.replace(u)`
     : `location.replace(${js(target)})`;
@@ -40,7 +43,9 @@ function previewPage({ url, target, title, description, image, line = false, fil
 ${image.width ? `<meta property="og:image:width" content="${image.width}"><meta property="og:image:height" content="${image.height}">` : ''}
 <meta name="twitter:card" content="${image.width ? 'summary_large_image' : 'summary'}">
 <link rel="canonical" href="${esc(url)}">
-</head><body style="background:#0a0a0a"><script>${fetchAhead(files)}${go}</script><noscript><a href="${esc(target)}">Climbio</a></noscript></body></html>`;
+<style>body{margin:0;background:#0a0a0a;color:#f2f2f2;font:16px/1.4 system-ui,sans-serif;display:flex;justify-content:center}main{width:100%;max-width:480px;padding:72px 16px 0;box-sizing:border-box}
+.ph{aspect-ratio:4/3;border-radius:16px;background:#1a1a1a center/cover no-repeat;filter:blur(14px);transform:scale(1.02);overflow:hidden}h1{font-size:20px;margin:20px 0 6px}p{margin:0;color:#9a9a9a;font-size:14px}</style>
+</head><body><main><div class="ph" style="background-image:url('${esc(encodeURI(image.url).replace(/'/g, '%27'))}')"></div><h1>${esc(title)}</h1><p>${esc(description)}</p></main><script>${handoff ? stash(handoff) : fetchAhead(files)}${go}</script><noscript><a href="${esc(target)}">Climbio</a></noscript></body></html>`;
 }
 const page = ({ origin, pid, rid, target = `${origin}/?p=${pid}&r=${encodeURIComponent(rid)}`, ...rest }) => previewPage({ url: `${origin}/r/${pid}/${rid}/`, target, files: routeFiles(origin, pid, rid), ...rest });
 
@@ -84,9 +89,9 @@ function createPageHandler({ db, hosts }) {
     if (!p) return res.redirect(302, `${origin}/`);
     if (p.file) return sendData(res, { db, origin, ...p });
     try {
-      const meta = await routeMeta({ db, origin, ...p });
+      const [meta, layer] = await Promise.all([routeMeta({ db, origin, ...p }), routeData({ db, origin, ...p }).catch(() => null)]);
       res.set('Cache-Control', 'public, max-age=300');
-      return res.status(200).send(page({ origin, ...p, ...meta }));
+      return res.status(200).send(page({ origin, ...p, ...meta, ...(layer ? { handoff: { url: routeFiles(origin, p.pid, p.rid)[0], doc: layer } } : {}) }));
     } catch (e) {
       console.error('路線連結頁失敗', e);
       return res.redirect(302, `${origin}/?p=${p.pid}&r=${encodeURIComponent(p.rid)}`);   // 預覽做不出來也照常收線

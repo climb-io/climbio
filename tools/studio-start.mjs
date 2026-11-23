@@ -35,7 +35,7 @@ export function plan({ type, dir, inputs = [], exists }) {
   if (type === 'gym') {
     if (hasWalls(exists, dir)) return { lines: L.concat(DONE), run: ['wall-batch.mjs', 'next', dir] };   // 做過的資料夾：next 印現在做到哪
     if (!inputs.length) L.push(`還沒有任何牆：把牆面照片的路徑接在後面再跑一次：node tools/studio.mjs start gym ${q(dir)} <照片…>`);
-    else L.push(`下一步：node tools/wall-batch.mjs run ${q(dir)} ${photos}`, `之後每一步都只跑：node tools/wall-batch.mjs next ${q(dir)}（它會印下一步）；規則在 docs/studio-wall.md「代理做牆面」。`);
+    else L.push(`下一步：node tools/wall-batch.mjs run ${q(dir)} ${photos}`, `之後每一步都只跑：node tools/wall-batch.mjs next ${q(dir)}（它會印下一步和判斷準則）；做完的標準只有一個：node tools/wall-batch.mjs verify ${q(dir)} 通過。規則在 docs/studio-wall.md「代理做牆面」。`);
     return { lines: L.concat(DONE) };
   }
 

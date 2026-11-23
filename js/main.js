@@ -162,7 +162,12 @@
   renderAccount();
   // 申請持久保存：空間不足時瀏覽器不會把牆面、照片清掉
   if (navigator.storage && navigator.storage.persist) navigator.storage.persisted().then(p => p || navigator.storage.persist()).catch(() => {});
-  showHome().then(async () => {
+  // 點了路線連結（手機）：不等首頁畫完（讀本機牆面清單、排卡片）就開始下載，兩邊同時跑；首頁在開箱畫面後面畫好，收完才看得到
+  const startHref = location.href;   // 先記下來：網址列清掉 ?p= 之後就讀不到了
+  const startLink = !PCLAND && /[?&](p|wall|person|shares|gym)=/.test(location.search) && !W3D.linkOf(startHref) && ShareTools.linkFrom(startHref);
+  const homeReady = showHome();
+  if (startLink) { openHref = startHref; history.replaceState({ s: 'home' }, '', location.pathname); leaveInApp(startHref).then(() => openRecv(startHref)); }
+  homeReady.then(async () => {
     document.getElementById('bootSplash')?.remove();   // 拿掉 hold/index.html 的啟動畫面
     // Service Worker 第一次安裝要下載整版檔案：等首頁畫好、瀏覽器閒下來才開始，不跟首屏搶頻寬
     if ('serviceWorker' in navigator && location.protocol === 'https:') { if (self.requestIdleCallback) requestIdleCallback(registerSW, { timeout: 3000 }); else setTimeout(registerSW, 1000); }
@@ -172,11 +177,10 @@
     if (SITE.listed && SITE.directory && SITE.directory !== SITE.url && !PCLAND) ShareTools.registerSite(SITE.directory);   // 登記進總目錄，別的站找得到這裡的牆（總目錄自己的站不送：總目錄每天的複查列進自己）   // 岩點偵測在手機上做：開場畫面出來後在背景準備好模型
     // 點了路線連結（?p=照片編號&r=路線 id）：直接開始接收
 
-    const href = location.href;   // 先記下來：網址列清掉 ?p= 之後就讀不到了
-    const c = /[?&](p|wall|person|shares|gym)=/.test(location.search) && ShareTools.linkFrom(href);
+    const href = startHref, pcLink = PCLAND && /[?&](p|wall|person|shares|gym)=/.test(new URL(href).search) && ShareTools.linkFrom(href);
     if (W3D.linkOf(href) && !PCLAND) { history.replaceState({ s: 'home' }, '', location.pathname); hideWelcome(); showHome().then(() => W3D.receive(href)); }   // 3D 牆的私人連結
-    else if (c && PCLAND) { openHref = href; history.replaceState({ s: 'home' }, '', location.pathname); showLanding(); }   // 電腦：不收，連結卡換成這條線的連結
-    else if (c) { openHref = href; history.replaceState({ s: 'home' }, '', location.pathname); leaveInApp(href).then(() => openRecv(href)); }
+    else if (pcLink) { openHref = href; history.replaceState({ s: 'home' }, '', location.pathname); showLanding(); }   // 電腦：不收，連結卡換成這條線的連結
+    else if (startLink) { /* 手機：上面已經開始收了 */ }
     else {
       if (!PCLAND) welcomeBoot();   // 手機：第一次打開是開場畫面
     }

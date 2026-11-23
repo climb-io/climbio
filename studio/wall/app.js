@@ -441,7 +441,8 @@ async function refineWall(w) {
     if (w.look) toast(T('hlSamDone', w.look));
   } catch (e) { console.error(e); toast(T('hlRefineFail', e.message)); }
   finally { busy.delete(w.id); updateCard(w); $('saveState').textContent = ''; }
-  if (open || (view === 'walls' && w.look)) await openWall(w);   // 跑完有要確認的直接進去看
+  // 跑完有要確認的直接進去看；打不開（例如剛存的檔案還在寫）不影響重描結果，只提示
+  if (open || (view === 'walls' && w.look)) await openWall(w).catch(e => { console.error(e); toast(openErr(e)); });
 }
 
 boot();

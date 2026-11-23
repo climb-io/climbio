@@ -41,7 +41,17 @@ function safeUrl(href, base) {
 }
 const fetch = (url, opts) => (globalThis.ShareTools ? globalThis.ShareTools.open(String(url), opts) : globalThis.fetch(url, opts));
 
+// 預覽頁（同源）轉進來時留下它讀到的文件（functions/projects.js 的 handoff）：網址對得上才用、只用一次；更新檢查（fresh）不用
+function handedOff(url) {
+  try {
+    const h = JSON.parse(sessionStorage.getItem('climbio.handoff') || 'null');
+    if (h && h.url === url.href && h.doc) { sessionStorage.removeItem('climbio.handoff'); return h.doc; }
+  } catch (e) { /* 沒有就照常下載 */ }
+  return null;
+}
 async function getJson(url, signal, fresh) {
+  const given = fresh ? null : handedOff(url);
+  if (given) return given;
   const res = await fetch(url, { signal, ...(fresh ? { cache: 'no-cache' } : {}) });
   if (!res.ok) throw new Error(T('readFailed', url.href, res.status));
   return res.json();

@@ -53,16 +53,31 @@ test('岩館的牆面：組合，一面牆一項，最新的在前，只有這�
 test('岩點貓公開牆（wallRoutes）：路線的片段併成一個圖層，href 指到資料集裡發佈的包；路線連結只給那一條；沒有這種牆回 null', async () => {
   const frag = (id, t) => JSON.stringify({ nodes: [{ id: 'm1', type: 'hold' }, { id, type: 'route', t, props: { holds: { h1: 's', m1: 't' } } }], marks: [{ node: 'm1', geometry: { type: 'Polygon', coordinates: [[[0, 0], [4, 0], [4, 4], [0, 0]]] } }, { node: id, geometry: { type: 'Point', coordinates: [1, 1] } }] });
   const data = { shared: { abcdefgh1234: { src: { project: 'wallproject00001', path: 'layer0000001.json' } } }, wallRoutes: { abcdefgh1234: { routes: { r1: { uid: 'u1', t: 5, r: frag('r1', 5) }, r2: { uid: 'u2', t: 9, r: frag('r2', 9) } } } } };
-  const db = fakeDb(data);
+  const db = fakeDb({ ...data, walls: { abcdefgh1234: { gym: 'g', hf: 'walls/wallproject00001/v2/' } } });
   const all = await routesData({ db, origin, pid: 'abcdefgh1234' });
   assert.deepEqual(validate(all), []);
-  assert.deepEqual([all.kind, all.on, all.href, all.t], ['layer', 'abcdefgh1234', `${origin}/p/wallproject00001/abcdefgh1234.json`, 9]);
+  assert.deepEqual([all.kind, all.on, all.href, all.t], ['layer', 'abcdefgh1234', `${HF_BASE}walls/wallproject00001/v2/abcdefgh1234.json`, 9]);
   assert.deepEqual(all.nodes.map(n => n.id), ['m1', 'r2', 'r1']);   // 共用的岩點節點只放一次，路線最新的在前
   assert.equal(all.marks.length, 4);
   const one = await routesData({ db, origin, pid: 'abcdefgh1234', rid: 'r1' });
   assert.deepEqual([one.nodes.map(n => n.id), one.t, one.id === all.id], [['m1', 'r1'], 5, false]);
   assert.equal(await routesData({ db, origin, pid: 'abcdefgh1234', rid: 'r9' }), null);
-  assert.equal(await routesData({ db: fakeDb({ shared: { abcdefgh1234: { owner: 'u1' } }, wallRoutes: data.wallRoutes }), origin, pid: 'abcdefgh1234' }), null, '擁有者收回了（沒有 src）：這面牆沒有公開');
+  assert.equal(await routesData({ db: fakeDb({ shared: { abcdefgh1234: { owner: 'u1' } }, wallRoutes: data.wallRoutes, walls: { abcdefgh1234: { gym: 'g', hf: 'x/' } } }), origin, pid: 'abcdefgh1234' }), null, '擁有者收回了（沒有 src）：這面牆沒有公開');
+});
+
+test('路線圖層帶先下載用的位置：縮圖（資料集網址）、照片（牆的畫面旁的 jpg）、岩館；沒登記在清單的牆只有照片；3D 牆都沒有', async () => {
+  const frag = JSON.stringify({ nodes: [{ id: 'r1', type: 'route', t: 5, props: { holds: { h1: 's' } } }], marks: [] });
+  const wallRoutes = { abcdefgh1234: { routes: { r1: { uid: 'u1', t: 5, r: frag } } } };
+  const listed = { abcdefgh1234: { gym: '原岩明德', hf: 'walls/wallproject00001/v2/' } };
+  const withHint = await routesData({ db: fakeDb({ shared: { abcdefgh1234: { src: SRC } }, wallRoutes, walls: listed }), origin, pid: 'abcdefgh1234', rid: 'r1' });
+  assert.deepEqual(validate(withHint), []);
+  assert.deepEqual(withHint.props, { gym: '原岩明德', thumb: `${HF_BASE}walls/wallproject00001/v2/abcdefgh1234.thumb.jpg`, photo: `${HF_BASE}walls/wallproject00001/v2/abcdefgh1234.jpg` });
+  assert.equal(withHint.href, `${HF_BASE}walls/wallproject00001/v2/abcdefgh1234.json`, '有登記的牆：畫面直接指到資料集，不經 /p/ 轉址');
+  const bare = await routesData({ db: fakeDb({ shared: { abcdefgh1234: { src: SRC } }, wallRoutes }), origin, pid: 'abcdefgh1234', rid: 'r1' });
+  assert.equal(bare, null, '沒登記在清單（收回或過期）的牆不是公開牆');
+  const m3d = await routesData({ db: fakeDb({ shared: { abcdefgh1234: { src: { project: 'wallproject00001', path: 'index.json' } } }, wallRoutes, walls: { abcdefgh1234: { ...listed.abcdefgh1234, m3d: 1, repo: 'walls3d' } } }), origin, pid: 'abcdefgh1234', rid: 'r1' });
+  assert.deepEqual(m3d.props, { gym: '原岩明德' });
+  assert.ok(m3d.href.endsWith('/walls3d/resolve/main/walls/wallproject00001/v2/index.json'), '3D 牆也直接指到資料集');
 });
 
 test('/w/{牆 id}/thumb.jpg：清單上的牆導向資料集裡的縮圖；不在清單回 404', async () => {

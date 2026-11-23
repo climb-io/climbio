@@ -435,7 +435,14 @@
     };
     const showMine = () => box.info({ thumb: mine.thumb, w: mine.w, h: mine.h, holds: mine.holds });
     if (mine) showMine();
-    const job = ShareTools.fetchShared(c, { onProgress: box.progress, onInfo, havePhoto: !!mine, needBase: !mine,
+    // 預覽頁（同源）轉進來時留下它查到的路線圖層：網址對得上這條連結才用，只用一次
+    let given = null;
+    try {
+      const h = JSON.parse(sessionStorage.getItem('climbio.handoff') || 'null');
+      if (h && c.src && h.url === `${c.src}route.json`) given = h.doc;
+      sessionStorage.removeItem('climbio.handoff');
+    } catch (e) { /* 沒有就照常下載 */ }
+    const job = ShareTools.fetchShared(c, { given, onProgress: box.progress, onInfo, havePhoto: !!mine, needBase: !mine,
       have: async (pid) => { mine = await liveWall(pid); if (mine) showMine(); return !!mine; } });
     recvJob = job;
     let got;

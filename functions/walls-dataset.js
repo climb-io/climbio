@@ -21,6 +21,8 @@ const sha = (bytes, algo = 'sha256') => createHash(algo).update(bytes).digest('h
 const INDEX = 'walls.jsonl', LICENSE = 'CC-BY-SA-4.0';
 const isText = path => /\.(json|jsonl|md)$/.test(path);   // 文字放在 commit 裡；JPEG 這類二進位檔 Hub 只收 LFS
 
+/** 誰檢查完的：AI 代理流程的記錄有 ai（reviews 裡有人就是 ai+human）；Studio 的人按「逐顆檢查完了」是 human；沒檢查完不寫 */
+const reviewBy = (rec) => !rec.reviewed ? {} : { by: rec.ai ? ((rec.reviews || []).some(r => String(r.by).startsWith('human:')) ? 'ai+human' : 'ai') : 'human' };
 /** 目錄的一行（walls.jsonl）：研究者靠它不下載照片就知道每面牆有什麼。files：[{ path, kind, bytes }]；edits.json 沒有就是沒精修過 */
 function rowOf({ id, name, gym, version, t, files }) {
   const get = f => files.find(x => x.path === f);
@@ -29,7 +31,7 @@ function rowOf({ id, name, gym, version, t, files }) {
   const rec = edits ? JSON.parse(edits.bytes) : null, n = k => (rec && rec[k] ? (Array.isArray(rec[k]) ? rec[k].length : Object.keys(rec[k]).length) : 0);   // flagged 是 { 岩點 id: 旗標 }，其他是陣列
   return { id, name, gym: gym || '', version, t, dir: `walls/${id}/v${version}/`, w: v.w || 0, h: v.h || 0,
     holds: (v.nodes || []).filter(x => x.type === 'hold').length, photoBytes: photo ? photo.bytes.length : 0, photoSha256: photo ? sha(photo.bytes) : '',
-    edits: rec ? { reviewed: !!rec.reviewed, deleted: n('deleted'), added: n('added'), reshaped: n('reshaped'), flagged: n('flagged') } : null, routes: 0, license: LICENSE };
+    edits: rec ? { reviewed: !!rec.reviewed, ...reviewBy(rec), deleted: n('deleted'), added: n('added'), reshaped: n('reshaped'), flagged: n('flagged') } : null, routes: 0, license: LICENSE };
 }
 /** 目錄換一行（沒有就加）；其他行原樣留著，按牆 id 排序 */
 function upsertRow(text, row) {
