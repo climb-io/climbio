@@ -101,15 +101,23 @@
     const { buf } = await fetchData(u, what, MAX_JSON, f);
     try { return JSON.parse(new TextDecoder().decode(buf)); } catch (e) { throw new Error(`${what} 不是 JSON`); }
   }
-  // init 的資料：viewUrl、photoUrl 必給，layerUrls（路線圖層的網址陣列）選給。回傳 { view, layers, photo }（photo 是 Blob，還要用 decodePhoto 解碼）
+  // init 可以只給 wallId（"<包 id>/<牆 id>"）：畫面、照片（導向現行版）、整面牆的路線圖層（牆還沒有路線就沒有）的網址由這裡補；明確給的 viewUrl、photoUrl、layerUrls 優先
+  function expandInit(m) {
+    if (m.wallId === undefined) return m;
+    if (typeof m.wallId !== 'string' || !/^[0-9a-f]{16}\/[0-9a-z]{8,40}$/.test(m.wallId)) throw new Error('wallId 要是 "包 id/牆 id"');
+    const wall = m.wallId.split('/')[1];
+    return { viewUrl: `https://climbio.app/p/${m.wallId}.json`, photoUrl: `https://climbio.app/p/${m.wallId}.jpg`, ...(m.layerUrls === undefined ? { layerUrls: [`https://climbio.app/w/${wall}/routes.json`], layerOptional: true } : {}), ...m };
+  }
+  // init 的資料：viewUrl、photoUrl（或 wallId）必給，layerUrls（路線圖層的網址陣列）選給。回傳 { view, layers, photo }（photo 是 Blob，還要用 decodePhoto 解碼）
   async function resolveInit(m, f) {
-    if (m.viewUrl === undefined) throw new Error('init 要給 viewUrl');
+    m = expandInit(m);
+    if (m.viewUrl === undefined) throw new Error('init 要給 wallId，或 viewUrl 和 photoUrl');
     if (m.photoUrl === undefined) throw new Error('init 要給 photoUrl');
     if (m.layerUrls !== undefined && !Array.isArray(m.layerUrls)) throw new Error('layerUrls 要是網址的陣列');
     dataUrl(m.viewUrl, 'viewUrl'); dataUrl(m.photoUrl, 'photoUrl'); (m.layerUrls || []).forEach((u, i) => dataUrl(u, `layerUrls[${i}]`));   // 有一個不是官方網址就整個不讀
     const [view, layers, photo] = await Promise.all([
       fetchJson(m.viewUrl, 'viewUrl', f),
-      Promise.all((m.layerUrls || []).map((u, i) => fetchJson(u, `layerUrls[${i}]`, f))),
+      Promise.all((m.layerUrls || []).map((u, i) => fetchJson(u, `layerUrls[${i}]`, f).catch((e) => { if (m.layerOptional) return null; throw e; }))).then((l) => l.filter(Boolean)),
       fetchData(m.photoUrl, 'photoUrl', MAX_PHOTO, f).then(({ buf, type }) => new Blob([buf], { type: type.split(';')[0] || undefined })),
     ]);
     return { view, layers, photo };
@@ -139,5 +147,5 @@
     };
   }
 
-  return { VERSION, MAX_PHOTO, MAX_JSON, connect, native, decodePhoto, dataUrl, fetchData, fetchJson, resolveInit, fullscreen };
+  return { VERSION, MAX_PHOTO, MAX_JSON, connect, native, decodePhoto, dataUrl, fetchData, fetchJson, expandInit, resolveInit, fullscreen };
 });

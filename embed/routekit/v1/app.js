@@ -2,7 +2,7 @@
 // 外層可以是 <iframe>（postMessage）或原生 App 的 WebView（橋接），見 docs/embed.md。
 // 工具列、類型列、順序列、選單都是 kit 的 RouteKit.EditorUI（跟岩點貓定線頁同一份），這頁只管訊息、圖層和畫布。
 // 小畫面（iframe 在頁面裡）只是預覽：沒有工具蓋在畫面上，點一下就進全螢幕；全螢幕才有工具、縮放平移（跟岩點貓同一套）和定線。
-// 外層 → 內嵌頁：init { viewUrl, photoUrl, layerUrls?, routeId?, layerId?, viewHref?, options?, key? }（三個網址都要是官方網址，見 docs/embed.md）、setRoute { routeId }（空的＝新路線，定線才有）、
+// 外層 → 內嵌頁：init { wallId（或 viewUrl、photoUrl）, layerUrls?, routeId?, layerId?, viewHref?, options?, key? }（三個網址都要是官方網址，見 docs/embed.md）、setRoute { routeId }（空的＝新路線，定線才有）、
 //   submit { name?, grade?, author? }（定線：把這條路線寫進 Climbio 公開牆，成功回 submitted，失敗回 error）、remove { routeIds }（刪自己提交的路線，回 removed）、setType { holdType }（s 起攀、h 手點、t 完攀、f 腳點、n 順序）、setOptions { lang?, colors?, labels?, heat?, draw?, maxStart?, controls?, foot?, order? }、setFullscreen { on }（外層放大或縮回 iframe 後同步）。
 // 內嵌頁 → 外層：ready、change { layer, routeId }（定線改了：v2 圖層，只有這條路線）、limit { max }（起攀已滿：已在路線上的點不能改成起攀，內嵌頁沒有改路線）、
 //   submitted { routeId, routeUrl, layer }（submit 成功）、removed { results }（remove 的結果）、done { layer, routeId }（定線完成，右上的勾）、cancel（取消，左上的叉）、fullscreen { on }（進出全螢幕，內嵌頁自己做不到時請外層把 iframe 放大或縮回）、error { message }。
@@ -116,6 +116,7 @@
     handlers: {
       async init(m) {
         const seq = ++initSeq;
+        m = ClimbioEmbed.expandInit(m);
         const data = await ClimbioEmbed.resolveInit(m);   // 只讀官方網址（viewUrl、layerUrls、photoUrl）
         if (seq !== initSeq) return;
         const layers = data.layers;

@@ -232,9 +232,9 @@ English: [README.en.md](README.en.md)
 - 網址選項：`mode=view｜edit`（預設 view）、`type=s｜h｜t｜f｜n`（定線時點岩點的類型：起攀、手點、完攀、腳點、順序，預設 `s`）、`foot=0`／`order=0`（定線工具列不顯示腳點／順序，預設都顯示）、底固定暗彩加光暈，看線、定線都一樣，沒有黑白切換（黑白是岩點貓自己的特色）、`maxStart=`（起攀點數上限，預設 2＝岩點貓；有的岩館規定 4）、`heat=0`（不顯示「顯示所有岩點」鈕）、`lang=zh｜en`（內嵌頁按鈕與選單的文字）、`color-s／h／t／f=22c55e`（四種類型的顏色）、`label-s／t=起`（起攀、完攀膠帶上的字）、`controls=0`（不顯示按鈕，全由外層用訊息控制，畫面直接可以互動）、`tap=edit`（直接在原地互動，不進全螢幕）。`init` 的 `options` 和 `setOptions` 可以隨時覆蓋。
 - **小畫面只是預覽，點一下進全螢幕**（看線、定線都一樣）：預覽沒有工具壓住畫面，只有一顆進全螢幕的小圖示；全螢幕才有工具、縮放平移和定線。iframe 有 `allow="fullscreen"` 就用瀏覽器的全螢幕；不行（iPhone Safari、原生 App）就送 `fullscreen { on }`，外層把 iframe 放大成整個畫面並送 `setFullscreen { on }` 回報（0.7 秒沒回報就原地互動）。框夠大想直接互動：加 `tap=edit`。
 - 全螢幕的工具：暗彩／黑白、縮小／放大、結束全螢幕；定線全螢幕上方左取消（叉，路線回到打開時的樣子，送 `cancel`）、右完成（勾，送 `done { layer, routeId }`），在全螢幕就退出，沒有難度、名稱（外層處理）；下方工具列跟岩點貓一樣：起攀（顯示數量與上限）／手點／完攀／腳點／順序，選中的色塊會滑過去（岩點貓沒有的工具不放，再點一次已選的岩點就拿掉）；腳點和順序可用 `foot=0`、`order=0` 關掉（預設都有）。縮放、平移跟岩點貓同一套（見上面「縮放、平移」）。
-- 資料一律是 Climbio 官方發佈的公開格式 v2：外層在 `init` 給三個官方網址（`viewUrl`、`photoUrl`、`layerUrls`），內嵌頁自己讀，別的網址和訊息直接帶的資料都不收；訊息外框 `{ climbio: 'routekit', v: 1, type, … }`。完整規則見 [docs/embed.md](../docs/embed.md)。
+- 資料一律是 Climbio 官方發佈的公開格式 v2：外層在 `init` 給 `wallId`（或三個官方網址 `viewUrl`、`photoUrl`、`layerUrls`），內嵌頁自己讀，別的網址和訊息直接帶的資料都不收；訊息外框 `{ climbio: 'routekit', v: 1, type, … }`。完整規則見 [docs/embed.md](../docs/embed.md)。
 - 內嵌頁 → 外層：`ready`（只送一次）、`done { layer, routeId }`（定線完成）、`cancel`（定線取消）、`change { layer, routeId }`（路線改了：v2 圖層，只有這條路線）、`limit { max }`（起攀已滿：已在路線上的點不能改成起攀，內嵌頁沒有改路線）、`fullscreen { on }`、`error { message }`。
-- 外層 → 內嵌頁：`init { viewUrl, photoUrl, layerUrls?, routeId?, layerId?, viewHref?, options? }`（第一個訊息；`photoUrl` 的照片最大 10 MB，尺寸要等於畫面的 `w × h`）、`setRoute { routeId? }`、`setType { holdType }`（`s`、`h`、`t`、`f`、`n`）、`setOptions { base?, maxStart?, controls?, foot?, order? }`、`setFullscreen { on }`。
+- 外層 → 內嵌頁：`init { wallId（或 viewUrl、photoUrl）, layerUrls?, routeId?, layerId?, viewHref?, options? }`（第一個訊息；`photoUrl` 的照片最大 10 MB，尺寸要等於畫面的 `w × h`）、`setRoute { routeId? }`、`setType { holdType }`（`s`、`h`、`t`、`f`、`n`）、`setOptions { base?, maxStart?, controls?, foot?, order? }`、`setFullscreen { on }`。
 - iframe：外層要先註冊 `message` 監聽再放 `<iframe>`；第一個 `init` 的 `event.origin` 會被記下，之後只收發這個來源。原生 App：直接開這個網址，內嵌頁往 `window.ReactNativeWebView`、`webkit.messageHandlers.climbio`、`ClimbioBridge`（Android `addJavascriptInterface`）或 `flutter_inappwebview` 的 `climbio` handler 送，原生端用 `window.climbioReceive(訊息或 JSON 字串)` 傳入。
 - 內嵌頁的縮放、平移就是 Kit 的 `zoom`（跟岩點貓同一套）；不輸出圈點格式，要圈點用 `toCircles` 自行換算。
 
@@ -245,7 +245,7 @@ English: [README.en.md](README.en.md)
   addEventListener('message', (e) => {
     const frame = document.getElementById('rk');
     if (e.source !== frame.contentWindow || e.data?.climbio !== 'routekit') return;
-    if (e.data.type === 'ready') frame.contentWindow.postMessage({ climbio: 'routekit', v: 1, type: 'init', viewUrl, photoUrl, layerUrls }, '*');   // 三個官方網址，見 docs/embed.md
+    if (e.data.type === 'ready') frame.contentWindow.postMessage({ climbio: 'routekit', v: 1, type: 'init', wallId }, '*');   // 包 id/牆 id，見 docs/embed.md
     if (e.data.type === 'change') save(e.data.layer);
     if (e.data.type === 'fullscreen') {   // 進（出）全螢幕：放大（縮回）iframe，再回報
       frame.classList.toggle('full', e.data.on);

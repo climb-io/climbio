@@ -35,8 +35,9 @@ Climbio 只放牆面與路線；岩館 App 裡的使用者怎麼對應到路線�
 
 | `init` 欄位 | 內容 | 網址 |
 |---|---|---|
-| `viewUrl`（必給） | 牆的畫面（岩點外框，Climbio 公開格式 v2） | `https://climbio.app/p/<包 id>/<牆 id>.json`（導向現行版） |
-| `photoUrl`（必給） | 畫面指的那張照片，尺寸要等於畫面的 `w × h`，最大 10 MB | `https://huggingface.co/datasets/climbio/walls/resolve/main/walls/<包 id>/v<版本>/<牆 id>.jpg` |
+| `wallId`（最簡單） | `<包 id>/<牆 id>`：只給這個，下面的畫面、照片、整面牆路線圖層的網址由內嵌頁補（照片走 `https://climbio.app/p/<包 id>/<牆 id>.jpg`，導向現行版，所以換了現行版 App 不用改；牆還沒有路線就沒有圖層）。下面三列是要自己指定時才用，明確給的優先 | `https://climbio.app/p/<包 id>/<牆 id>.json` 等 |
+| `viewUrl` | 牆的畫面（岩點外框，Climbio 公開格式 v2） | `https://climbio.app/p/<包 id>/<牆 id>.json`（導向現行版） |
+| `photoUrl` | 畫面指的那張照片，尺寸要等於畫面的 `w × h`，最大 10 MB | `https://huggingface.co/datasets/climbio/walls/resolve/main/walls/<包 id>/v<版本>/<牆 id>.jpg` |
 | `layerUrls`（選給） | 路線圖層（疊在牆上，v2），最大 16 MB | 整面牆 `https://climbio.app/w/<牆 id>/routes.json`；單條 `https://climbio.app/r/<牆 id>/<路線 id>/route.json`（岩點貓的路線連結） |
 
 - 只收 https 的 `climbio.app`（路徑要在 `/p/`、`/w/`、`/r/`）和 `huggingface.co/datasets/climbio/walls/`；別的主機、http、帶帳號或埠號、別的路徑都回 `error`，而且三個網址只要有一個不合格就都不讀。
@@ -68,7 +69,7 @@ Climbio 只放牆面與路線；岩館 App 裡的使用者怎麼對應到路線�
 | | `limit { max }` | 點下去會超過起攀上限（內嵌頁沒有改資料）：外層可以顯示自己的提示 |
 | | `fullscreen { on }` | 進（出）全螢幕，內嵌頁自己做不到時：請外層把 iframe／WebView 放大成整個畫面（或縮回），再用 `setFullscreen` 回報 |
 | | `error { message }` | 網址不合格、讀不到、資料不合格、照片太大或尺寸不對 |
-| 外層 → 內嵌頁 | `init { viewUrl, photoUrl, layerUrls?, routeId?, layerId?, viewHref?, options?, key? }` | 第一個訊息；`key` 是選用的岩館金鑰（見上面第 3 步） |
+| 外層 → 內嵌頁 | `init { wallId（或 viewUrl、photoUrl）, layerUrls?, routeId?, layerId?, viewHref?, options?, key? }` | 第一個訊息；`key` 是選用的岩館金鑰（見上面第 3 步） |
 | | `setRoute { routeId? }`、`setType { holdType }`、`setOptions`、`setFullscreen { on }` | 之後的更新 |
 | | `submit { name?, grade?, author? }` | 定線：把目前這條路線寫進公開牆（名稱、暱稱最多 20 字，路線要有起攀 s 和完攀 t），回 `submitted` 或 `error` |
 | | `remove { routeIds }` | 刪這個網站名下的路線（最多 100 個），回 `removed` |
@@ -121,12 +122,8 @@ Climbio 只放牆面與路線；岩館 App 裡的使用者怎麼對應到路線�
 
 ```html
 <script>
-  // 三個官方網址：牆的畫面與路線在 climbio.app，照片在 Hugging Face（Studio 發布後得到的包 id、牆 id）
-  const data = {
-    viewUrl: 'https://climbio.app/p/<包 id>/<牆 id>.json',
-    photoUrl: 'https://huggingface.co/datasets/climbio/walls/resolve/main/walls/<包 id>/v<版本>/<牆 id>.jpg',
-    layerUrls: ['https://climbio.app/w/<牆 id>/routes.json'],
-  };
+  // 只要 Studio 發布後得到的包 id、牆 id；畫面、照片、路線的官方網址由內嵌頁補
+  const data = { wallId: '<包 id>/<牆 id>' };
   // 先註冊 message 監聽，再放 iframe：內嵌頁的 ready 只送一次，監聽太晚會漏掉
   addEventListener('message', (e) => {
     const frame = document.getElementById('rk');
@@ -152,7 +149,7 @@ Climbio 只放牆面與路線；岩館 App 裡的使用者怎麼對應到路線�
 
 1. **牆面**：照上面「固定三步」的第 1 步，用 Studio 精修並發布；沒有岩點外框的牆先用 Studio 偵測。記下包 id、牆 id、照片版本。
 2. **路線**：App 的路線用 `{ 岩點 id: 's'｜'h'｜'t' }`（起攀、手點、完攀）記錄。現有資料若是圈點（`x`、`y` 是照片寬高的百分比），用 `RouteKit.fromCircles`（[routekit/README.md](../routekit/README.md)）對到岩點；反過來存回圈點用 `RouteKit.toCircles`。用固定的代發金鑰把路線寫進這面牆（[gym-agent.md](gym-agent.md)），路線 id 固定。
-3. **看線**：路線頁把路線圖元件換成 `<iframe src="https://embed.climbio.app/routekit/v1/?mode=view" allow="fullscreen">`，先註冊 `message` 監聽，收到 `ready` 送 `init { viewUrl, photoUrl, layerUrls, routeId }`。每次換路線送 `setRoute { routeId }`。
+3. **看線**：路線頁把路線圖元件換成 `<iframe src="https://embed.climbio.app/routekit/v1/?mode=view" allow="fullscreen">`，先註冊 `message` 監聽，收到 `ready` 送 `init { wallId, routeId }`。每次換路線送 `setRoute { routeId }`。
 4. **定線**：同一個 iframe 改 `?mode=edit`（起攀上限預設 2，有的岩館規定 4：加 `&maxStart=4`）。使用者每點一下收到 `change { layer, routeId }`，取 `layer.nodes` 裡路線節點的 `props.holds` 就是目前的路線；按「發布」時才檢查（要有起攀 S 和完攀 T，名稱、難度由外層的表單處理），再用第 2 步的方式寫進這面牆。類型按鈕、暗彩／黑白、全畫面都在內嵌頁裡，外層不用做。
 5. **驗證**：換成內嵌後，看線頁的路線與原本一致；定線存出來的路線用看線讀得回來；原生 App 用 WebView 時照上面「兩種外層」改用橋接。
 

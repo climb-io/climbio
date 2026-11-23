@@ -96,6 +96,17 @@ test('init 的資料：layerUrls 可以不給（沒有路線圖層）', async ()
   const out = await resolveInit({ viewUrl: V, photoUrl: P }, fakeFetch({ [V]: '{"id":"v"}', [P]: new Uint8Array([1]) }));
   assert.deepEqual(out.layers, []);
 });
+test('init 的資料：只給 wallId，網址由內嵌頁補（照片走 /p/ 導向現行版）；牆還沒有路線也能讀；明確給的網址優先', async () => {
+  const W = '0123456789abcdef/wall12345678', calls = [];
+  const VW = `https://climbio.app/p/${W}.json`, PW = `https://climbio.app/p/${W}.jpg`, LW = 'https://climbio.app/w/wall12345678/routes.json';
+  const files = { [VW]: '{"id":"v"}', [PW]: new Uint8Array([1]), [LW]: '{"id":"l"}' };
+  assert.deepEqual((await resolveInit({ wallId: W }, fakeFetch(files, calls))).layers.map((l) => l.id), ['l']);
+  assert.deepEqual(calls.map((c) => c.url).sort(), [LW, PW, VW].sort());
+  assert.deepEqual((await resolveInit({ wallId: W }, fakeFetch({ [VW]: '{"id":"v"}', [PW]: new Uint8Array([1]) }))).layers, []);
+  assert.deepEqual((await resolveInit({ wallId: W, layerUrls: [] }, fakeFetch(files))).layers, []);
+  await assert.rejects(resolveInit({ wallId: W, layerUrls: [L1] }, fakeFetch({ [VW]: '{}', [PW]: new Uint8Array([1]) })), /layerUrls\[0\]/);
+  await assert.rejects(resolveInit({ wallId: '../x' }, fakeFetch({})), /wallId/);
+});
 test('init 的資料：訊息直接帶的 view、layers、photo 不收，一定要給網址', async () => {
   await assert.rejects(resolveInit({ view: { id: 'v' }, layers: [], photo: new Blob([]) }, fakeFetch({})), /viewUrl/);
   await assert.rejects(resolveInit({ viewUrl: V, photo: new Blob([]) }, fakeFetch({ [V]: '{}' })), /photoUrl/);

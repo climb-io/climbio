@@ -64,6 +64,7 @@ export type FromEmbed = Ready | Change | Limit | Submitted | Removed | Done | Ca
 /**
  * 第一個訊息一定是 init。iframe：內嵌頁記下它的 event.origin，之後只收發這個來源。原生 App：用 window.climbioReceive(訊息或 JSON 字串) 傳入。
  * 資料只有一種來源：Climbio 官方發佈的網址（Studio 發佈後得到）。內嵌頁自己讀，不帶 cookie、不送來源網址；畫面和圖層最大 16 MB，照片最大 10 MB。
+ *  - wallId：`<包 id>/<牆 id>`，最簡單的給法：下面三個網址由內嵌頁補（照片走 `/p/<包 id>/<牆 id>.jpg`，導向現行版；圖層是整面牆的路線，牆還沒有路線就沒有）。明確給的欄位優先
  *  - viewUrl：牆的畫面，`https://climbio.app/p/<包 id>/<牆 id>.json`
  *  - photoUrl：畫面指的那張照片，尺寸要等於畫面的 w × h，Hugging Face 的 `https://huggingface.co/datasets/climbio/walls/resolve/main/walls/<包 id>/v<版本>/<牆 id>.jpg`
  *  - layerUrls：路線圖層（可以不給），例如 `https://climbio.app/w/<牆 id>/routes.json`
@@ -72,7 +73,7 @@ export type FromEmbed = Ready | Change | Limit | Submitted | Removed | Done | Ca
  * layerId、viewHref：change 送出的圖層 id（預設沿用 layerUrls 第一個圖層的 id，沒有就產生一個）與畫面的路徑（預設 viewUrl）。
  */
 export interface Init extends Envelope<'init'> {
-  viewUrl: string; photoUrl: string; layerUrls?: string[];
+  wallId?: string; viewUrl?: string; photoUrl?: string; layerUrls?: string[];
   routeId?: string; layerId?: string; viewHref?: string; options?: Options;
   /** 岩館自己的金鑰（選用，`{ kid, pub, priv }`，跟岩點貓的裝置金鑰同格式，`node tools/wall-routes.mjs keygen` 產生）：submit、remove 用它簽章，路線記在這把金鑰名下；不給就用外層的網站來源。金鑰會出現在你的網頁裡，不是機密 */
   key?: { kid: string; pub: JsonWebKey; priv: JsonWebKey };
