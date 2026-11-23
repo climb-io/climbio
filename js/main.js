@@ -70,18 +70,17 @@
   $('wallName').onkeydown = (e) => { if (e.key === 'Enter') e.target.blur(); };
   $('backBtn').onclick = () => history.back();
   $('wallFabBtn').onclick = startNewRoute;   // 「＋」就是新路線（不展開）
-  // 牆面選單：長按首頁的牆面小卡或牆面頁的橫幅（同一份選單）
+  // 牆面選單：牆面頁右上「更多」
   let menuWall = null;
-  async function openWallMenu(w, card) {
-    if (w.lite) w = (await getWall(w.id).catch(() => null)) || w;   // 首頁的牆沒讀路線：選單的動作要完整的牆
+  async function openWallMenu(w) {
     menuWall = w;
-    // 公開牆（Studio 發佈的）不能改名、加照片，只能刪除：大家看到同一份
+    // 公開牆（Studio 發佈的）不能改名、加照片，只能分享、刪除：大家看到同一份
     $('renameWallBtn').hidden = $('addPhotoBtn').hidden = isPublic(w);
-    openCardMenu('wallSheet', card);
+    $('shareWallBtn').hidden = !AppKit.nearby.supported() || localOnly(w) || !(w.base && w.base.holds);
+    openLayer('wallSheet');
   }
-  AppKit.gesture.longPress($('wallList'), { item: '.wall-card:not(.pending)', rightClick: true, onHold: (el) => { if (el.wall) openWallMenu(el.wall, el); } });
-  AppKit.gesture.longPress($('wallHero'), { item: '.wall-photo', rightClick: true, onHold: () => { if (state.wall) openWallMenu(state.wall, $('wallHero')); } });
-  // 牆面照片點一下：新路線（跟「＋」一樣）；長按是上面的選單，手指移動是捲動，都不算點
+  $('wallMore').onclick = () => { if (!$('wallSheet').hidden) { menuWall = null; dismissMenu(); } else if (state.wall) openWallMenu(state.wall); };
+  // 牆面照片點一下：新路線（跟「＋」一樣）；手指移動是捲動，不算點
   {
     let down = null;
     $('wallHero').addEventListener('pointerdown', (e) => { down = e.isPrimary && e.target.closest('.wall-photo') ? { x: e.clientX, y: e.clientY, at: e.timeStamp } : null; });
@@ -104,8 +103,7 @@
     const w = menuWall || state.wall; menuWall = null;
     if (menuLayer()) { addEventListener('popstate', () => setTimeout(() => fn(w), 0), { once: true }); dismissMenu(); } else { dismissMenu(); fn(w); }
   };
-  $('wallSheetCancel').onclick = () => { menuWall = null; dismissMenu(); };
-  $('wallSheet').onclick = (e) => { if (e.target === $('wallSheet')) { menuWall = null; dismissMenu(); } };
+  document.addEventListener('click', (e) => { if (!$('wallSheet').hidden && !$('wallSheet').contains(e.target) && !e.target.closest('#wallMore')) { menuWall = null; dismissMenu(); } }, true);   // 點外面只關選單
   $('renameWallBtn').onclick = afterMenu(async (w) => {
     if (!w) return;
     if (state.wall === w) { $('wallName').focus(); $('wallName').select(); return; }
@@ -113,6 +111,14 @@
     if (!v || v === w.name) return;
     w.name = v; await patchWall(w.id, (r) => { r.name = v; }).catch(() => toast(t('saveFailed')));
     showHome();
+  });
+  // 分享牆面：打開「傳給別人」，這面牆先選好
+  // 公開牆：只給分享連結（牆在公開資料集，對方點開就收下，不問暱稱）；私人的牆才走「傳給別人」
+  $('shareWallBtn').onclick = afterMenu(async (w) => {
+    if (!w) return;
+    if (!isPublic(w)) return openNearby('send', [w.pid]);
+    const how = await AppKit.share.sendLink(`${location.origin}/r/${w.pid}/`);   // 短連結：預覽頁（LINE 等的卡片）再轉進 App 收這面牆
+    if (how === 'copied') toast(t('shareCopied'));
   });
   // 增加照片：選位置（上、下、左、右）
   $('addPhotoBtn').onclick = afterMenu((w) => { if (w) openSideSheet(w); });
@@ -205,48 +211,29 @@
     refreshUi(); render();
   };
   $('holdDone').onclick = () => history.back();   // 單點編輯的完成：回到定線（跟返回一樣）
-  // 長按路線小卡的選單：編輯、重新命名、刪除
-  let sheetRoute = null;
-  openRouteSheet = (rid, card) => {
-    sheetRoute = { rid, cv: card.querySelector('.rc-thumb') };
-    $('rsName').hidden = true; $('rsMain').hidden = $('rsDanger').hidden = false; $('routeSheetCancel').textContent = t('cancel');
-    const r = state.wall && state.wall.routes.find(x => x.id === rid);
-    $('rsRename').hidden = !r || !mineRoute(r);   // 別人的線不改名
-    if (r && !mineRoute(r) && isPublic(state.wall)) $('rsDanger').hidden = true;   // 公開牆上別人的線不能刪：大家看到同一份
-    openCardMenu('routeSheet', card);
+  // 看路線圖右上「更多」的路線動作（編輯、重新命名、刪除）
+  const viewRoute = () => state.wall && state.routeId && state.wall.routes.find(x => x.id === state.routeId);
+  $('vwRename').onclick = async () => {
+    const r = viewRoute(); if (!r) return;
+    const v = ((await askText({ title: t('renameWall'), value: r.name || '', ok: t('done'), max: 30 })) || '').trim();
+    if (v === (r.name || '') || !v && !r.name) return;
+    r.name = v; touch(r); save(); renderOverview();
+    $('routeTitle').value = r.name || '';
   };
-  // 重新命名：選單換成輸入框（按完成、Enter 或點外面都存起來）
-  const rsRoute = () => state.wall && sheetRoute && state.wall.routes.find(x => x.id === sheetRoute.rid);
-  function rsSave() {
-    const r = rsRoute(); if ($('rsName').hidden || !r) return;
-    const v = $('rsName').value.trim();
-    if (v !== (r.name || '')) { r.name = v; touch(r); save(); renderOverview(); }
-  }
-  $('rsRename').onclick = () => {
-    const r = rsRoute(); if (!r) return;
-    closeCardMenu(); openLayer('routeSheet');   // 要打字：用畫面下方的選單，鍵盤跳出來時輸入框才看得到
-    $('rsMain').hidden = $('rsDanger').hidden = true; $('rsName').hidden = false; $('routeSheetCancel').textContent = t('done');
-    $('rsName').value = r.name || ''; $('rsName').focus(); $('rsName').select();
-  };
-  $('rsName').onkeydown = (e) => { if (e.key === 'Enter') { rsSave(); dismissMenu(); } };
-  let rsTimer = 0;
-  $('rsName').oninput = () => { clearTimeout(rsTimer); rsTimer = setTimeout(rsSave, 400); };   // 打字停一下就存：用返回手勢關掉選單也不會不見
-  $('routeSheetCancel').onclick = () => { rsSave(); dismissMenu(); };
-  $('routeSheet').onclick = (e) => { if (e.target === $('routeSheet')) { rsSave(); dismissMenu(); } };
-  $('rsEdit').onclick = afterMenu(() => { const s = sheetRoute; if (s) { openRouteFrom(s.rid, s.cv); enterRouteEdit({ fromWall: true }); } });
   // 刪除：直接刪，不跳確認；提示裡按「復原」放回來（跟定線畫面的刪除一樣）
-  $('rsDel').onclick = afterMenu(() => {
-    const w = state.wall, r = sheetRoute && w && w.routes.find(x => x.id === sheetRoute.rid); if (!r) return;
+  $('vwDel').onclick = () => {
+    const w = state.wall, r = viewRoute(); if (!r) return;
     const at = w.routes.indexOf(r);
     w.routes.splice(at, 1); dropLine(w, r);
-    if (state.routeId === r.id) state.routeId = null;
+    state.routeId = null;
     save(); renderOverview();
+    history.back();
     toast(t('deleted'), { action: { label: t('undo'), run: () => {
       if (state.wall !== w) return;
       w.routes.splice(Math.min(at, w.routes.length), 0, r); keepLine(w, r);
       save(); renderOverview();
     } } });
-  });
+  };
 
   // ---------- 第一次使用的導覽卡片 ----------
   // 第一次打開 App 顯示（點連結進來的先處理接收，下次打開再顯示）；看完或略過後記在 localStorage。

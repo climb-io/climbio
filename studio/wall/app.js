@@ -341,7 +341,7 @@ async function exportWall(w) {
   } catch (e) { console.error(e); toast(T('hlExportFail', e.message)); }
 }
 // 發佈步驟：每面牆一列，寫發佈到第幾版、之後有沒有改過；右邊是匯出，和（尚未發佈或有更新時）發佈
-// 手動下架：拿掉找牆面入口和所有人在這面牆的路線；資料集已公開的檔案留著，重新發佈就回來。只有擁有者（發佈金鑰）或維護者能下架
+// 手動下架：拿掉找牆面入口和所有人在這面牆的路線；資料集已公開的檔案留著，重新發佈就回來。只有維護者能下架
 async function unpublishUi(w) {
   if (!(await AppKit.ui.confirm(T('hlPubUnpublishAsk', w.name), { ok: T('hlPubUnpublish'), danger: true }))) return;
   try { await (await import('../publisher.js')).unpublishWall(w.pack ? w.pack.pid : w.id); toast(T('hlPubUnpublished')); }

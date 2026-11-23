@@ -400,7 +400,7 @@ function syncCards(box, cards) {
   while (box.children.length > next.length) box.lastChild.remove();
 }
 
-function card({ id, img, name, sub, sourceTag = '', badge, go = false, cropTop = false, kind = '', onOpen, actions }) {
+function card({ id, img, name, sub, sourceTag = '', badge, go = false, cropTop = false, kind = '', onOpen }) {
   const pic = el('img', { className: 'pic', alt: '', ...(img ? { src: img } : {}) });   // 沒有圖不設 src（空字串會被當成這一頁的網址，出現破圖）
   // 圖還沒下載好：卡片先是會閃的灰底，圖到了才淡入（不讓人看到半張圖或破圖）
   if (img && !pic.complete) {
@@ -423,12 +423,8 @@ function card({ id, img, name, sub, sourceTag = '', badge, go = false, cropTop =
   pic.addEventListener('error', () => { pic.hidden = true; b.classList.add('nophoto'); }, { once: true });   // 載入失敗（沒網路）也不留破圖
   b.dataset.id = id;
   b.dataset.sig = [name, sub, sourceTag, badge, img].join('|');
-  b.onclick = () => !b.classList.contains('acting') && !b.dataset.dragged && onOpen(pic);
-  if (kind) {   // 首頁的卡片：長按浮起，可以拖（換順序、合併）；沒拖就放開出現動作鈕
-    b.dataset.kind = kind;
-    pic.draggable = false;
-    holdDrag(b, () => openCardMenu(b, actions()));
-  } else AppKit.gesture.longPress(b, { onHold: () => openCardMenu(b, actions()), vibrate: 10 });
+  b.onclick = () => onOpen(pic);
+  if (kind) b.dataset.kind = kind;
   return b;
 }
 
@@ -442,9 +438,6 @@ async function packCard(set, docs) {
     sub: !merged && sourceLabel(set) ? T('wallsN', wallCount(docs, flat)) : [merged ? '' : credit(set.attribution), T('wallsN', wallCount(docs, flat))].filter(Boolean).join(' · '),
     badge: [has3d(docs, flat) ? '3D' : '', merged ? T('cragsN', flat.members.length) : personalSet(docs, set) ? T('personal') : ''].filter(Boolean).join(' · '),   // 3D 岩場另外標示
     onOpen: (pic) => openPack(set.id, pic),
-    actions: () => merged
-      ? [{ icon: 'edit', label: T('rename'), run: () => renameMerged(set) }, { icon: 'split', label: T('split'), run: () => splitMerged(set) }, { icon: 'trash', label: T('delete'), danger: true, run: () => removeMerged(set, flat.members) }]
-      : [...(personalSet(docs, set) ? [] : [{ icon: 'share', label: T('share'), run: () => share(set.id) }]), { icon: 'trash', label: T('delete'), danger: true, run: () => removeDoc(set) }],
   });
 }
 
@@ -452,10 +445,6 @@ async function topoCard(view, docs) {
   return card({
     id: view.id, img: await photoUrl(view), name: nameOf(view), kind: 'view', sub: T('routesN', routeCount(docs, view.id)), badge: view.origin === 'personal' ? T('personal') : view.origin ? '' : T('localOnly'),
     onOpen: (pic) => openTopo(view.id, pic),
-    actions: () => [
-      ...(shareable(view) ? [{ icon: 'share', label: T('share'), run: () => share(view.id) }] : []),
-      { icon: 'trash', label: T('delete'), danger: true, run: () => removeDoc(view) },
-    ],
   });
 }
 
@@ -463,11 +452,27 @@ async function topoCard(view, docs) {
 /** 刪一份檔案；岩場是組合裡的每一份；一顆石頭（岩壁節點）是它的每張照片（views） */
 async function removeDoc(doc, views = doc.kind === 'set' ? doc.items.map(itemId) : [doc.id], { text, also = [] } = {}) {
   const docs = await allDocs();
-  const gone = new Set(doc.kind === 'set' ? [doc.id] : []);
-  // 岩場：組合裡的每一份（照片、地圖、圖層）；照片連同疊在上面的圖層
-  for (const id of views) {
+  const gone = new Set(doc.kind === 'set' ? [doc.id] : []), byId = new Map(docs.map((d) => [d.id, d])), roots = new Set([doc.id, ...views]);
+  // 岩場：組合裡的每一份（照片、地圖、圖層）；組合的層數不限（岩場→區域→照片），要一路往下清；照片連同疊在上面的圖層
+  const seen = new Set(), add = (id) => {
+    if (seen.has(id)) return;   // 組合若互相包含也不會繞圈
+    seen.add(id);
     gone.add(id);
-    for (const l of layersOn(docs, id)) gone.add(l.id);
+    for (const l of layersOn(docs, id)) { gone.add(l.id); roots.add(l.id); }   // 疊在照片上的圖層跟著照片走，不受「別的組合還在用」保護
+    const d = byId.get(id);
+    if (d?.kind === 'set') for (const i of d.items) add(itemId(i));
+  };
+  for (const id of views) add(id);
+  // 別的組合（不在這次刪掉的）還在用的下層（合併岩場切成幾包時共用上層區域）不能刪，連同它底下的一起留下
+  const keep = (id) => {
+    if (!gone.delete(id)) return;
+    for (const l of layersOn(docs, id)) gone.delete(l.id);
+    const d = byId.get(id);
+    if (d?.kind === 'set') for (const i of d.items) keep(itemId(i));
+  };
+  for (let again = true; again;) {
+    again = false;
+    for (const s of docs) if (s.kind === 'set' && !gone.has(s.id)) for (const i of s.items) if (gone.has(itemId(i)) && !roots.has(itemId(i))) { keep(itemId(i)); again = true; }
   }
   if (!(await UI.confirm(text ?? T('removeConfirm', nameOf(doc)), { title: T('delete'), ok: T('delete'), danger: true }))) return;
   for (const set of docs.filter(d => d.kind === 'set' && !gone.has(d.id) && d.items.some(i => gone.has(itemId(i))))) {
@@ -481,6 +486,9 @@ async function removeDoc(doc, views = doc.kind === 'set' ? doc.items.map(itemId)
   const sources = (await getMeta('sources')) ?? {};
   for (const d of [doc, ...also]) delete sources[d.id];
   await setMeta('sources', sources);
+  const received = (await getMeta('received')) ?? {};   // 收下的版本也清：不留已刪岩場的紀錄
+  for (const d of [doc, ...also]) delete received[d.id];
+  await setMeta('received', received);
   if (doc.kind === 'set') {   // 收藏收的是哪一版也清掉：不然指紋沒變，同步收藏不會再收回來
     const collected = (await getMeta('collected')) ?? {};
     for (const d of [doc, ...also]) delete collected[d.id];
@@ -491,165 +499,7 @@ async function removeDoc(doc, views = doc.kind === 'set' ? doc.items.map(itemId)
   await render();
 }
 
-// ── 長按卡片：動作排在被按的那張卡片裡（卡片變暗、外框），點外面收起來 ──
-
-let cardMenu = null;
-function openCardMenu(cardEl, actions) {
-  closeCardMenu();
-  const acts = el('span', { className: 'card-acts' });
-  for (const a of actions) {
-    const b = el('span', { className: a.danger ? 'card-act danger' : 'card-act', role: 'button', ariaLabel: a.label }, icon(a.icon));
-    b.onclick = (e) => {
-      e.stopPropagation();
-      closeCardMenu();
-      Promise.resolve(a.run()).catch((err) => toast(err.message, 5000));
-    };
-    acts.append(b);
-  }
-  acts.onclick = (e) => {
-    e.stopPropagation();
-    if (e.target === acts) closeCardMenu();
-  };
-  cardEl.classList.add('acting');
-  cardEl.append(acts);
-  cardMenu = { cardEl, acts };
-  if (reduceMotion()) return;
-  acts.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: 'ease-out' });
-  [...acts.children].forEach((b, i) => b.animate([{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'none' }], { duration: 320, delay: 30 + i * 40, easing: 'cubic-bezier(.34, 1.56, .64, 1)', fill: 'backwards' }));
-}
-function closeCardMenu() {
-  if (!cardMenu) return;
-  cardMenu.acts.remove();
-  setTimeout(((c) => () => c.classList.remove('acting'))(cardMenu.cardEl), 0);
-  cardMenu = null;
-}
-document.addEventListener('pointerdown', (e) => cardMenu && !cardMenu.acts.contains(e.target) && closeCardMenu(), true);
-
-// ── 首頁卡片的整理：長按 0.45 秒浮起，接著拖——放在兩張卡片之間是換順序，疊在另一個岩場的中間是合併；浮起後沒拖就放開，出現動作鈕 ──
-// 順序就是首頁組合 items 的順序（最後一筆在最上面，新收的岩場排最上面），拖一次只改這一筆資料
 const refOf = (d) => ({ href: `${d.id}.json`, id: d.id, ...(d.name ? { name: d.name } : {}), t: now() });
-function holdDrag(cardEl, openMenu) {
-  let timer = 0, lifted = false, moved = false, x0 = 0, y0 = 0, top0 = 0, pid = 0, target = null, mode = '', last = null, raf = 0;
-  let rects = null, topR = 0, step = 0, oneCol = false;   // 浮起時記下各卡片原位：拖曳中其他卡片會讓位（transform），判斷落點用原位才不會抖
-  // Android 放手後的 click 可能改打到剛出現的選單底；先攔下，避免選單立刻被關掉。
-  cardEl.addEventListener('click', (e) => {
-    if (cardEl.dataset.dragged) { e.preventDefault(); e.stopImmediatePropagation(); }
-  }, true);
-  const siblings = () => [...cardEl.parentElement.children].filter((c) => c !== cardEl);
-  const clear = () => cardEl.parentElement?.querySelectorAll('.merge-target, .drop-before, .drop-after')?.forEach((c) => c.classList.remove('merge-target', 'drop-before', 'drop-after'));
-  // 單欄清單：被拖的卡片原位到落點之間的卡片上下讓出一格，像一般清單排序
-  const shift = () => {
-    const kids = [...cardEl.parentElement.children], from = kids.indexOf(cardEl);
-    let to = from;
-    if (oneCol && target && mode !== 'merge') {
-      const t = kids.indexOf(target);
-      to = mode === 'before' ? (t > from ? t - 1 : t) : (t > from ? t : t + 1);
-    }
-    kids.forEach((c, i) => {
-      if (c === cardEl) return;
-      const s = to > from && i > from && i <= to ? -step : to < from && i >= to && i < from ? step : 0;
-      c.style.transition = 'transform .15s';
-      c.style.transform = s ? `translateY(${s}px)` : '';
-    });
-  };
-  const unshift = () => siblings().forEach((c) => { c.style.transform = ''; c.style.transition = ''; });
-  const place = () => {
-    const home = $('home'), dy = home.scrollTop - topR;
-    cardEl.style.transform = `translate(${last.clientX - x0}px, ${last.clientY - y0 + home.scrollTop - top0}px) scale(1.04)`;
-    clear();
-    target = null;
-    mode = '';
-    for (const c of siblings()) {
-      const r0 = rects?.get(c);
-      if (!r0) continue;
-      const top = r0.top - dy, bottom = r0.bottom - dy;
-      if (last.clientX < r0.left || last.clientX > r0.right || last.clientY < top || last.clientY > bottom) continue;
-      const fx = (last.clientX - r0.left) / r0.width, fy = (last.clientY - top) / r0.height;
-      target = c;
-      // 合併只在卡片正中間約 30%；其他是換順序（單欄看上下，多欄看左右）
-      mode = c.dataset.kind === 'set' && cardEl.dataset.kind === 'set' && fx > 0.35 && fx < 0.65 && fy > 0.35 && fy < 0.65 ? 'merge' : (oneCol ? fy : fx) < 0.5 ? 'before' : 'after';
-      if (mode === 'merge' || !oneCol) c.classList.add(mode === 'merge' ? 'merge-target' : mode === 'before' ? 'drop-before' : 'drop-after');
-      break;
-    }
-    shift();
-  };
-  // 拖到畫面上下緣時捲動首頁
-  const scrollTick = () => {
-    raf = 0;
-    if (!lifted || !moved) return;
-    const dir = last.clientY < 90 ? -1 : last.clientY > innerHeight - 90 ? 1 : 0;
-    if (!dir) return;
-    $('home').scrollTop += dir * 12;
-    place();
-    raf = requestAnimationFrame(scrollTick);
-  };
-  cardEl.addEventListener('pointerdown', (e) => {
-    if (e.button > 0 || lifted) return;
-    x0 = e.clientX;
-    y0 = e.clientY;
-    top0 = $('home').scrollTop;
-    pid = e.pointerId;
-    moved = false;
-    timer = setTimeout(() => {
-      timer = 0;
-      lifted = true;
-      const box = cardEl.getBoundingClientRect(), list = cardEl.parentElement;
-      topR = $('home').scrollTop;
-      rects = new Map(siblings().map((c) => [c, c.getBoundingClientRect()]));
-      oneCol = box.width > list.clientWidth * 0.6;
-      step = box.height + (parseFloat(getComputedStyle(list).rowGap) || 0);
-      navigator.vibrate?.(10);
-      cardEl.classList.add('lifted');
-      cardEl.setPointerCapture?.(pid);
-    }, 450);
-  });
-  cardEl.addEventListener('pointermove', (e) => {
-    if (!lifted) {
-      if (timer && Math.hypot(e.clientX - x0, e.clientY - y0) > 8) { clearTimeout(timer); timer = 0; }
-      return;
-    }
-    if (!moved && Math.hypot(e.clientX - x0, e.clientY - y0) < 8) return;
-    moved = true;
-    last = e;
-    cardEl.classList.add('dragging');
-    place();
-    if (!raf) raf = requestAnimationFrame(scrollTick);
-  });
-  cardEl.addEventListener('touchmove', (e) => { if (lifted && e.cancelable) e.preventDefault(); }, { passive: false });   // 浮起後手指拖的是卡片，不是捲動
-  const end = (e) => {
-    clearTimeout(timer);
-    timer = 0;
-    if (!lifted) return;
-    lifted = false;
-    cardEl.classList.remove('lifted', 'dragging');
-    cardEl.style.transform = '';
-    cardEl.releasePointerCapture?.(pid);
-    const drop = e.type === 'pointerup' && moved && target ? { id: target.dataset.id, mode } : null;
-    clear();
-    unshift();
-    rects = null;
-    cardEl.dataset.dragged = '1';   // 放開後瀏覽器還會補一個 click：不能當成打開
-    setTimeout(() => delete cardEl.dataset.dragged, 50);
-    if (!moved) { if (e.type === 'pointerup') openMenu(); return; }
-    if (drop) (drop.mode === 'merge' ? mergeHome(cardEl.dataset.id, drop.id) : reorderHome(cardEl.dataset.id, drop.id, drop.mode === 'before')).catch((err) => toast(err.message, 5000));
-  };
-  cardEl.addEventListener('pointerup', end);
-  cardEl.addEventListener('pointercancel', end);
-  cardEl.addEventListener('contextmenu', (e) => e.preventDefault());
-}
-
-/** 換順序：dragId 放到 targetId 前面（畫面上方、左邊）或後面 */
-async function reorderHome(dragId, targetId, before) {
-  const home = await getDoc(state.home), shown = [...home.items].reverse();   // 畫面上由上到下
-  const from = shown.findIndex((i) => itemId(i) === dragId);
-  if (from < 0) return;
-  const [moving] = shown.splice(from, 1);
-  const at = shown.findIndex((i) => itemId(i) === targetId);
-  if (at < 0) return;
-  shown.splice(before ? at : at + 1, 0, moving);
-  await putDocs([check({ ...home, items: shown.reverse(), t: now() })]);
-  await render();
-}
 
 /** Prefer a shared, source-identified ancestor; names alone are not trustworthy. */
 function sharedCollectionName(members) {
@@ -744,26 +594,6 @@ async function autoMergeHome() {
   await render();
 }
 
-/** 合併：dragId 疊到 targetId 上。兩個都是普通岩場就新建一個合併的組合（名稱先用 target 的）；有一邊已經是合併的就併進那一個 */
-async function mergeHome(dragId, targetId) {
-  const [home, docs] = [await getDoc(state.home), await allDocs()];
-  const drag = docs.find((d) => d.id === dragId), tgt = docs.find((d) => d.id === targetId);
-  if (drag?.kind !== 'set' || tgt?.kind !== 'set') return;
-  const members = (d) => (isMerged(d) ? d.items : [refOf(d)]);
-  const group = isMerged(tgt) ? { ...tgt, items: [...tgt.items, ...members(drag)] }
-    : isMerged(drag) ? { ...drag, items: [...drag.items, refOf(tgt)] }
-    : { ...newSet(nameOf(tgt), '我'), props: { merged: true }, items: [refOf(tgt), refOf(drag)] };
-  const allMembers = group.items.map((i) => docs.find((d) => d.id === itemId(i))).filter(Boolean);
-  const suggestedName = sharedCollectionName(allMembers);
-  if (suggestedName && !group.props?.nameCustomized) group.name = suggestedName;
-  group.t = now();
-  const items = home.items.filter((i) => itemId(i) !== dragId).map((i) => (itemId(i) === targetId ? refOf(group) : i));
-  await putDocs([check(group), check({ ...home, items, t: now() })]);
-  if (isMerged(drag) && drag.id !== group.id) await deleteDocs([drag.id]);   // 兩個都是合併的：被拖的那個組合不要了，成員在 target 裡
-  toast(T('mergedInto', nameOf(group)));
-  await render();
-}
-
 async function renameMerged(set) {
   const name = await UI.prompt({ title: T('rename'), value: nameOf(set), max: 40 });
   if (!name?.trim()) return;
@@ -785,6 +615,55 @@ async function removeMerged(set, members) {
   await removeDoc(set, [...members.map((m) => m.id), ...members.flatMap((m) => m.items.map(itemId))], {
     text: T('removeMerged', nameOf(set), members.length), also: members,
   });
+}
+
+// ── 展開頁右上「更多」：這一頁的動作（分享、重新命名、拆開、刪除）排成一張小選單 ──
+let moreMenu = null;
+function closeMore() { moreMenu?.menu.remove(); moreMenu = null; }
+function openMore(anchor, actions) {
+  if (moreMenu?.anchor === anchor) return closeMore();
+  closeMore();
+  const menu = el('div', { className: 'rp-more', role: 'menu' });
+  for (const a of actions) {
+    const b = el('button', { className: a.danger ? 'danger' : '', role: 'menuitem' }, icon(a.icon), el('span', { textContent: a.label }));
+    b.onclick = () => { closeMore(); Promise.resolve(a.run()).catch((err) => toast(err.message, 5000)); };
+    menu.append(b);
+  }
+  const r = anchor.getBoundingClientRect();
+  menu.style.top = `${r.bottom + 6}px`; menu.style.right = `${Math.max(8, innerWidth - r.right)}px`;
+  document.body.append(menu);
+  moreMenu = { menu, anchor };
+}
+document.addEventListener('pointerdown', (e) => moreMenu && !moreMenu.menu.contains(e.target) && !moreMenu.anchor.contains(e.target) && closeMore(), true);
+
+/** 岩場頁的動作：合併的岩場可以重新命名、拆開；個人的岩場和合併的不能整組分享（合併的到成員那一層分享） */
+async function packActions() {
+  const docs = await allDocs(), set = docs.find((d) => d.id === state.pack);
+  if (!set) return [];
+  const flat = flatSet(docs, set);
+  const after = async () => { if (state.pack) await renderPack(); };
+  if (isMerged(set)) {
+    return [
+      { icon: 'edit', label: T('rename'), run: async () => { await renameMerged(set); await after(); } },
+      { icon: 'split', label: T('split'), run: async () => { await splitMerged(set); await after(); } },
+      { icon: 'trash', label: T('delete'), danger: true, run: () => removeMerged(set, flat.members) },
+    ];
+  }
+  return [...(personalSet(docs, set) ? [] : [{ icon: 'share', label: T('share'), run: () => share(set.id) }]), { icon: 'trash', label: T('delete'), danger: true, run: () => removeDoc(set) }];
+}
+
+/** Topo 頁的動作：分享、刪除（區域裡只有這一張照片時，連區域一起刪） */
+async function topoActions() {
+  const id = state.topo, view = await getDoc(id);
+  if (!view) return [];
+  const wall = (await topoPlace(id))?.wall;
+  return [
+    ...(shareable(view) ? [{ icon: 'share', label: T('share'), run: () => shareTopoMenu() }] : []),
+    { icon: 'trash', label: T('delete'), danger: true, run: async () => {
+      await (wall && wall.views.length === 1 ? removeDoc(wall.node, wall.views.map((v) => v.id)) : removeDoc(view));
+      if (!(await getDoc(id))) back();
+    } },
+  ];
 }
 
 /** 岩場被合併進某張卡片時，打開的是那張卡片 */
@@ -975,7 +854,7 @@ async function fillPack() {
   }
   $('packBanner').querySelector('b').textContent = nameOf(set);
   $('packTitle').textContent = nameOf(set);
-  $('packShare').hidden = personalSet(docs, set) || isMerged(set);   // 合併的岩場不能整組分享，到成員那一層分享
+  state.packShareable = !(personalSet(docs, set) || isMerged(set));   // 合併的岩場不能整組分享，到成員那一層分享
   // 地圖鈕：有岩場地圖就開地圖（手繪圖在地圖右上），沒有就開區域照片
   $('packArea').hidden = !crag.maps.length && !crag.overview.length;
   $('packArea').setAttribute('aria-label', T(crag.maps.length ? 'cragMap' : 'areaPhotos'));
@@ -1013,7 +892,6 @@ async function fillPack() {
         id: w.node.id, img: await photoUrl(w.views[0]), name: nameOf(w.node),
         sub: [w.views.length > 1 ? T('toposN', w.views.length) : '', T('routesN', w.routes.length)].filter(Boolean).join(' · '),
         onOpen: (pic) => openTopo(w.views[0].id, pic),
-        actions: () => [...w.views.filter(shareable).slice(0, 1).map((v) => ({ icon: 'share', label: T('share'), run: () => share(v.id) })), { icon: 'trash', label: T('delete'), danger: true, run: () => removeDoc(w.node, w.views.map((v) => v.id)) }],
       });
       if (done) c.append(el('span', { className: 'tick', innerHTML: `<svg class="paw"><use href="#i-paw"/></svg>${done}` }));
       c.dataset.sig += `|${done}`;
@@ -1023,7 +901,6 @@ async function fillPack() {
       cards.push(card({
         id: v.id, img: await photoUrl(v), name: nameOf(v), sub: T('routesN', routeCount(docs, v.id)),
         onOpen: (pic) => openTopo(v.id, pic),
-        actions: () => [...(shareable(v) ? [{ icon: 'share', label: T('share'), run: () => share(v.id) }] : []), { icon: 'trash', label: T('delete'), danger: true, run: () => removeDoc(v) }],
       }));
     }
     syncCards(sec.querySelector('.cards'), cards);
@@ -1346,7 +1223,6 @@ function worldCard(it) {
       id: it.key, img: b.preview || b.thumb || '', cropTop: true, name: b.name, sub: got ? T('received') : new Date(b.t).toLocaleDateString(langTag()),
       go: true,   // 點卡片就是下載，不另外放「下載」標籤
       onOpen: (pic) => (pack ? openPack(pack, pic) : receive(b.url, { cover: bookCover(b) })),
-      actions: () => [{ icon: 'share', label: T('share'), run: () => shareLink(b.url) }],
     });
   }
   // OpenClimbing 的岩場：預覽圖在 climbio/crags 的 openclimbing/；沒有的灰底；名稱、路線數；點了下載或打開
@@ -1354,7 +1230,6 @@ function worldCard(it) {
   return card({
     id: it.key, img: ocPreview(crag), cropTop: true, name: crag.name, sub: got ? T('received') : (crag.routes ? T('routesN', crag.routes) : ''), go: true,
     onOpen: () => openOpenClimbingCrag(crag),
-    actions: () => [{ icon: 'share', label: T('share'), run: () => shareLink(crag.url) }],
   });
 }
 /** 岩場卡片一批 24 張，捲到底才接著放：只載入看得到的圖 */
@@ -2207,7 +2082,6 @@ async function stepTopo(step) {
   topoEl.classList.remove('slide-l', 'slide-r');
   void topoEl.offsetWidth;
   topoEl.classList.add(step > 0 ? 'slide-l' : 'slide-r');
-  $('shareTopo').hidden = !shareable(view);
   const top = nav.at(-1), wall = (await topoPlace(next))?.wall;
   if (top?.id === 'topo' && top.zoom) {
     top.zoom.src = data.view.href;
@@ -2232,7 +2106,6 @@ async function openTopo(viewId, fromPic = null, { replace = false, route } = {})
   if (view.props?.model && (await getDoc(view.props.model.id)) && (await modelUsable(view.props.model.id))) return open3d(view, fromPic, { replace, route });   // 3D 模型拍的快照：直接看 3D
   if (await photoMissing(view)) return void toast(T(view.origin === 'personal' ? 'photoPendingPersonal' : 'photoPendingOnline'), 4500);
   state.topo = viewId;
-  $('shareTopo').hidden = !shareable(view);
   $('topoPop').hidden = true;
   const data = await topoData(viewId);
   showWhere(viewId);
@@ -2277,7 +2150,7 @@ async function open3d(view, fromPic = null, { replace = false, route, crag = fal
   where.querySelector('b').textContent = nameOf(set ?? view);
   where.querySelector('span').textContent = '';
   // 右上分享、清單上方的原始資料／交通／地圖：跟岩場頁同一組按鈕（岩場頁藏著，內容在 fillPack 填好）
-  $('m3dShare').hidden = !packSet || $('packShare').hidden;
+  $('m3dShare').hidden = !packSet || !state.packShareable;
   $('m3dToggle').hidden = !set;
   for (const k of ['Source', 'Way', 'Area']) $(`m3d${k}`).hidden = !packSet || $(`pack${k}`).hidden;
   if (packSet) $('m3dSource').href = $('packSource').href;
@@ -2334,7 +2207,7 @@ function openSheet(on) {
   $('m3dWalls').addEventListener('pointerup', (e) => { if (y0 != null && e.clientY - y0 < -30) openSheet(true); else if (y0 != null && e.clientY - y0 > 30) openSheet(false); y0 = null; });
   $('m3dView').addEventListener('pointerdown', () => openSheet(false));
   $('m3dToggle').onclick = () => openSheet(!$('m3dSheet').classList.contains('open'));   // 右上的清單鈕：開關路線清單
-  $('m3dShare').onclick = () => $('packShare').click();
+  $('m3dShare').onclick = () => share(state.pack);
   $('m3dWay').onclick = () => $('packWay').click();
   $('m3dArea').onclick = () => $('packArea').click();
 }
@@ -2471,7 +2344,7 @@ $('acSync').onclick = () => { closeAcct(); openNearby('devices'); };
 $('acHelp').onclick = () => { closeAcct(); window.open(AppKit.i18n.guideUrl('redpoint-manual.html'), '_blank', 'noopener,noreferrer'); };
 $('acInstall').onclick = () => { closeAcct(); installRedpoint(); };
 for (const id of ['packBack', 'worldBack', 'rvClose', 'cmapBack', 'wayBack']) $(id).onclick = back;
-$('packShare').onclick = () => share(state.pack);
+$('packMore').onclick = async () => openMore($('packMore'), await packActions());
 // 往上滑、主卡捲出去之後，岩場名稱移到「<」右邊
 new IntersectionObserver(([e]) => $('pack').querySelector('.bar').classList.toggle('titled', !e.isIntersecting && e.boundingClientRect.top < 80), { root: $('pack'), rootMargin: '-60px 0px 0px 0px' }).observe($('packBanner'));
 $('packTicks').onclick = () => openTicks().catch((e) => toast(e.message, 5000));
@@ -2517,7 +2390,7 @@ wide.addEventListener('change', syncFit);
 syncFit();
 $('closeTopo').onclick = back;
 $('closeM3d').onclick = back;
-$('shareTopo').onclick = () => shareTopoMenu();
+$('topoMore').onclick = async () => openMore($('topoMore'), await topoActions());
 
 // ── 開始 ──
 AppKit.account.footer($('acFoot'), { version: globalThis.CLIMBIO_VERSION, sourcesHref: 'sources.html' });

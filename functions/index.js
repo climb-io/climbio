@@ -6,7 +6,7 @@ const admin = require('firebase-admin');
 const { getFirestore } = require('firebase-admin/firestore');
 admin.initializeApp();
 const bucket = admin.storage().bucket();   // 專案的預設儲存區
-const { HOSTS, ORIGINS } = require('./site');
+const { HOSTS, ORIGINS, EMBED_ORIGINS } = require('./site');
 const { createHandler: nearbyHandler, cleanNearby } = require('./nearby');
 const { applyBudget, whenUploadsOn } = require('./budget');
 
@@ -37,7 +37,7 @@ const ownerKey = ownerAuth({ key: () => STUDIO_KEY.value(), member: studioMember
 const { createHandler: wallsHandler, expire: expireWalls } = require('./walls');
 const wallsDb = getFirestore('climbio');
 // 擁有者的同步金鑰（或協作者的 GitHub 權杖，標頭 X-Studio-Key）可以代替 App Check：代理（命令列）替岩館匯入路線、發佈時沒有網頁可以拿權杖；寫線仍要裝置金鑰簽章
-exports.walls = onRequest({ region: 'asia-east1', invoker: 'public', cors: ORIGINS, memory: '512MiB', maxInstances: 3, timeoutSeconds: 60, secrets: [STUDIO_KEY] }, whenUploadsOn(wallsDb, wallsHandler({
+exports.walls = onRequest({ region: 'asia-east1', invoker: 'public', cors: [...ORIGINS, ...EMBED_ORIGINS], memory: '512MiB', maxInstances: 3, timeoutSeconds: 60, secrets: [STUDIO_KEY] }, whenUploadsOn(wallsDb, wallsHandler({
   db: wallsDb,
   refreshGym: pid => updateGymWall({ db: wallsDb, pid }),
   appChecked: async (req) => (await ownerKey(req)) || appChecked(req),
@@ -58,13 +58,13 @@ const cragsHandler = projectsHandler({
   saveWorld,
   registerWall: o => registerWall3d({ db: wallsDb, ...o }),
 });
-const wallsDataHandler = wallsDatasetHandler({ db: wallsDb, hf: createHf({ token: () => HF_TOKEN.value() }), refreshGyms: project => updateGymWallsOf({ db: wallsDb, project }), isOwner: ownerKey });
+const wallsDataHandler = wallsDatasetHandler({ db: wallsDb, hf: createHf({ token: () => HF_TOKEN.value() }), refreshGyms: project => updateGymWallsOf({ db: wallsDb, project }) });
 exports.datasets = onRequest({ region: 'asia-east1', invoker: 'public', cors: ORIGINS, memory: '512MiB', maxInstances: 3, timeoutSeconds: 120, secrets: [HF_TOKEN, STUDIO_KEY] },
   whenUploadsOn(wallsDb, async (req, res) => {
     // 會寫入的 op（準備上傳、發佈）要 App Check 權杖，或擁有者的同步金鑰（代理用）；files、versions 是公開的唯讀查詢
     const op = req.body && req.body.op;
     if (req.method === 'POST' && op !== 'files' && op !== 'versions' && !(await ownerKey(req)) && !(await appChecked(req))) return res.status(401).json({ error: 'app check' });
-    return (op === 'publishWall' || op === 'transferWall' ? wallsDataHandler : cragsHandler)(req, res);
+    return (op === 'publishWall' ? wallsDataHandler : cragsHandler)(req, res);
   }));
 // 世界的靜態清單每天補寫一次（發佈、下架時已經寫過；這是保險）
 exports.refreshWorld = onSchedule({ schedule: 'every day 05:00', timeZone: 'Asia/Taipei', region: 'asia-east1' }, saveWorld);

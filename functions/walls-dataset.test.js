@@ -14,8 +14,7 @@ const view = (n = 2, extra = [], o = {}) => {
     marks: hs.map(([id, p]) => ({ node: id, geometry: { type: 'Polygon', coordinates: [[...p, p[0]]] } })), ...o };
 };
 const files = (v = view(), more = []) => [{ path: `${PID}.jpg`, b64: JPG }, { path: `${PID}.json`, b64: json(v) }, ...more];
-const K1 = '1'.repeat(32), K2 = '2'.repeat(32);
-const body = (o = {}) => ({ op: 'publishWall', source: 'studio', id: WID, name: '測試牆', gym: '測試館', licenseAccepted: true, files: files(), auth: { kid: K1 }, ...o });
+const body = (o = {}) => ({ op: 'publishWall', source: 'studio', id: WID, name: '測試牆', gym: '測試館', licenseAccepted: true, files: files(), ...o });
 
 function fakeDb() {
   const docs = new Map();
@@ -29,15 +28,13 @@ function setup(extra = {}) {
     read: async path => (path === 'walls.jsonl' ? store.text || null : store.files.get(path) || null),
     commit: async (summary, fs) => { commits.push({ summary, paths: fs.map(f => f.path) }); for (const f of fs) { if (f.path === 'walls.jsonl') store.text = f.bytes.toString(); else if (f.path.endsWith('.json')) store.files.set(f.path, f.bytes.toString()); } },
   };
-  let maintainer = false;
-  // 簽章驗證換成假的：auth.kid 就是這把金鑰（真的驗證在 publisher-key.test.js）
-  const handler = createHandler({ db, hf, now: () => 2e12, isOwner: async () => maintainer, verify: (op, id, auth) => auth.kid, ...extra });
+  const handler = createHandler({ db, hf, now: () => 2e12, ...extra });
   const call = async (b, ip = '1.1.1.1', method = 'POST') => {
     const res = { statusCode: 200, set() { return this; }, status(c) { this.statusCode = c; return this; }, json(d) { this.data = d; return this; } };
     await handler({ method, body: b, get: k => ({ 'x-forwarded-for': ip }[k.toLowerCase()]) }, res);
     return res;
   };
-  return { call, db, docs, commits, store, asMaintainer: v => { maintainer = v; } };
+  return { call, db, docs, commits, store };
 }
 
 test('不是 Studio 發佈的（岩點貓 App 或舊版沒帶 source）：拒絕，什麼都不寫', async () => {
@@ -49,11 +46,11 @@ test('不是 Studio 發佈的（岩點貓 App 或舊版沒帶 source）：拒絕
   assert.deepEqual([s.commits.length, s.docs.size], [0, 0]);
 });
 
-test('發佈：不登入，寫進 walls/<id>/v1/ 與根目錄的 walls.jsonl；Firestore 只記 datasets 與擁有者的發佈金鑰 kid', async () => {
+test('發佈：不登入，寫進 walls/<id>/v1/ 與根目錄的 walls.jsonl；Firestore 只記 datasets（沒有擁有者）', async () => {
   const { call, docs, commits, store } = setup();
   const r = await call(body({ gym: '測試館', files: files(view(), [{ path: `${PID}.thumb.jpg`, b64: JPG }, { path: `${PID}.edits.json`, b64: json({ holdlab: 1, reviewed: 1, deleted: ['a'], added: ['b', 'c'], flagged: { x: 1, y: 2 } }) }]) }));
   assert.equal(r.statusCode, 200);
-  assert.deepEqual(r.data, { id: WID, version: 1, current: 1, base: baseUrl(WID, 1), owner: K1 });
+  assert.deepEqual(r.data, { id: WID, version: 1, current: 1, base: baseUrl(WID, 1) });
   assert.deepEqual(commits[0].paths, [`${PID}.jpg`, `${PID}.json`, `${PID}.thumb.jpg`, `${PID}.edits.json`, 'index.json'].map(p => `walls/${WID}/v1/${p}`).concat('walls.jsonl').filter(p => !p.endsWith('/index.json')));
   const idx = docs.get(`datasets/${WID}`);
   assert.deepEqual([idx.owner, idx.type, idx.name, idx.version, idx.latest, idx.at], ['', 'walls', '測試牆', 1, 1, 2e12]);
@@ -152,7 +149,7 @@ test('發佈：每天上限（按網路來源）；Hugging Face 失敗回 502 �
   assert.equal((await s.call(body(), '1.1.1.1')).statusCode, 429);
   assert.equal((await s.call(body(), '9.9.9.9')).statusCode, 200, '別的網路來源不受影響');
   const { db, docs } = fakeDb();
-  const handler = createHandler({ db, hf: { read: async () => null, commit: async () => { throw Object.assign(new Error('hub failed'), { status: 502 }); } }, verify: (op, id, auth) => auth.kid });
+  const handler = createHandler({ db, hf: { read: async () => null, commit: async () => { throw Object.assign(new Error('hub failed'), { status: 502 }); } } });
   const res = { set() { return this; }, status(c) { this.statusCode = c; return this; }, json(d) { this.data = d; return this; } };
   await handler({ method: 'POST', body: body(), get: () => '' }, res);
   assert.equal(res.statusCode, 502);
@@ -203,40 +200,24 @@ test('Studio 發佈的公開牆一定要有岩館名稱', async () => {
   assert.equal((await call(body({ gym: undefined }))).statusCode, 400);
 });
 
-test('擁有者：第一次發佈的金鑰就是擁有者；別把金鑰的重新發佈拒絕，維護者可以；沒簽章拒絕', async () => {
-  const { call, docs, asMaintainer } = setup();
-  assert.equal((await call(body({ auth: undefined }))).data.error, 'key required');
-  const first = await call(body());
-  assert.equal(first.statusCode, 200); assert.equal(first.data.owner, K1);
-  assert.equal(docs.get(`datasets/${WID}`).ownerKid, K1);
-  const other = await call(body({ auth: { kid: K2 }, files: files(view(3)) }));
-  assert.equal(other.statusCode, 403); assert.equal(other.data.error, 'not owner');
-  assert.equal((await call(body({ files: files(view(3)) }))).statusCode, 200);   // 同一把金鑰：新版本
-  asMaintainer(true);
-  const m = await call(body({ auth: undefined, files: files(view(3, [['h9', sq(400, 300)]])) }));   // 維護者不用簽章
-  assert.equal(m.statusCode, 200); assert.equal(docs.get(`datasets/${WID}`).ownerKid, K1);   // 擁有者不變
+test('不認人：不用金鑰，任何人都能發佈新版本；Firestore 不記擁有者；舊牆留著的 ownerKid 被拿掉', async () => {
+  const { call, docs } = setup();
+  assert.equal((await call(body())).statusCode, 200);
+  assert.equal(docs.get(`datasets/${WID}`).ownerKid, undefined);
+  docs.set(`datasets/${WID}`, { ...docs.get(`datasets/${WID}`), ownerKid: 'x'.repeat(32) });   // 舊牆
+  const r = await call(body({ files: files(view(3)) }), '2.2.2.2');   // 另一個人、沒有簽章
+  assert.equal(r.statusCode, 200); assert.equal(r.data.version, 2); assert.equal(r.data.owner, undefined);
+  assert.equal(docs.get(`datasets/${WID}`).ownerKid, undefined);
+  assert.equal((await call({ op: 'transferWall', id: WID, newKid: 'x'.repeat(32) })).data.error, 'bad op');   // 轉交已經拿掉
 });
 
-test('transferWall：擁有者轉給新的金鑰，舊的就不能動；沒有擁有者的舊牆只有維護者能認領', async () => {
-  const { call, docs, asMaintainer } = setup();
-  await call(body());
-  assert.equal((await call({ op: 'transferWall', id: WID, newKid: K2, auth: { kid: K2 } })).statusCode, 403);   // 不是擁有者
-  assert.equal((await call({ op: 'transferWall', id: WID, newKid: 'xyz', auth: { kid: K1 } })).statusCode, 400);
-  assert.deepEqual((await call({ op: 'transferWall', id: WID, newKid: K2, auth: { kid: K1 } })).data, { id: WID, owner: K2 });
-  assert.equal((await call(body({ files: files(view(3)) }))).statusCode, 403);   // 舊金鑰
-  assert.equal((await call(body({ auth: { kid: K2 }, files: files(view(3)) }))).statusCode, 200);
-  docs.set(`datasets/${WID}`, { ...docs.get(`datasets/${WID}`), ownerKid: '' });   // 舊牆：沒有擁有者
-  assert.equal((await call({ op: 'transferWall', id: WID, newKid: K1, auth: { kid: K1 } })).data.error, 'no owner');
-  asMaintainer(true);
-  assert.deepEqual((await call({ op: 'transferWall', id: WID, newKid: K1 })).data, { id: WID, owner: K1 });
-  assert.equal((await call({ op: 'transferWall', id: 'nowallnowallnowa', newKid: K1 })).statusCode, 404);
-});
-
-test('維護者帶發佈金鑰發佈新牆：也記成擁有者；已有擁有者的牆，維護者的簽章不改擁有者', async () => {
-  const { call, docs, asMaintainer } = setup();
-  asMaintainer(true);
-  assert.equal((await call(body())).data.owner, K1);
-  assert.equal(docs.get(`datasets/${WID}`).ownerKid, K1);
-  assert.equal((await call(body({ auth: { kid: K2 }, files: files(view(3)) }))).data.owner, K1);   // 維護者用別把金鑰：牆還是 K1 的
-  assert.equal(docs.get(`datasets/${WID}`).ownerKid, K1);
+test('現行版自動判定：照片換了（指紋不同）的新版本照樣存成新版本，但岩點貓看到的現行版不換', async () => {
+  const { call, docs } = setup();
+  assert.equal((await call(body())).data.current, 1);
+  const other = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 9, 9, 9]).toString('base64');
+  const r = await call(body({ files: [{ path: `${PID}.jpg`, b64: other }, { path: `${PID}.json`, b64: json(view(3)) }] }));
+  assert.equal(r.statusCode, 200); assert.equal(r.data.version, 2); assert.equal(r.data.current, 1);
+  assert.deepEqual([docs.get(`datasets/${WID}`).version, docs.get(`datasets/${WID}`).latest], [1, 2]);
+  const same = await call(body({ files: files(view(3)) }));   // 照片同一張：成為現行版
+  assert.equal(same.data.version, 3); assert.equal(same.data.current, 3);
 });

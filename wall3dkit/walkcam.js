@@ -13,8 +13,13 @@ const COARSE_D = 0.25;   // 捏合中算上下、左右範圍用的距離刻度�
 const V_STEP = 0.1;   // 高度範圍（vRange）沿牆取樣的間距（公尺）
 const V_SLOPE = 1, V_REACH = 12;   // 高度範圍沿牆的坡度限制：每走 1 公尺最多變 1 公尺，看前後 12 格（1.2 公尺）
 const HOLD_R = 0.08;   // 岩點「完整出現在畫面」：中心離可用畫面的左右邊至少這麼遠（公尺，約一般岩點的半徑；拉得很近時最多留可用畫面的 1/8）
-const EYE = 1.5;   // 人眼離牆腳的高度（公尺）：沿牆鏡頭像人站在牆前，鏡頭固定在這個高度，看上看下是抬頭、低頭
-const FOOT_SLACK = 0.1;   // 人的模式低頭時容許看到牆腳下面一點（公尺，看的高度），牆腳的腳點才點得到
+const EYE = 1.5;   // 人眼離牆腳的高度（公尺）：cave 裡鏡頭最高到這裡（上下拖是整個鏡頭升降，不抬頭）
+const YAW_LEAD = Math.PI / 6, YAW_RAMP = 0.6, HEAD_END = Math.PI / 2;   // 人的模式左右走時邊走邊轉向要走的那邊多少（每拖 YAW_RAMP 個畫面寬轉掉剩下的 63%）；走到盡頭原地轉頭最多多少（看內角的側面）
+const CAVE_WALK = 1.2, CAVE_HEAD = 0.35, CAVE_COVER = 0.8, CAVE_DIST = 1.3;   // 人的模式進 cave 要拖幾個畫面寬；cave 裡鏡頭離頭頂的岩點（屋頂）至少多遠（公尺）；cave 裡轉身時畫面至少多少是牆；cave 的站位離四周的牆大約多遠（公尺）
+const CORNER = Math.PI * 50 / 180;   // 人的模式左右走到牆線轉彎超過這個角度的地方為止（內角、側牆）
+const PERSON_FAR = 1.8;   // 人的模式最遠站多遠（公尺）：人在牆下看大約這樣；橫的畫面（電腦）照畫面下緣算會推到很遠，像在看整個模型
+const PERSON_FOV_RAD = 67 * Math.PI / 180;   // 直拿手機的上下視角（跟 Stage 的 PERSON_FOV 一樣）：電腦版最遠距離照它換算
+const STEP_BACK_W = 1.0;   // 人的模式停點外直走時，左右多遠內的岩點會讓鏡頭往後退（公尺，往外漸變）
 const HOLD_RV = 0.03;   // 上下只要點得到：中心離可用畫面的上下邊這麼遠就好。牆最上、最下那排岩點不必整顆進畫面，鏡頭才不用為了它們露出牆外
 const SIDE = 0.6;     // 離正面牆面超過這麼遠的岩點算側牆上的（靠調角度看，不擴大左右、上下範圍）
 const SLOPE = 1;     // 沿牆走時自動靠近、退回的快慢：每走 1 公尺距離最多變 1 公尺
@@ -228,37 +233,9 @@ export class WalkCam {
     let lo = p.smin, hi = p.smax; for (let k = 0; k < 16; k++) { const m = (lo + hi) / 2, [a, b] = x(m); if (a + b > 0) lo = m; else hi = m; }   // 往右走兩端都往左移
     const s = (lo + hi) / 2; return [s, ...x(s)];
   }
-  // 人的模式最遠的距離：平視（看眼睛高度）時，可用畫面的下緣剛好碰到牆腳；再遠就只是看到更多地面，不會看到更多牆。
-  // 不受 clamp 限制（算的時候直接設 d）
-  get dPerson() {
-    const t = this.table, bottom = this.wide || !t ? 0 : t.bottom;
-    if (this.sees) {
-      // 用模型打射線：沿牆幾個位置各找「平視時可用畫面的下緣還打在牆上」的最遠距離，取中位數（牆往外傾時牆腳比較深，不能只用高度算）
-      const key = [this.W, this.H].join('|'); if (this.dp && this.dp[0] === key) return this.dp[1];
-      const keep = ['s', 'v', 'd'].map(k => [k, this[k]]), p = this.p, out = [];
-      for (let k = 1; k <= 5; k++) {
-        this.s = p.smin + (p.smax - p.smin) * k / 6; let lo = this.dMin, hi = 8;
-        const ok = (d) => { this.d = d; this.vf = null; return this.vFoot() <= this.eye + 1e-3; };
-        if (!ok(lo)) { out.push(lo); continue; }
-        for (let it = 0; it < 12; it++) { const m = (lo + hi) / 2; if (ok(m)) lo = m; else hi = m; }
-        out.push(lo);
-      }
-      for (const [k, x] of keep) this[k] = x; this.vf = null;
-      out.sort((a, b) => a - b); this.dp = [key, out[out.length >> 1]]; return this.dp[1];
-    }
-    return Math.max(this.dMin, (this.eye - this.floor) / (this.tan * (1 - 2 * bottom)));
-  }
-  // 人的模式實際的最遠距離：dPerson 再收到每顆岩點都點得到（定線的標準之一；cave、內角的牆腳在最遠時常常走不到）。算的時候 dMax 先用 dPerson
-  dFar() {
-    const key = [this.W, this.H].join('|'); if (this.df && this.df[0] === key) return this.df[1];
-    if (this.dfBusy || !this.holds || !this.holds.length || !this.sees) return this.dPerson;
-    this.dfBusy = true;
-    try {
-      let hi = this.dPerson, lo = this.dMin;
-      if (this.missedHolds(hi).length) { for (let k = 0; k < 6; k++) { const m = (lo + hi) / 2; if (this.missedHolds(m).length) hi = m; else lo = m; } hi = lo; }
-      this.df = [key, hi]; return hi;
-    } finally { this.dfBusy = false; }
-  }
+  // 人的模式的最遠距離：PERSON_FAR；橫的畫面（電腦）上下看得到的比較少，改成上下看到的牆跟直拿手機在 PERSON_FAR 時一樣高（大螢幕左右看得更多）。
+  // 不為了每顆岩點都點得到而縮近：點得到是「捏合靠近、走過去、轉頭」做得到就好（missedHolds 照各個距離量）
+  dFar() { return this.wide ? PERSON_FAR * Math.tan(PERSON_FOV_RAD / 2) / this.tan : PERSON_FAR; }
   // 人的模式看的高度範圍：最低到牆腳附近的岩點、最高到最上面的岩點（抬頭、低頭到看得到它們在畫面中間）
   vSpan() {
     if (this.vs) return this.vs;
@@ -266,22 +243,50 @@ export class WalkCam {
     if (H && H.length) for (const P of H) { const h = P.dot(up); lo = Math.min(lo, h); hi = Math.max(hi, h); }
     return (this.vs = [lo, hi]);
   }
-  // 人的模式低頭的下限：可用畫面的下緣剛好到牆腳（再低頭只多看到切掉的地面）。鏡頭在眼睛高度、離看的那一點水平距離 D
-  vFoot() {
-    const t = this.table, bottom = this.wide || !t ? 0 : t.bottom;
-    if (this.sees) {
-      // 用模型打射線：可用畫面下緣中間那條線剛好還打在牆上的最低看的高度（每 5 公分、每個距離刻度記著）
-      const key = [Math.round(this.s / STEP), this.dQuant(this.d), this.yawKey(), this.W, this.H].join('|'), m = this.vf || (this.vf = new Map());
-      if (m.has(key)) return m.get(key);
-      const v0 = this.v, c = this.cam, f = new Vector3(), u = new Vector3(), ty = this.tan * (1 - 2 * bottom);
-      const hits = (v) => { this.v = v; this.place(this.s, this.d); c.getWorldDirection(f); u.setFromMatrixColumn(c.matrixWorld, 1); return this.sees(c.position.clone(), f.clone().addScaledVector(u, -ty).normalize()); };
-      let lo = this.vSpan()[0] - 1, hi = this.eye + 0.5, r;
-      if (hits(lo)) r = lo; else if (!hits(hi)) r = this.eye; else { for (let k = 0; k < 12; k++) { const mid = (lo + hi) / 2; if (hits(mid)) hi = mid; else lo = mid; } r = hi; }
-      this.v = v0; if (m.size > 4000) m.clear(); m.set(key, r); return r;
-    }
-    const { cam, look } = this.pose(this.s, this.d), D = Math.hypot(cam[0] - look[0], cam[1] - look[1]) || this.d, half = Math.atan(this.tan * (1 - 2 * bottom));
-    return this.eye - D * Math.tan(Math.atan2(this.eye - this.floor, D) - half);
+  // 人的模式的鏡頭高度範圍（平視）：跟 2D 一樣，可用畫面上下緣不超出這一段牆（vlim：畫面中間那半段寬的牆腳、牆頂）；
+  // 只有為了看到畫面裡最低、最高的岩點才往外放（中心離可用畫面上下緣 HOLD_RV）。畫面比牆高就置中
+  vSpanLevel() {
+    const t = this.table, [top, bottom] = this.wide || !t ? [0, 0] : [t.top, t.bottom], hh = this.d * this.tan, hb = hh * (1 - 2 * bottom), ht = hh * (1 - 2 * top);
+    const key = [Math.round(this.s / STEP), this.dQuant(this.d), this.yawKey(), this.W, this.H].join('|'), m = this.vsl || (this.vsl = new Map());
+    if (m.has(key)) return m.get(key);
+    const [wl, wh] = this.vlim(this.s, hh * this.W / this.H * 0.5, this.v), [lo, hi] = this.holdSpan();
+    let a = wl + hb, b = wh - ht;   // vlim 給的是畫面上下緣（距離 d）可以到的牆腳、牆頂；可用畫面上下扣掉表的 top、bottom
+    a = Math.min(a, lo + hb - HOLD_RV); b = Math.max(b, hi - ht + HOLD_RV);
+    if (a > b) a = b = (a + b) / 2;
+    const r = [a, b]; if (m.size > 4000) m.clear(); m.set(key, r); return r;
   }
+  // 這個位置（含轉的角度）左右畫面裡的岩點最低、最高的高度（沒有就用全部的）
+  holdSpan() {
+    const H = this.holds; if (!H || !H.length || !this.table) return this.vSpan();
+    const p = this.p, { cam, look } = this.pose(this.s, this.d), C = this.orbit(cam, look, this.d, this.yawAt(this.s));
+    const fx = look[0] - C[0], fy = look[1] - C[1], fl = Math.hypot(fx, fy) || 1, half = Math.atan(this.tan * this.W / this.H);
+    let lo = Infinity, hi = -Infinity;
+    for (const P of H) {
+      const qx = P.dot(p.right) - C[0], qy = P.dot(p.f) - C[1], ql = Math.hypot(qx, qy) || 1;
+      if (Math.acos(Math.max(-1, Math.min(1, (qx * fx + qy * fy) / (ql * fl)))) <= half) { const h = P.dot(p.up); lo = Math.min(lo, h); hi = Math.max(hi, h); }
+    }
+    return lo <= hi ? [lo, hi] : this.vSpan();
+  }
+
+  // 人的模式左右拖（像 2D 平移，dx>0 鏡頭往左）：一邊走一邊慢慢轉向要走的那邊（yaw，繞著看的那一點轉），拖約一個半畫面寬轉到 YAW_LEAD；
+  // 走到左右盡頭鏡頭停住，再拖就原地轉頭（head，鏡頭不動），最多 HEAD_END（看內角的側面），畫面中間和左右一半的地方要還打得到牆，轉不動就停。
+  // 往回拖：先把頭轉回來，再邊走邊轉回去
+  walk(dx) {
+    if (!dx) return;
+    const dir = dx > 0 ? -1 : 1, rate = YAW_LEAD / (this.W / 2);
+    let px = Math.abs(dx);
+    if (this.head && Math.sign(this.head) !== dir) { const a = Math.min(Math.abs(this.head), px * rate); this.head -= Math.sign(this.head) * a; px -= a / rate; if (Math.abs(this.head) < 1e-6) this.head = 0; }
+    if (px <= 1e-6) return;
+    const [lo, hi] = this.sRange(), s0 = this.s;
+    this.s = Math.max(lo, Math.min(hi, this.s + dir * px * this.mpp));
+    const moved = Math.abs(this.s - s0) / this.mpp, rest = px - moved;
+    if (moved > 0) { const to = dir * YAW_LEAD; if ((to - this.yaw) * dir > 0) this.yaw += (to - this.yaw) * (1 - Math.exp(-moved / (YAW_RAMP * this.W))); }
+    if (rest > 1e-3) {
+      const h0 = this.head || 0, need = (dir * HEAD_END - h0) * dir;
+      if (need > 0) { const h1 = h0 + dir * Math.min(need, rest * rate); if (this.onWall(h1)) this.head = h1; else { let a = 0, b = 1; for (let k = 0; k < 8; k++) { const m = (a + b) / 2; if (this.onWall(h0 + (h1 - h0) * m)) a = m; else b = m; } this.head = h0 + (h1 - h0) * a; } }
+    }
+  }
+
   // 最遠的距離（定線的標準之三，各種畫面比例都一樣）：牆上有一段（連續一個畫面寬）走過去畫面四邊都是牆（vRange；不看到牆外），不為了牆角、最外側的岩點拉近。
   // 邊界表是 Studio 校正的另一套鏡頭，照實際比例在 App 裡算
   get dFill() {
@@ -301,9 +306,10 @@ export class WalkCam {
   missed0(d) {
     const H = this.holds; if (!H || !H.length) return [];
     const p = this.p, F = new Set(this.front()), t = this.table, [top, bottom] = this.wide || !t ? [0, 0] : [t.top, t.bottom];
-    const keep = ['s', 'v', 'd', 'yaw', 'pass', 'passFrom', 'passK'].map(k => [k, this[k]]); this.pass = false; this.passFrom = null; this.passK = 0;
+    const keep = ['s', 'v', 'd', 'yaw', 'head', 'pass', 'passFrom', 'passK'].map(k => [k, this[k]]); this.pass = false; this.passFrom = null; this.passK = 0; this.head = 0;
     let left = H.map(P => ({ P, h: P.dot(p.up), side: !F.has(P) }));
-    for (const yaw of [0, 1, -1, 2, -2, 3, -3].map(k => k * YAW_MAX / 3)) {
+    if (this.person) for (const c of [this.caveOf(-1), this.caveOf(1)]) if (c) left = left.filter(o => !c.holds.has(o.P));   // cave 裡的：站在 cave 的站位轉身、抬頭都轉得進畫面（caveOf 的範圍就是照這個定的）
+    for (const yaw of [0, 1, -1, 2, -2, 3, -3].map(k => k * (this.person ? YAW_LEAD : YAW_MAX) / 3)) {
       const todo = left.filter(o => !yaw || o.side || this.person); if (!todo.length) continue;   // 人的模式：走到盡頭再滑會轉頭（endTurn），盡頭附近的岩點轉過去看得到也算
       this.yaw = yaw; this.d = d; const [A, B] = this.sRange();
       for (let s = A; s <= B + 1e-9; s = s < B && s + STEP > B ? B : s + STEP) {
@@ -319,6 +325,16 @@ export class WalkCam {
       }));
       left = left.filter(o => !ok.has(o));
     }
+    // 人的模式：走到左右盡頭（看著要走的那邊 YAW_LEAD）再原地轉頭，每 10° 看一次，轉到畫面中間打不到牆為止（跟 walk 一樣）
+    if (this.person && left.length) for (const dir of [-1, 1]) {
+      this.d = d; this.yaw = dir * YAW_LEAD; this.head = 0; const [A, B] = this.sRange(); this.s = dir < 0 ? A : B;
+      for (let k = 1; k <= 9 && left.length; k++) {
+        const hd = dir * HEAD_END * k / 9; if (!this.onWall(hd)) break; this.head = hd;
+        const ok = new Set(left.filter(o => { this.v = o.h; this.clamp(); this.apply(); const g = this.inFrame(o.P), e = 2 / this.H; return g && Math.abs(g.nx) <= 1 - g.mx && g.ny >= -1 + 2 * bottom + g.my - e && g.ny <= 1 - 2 * top - g.my + e; }));
+        left = left.filter(o => !ok.has(o));
+      }
+      this.head = 0;
+    }
     for (const [k, x] of keep) this[k] = x;
     return left.map(o => o.P);
   }
@@ -331,7 +347,7 @@ export class WalkCam {
     try { return fn(); } finally { this.kept = false; c.position.copy(P); c.quaternion.copy(Q); c.near = n; c.far = f; c.updateProjectionMatrix(); c.updateMatrixWorld(); }
   }
   resize(W, H) { this.W = W; this.H = H; this.cam.aspect = W / H; this.cam.updateProjectionMatrix(); this.clamp(); }
-  get tan() { return Math.tan(this.cam.fov * Math.PI / 360); }
+  get tan() { return Math.tan(this.cam.fov * Math.PI / 360) * (this.fovK || 1); }   // fovK：畫面框比相機的視角大多少（Stage.walkAlong，人的模式看得比較寬）
   // 牆面上每個螢幕點幾公尺：鏡頭離最凸出的地方 d，一般的牆面再往後一點
   get mpp() { return 2 * (this.d + Math.max(0, this.depth(this.s, this.v) - this.depth(this.s, this.v, this.Tm))) * this.tan / this.H; }   // 量在一般的牆面上（岩點、凸出的部分在它前面）：拖動時牆面跟手
   // 最遠：牆的高度剛好填滿畫面（牆比畫面窄時，寬度填滿）；最近：0.5 公尺
@@ -341,8 +357,8 @@ export class WalkCam {
   // 看得到的牆的下邊 lo、上邊 hi（鏡頭中心的高度限制 ∓ 半高；null＝那個距離在那裡塞不滿畫面），和整面牆左右兩端看得到的邊 sa、sb。
   useTable(t) {
     this.table = t; const n = t.lo[0].length, L = t.levels;
-    // 像人站在牆前：地面＝牆腳（各段牆腳高度的中位數），鏡頭在地面上 EYE；看的高度 v 只決定抬頭多少
-    const foot = Array.from(this.lo).sort((a, b) => a - b); this.floor = foot[foot.length >> 1]; this.eye = this.floor + Math.min(EYE, 0.55 * this.hTyp); this.person = true;   // 模型的尺度不一定準：矮的牆照牆高的 55% 算
+    // 像人站在牆前：地面＝牆腳（各段牆腳高度的中位數），眼睛在地面上 EYE（cave 的站位用）
+    const foot = Array.from(this.lo).sort((a, b) => a - b); this.floor = foot[foot.length >> 1]; this.eye = this.floor + Math.min(EYE, 0.55 * this.hTyp); this.person = true; this.cvL = this.cvR = undefined; this.cn = null; this.vsl = null;   // 模型的尺度不一定準：矮的牆照牆高的 55% 算
     // 每個取樣點最遠能拉到多遠：從最近的距離往遠找，到第一個塞不滿的為止（在那個距離的兩端之外的不算：那是牆的盡頭，由左右範圍管）
     const inside = (r, i) => { const x = t.s0 + i * t.step, hw = L[r] * this.tan * t.aspect; return x >= t.sa[r] + hw - 1e-6 && x <= t.sb[r] - hw + 1e-6; };
     this.reach = Array.from({ length: n }, (_, i) => { let f = this.dMin; for (let r = L.length - 1; r >= 0 && (t.lo[r][i] !== null || !inside(r, i)); r--) f = L[r]; return f; });
@@ -379,7 +395,7 @@ export class WalkCam {
     const p = this.p; this.d = Math.max(this.dMin, Math.min(this.dMax, this.d));
     if (this.person) {
       const [lo, hi] = this.sRange(); this.s = lo > hi ? (lo + hi) / 2 : Math.max(lo, Math.min(hi, this.s));
-      const [a, b] = this.vSpan(), vl = Math.max(a, this.vFoot() - FOOT_SLACK); this.v = Math.max(Math.min(vl, b), Math.min(b, this.v));
+      const [a, b] = this.vSpanLevel(); this.v = Math.max(a, Math.min(b, this.v));
       return;
     }
     if (this.table) {
@@ -453,6 +469,12 @@ export class WalkCam {
   // P：手指底下那一點（世界座標，呼叫端打射線找的；沒給就用畫面中央的牆面）
   pan(dx, dy, P = null) {
     const m = this.mpp;
+    if (this.person) {
+      const e = this.ct > 0 || this.cave ? 'cave' : dx ? this.walkEnd(dx) : false;
+      if (e === 'cave') { this.caveMove(dx, dy); return; }
+      if (!e) this.walk(dx);
+      this.v += dy * m; this.clamp(); return;
+    }
     if (!this.table) { this.v += dy * m; this.s -= dx * m; this.clamp(); return; }
     const A = P || this.anchor(), [x, y] = this.screenOf(A);
     this.track(A, x + dx, y + dy, -dx * m, dy * m);
@@ -549,8 +571,22 @@ export class WalkCam {
       const left = s < sc, e = this.beyond(o, d, left ? -1 : 1, sf), span = left ? sc : (this.p.n - 1) * STEP - sc;
       const t = e.max * Math.min(1, Math.abs(sc - s) / Math.max(span, 1e-6));   // 停點外那段牆走完時剛好走滿
       c = [c[0] + e.dir[0] * t, c[1] + e.dir[1] * t];
+      if (this.person) c = this.stepBack(c, d);
     }
     return { cam: c, look: [o.S[2 * i] + (o.S[2 * i + 2] - o.S[2 * i]) * u, o.S[2 * i + 1] + (o.S[2 * i + 3] - o.S[2 * i + 1]) * u] };
+  }
+  // 人的模式停點外直走時：前面往外凸的量體（cave 正面比眼睛矮，牆線量不到）也要離 d，不夠就往後退（離鏡頭左右越遠的岩點退越少，
+  // STEP_BACK_W 內漸變，走過去不會跳）；不然鏡頭會沿主牆的距離直直走進量體裡、看到牆的背面
+  stepBack(c, d) {
+    const H = this.holds; if (!H || !H.length) return c;
+    const p = this.p, q = this.h2 && this.h2.H === H ? this.h2.q : (this.h2 = { H, q: H.map(P => [P.dot(p.right), P.dot(p.f)]) }).q;
+    const sg = Math.sign(c[1] - p.Y[Math.floor(p.n / 2)]) || 1;   // 鏡頭在牆的哪一側（軌道座標 f 軸）
+    let push = 0;
+    for (const [x, y] of q) {
+      const lat = Math.abs(x - c[0]), w = lat < STEP_BACK_W ? 0.5 + 0.5 * Math.cos(Math.PI * lat / STEP_BACK_W) : 0;
+      if (w > 0) push = Math.max(push, d * w - (c[1] - y) * sg);
+    }
+    return push > 0 ? [c[0], c[1] + sg * push] : c;
   }
   // 停點外的直走：沿主牆的左右方向（軌道座標的 right 軸）走，像人沿著牆由右向左走；
   // 最多走到停點外那段牆最外側的位置（cave 最裡面那面牆的左右位置），不會再往前走到牆的外面
@@ -575,6 +611,7 @@ export class WalkCam {
   // 滑到一端再往回滑（turnPass）時漸漸換成回程角度；到另一端再往回就漸漸換回來。繞點轉 δ 鏡頭橫移約 d·δ，跟沿牆走一樣會帶著畫面跑：
   // 每走 1 公尺角度最多變 YAW_RATE／d（橫移最多是拖動的一半，畫面維持手指的 0.5～1.5 倍），所以換滿 ±30° 要走 YAW_MAX·d／YAW_RATE
   yawAt(s) {
+    if (this.person) return Math.max(-YAW_LEAD, Math.min(YAW_LEAD, this.yaw));
     let y = this.yaw; const a = this.auto;
     if (a && this.passFrom !== null) {
       const k = this.blend(s);
@@ -590,6 +627,7 @@ export class WalkCam {
   }
   // 滑到左右範圍的盡頭再往回：換一趟（正常角度 ↔ 回程角度），從當下的角度接著漸變（同一端來回、還沒換完時不會一下跳到底）
   turnPass() {
+    if (this.person) return;
     const [lo, hi] = this.sRange(), e = this.s <= lo + 1e-3 ? -1 : this.s >= hi - 1e-3 ? 1 : 0;
     if (e) this.atEnd = e; else if (this.atEnd) { this.passK = this.blend(this.s); this.pass = !this.pass; this.passFrom = this.atEnd < 0 ? lo : hi; this.atEnd = 0; }
   }
@@ -652,21 +690,31 @@ export class WalkCam {
     }
     // 停點外轉進 cave、側牆（posePath 的直走）：走得進去的那段都在範圍裡，側牆的岩點才走得到
     const o = this.offset(this.d), sf = this.stops(o), bl = this.beyond(o, this.d, -1, sf), br = this.beyond(o, this.d, 1, sf);
-    if (bl.max > 0) A = Math.min(A, this.person ? this.aimEnd(A, sf[0], -1) : 0);   // 人的模式：只走到畫面中央還看得到牆的地方（再走下去整個畫面對著牆外）
-    if (br.max > 0) B = Math.max(B, this.person ? this.aimEnd(B, sf[1], 1) : n);
+    if (this.person) { const [cl, cr] = this.corners(); return [Math.max(Math.min(A, cr), cl), Math.min(Math.max(B, cl), cr)]; }   // 人的模式：只走到內角、側牆前（牆線轉彎的地方），再過去看側面靠轉（walk），不走進去看到牆的背面
+    if (bl.max > 0) A = Math.min(A, 0);
+    if (br.max > 0) B = Math.max(B, n);
     return [A, B];
   }
-  // 停點外往 dir 走：從 from 往外每 STEP 看一次，畫面中央那條線打得到牆就繼續，回傳最後一個打得到的位置（沒有 sees 時走到底）
-  aimEnd(A, from, dir) {
-    const n = (this.p.n - 1) * STEP, end = dir < 0 ? 0 : n, c = this.cam, f = new Vector3(); let last = dir < 0 ? Math.min(A, from) : Math.max(A, from);
-    if (!this.sees) return end;
-    const rays = [0, -0.75, 0.75], hw = this.tan * this.W / this.H, r = new Vector3();
-    for (let s = last; dir < 0 ? s >= end : s <= end; s += dir * STEP) {
-      this.place(s, this.d); c.getWorldDirection(f); r.setFromMatrixColumn(c.matrixWorld, 0);
-      if (!rays.every(x => this.sees(c.position.clone(), f.clone().addScaledVector(r, x * hw).normalize()))) break;   // 畫面中間和左右四分之三的地方都要打得到牆
-      last = s;
-    }
-    return last;
+
+  // 原地轉頭 head 時畫面中間、左右一半的地方（這個高度那一排）看出去都打得到牆
+  onWall(head) {
+    if (!this.sees) return true;
+    return this.keepCam(() => {
+      const h0 = this.head; this.head = head; this.place(this.s, this.d); this.head = h0;
+      const c = this.cam, f = new Vector3(), r = new Vector3(), hw = this.tan * this.W / this.H; c.getWorldDirection(f); r.setFromMatrixColumn(c.matrixWorld, 0);
+      return [0, -0.5, 0.5].every(x => this.sees(c.position.clone(), f.clone().addScaledVector(r, x * hw).normalize()));
+    });
+  }
+  // 人的模式左右走到哪裡：從中間往兩邊，牆線（左右平滑 0.3 m）跟正面左右軸的夾角超過 CORNER 的地方（內角、側牆），
+  // 再往外牆線就轉進側面、凸出來的量體裡，鏡頭跟著走會繞到牆的背面
+  corners() {
+    if (this.cn) return this.cn;
+    const p = this.p, n = p.n, k = Math.max(1, Math.round(0.15 / STEP)), mid = (n - 1) >> 1;
+    const bent = (i) => { const a = Math.max(0, i - k), b = Math.min(n - 1, i + k), dx = p.X[b] - p.X[a], dy = p.Y[b] - p.Y[a]; return Math.atan2(Math.abs(dy), dx) > CORNER; };
+    let l = 0, r = n - 1;
+    for (let i = mid; i > 0; i--) if (bent(i)) { l = i + k; break; }
+    for (let i = mid; i < n - 1; i++) if (bent(i)) { r = i - k; break; }
+    return (this.cn = [Math.max(p.smin, l * STEP), Math.min(p.smax, r * STEP)]);
   }
   // 正面牆上的岩點（holds，stage 給；側牆上的另外靠調角度）：離那個位置、高度的一般牆面不超過 SIDE
   front() {
@@ -796,17 +844,118 @@ export class WalkCam {
   apply() { this.place(this.s, this.d); }
   place(sAt, dAt) {
     let C, T;
-    if (this.table) { const { cam, look } = this.pose(sAt, dAt); C = this.world(this.orbit(cam, look, dAt, this.yawAt(sAt)), this.person ? this.eye : this.v); T = this.world(look, this.v); }   // 人的模式：鏡頭在眼睛高度，看 v 那裡（抬頭、低頭）
+    if (this.table) {   // 鏡頭在高度 v 平平看牆（上下拖是整個鏡頭升降，像人長高，跟 2D 一樣不抬頭）；head：盡頭原地轉頭（鏡頭不動，看的方向轉，轉法跟 orbit 同向）
+      const { cam, look } = this.pose(sAt, dAt), c = this.orbit(cam, look, dAt, this.yawAt(sAt)); let l = look;
+      if (this.head) { const x = look[0] - c[0], y = look[1] - c[1], h = this.head; l = [c[0] + x * Math.cos(h) - y * Math.sin(h), c[1] + x * Math.sin(h) + y * Math.cos(h)]; }
+      C = this.world(c, this.v); T = this.world(l, this.v);
+    }
     else {
       const s0 = this.s, d0 = this.d; this.s = sAt; this.d = dAt;
       const p = this.p, { x, y, nx, ny } = this.frame(), t = this.depth(this.s, this.v);
       T = this.world([x + nx * t, y + ny * t], this.v); C = this.world([x + nx * (t + this.d), y + ny * (t + this.d)], this.v);
       this.s = s0; this.d = d0;
     }
+    if (this.ct > 0 && !this.kept) {   // 進 cave 途中、cave 裡：從內角前的鏡頭漸變到 cave 的站位（位置、方向一起，慢起慢停）
+      const c = this.cave, e = this.ct * this.ct * (3 - 2 * this.ct), D = this.caveDir(), d0 = T.clone().sub(C).normalize();
+      C = C.clone().lerp(c.P, e); T = C.clone().add(d0.lerp(D, e).normalize());
+    }
     this.cam.up.copy(this.p.up); this.cam.position.copy(C);
     this.cam.near = Math.max(0.02, dAt * 0.05); this.cam.far = dAt + 50; this.cam.updateProjectionMatrix();
     this.cam.lookAt(T); this.cam.updateMatrixWorld();
   }
+  // ---- cave（人的模式）：左右走到內角盡頭、轉滿了再往那邊拖，就走進那一側的 cave（內角外那一側、牆線轉彎後才走得到的岩點），
+  // 站在 cave 中間原地看：左右拖是轉身、上下拖是抬頭低頭（不升降）。往回拖先轉回進來的方向，再退回內角前
+  // 那一側的 cave（沒有就 null）：站位在那些岩點中間，高度在頭頂上的岩點（屋頂）下 CAVE_HEAD、最高到眼睛；轉身、抬頭的範圍讓每顆都轉得進畫面
+  caveOf(side) {
+    const key = side < 0 ? 'cvL' : 'cvR'; if (this[key] !== undefined) return this[key];
+    const H = this.holds, p = this.p, [cl, cr] = this.corners();
+    if (!H || !H.length) return (this[key] = null);
+    const near = (x, y) => { let bi = 0, bd = Infinity; for (let i = 0; i < p.n; i++) { const e = (p.X[i] - x) ** 2 + (p.Y[i] - y) ** 2; if (e < bd) { bd = e; bi = i; } } return bi * STEP; };
+    const Q = H.map(P => ({ P, x: P.dot(p.right), y: P.dot(p.f), h: P.dot(p.up) })).filter(q => { const s = near(q.x, q.y); return side < 0 ? s < cl - 0.1 : s > cr + 0.1; });
+    if (Q.length < 5) return (this[key] = null);
+    const sx = Q.reduce((a, q) => a + q.x, 0) / Q.length, sy = Q.reduce((a, q) => a + q.y, 0) / Q.length;
+    const over = Q.filter(q => Math.hypot(q.x - sx, q.y - sy) < 0.8 && q.h > this.floor + 0.5).map(q => q.h), h = Math.max(this.floor + 0.6, Math.min(this.eye, over.length ? Math.min(...over) - CAVE_HEAD : this.eye));
+    let P = this.world([sx, sy], h); const hv = Math.atan(this.tan), hh = Math.atan(this.tan * this.W / this.H);
+    // 站位往 cave 的開口退：岩點中間離牆太近（cave 窄），退到四周牆面的中位距離約 CAVE_DIST，cave 裡的岩點要還看得到九成五
+    if (this.hit) {
+      const dists = (Pt) => { const r = []; for (let i = 0; i < 36; i++) { const t = i * Math.PI / 18; r.push([t, this.hit(Pt.clone(), this.world([Math.cos(t), Math.sin(t)], 0).normalize())]); } return r; };
+      const d0 = dists(P), far = d0.filter(x => x[1] > 3); 
+      if (far.length) {
+        const ox = far.reduce((a, x) => a + Math.cos(x[0]), 0), oy = far.reduce((a, x) => a + Math.sin(x[0]), 0), ol = Math.hypot(ox, oy) || 1, seenN = (Pt) => Q.filter(q => { const D = q.P.clone().sub(Pt), L = D.length(); return this.hit(Pt.clone(), D.normalize()) >= L - 0.08; }).length, n0 = seenN(P);
+        for (let k = 1; k <= 12; k++) {
+          const Pk = this.world([sx + ox / ol * k * 0.1, sy + oy / ol * k * 0.1], h), m = dists(Pk).map(x => x[1]).filter(x => x < 3).sort((a, b) => a - b);
+          if (seenN(Pk) < n0 * 0.95) break;
+          P = Pk; if (m.length && m[m.length >> 1] >= CAVE_DIST) break;
+        }
+      }
+    }
+    const cx = P.dot(p.right), cy = P.dot(p.f);
+    // 轉身的範圍：畫面裡 CAVE_COVER 以上是牆的那一段連續方位（每 5° 量一次，畫面 5×5 條射線 4 m 內打到牆），避開 cave 的開口
+    const cover = (t) => {
+      if (!this.hit) return 1;
+      const f = this.world([Math.cos(t), Math.sin(t)], 0).normalize(), r = new Vector3().crossVectors(f, p.up).normalize(), u = p.up, tv = this.tan, th = this.tan * this.W / this.H; let k = 0;
+      for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) if (this.hit(P.clone(), f.clone().addScaledVector(r, i / 2 * th).addScaledVector(u, j / 2 * tv).normalize()) < 4) k++;
+      return k / 25;
+    };
+    const N = 72, ok = Array.from({ length: N }, (_, i) => cover(i * 2 * Math.PI / N) >= CAVE_COVER);
+    if (!ok.some(x => x)) return (this[key] = null);
+    let best = null; for (let i = 0; i < N; i++) { if (!ok[i] || ok[(i + N - 1) % N]) continue; let k = 0; while (k < N && ok[(i + k) % N]) k++; if (!best || k > best[1]) best = [i, k]; }
+    if (!best) best = [0, N];   // 一整圈都是牆
+    const ta = best[0] * 2 * Math.PI / N, tb = ta + (best[1] - 1) * 2 * Math.PI / N, un = (t) => ta + ((t - ta) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+    // cave 裡的岩點：站位直接看得到（射線先打到別的牆的是另一面、隔著牆的，從牆那邊看），而且轉得進畫面
+    const seen = (q) => { if (!this.hit) return true; const D = q.P.clone().sub(P), L = D.length(); return this.hit(P.clone(), D.normalize()) >= L - 0.08; };
+    const inArc = (t) => { const u = un(t); return u <= tb + hh * 0.8 || u >= ta + 2 * Math.PI - hh * 0.8; };   // 轉到兩端時畫面邊上（扣一點邊）也算
+    const V = Q.filter(q => seen(q) && inArc(Math.atan2(q.y - cy, q.x - cx))); if (V.length < 5) return (this[key] = null);
+    const els = V.map(q => Math.atan2(q.h - h, Math.hypot(q.x - cx, q.y - cy))), el0 = Math.max(-1.2, Math.min(...els)), el1 = Math.min(1.2, Math.max(...els));
+    const el = el0 + hv * 0.8 <= el1 - hv * 0.8 ? [el0 + hv * 0.8, el1 - hv * 0.8] : [(el0 + el1) / 2, (el0 + el1) / 2];
+    return (this[key] = { P, h, th: [ta, tb], un, el, side, n: V.length, holds: new Set(V.map(q => q.P)) });
+  }
+  // 內角側面的岩點（牆線轉彎後才碰得到、又不在 cave 裡的）：走到那一側的盡頭、看著要走的那邊，原地轉頭對著它（跟 walk 的盡頭轉頭一樣，畫面中間要打得到牆）。不是的回 null
+  cornerPose(P) {
+    const p = this.p, [cl, cr] = this.corners(), x = P.dot(p.right), y = P.dot(p.f);
+    let bi = 0, bd = Infinity; for (let i = 0; i < p.n; i++) { const e = (p.X[i] - x) ** 2 + (p.Y[i] - y) ** 2; if (e < bd) { bd = e; bi = i; } }
+    const side = bi * STEP < cl - 0.1 ? -1 : bi * STEP > cr + 0.1 ? 1 : 0; if (!side) return null;
+    const keep = ['s', 'yaw', 'head', 'v'].map(k => [k, this[k]]);
+    try {
+      this.yaw = side * YAW_LEAD; this.head = 0; this.v = P.dot(p.up); const [lo, hi] = this.sRange(); this.s = side < 0 ? lo : hi; this.clamp();
+      const { cam, look } = this.pose(this.s, this.d), c = this.orbit(cam, look, this.d, this.yawAt(this.s)), dx = look[0] - c[0], dy = look[1] - c[1], tx = x - c[0], ty = y - c[1];
+      let h = Math.atan2(dx * ty - dy * tx, dx * tx + dy * ty); h = side < 0 ? Math.max(-HEAD_END, Math.min(0, h)) : Math.min(HEAD_END, Math.max(0, h));
+      if (!this.onWall(h)) { let a = 0, b = 1; for (let k = 0; k < 8; k++) { const m = (a + b) / 2; if (this.onWall(h * m)) a = m; else b = m; } h *= a; }
+      return { s: this.s, yaw: this.yaw, head: h, v: this.v, d: this.d };
+    } finally { for (const [k, v] of keep) this[k] = v; }
+  }
+  caveDir() { const c = this.cave, p = this.p, ce = Math.cos(this.cpitch); return new Vector3().addScaledVector(p.right, Math.cos(this.cth) * ce).addScaledVector(p.f, Math.sin(this.cth) * ce).addScaledVector(p.up, Math.sin(this.cpitch)).normalize(); }
+  // 左右拖到了盡頭、轉滿了（walk 轉不動）：那一側有 cave 就從這裡開始進去
+  walkEnd(dx) {
+    const dir = dx > 0 ? -1 : 1, [lo, hi] = this.sRange(), atEnd = dir < 0 ? this.s <= lo + 1e-3 : this.s >= hi - 1e-3;
+    if (!atEnd) return false;
+    const h0 = this.head || 0; this.walk(dx); if (Math.abs((this.head || 0) - h0) > 1e-4) return 'walked';   // 還轉得動頭就先轉（這一格已經轉過了）
+    const c = this.caveOf(dir); if (!c) return 'walked';
+    // 進 cave：從目前看的方向接到 cave 裡最靠近的那一端
+    this.cave = c; const d0 = new Vector3(); this.apply(); this.cam.getWorldDirection(d0);
+    const t = c.un(Math.atan2(d0.dot(this.p.f), d0.dot(this.p.right))), [a, b] = c.th;
+    this.cth = t <= b ? t : (t - b < a + 2 * Math.PI - t ? b : a);   // 進去時面向原本看的方向（在範圍外就用最近的一端）
+    this.cpitch = Math.max(c.el[0], Math.min(c.el[1], 0)); this.ct = 0;
+    return 'cave';
+  }
+  // cave 裡的拖動：往 cave 那邊拖先走完進場（ct 0→1）；進去以後左右拖就是左右轉身（往左拖往左轉），在範圍盡頭停住；
+  // 往外的那一端（左邊的 cave 是右端）轉到底再拖就退出來（ct 1→0）。上下拖是抬頭低頭
+  caveMove(dx, dy) {
+    const c = this.cave, dir = dx > 0 ? -1 : 1, rate = YAW_LEAD / (this.W / 2), [a, b] = c.th, exitEnd = c.side < 0 ? b : a;
+    let px = Math.abs(dx);
+    const step = (k) => { const m = Math.min(k > 0 ? 1 - this.ct : this.ct, px / (CAVE_WALK * this.W)); this.ct += k * m; px -= m * CAVE_WALK * this.W; };
+    if (px) {
+      if (this.ct < 1) step(dir === c.side ? 1 : -1);
+      if (px > 1e-6 && this.ct >= 1) {
+        const t = this.cth + dir * px * rate, nt = Math.max(a, Math.min(b, t)); px -= Math.abs(nt - this.cth) / rate; this.cth = nt;
+        if (px > 1e-6 && dir === -c.side && Math.abs(this.cth - exitEnd) < 1e-6) step(-1);
+      }
+      if (this.ct <= 1e-6) { this.ct = 0; this.cave = null; }
+    }
+    if (dy && this.ct >= 1) this.cpitch = Math.max(c.el[0], Math.min(c.el[1], this.cpitch + dy * Math.atan(this.tan) * 2 / this.H));
+  }
+
+
 }
 
 // ---- 進定線飛進去停的位置 ----

@@ -645,7 +645,9 @@
     const recv = !!openHref, target = new URL(openHref || './', location.href);
     target.searchParams.delete('pc'); target.searchParams.delete('openExternalBrowser');
     $('ldLinkTitle').textContent = t(recv ? 'pcRecv' : 'pcScan');
-    $('ldLinkUrl').value = target.href;
+    // 預覽頁轉過來的長網址（/?p=…&r=…）還原成短的 /r/照片編號/路線 id/
+    const c = recv && !target.searchParams.get('wall') && ShareTools.linkFrom(target.href);
+    $('ldLinkUrl').value = c && c.pid ? `${location.origin}/r/${c.pid}/${encodeURIComponent(c.rid)}/` : target.href;
   }
   $('ldLinkCopy').onclick = async () => {
     try { await navigator.clipboard.writeText($('ldLinkUrl').value); toast(t('shareCopied')); }

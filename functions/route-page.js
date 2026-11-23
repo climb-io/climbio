@@ -6,7 +6,7 @@
 // 站的公開牆面（/climbio.json、/w/**）也由這個函式回，見 site-data.js。
 const { parseDataPath, sendSiteData, routesData } = require('./site-data');
 const { HF_BASE, hfBase } = require('./projects');
-const { routePreview } = require('./share-preview');
+const { routePreview, wallPreview } = require('./share-preview');
 const PID = /^[0-9a-z]{8,40}$/, RID = /^[0-9a-z]{1,40}$/;
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // { pid, rid, file: ''（預覽頁）| 'route.json' }
@@ -14,6 +14,8 @@ function parsePath(path) {
   const m = /^\/r\/([^/]+)\/([^/]+)(?:\/(route\.json)?)?$/.exec(path || '');
   return m && PID.test(m[1]) && RID.test(m[2]) ? { pid: m[1], rid: m[2], file: m[3] || '' } : null;
 }
+// 牆的連結 /r/{照片編號}/（沒有路線 id）：一面公開牆的預覽頁，人打開就轉進 App 收這面牆
+const parseWallPath = (path) => { const m = /^\/r\/([^/]+)\/?$/.exec(path || ''); return m && PID.test(m[1]) ? { pid: m[1] } : null; };
 const DATA_CACHE = 'public, max-age=86400';
 // 收線的資料：這條路線的圖層
 const routeData = ({ db, origin, pid, rid }) => routesData({ db, origin, pid, rid });
@@ -42,6 +44,16 @@ ${image.width ? `<meta property="og:image:width" content="${image.width}"><meta 
 }
 const page = ({ origin, pid, rid, target = `${origin}/?p=${pid}&r=${encodeURIComponent(rid)}`, ...rest }) => previewPage({ url: `${origin}/r/${pid}/${rid}/`, target, files: routeFiles(origin, pid, rid), ...rest });
 
+// 牆的預覽：名稱、岩館、公開路線數、縮圖都在 gymWalls；沒有這面牆回 null
+async function wallMeta({ db, origin, pid }) {
+  const g = await db.collection('gymWalls').doc(pid).get();
+  if (!g.exists) return null;
+  const m3d = !!g.get('m3d'), src = g.get('src') || {};
+  const target = m3d ? `${origin}/hold/?m3d=${pid}` : `${origin}/hold/?wall=${src.project}/${src.path}`;
+  const thumb = m3d ? `${hfBase({ repo: g.get('repo') })}${g.get('hf')}thumb.jpg` : `${HF_BASE}${g.get('hf')}${pid}.thumb.jpg`;
+  return { ...wallPreview({ name: g.get('name') || '', gym: g.get('gym') || '', n: g.get('n') || 0 }), image: { url: thumb }, target };
+}
+
 // 路線的預覽：路線節點在 wallRoutes，牆的名稱、岩館、縮圖在 gymWalls；讀不到的欄位省略，不讓預覽失敗
 async function routeMeta({ db, origin, pid, rid }) {
   const [w, g] = await Promise.all([db.collection('wallRoutes').doc(pid).get(), db.collection('gymWalls').doc(pid).get()]);
@@ -61,6 +73,14 @@ function createPageHandler({ db, hosts }) {
     const data = parseDataPath(req.path);
     // 各站共用資料：只有正式站的主要網址列進總目錄，免得同一面牆出現兩次
     if (data) return sendSiteData(res, { db, origin, listed: host === hosts[0], p: data });
+    const wp = !p && parseWallPath(req.path);
+    if (wp) {
+      try {
+        const meta = await wallMeta({ db, origin, ...wp });
+        if (meta) return res.set('Cache-Control', 'public, max-age=300').status(200).send(previewPage({ url: `${origin}/r/${wp.pid}/`, line: true, ...meta }));
+      } catch (e) { console.error('牆連結頁失敗', e); }
+      return res.redirect(302, `${origin}/`);
+    }
     if (!p) return res.redirect(302, `${origin}/`);
     if (p.file) return sendData(res, { db, origin, ...p });
     try {
@@ -86,4 +106,4 @@ async function sendData(res, { db, origin, pid, rid }) {
   }
 }
 
-module.exports = { parsePath, page, previewPage, routeData, createPageHandler };
+module.exports = { parsePath, parseWallPath, page, previewPage, routeData, createPageHandler };

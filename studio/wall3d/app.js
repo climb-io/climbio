@@ -163,9 +163,12 @@ if ((srcBase && /^\/[\w./-]*\/$/.test(srcBase)) || (syncPid && /^[0-9a-z]{16}$/.
       }
     }
     srcOut = syncPid ? { url: syncUrl, pid: syncPid, token: syncToken } : srcBase;
-    b?.close();
+    // 下載完還要開模型、掛上試用的牆：下載中一直留到牆出來才關（先關會露出選資料夾的畫面幾秒，像是壞了）
+    const shown = srcStep === 'try' ? new Promise(r => { tryShown = r; }) : null;
     await open(dir);
-  } catch (e) { b?.close(); gateError(e); }
+    if (shown) await shown;
+    b?.close();
+  } catch (e) { b?.close(); tryShown = null; gateError(e); }
 })();
 if (want) handles.get(want).then(h => { if (h && $('gate') && !$('gate').hidden) { remembered = h; $('open').textContent = T('w3OpenRemembered', h.name); } });
 
@@ -719,7 +722,7 @@ function setStage(st, first = false) {
   $('report').hidden = st !== 'report';
   $('histbar').hidden = st === 'try'; $('tryList').hidden = st !== 'try'; $('holdInfo').hidden = st === 'try';   // 試用只看、回報，不改；畫面只留牆和這一輪的回報
   tryPick(null);
-  if (st === 'try') { renderTry(); tryOpen().catch((e) => { console.error(e); $('saveState').textContent = T('w3SaveFailed', e.message); }); } else tryClose();
+  if (st === 'try') { renderTry(); tryOpen().catch((e) => { console.error(e); $('saveState').textContent = T('w3SaveFailed', e.message); }).finally(() => { tryShown?.(); tryShown = null; }); } else tryClose();
   if (st === 'report') { const r = ClimbioWall3dReport.build(S.report, T, S.review && ClimbioWall3dReview.status(S.doc, S.review)); ClimbioReportFrame.steps($('rpSteps'), r.steps); ClimbioReportFrame.notes($('rpNotes'), { defn: r.defn }); }
   if (S && !first) { paint(); draw(); }
 }
@@ -777,6 +780,7 @@ async function bakeTrial(busy = true) {
   if (!trial || trial.sig !== sig) {
     if (trial) { trial.stage.dispose(); trial = null; }
     let files = await prebaked(sig);
+    if (!files && syncPid) throw new Error(T('w3TrialStale'));   // 試用連結只看代理在電腦上烘好的成品（tools/studio.mjs try3d），不在手機、電腦上現場烘（大模型會吃光記憶體）
     const b = busy && !files ? StudioShell.busy(T('w3TryBaking')) : { close() {} };
     try {
       const { openStageWith } = await import('../../wall3dkit/stage.js');
@@ -798,7 +802,8 @@ async function trialPack() {
   const t = await bakeTrial(false), b64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode(...u8.subarray(i, i + 0x8000)); return btoa(s); };
   return { sig: t.sig, files: Object.fromEntries([...t.files].map(([n, x]) => [n, b64(x)])) };
 }
-// 進試用：掛上成品舞台、從整面牆飛進牆前
+// 進試用：掛上成品舞台、從整面牆飛進牆前。tryShown：試用連結進來時，牆出來了通知關掉「下載中」
+let tryShown = null;
 async function tryOpen() {
   await bakeTrial();
   if (stage !== 'try') return;
@@ -806,7 +811,7 @@ async function tryOpen() {
   host.hidden = false; st.mount(host);
   const W = host.clientWidth, H = host.clientHeight, bw = Math.min(W, H * st.snapW / st.snapH);
   trial.view = { s: 1, tx: (W - bw) / 2, ty: (H - bw * st.snapH / st.snapW) / 2, bw };
-  st.glide = null; st.setView(trial.view); tryPaint();
+  st.glide = null; st.setView(trial.view); tryPaint(); tryShown?.(); tryShown = null;
   if (!st.along) return;
   const t0 = performance.now();
   const v1 = await st.flyIn({ ...trial.view }, () => tryEase((performance.now() - t0) / TRY_FLY_MS), null).catch(() => null);
@@ -1208,7 +1213,7 @@ async function checkShots(kind, size = 480) {
     const bw = Math.min(W, H * st.snapW / st.snapH), view = { s: 1, tx: (W - bw) / 2, ty: (H - bw * st.snapH / st.snapW) / 2, bw };
     st.glide = null; st.setView(view); st.introNext = true; st.walkAlong(view);
     const wc = st.wc; if (!wc) return { shots: out };
-    const dMax = wc.dMax, missed = wc.missedHolds(dMax).length, N = 8;
+    const dMax = wc.dMax, far = [1, 0.7, 0.45].map(k => new Set(wc.missedHolds(Math.max(wc.dMin, dMax * k)))), missed = [...far[0]].filter(P => far.every(S => S.has(P))).length, N = 8;   // 點不到：最遠、七成、四成五的距離都點不到（捏合靠近就點得到的不算）
     for (const [dk, dName] of [[1, '最遠'], [0.6, '中間']]) {
       wc.d = dMax * dk; wc.clamp(); wc.want = wc.d; const [A, B] = wc.sRange();
       for (const [vName, vf] of [['平視', () => wc.eye ?? wc.v0], ['看下半部', () => wc.floor !== undefined ? (wc.floor + wc.eye) / 2 - 0.2 : wc.v0 - 0.5]]) {

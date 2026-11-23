@@ -71,7 +71,6 @@
   const grpWalls = (w) => w.grp && grpMembers.some(x => x.id !== w.id && x.grp && x.grp.id === w.grp.id) ? grpMembers.map(x => x.id === w.id ? w : x) : [w];
   const thumbKey = (w) => w.grp ? w.grp.id : w.id;
   // 路線小卡：上面是這條路線的小圖（灰階牆面＋彩色岩點，裁到路線附近），下面大字難度和名稱，右上角紀錄標記
-  let openRouteSheet = () => {};   // js/main.js 接上：長按路線小卡的選單
   function routeCard(w, r) {
     const b = document.createElement('button'); b.className = 'route-card'; b.dataset.id = r.id;
     // 小圖是圖片（不是畫布）：iOS 把 App 放到背景時會清掉畫布的內容，圖片不會
@@ -308,8 +307,6 @@
     };
     a.finished.then(end, end);
   }
-  // 長按路線小卡：編輯、重新命名、刪除（看路線圖上沒有編輯，看線就專心看線）
-  AppKit.gesture.longPress($('routeList'), { item: '.route-card', rightClick: true, onHold: (el) => { if (state.wall.routes.some(x => x.id === el.dataset.id)) openRouteSheet(el.dataset.id, el); } });   // 別張照片的路線要先換到那張
 
   // ---------- 編輯畫面（全螢幕）----------
   // 牆面頁捲到哪裡：進編輯（牆面頁藏起來，頁面捲回最上面）前記下來，回來時先捲回去再量小卡的位置
@@ -322,7 +319,6 @@
     $('wall').hidden = true; $('editor').hidden = false;
     shownBase = '';   // 剛打開：畫布上還是上一次的畫面，不做換底色的轉場
     state.routeView = mode === 'route';
-    bases.view = 'gray';   // 進看路線圖從灰階開始
     lastViewing = null;   // 重新進來：顯示所有岩點回到關
     if (lateral) history.replaceState({ s: history.state.s }, '');   // 照片接力：編輯畫面一直開著，返回紀錄不多疊一層
     else history.pushState({ s: mode === 'route' ? 'view' : 'edit' }, '');
@@ -378,6 +374,7 @@
   // fromWall：從牆面頁路線小卡的筆進來：取代路線圖那一層，完成或返回直接回牆面頁
   function enterRouteEdit({ fromWall = false } = {}) {
     if (!route()) return;
+    if (isPublic(state.wall) && !mineRoute(route())) return;   // 公開牆只能修改自己的路線
     warmSam();
     HoldCat.stop();
     editNew = Object.keys(route().holds).length ? null : route().id;
@@ -392,7 +389,6 @@
       save(); resetUndo(); editFork.snap = wallSnap(w);
     }
     state.routeView = false;
-    bases.set = 'dim';   // 進定線從暗彩開始
     history[fromWall ? 'replaceState' : 'pushState']({ s: 'edit' }, '');
     setMode('route');
     setAddType(Object.keys(route().holds).length ? 'h' : 's');   // 新路線從起攀開始，修改時預設手點
@@ -618,7 +614,6 @@
     const fromFind = !$('find').hidden;
     for (const id of LAYERS) $(id).hidden = true;
     if (fromFind && s !== 'find') welcomeAgain();   // 沒有牆的人從開場進找牆面、什麼都沒收就返回：回到開場畫面
-    closeCardMenu();   // 返回手勢收起卡片裡的動作
     if (s === 'menu') { history.back(); return; }   // 選單已經關了留下的一層：跳過
     closeShare(); closeRecv(); closeScan();
     if (!$('crop').hidden && s !== 'crop') { crop.src = null; $('crop').hidden = true; welcomeAgain(); }
@@ -638,7 +633,7 @@
         settleEdit();
         if (dropEmptyRoute()) { history.back(); return; }   // 沒加任何點：不存，直接回牆面頁
         W3D.untilt();   // 3D 牆定線時走近、轉過：轉回正面再看整條路線（小圖也用正面的外框畫）
-        state.routeView = true; bases.view = 'gray'; setMode('route'); showRouteFit(true);
+        state.routeView = true; setMode('route'); showRouteFit(true);
         if (route() && Object.keys(route().holds).length) drawThumb(state.wall, route());   // 定完線就存小圖
         if (editNew && editNew === state.routeId && route() && Object.keys(route().holds).length) { routeMade(); }
         editNew = null;   // 定線新手關卡（0.6 秒後接著跑）在的話就不浮出

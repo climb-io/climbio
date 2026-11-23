@@ -109,12 +109,15 @@ HoldScan 偵測加 HoldKit 外框（跟岩點貓同一套，本機、幾秒、�
 - 外框的幾何（遮罩、輪廓、平滑、合併、找重複、修自交）用 `studio/wall/geometry.js`。
 - 隱私：照片只在你的電腦上處理。
 
-## 公開牆一定有岩館名稱，也有擁有者
+## 公開牆一定有岩館名稱，沒有擁有者
 
 Studio 發佈的公開牆一定帶岩館名稱（新牆用分區所屬的岩館，沒有就用專案名稱；`node tools/studio.mjs publish` 沒有 `props.gym` 會拒絕）；雲端函式 `publishWall` 沒有岩館名稱回 400。岩點貓上的公開牆不能改名、不能增加照片，只能刪除。
 
-**擁有者＝發佈金鑰**（沒有帳號）：發佈用一把 ECDSA P-256 金鑰簽章（Studio 畫面存在瀏覽器 `localStorage`，命令列在 `~/.climbio/publisher-key.json`，同一種檔 `{ kid, pub, priv }`，第一次發佈自動產生）。伺服器把第一次發佈的金鑰 kid 記在 `datasets/{包 id}.ownerKid`；之後同一面牆的重新發佈、下架、轉交都要同一把金鑰簽章，別把金鑰回 403。維護者金鑰（`X-Studio-Key`）永遠可以，也能認領還沒有擁有者的舊牆。簽章格式見 `functions/publisher-key.js`（訊息 `[操作, 包 id, ts, nonce, 附帶值]`，五分鐘內不能重放）。
+**沒有擁有者、不用金鑰**：牆不記是誰發佈的（沿用 [open-versions.md](proposals/open-versions.md)）。只有 Studio 能發佈牆（`source: 'studio'`），任何人都能發佈新版本，在 Mac、Windows、換電腦、換 AI 代理都一樣，不用搬金鑰檔。每次發佈是新的一版（`walls/<包 id>/v<版本>/`，舊版本留著），岩館要固定在某一版，內嵌的網址就用那一版的網址（見 [embed.md](embed.md)）。
 
-**換 AI 代理接手**（例如原岩）：新的代理自己跑一次 `node tools/wall-routes.mjs kid --key <新金鑰檔>` 拿 kid，現在的擁有者（或維護者）執行 `node tools/wall-routes.mjs transfer <包 id> <新 kid>`，牆 id、版本、路線都不變，舊金鑰立刻失效；或乾脆把金鑰檔交過去。金鑰檔要備份、不進版控；拿到的人就是擁有者。
+**岩點貓看到哪一版，由程式自動判定（現行版）**：新版本一定先過內容驗證（`functions/wall-check.js`：外框合理、不少掉前一版的岩點——刪除、合併的要標 `retired` 留著、照片尺寸不變、一個版本變動不超過 30%），沒過整份拒絕。通過後只有同時符合下面三項才成為現行版，否則照樣存成新版本，岩點貓不換：
+1. 照片還是同一張（指紋和現行版一樣）；
+2. 是最新一個「逐顆檢查完了」（`edits.json` 的 `reviewed`）的版本；
+3. 現行版已經檢查過時，新版本也要檢查過。
 
-**手動下架**：擁有者（Studio 發佈清單每面牆的「下架」，或 `node tools/wall-routes.mjs unpublish <牆 id> [--key 檔]`）或維護者。下架拿掉找牆面入口和所有人的線，資料集已公開的檔案留著；90 天沒更新也會自動下架。要更新牆用同一個牆 id 再發佈（同一把金鑰）就是新版本，不用下架舊牆。
+**手動下架**：只有維護者（`node tools/wall-routes.mjs unpublish <牆 id>`，需要維護者身分）；岩館想收回就聯絡維護者。下架拿掉找牆面入口和所有人的線，資料集已公開的檔案留著；90 天沒更新也會自動下架。要更新牆用同一個牆 id 再發佈就是新版本，不用下架舊牆。

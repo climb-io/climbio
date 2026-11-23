@@ -21,7 +21,7 @@ export const PRODUCTS = {
   },
   studio: {
     label: 'Climbio Studio（/studio/）：Crag、轉換路線書、發佈',
-    unit: [u('author.*|studio-modes|studio-work|studio-scene|studio-wall-cli|studio-wall-report|studio-lab-reports|studio-handoff|dataset-publish|studio-start|wall-owner')],
+    unit: [u('author.*|studio-modes|studio-work|studio-scene|studio-wall-cli|studio-wall-report|studio-lab-reports|studio-handoff|dataset-publish|studio-start')],
     e2e: [e('author|author-(publish|routes|topo)|studio-scene|wall-phone|phone-landing')],
   },
   kits: {

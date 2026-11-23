@@ -3,6 +3,8 @@
 const HOSTS = ['climbio.app', 'climbio.web.app', 'climbio-dev.web.app', 'climbio-eric.web.app'];
 const ORIGINS = [...HOSTS.map(h => `https://${h}`), 'http://localhost:8765', 'http://127.0.0.1:8765', 'http://localhost:8766', 'http://127.0.0.1:8766'];
 // Hosting 預覽頻道（{站名}--{頻道}.web.app，測試用）
+// 內嵌頁（embed.climbio.app）的 iframe 直接提交路線到雲端函式 walls，只有 walls 放行（不算 HOSTS：不是站台）
+const EMBED_ORIGINS = ['https://embed.climbio.app', 'https://climbio-embed.web.app'];
 const PREVIEW = HOSTS.filter(h => h.endsWith('.web.app')).map(h => h.slice(0, -'.web.app'.length));
 const isPreview = (origin) => PREVIEW.some(site => new RegExp(`^https://${site}--[a-z0-9-]+\\.web\\.app$`).test(origin || ''));
-module.exports = { HOSTS, ORIGINS, isPreview };
+module.exports = { HOSTS, ORIGINS, EMBED_ORIGINS, isPreview };

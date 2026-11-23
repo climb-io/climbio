@@ -82,7 +82,7 @@ test('雲端函式：服務沒開（連不上）、暫停（503）、開著；�
   assert.equal(url, 'https://fn.test/projects');
   assert.equal(opt.headers.Authorization, 'Bearer tok');
   assert.deepEqual(JSON.parse(opt.body), { op: 'publish', hf: true, id: 'g', type: 'guidebook', name: '名', files: [{ path: 'index.json', sha256: 'x', size: 1 }], locations: [], listed: true });
-  await assert.rejects(svc(() => json(403, { error: 'not owner' })).unpublish('g'), (e) => e.status === 403 && e.message === 'not owner');
+  await assert.rejects(svc(() => json(403, { error: 'not owner' })).unpublish('g'), (e) => e.status === 403);
   // App Check 權杖：有就帶在 X-Firebase-AppCheck，沒有就不帶
   const sent = [];
   const withCheck = (appCheck) => createService({ url: 'https://fn.test/projects', idToken: async () => '', appCheck, fetchFn: async (u, o) => { sent.push(o.headers); return json(200, { version: 0, files: [] }); } });

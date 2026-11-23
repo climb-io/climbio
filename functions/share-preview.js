@@ -13,6 +13,10 @@ function routePreview({ node, wall = {} }) {
     description: join([wall.gym && wall.name && wall.name.includes(wall.gym) ? '' : wall.gym, wall.name, holds ? `${holds} 顆岩點` : '', node && node.author ? `定線 ${node.author}` : '']) || 'Climbio',
   };
 }
+// 岩點貓的一面公開牆（連結 /r/<牆 id>/）。wall：{ name, gym, n: 公開路線數 }
+function wallPreview({ name, gym, n } = {}) {
+  return { title: name || gym || 'Climbio', description: join([gym && name && name.includes(gym) ? '' : gym, n ? `${n} 條路線` : '', '岩點貓']) };
+}
 // 天然岩場。set：索引（組合）；view：分享的是其中一張 Topo 時，那張照片畫面（沒有就是整個岩場）
 function cragPreview({ name, set, view }) {
   const nodes = (set && set.nodes) || [], routes = nodes.filter((n) => n.type === 'route').length;
@@ -27,4 +31,4 @@ function cragPreview({ name, set, view }) {
 function model3dPreview({ type, name, gym }) {
   return { title: name || '3D', description: join([gym, type === 'crag3d' ? '3D 岩場' : '3D 牆', '岩點貓']) };
 }
-module.exports = { text, gradeText, join, routePreview, cragPreview, model3dPreview };
+module.exports = { text, gradeText, join, routePreview, wallPreview, cragPreview, model3dPreview };

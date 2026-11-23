@@ -104,13 +104,30 @@ function outlineCuts(stage) {
     if (!m3 || !m3.p || m3.p.length < 3 || stage.gone.has(i)) return;
     const cam = new PerspectiveCamera(50, m3.a || W / H, 0.005, 100);   // stage.js 的 applyEdit 同一個鏡頭
     cam.position.fromArray(m3.c, 0); cam.quaternion.fromArray(m3.c, 3); cam.updateMatrixWorld(true); cam.updateProjectionMatrix();
-    const eye = cam.position.clone().applyMatrix4(inv);
-    const rays = m3.p.map(([x, y]) => new Vector3(x * 2 - 1, 1 - y * 2, 0.5).unproject(cam).applyMatrix4(inv).sub(eye).toArray());
+    const eye = cam.position.clone().applyMatrix4(inv), P = simplify(m3.p, m3.a || W / H);
+    const rays = P.map(([x, y]) => new Vector3(x * 2 - 1, 1 - y * 2, 0.5).unproject(cam).applyMatrix4(inv).sub(eye).toArray());   // 照簡化過的外框切、不補平滑曲線（三角形會多好幾倍，iPhone 撐不住）；外圈的平滑在畫光暈時做（Stage.glowMask 的形狀模糊）
     const project = (p) => { v.fromArray(p).applyMatrix4(mw).project(cam); return v.z > -1 && v.z < 1 ? [(v.x + 1) / 2 * W, (1 - v.y) / 2 * H] : null; };
-    cuts.push({ idx: i + 1, seq: m.userData.seq || 0, faces: m.userData.near || [], eye: eye.toArray(), rays, poly: m3.p.map(([x, y]) => [x * W, y * H]), project, guests: new Set(m.userData.guestIds || []) });
+    cuts.push({ idx: i + 1, seq: m.userData.seq || 0, faces: m.userData.near || [], eye: eye.toArray(), rays, poly: P.map(([x, y]) => [x * W, y * H]), project, guests: m.userData.keepOthers ? { has: (l) => !!l && l !== i + 1 } : new Set(m.userData.guestIds || []), keep: !!m.userData.keepOthers });
   });
   // 照修點套用的先後切（applyEdit 後套的蓋過先套的）：兩個修點的範圍重疊時，切出來的跟修點時的一樣，不會變成岩點編號大的贏
   return cuts.sort((a, b) => a.seq - b.seq);
+}
+// 切網格用的外框：貼顏色邊界的外框很密（幾十個點），每個點都切會讓模型多出好幾倍的面；
+// 照外框大小簡化（Douglas–Peucker，偏差不到外框對角線的 1%），標籤（光暈、點選）仍照原本的密外框
+function simplify(p, aspect) {
+  if (p.length <= 12) return p;
+  const xs = p.map(q => q[0] * aspect), ys = p.map(q => q[1]);
+  const eps = 0.01 * Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+  const keep = new Uint8Array(p.length); keep[0] = 1;
+  // 閉合外框：從第一點和離它最遠的點分成兩段
+  let o = 0, od = -1; for (let i = 1; i < p.length; i++) { const d = Math.hypot(xs[i] - xs[0], ys[i] - ys[0]); if (d > od) { od = d; o = i; } }
+  keep[o] = 1;
+  const X = [...xs, xs[0]], Y = [...ys, ys[0]];
+  const run = (i0, i1) => { let best = -1, at = -1; const ax = X[i0], ay = Y[i0], dx = X[i1] - ax, dy = Y[i1] - ay, l = Math.hypot(dx, dy) || 1e-12;
+    for (let i = i0 + 1; i < i1; i++) { const d = Math.abs((X[i] - ax) * dy - (Y[i] - ay) * dx) / l; if (d > best) { best = d; at = i; } }
+    if (best > eps) { keep[at % p.length] = 1; run(i0, at); run(at, i1); } };
+  run(0, o); run(o, p.length);
+  return p.filter((_, i) => keep[i]);
 }
 // 切好的外框裡面：貼圖上還空著（標籤 0）的像素補成這顆，邊上不留缺口（外面的像素不在這顆的覆蓋網格上，畫不出來）
 function paintInside(stage, cut) {

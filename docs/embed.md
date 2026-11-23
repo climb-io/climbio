@@ -10,9 +10,26 @@ Climbio 只放牆面與路線；岩館 App 裡的使用者怎麼對應到路線�
 
 ## 固定三步
 
-1. **用 Studio 精修牆面並發布**：`https://climbio.app/studio/wall/` 或 AI 代理的 `node tools/studio.mjs publish`（流程見 [studio-wall.md](studio-wall.md)）。發布後牆面照片與岩點檔公開在 Hugging Face，得到牆的包 id 與牆 id；發佈金鑰是這面牆的擁有者（換代理的做法見 [gym-agent.md](gym-agent.md)）。
+1. **用 Studio 精修牆面並發布**：`https://climbio.app/studio/wall/` 或 AI 代理的 `node tools/studio.mjs publish`（流程見 [studio-wall.md](studio-wall.md)）。發布後牆面照片與岩點檔公開在 Hugging Face，得到牆的包 id 與牆 id；牆沒有擁有者、不用金鑰，任何人都能發佈新版本；要固定在某一版，`init` 的網址就用那一版的網址（`…/walls/<包 id>/v<版本>/…`），岩點貓現行版由程式自動判定（見 [studio-wall.md](studio-wall.md)）。
 2. **App 放內嵌頁，init 給三個官方網址**（下面「最簡整合」）：看線、定線都是同一個內嵌頁，差別只在 `mode`。
-3. **路線和岩點貓一樣**：路線寫進這面公開牆（作者金鑰簽章），路線 id 不變、依修改時間更新；岩館 App 用固定的牆 id 和一把固定的代發金鑰寫入（`node tools/wall-routes.mjs put`，見 [gym-agent.md](gym-agent.md)）。內嵌頁讀到的就是岩點貓看到的那批線。
+3. **路線直接提交，身分是你的網站**：使用者在內嵌頁定好線，App 送 `submit`，內嵌頁就把路線寫進這面公開牆（岩點貓看得到），不需要任何金鑰。路線記在 iframe 所在的網站來源名下（例如 `https://gym.example.com`）：同一個岩館網站上所有人提交的路線都屬於這個網站，這個網站可以更新（同一個 `routeId` 再 `submit`）、刪除（`remove`）自己名下的全部，別的來源改不了。內嵌頁讀到的就是岩點貓看到的那批線。
+
+   提交成功回 `submitted { routeId, routeUrl, layer }`，App 存下 `routeId` 對應自己的使用者；這個對應 Climbio 不管。要大量匯入舊路線，用維護者的 `node tools/wall-routes.mjs put`（見 [gym-agent.md](gym-agent.md)）。
+
+   **有後台的岩館可以自己帶金鑰：** 自己產生一把岩館金鑰（`node tools/wall-routes.mjs keygen <檔案>`，格式 `{ kid, pub, priv }`，備份、不進版控），在 `init` 帶 `key`；`submit`、`remove` 就改用這把金鑰簽章，路線記在 `k:<kid>` 名下，比網站來源難冒充。沒帶 `key` 就用網站來源。`key` 會出現在你的網頁裡（使用者打開開發者工具看得到），所以它防的是「隨便填一個網址」，不是「拿到網頁的人」；原生 App 的 WebView 沒有網站來源，要提交就得帶 `key`。
+
+   **限制：** 身分是網站來源，由瀏覽器提供（外層送 `init` 的 `event.origin`），別的網站冒充不了；但不是密碼學的強身分，腳本直接呼叫 API 的人可以自己填來源。所以提交要過 App Check，每個來源一天有寫入上限，路線內容有驗證，濫用由維護者處理。原生 App 的 WebView 沒有網站來源，要提交得帶 `key`。
+
+## 牆面的處理與之後的更新
+
+整合只是其中一步。對沒有牆面資料的岩館，順序是：
+
+1. **先處理牆面**：牆面照片用 Studio 偵測岩點、精修、檢查，發布到公開資料集（網頁版 `https://climbio.app/studio/wall/`，手機也能做；AI 代理用 `node tools/studio.mjs start gym <資料夾> <照片…>`，照它印的下一步走，流程規則見 [studio-wall.md](studio-wall.md) 的「代理做牆面」）。
+2. **再整合 App**：上面的三步。
+3. **之後的牆面更新**：
+   - 岩點或外框調整：在 Studio 用同一面牆重新發布，成為新版本；刪掉、合併掉的岩點留給舊路線用，舊路線照舊。照片還是同一張時，程式自動判定成為岩點貓看到的現行版（規則見 [studio-wall.md](studio-wall.md)）。
+   - 換了照片（重拍）：當成新的一面牆，用新的牆 id；App 的 `init` 換成新牆的網址，舊牆的路線不會自動搬過去。
+   - 想固定在某一版：`init` 的網址用那一版的網址（`…/walls/<包 id>/v<版本>/…`），要升級再改網址。
 
 ## 資料來源（內嵌頁只收這幾種網址）
 
@@ -24,7 +41,7 @@ Climbio 只放牆面與路線；岩館 App 裡的使用者怎麼對應到路線�
 
 - 只收 https 的 `climbio.app`（路徑要在 `/p/`、`/w/`、`/r/`）和 `huggingface.co/datasets/climbio/walls/`；別的主機、http、帶帳號或埠號、別的路徑都回 `error`，而且三個網址只要有一個不合格就都不讀。
 - **不收訊息直接帶的資料**（沒有 `view`、`layers`、`photo` 欄位）。
-- 內嵌頁不帶 cookie、不送來源網址，不連任何別的網址（沒有分析、沒有 CDN、沒有字型下載），不記錄，不寫入 Climbio 後端。
+- 內嵌頁不帶 cookie；讀資料的請求不送來源網址（每個請求都設 `referrerPolicy: 'no-referrer'`）；頁面本身的標頭是 `Referrer-Policy: strict-origin`，只在提交時 Google 的 App Check 要驗網站網址，才送出內嵌站自己的來源 `https://embed.climbio.app/`（不是嵌入它的岩館網頁網址）；平常不連任何別的網址（沒有分析、沒有 CDN、沒有字型下載），不記錄。只有你送 `submit` 或 `remove` 時，才會載入 Google 的 App Check 腳本（`gstatic.com`、reCAPTCHA）並連到 Climbio 的雲端函式 `walls`，把路線寫進公開牆；看線、只定線不提交的人不會對外發任何請求。
 - 這些網址都允許跨網域讀取，列出岩館的牆用 `https://climbio.app/w/gym/<岩館>.json`。
 
 ## 兩種外層
@@ -46,12 +63,15 @@ Climbio 只放牆面與路線；岩館 App 裡的使用者怎麼對應到路線�
 | | `change { layer, routeId }` | 定線改了：v2 圖層，只有這條路線 |
 | | `done { layer, routeId }` | 定線完成（右上的勾） |
 | | `cancel` | 定線取消（左上的叉），路線回到打開時的樣子 |
-| | `route { routeId }` | 看線：使用者按下面的上一條、下一條換了路線 |
+| | `submitted { routeId, routeUrl, layer }` | `submit` 成功：路線已公開在這面牆；`routeUrl` 是這條路線的公開網址 |
+| | `removed { results }` | `remove` 的結果：每個路線 id 是 `ok`（已刪）或 `taken`（不是這個網站的） |
 | | `limit { max }` | 點下去會超過起攀上限（內嵌頁沒有改資料）：外層可以顯示自己的提示 |
 | | `fullscreen { on }` | 進（出）全螢幕，內嵌頁自己做不到時：請外層把 iframe／WebView 放大成整個畫面（或縮回），再用 `setFullscreen` 回報 |
 | | `error { message }` | 網址不合格、讀不到、資料不合格、照片太大或尺寸不對 |
-| 外層 → 內嵌頁 | `init { viewUrl, photoUrl, layerUrls?, routeId?, layerId?, viewHref?, options? }` | 第一個訊息 |
+| 外層 → 內嵌頁 | `init { viewUrl, photoUrl, layerUrls?, routeId?, layerId?, viewHref?, options?, key? }` | 第一個訊息；`key` 是選用的岩館金鑰（見上面第 3 步） |
 | | `setRoute { routeId? }`、`setType { holdType }`、`setOptions`、`setFullscreen { on }` | 之後的更新 |
+| | `submit { name?, grade?, author? }` | 定線：把目前這條路線寫進公開牆（名稱、暱稱最多 20 字，路線要有起攀 s 和完攀 t），回 `submitted` 或 `error` |
+| | `remove { routeIds }` | 刪這個網站名下的路線（最多 100 個），回 `removed` |
 
 `routeId`：看線要看哪一條（沒給就是圖層的第一條）；定線要改哪一條（沒給＝新路線）。`layerId`、`viewHref`：`change` 輸出圖層的 `id` 與畫面路徑（沒給就沿用圖層的 id、`viewUrl`）。
 
@@ -85,9 +105,7 @@ Climbio 只放牆面與路線；岩館 App 裡的使用者怎麼對應到路線�
 | `foot` | `foot=0` | 顯示 | 定線有沒有「腳點」（含長按的「不限腳」） |
 | `order` | `order=0` | 顯示 | 定線有沒有「順序」 |
 | `heat` | `heat=0` | 顯示 | 定線有沒有「顯示所有岩點」鈕（熱圖） |
-| `nav` | `nav=0` | 顯示 | 看線：圖層裡不只一條路線時，下面有沒有「上一條、下一條」 |
 | `draw` | `draw=0` | 開（只有觸控） | 長按沒有岩點的地方「自由畫」岩點外框（`route.shapes`，不改牆的岩點檔） |
-| `base` | `base=gray｜dim` | 定線 `dim`、看線 `gray` | 底色：黑白或暗彩 |
 | `lang` | `lang=en` | `zh`（繁體中文） | 內嵌頁自己的按鈕和選單文字：`zh`、`en` |
 | `colors` | `color-s=22c55e`（`s`、`h`、`t`、`f`） | 岩點貓的顏色（起攀綠、手點藍、完攀紅、腳點黃） | 四種類型的顏色，`#RRGGBB` |
 | `labels` | `label-s=起`（`s`、`t`） | `S`、`T` | 起攀、完攀膠帶上的字（1～2 個字） |

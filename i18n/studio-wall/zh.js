@@ -21,7 +21,7 @@ AppKit.i18n.add('studio-wall', 'zh', {
   hlPubUnpublishAsk: (n) => `下架「${n}」？會從找牆面拿掉，大家在這面牆上的路線也一起移除；已公開的照片和岩點資料保留，重新發佈就回來。`,
   hlPubUnpublished: "已下架",
   hlPubUnpublishFail: (m) => `下架失敗：${m}`,
-  hlPubNotOwner: "只有發佈這面牆的金鑰（擁有者）能下架",
+  hlPubNotOwner: "只有 Climbio 維護者能下架牆，請聯絡維護者",
   hlLibFail: "載入不了需要的程式，請確認網路後再試",
   hlHoldsN: (n) => `${n} 顆岩點`,
   hlNoWall: "找不到這面牆",

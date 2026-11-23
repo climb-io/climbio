@@ -21,7 +21,7 @@ AppKit.i18n.add('studio-wall', 'en', {
   hlPubUnpublishAsk: (n) => `Unpublish "${n}"? It leaves Find walls and everyone's routes on it are removed; the published photo and hold data stay, and publishing again brings it back.`,
   hlPubUnpublished: "Unpublished",
   hlPubUnpublishFail: (m) => `Unpublish failed: ${m}`,
-  hlPubNotOwner: "Only the key that published this wall (its owner) can unpublish it",
+  hlPubNotOwner: "Only a Climbio maintainer can unpublish a wall; please contact the maintainers",
   hlLibFail: "Could not load what is needed. Check your connection and try again.",
   hlHoldsN: (n) => `${n} holds`,
   hlNoWall: "Wall not found",

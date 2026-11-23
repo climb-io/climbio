@@ -94,5 +94,6 @@ AppKit.i18n.add('studio-wall3d', 'zh', {
   w3Tried: '已記下試用完',
   w3TrialReadOnly: '試用連結只能回報問題，不能改牆',
   w3TrialExpired: '試用連結過期或已換新，請跟代理要新的連結',
+  w3TrialStale: '試用的成品跟目前的牆對不上，請跟代理要新的連結',
   w3TryBaking: '準備試用：烘成發佈後的樣子',
 });

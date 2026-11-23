@@ -106,7 +106,7 @@
       .map(w => ({ id: w.pid, name: w.name || '', img: w.nearbyThumb || w.thumbHi || w.thumb || '', sub: t('routesN', w.routes.filter(routeReady).length), v: w.routes.filter(routeReady).flatMap(r => [`${r.id}:${r.t || 0}`, ...(trusted && isSent(r) ? [`${r.id}:sent`] : [])]) })),   // 內容＝可傳的路線（id:修改時間）；配對的裝置另外帶完攀（id:sent），對方沒有就補傳
     pack: nearbyPack, take: nearbyTake, sharePair, takePair,
   };
-  const openNearby = (mode = 'send') => AppKit.nearby.start(mode, nearbyAdapter);   // 'send'：傳給別人；'devices'：我的裝置（配對、自動同步）
+  const openNearby = (mode = 'send', pick) => AppKit.nearby.start(mode, pick ? { ...nearbyAdapter, pick } : nearbyAdapter);   // 'send'：傳給別人；'devices'：我的裝置（配對、自動同步）；pick：傳給別人時先選好的牆（id 清單）
   AppKit.nearby.bind($('findNearby'), 'send', nearbyAdapter);
   AppKit.nearby.bind($('hmSync'), 'devices', nearbyAdapter, () => { $('homeMenu').hidden = true; });
   // 同意過條款（簽名是同意時填的，沒簽名就用 Google 名稱）：連結可以直接傳，不用再問
@@ -458,7 +458,7 @@
     $('recvPage').hidden = false; rvGuard(true);
     const title = x.gym ? t('rvGymWall', x.gym) : x.title || x.name;   // 牆的連結沒有岩館：標題用組合的名稱或牆名
     const box = unbox(null);
-    box.info({ ownerName: '', name: x.name, title, routes: [], thumb: x.thumb });   // 清單帶來的縮圖先顯示（模糊），照片下載好才變清楚
+    box.info({ ownerName: '', pending: true, name: x.name, title, routes: [], thumb: x.thumb });   // 清單帶來的縮圖先顯示（模糊），照片下載好才變清楚
     box.progress(0.2);
     let got;
     try { got = await ShareTools.fetchWall(x.href, x.pid, x.thumb); }
@@ -680,7 +680,8 @@
         if (!alive()) return;
         if ('ownerName' in x) {
           owner = x.ownerName; route = (x.routes || []).find(r => r.id === rid) || null;
-          rvAvatar($('rvAv'), owner || x.name);
+          $('rvAv').style.visibility = x.pending ? 'hidden' : '';   // 出線者還沒讀到（先到的預覽）：圓圈先空著，別先放牆名的字再換成署名的字
+          if (!x.pending) rvAvatar($('rvAv'), owner || x.name);
           $('rvFrom').textContent = x.title || t(route ? 'rvFromRoute' : 'rvFromWall', owner || t('rvSomeone'));
           $('rvBox').classList.add('has-from');
         }

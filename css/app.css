@@ -739,6 +739,10 @@ html:not(.pcland) .ld-bar .wordmark { width: 191px; height: 41px; }
 
 /* ---------- 牆面頁（手機）：照片橫幅、篩選膠囊、路線兩欄小卡（路線小圖） ---------- */
 .wall-title { font-size: 17px; font-weight: 600; opacity: 0; transition: opacity .2s; }
+.wall-more { margin-left: auto; }
+.wall-menu button { display: flex; align-items: center; gap: 12px; }
+.wall-menu button[hidden] { display: none; }
+.wall-menu button svg { width: 20px; height: 20px; flex: none; }
 #wall.hero-gone .wall-title { opacity: 1; }
 .wall-hero { position: relative; border-radius: 20px; overflow: hidden; background: var(--surface-2); }
 .wall-hero .wall-photo { width: 100%; max-height: none; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 0; }

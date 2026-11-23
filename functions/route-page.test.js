@@ -63,3 +63,15 @@ test('連結的網域：設定裡的站用自己的網域，不認得的導回�
   assert.deepEqual(await go('my-wall-dev.web.app'), [302, 'https://my-wall-dev.web.app/']);
   assert.deepEqual(await go('climbio.web.app'), [302, 'https://my-wall.web.app/']);
 });
+
+test('牆的連結 /r/{牆 id}/：預覽頁有牆名、岩館、路線數、縮圖，打開轉進 App 收這面牆；沒有這面牆導回首頁', async () => {
+  const d = { 'gymWalls/abcdefgh1234': { name: '主牆', gym: '攀岩館', hf: 'walls/wallproject00001/v1/', n: 3, src: { project: 'wallproject00001', path: 'abcdefgh1234.json' } } };
+  const handler = createPageHandler({ db: { collection: (name) => ({ doc: (id) => ({ get: async () => snap(d[`${name}/${id}`]) }) }) }, hosts: ['climbio.web.app'] });
+  const get = (path) => new Promise(resolve => { const res = { set() { return this; }, status() { return this; }, send: resolve, redirect: (c, u) => resolve(u) }; handler({ path, get: () => 'climbio.web.app' }, res); });
+  const html = await get('/r/abcdefgh1234/');
+  assert.match(html, /og:title" content="主牆"/);
+  assert.ok(html.includes('og:description" content="攀岩館・3 條路線・岩點貓"'));
+  assert.ok(html.includes('walls/wallproject00001/v1/abcdefgh1234.thumb.jpg'));
+  assert.ok(html.includes('https://climbio.web.app/hold/?wall=wallproject00001/abcdefgh1234.json'));
+  assert.equal(await get('/r/zzzzzzzz9999/'), 'https://climbio.web.app/');
+});

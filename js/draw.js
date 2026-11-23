@@ -203,9 +203,11 @@
   // 岩點外框改了（拖頂點、重描、補點、刪點）：底圖、標籤位置之後重算
   const touchGeom = () => { if (state.scene) state.scene.touch(); };
   // 路線圖的底有兩種（分享的圖一律灰階）：gray＝灰階（壓亮度再上一層冷灰）、dim＝暗彩（整張照片調暗、保留顏色）。
-  // 不記在這台：每次進看路線圖從灰階開始（只亮路線岩點最清楚）、進定線從暗彩開始（選點要看得到其他岩點的顏色），按圓鈕、點兩下切換只到離開那一頁；
+  // 看路線圖、定線各記一個選擇（存在這台，離開、重開都保留）：預設看路線圖灰階（只亮路線岩點最清楚）、定線暗彩（選點要看得到其他岩點的顏色）；
   // 路線小卡、收線卡片固定灰階（進看路線圖也是灰階，飛進去不會變色）
-  const bases = { view: 'gray', set: 'dim' };
+  const BASE_KEY = 'climbio.bases';
+  const bases = (() => { try { const v = JSON.parse(localStorage.getItem(BASE_KEY)); return { view: v.view === 'dim' ? 'dim' : 'gray', set: v.set === 'gray' ? 'gray' : 'dim' }; } catch (e) { return { view: 'gray', set: 'dim' }; } })();
+  const saveBases = () => { try { localStorage.setItem(BASE_KEY, JSON.stringify(bases)); } catch (e) { /* 忽略 */ } };
   const setting = () => !!state.wall && state.mode === 'route' && !state.routeView && !$('editor').hidden;
   const baseOf = (set) => bases[set ? 'set' : 'view'];
   const baseMode = () => baseOf(setting());

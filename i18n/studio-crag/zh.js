@@ -347,8 +347,8 @@ AppKit.i18n.add('studio-crag', 'zh', {
   cgBigRename: (why, name) => `這次改動很大（${why}），要發成新的一本：先在「岩場資訊」改一個跟「${name}」不同的名稱。`,
   cgPublishedNew: "已發佈成新的一本（第 1 版）",
   // 不列入世界（發佈對話框）
-  cgUnlisted: "不列入世界",
-  cgUnlistedHint: "世界地圖和清單上沒有，只有拿到連結的人打得開。檔案仍放在開放資料集，算不張揚、不是保密。",
+  cgCountryReq: "國家（必選）：紅點貓的世界照國家分組",
+  cgPickCountry: "請選國家…",
   cgPublishedUnlisted: "不列入世界：把連結傳給要給的人。",
   // 版本紀錄（studio/crag/versions.js）
   cgSameAsSource: "跟匯入的那一版一樣：改了才能發佈",
@@ -357,7 +357,7 @@ AppKit.i18n.add('studio-crag', 'zh', {
   cgAttrFix: "整理署名",
   cgNeedRemix: "公開資料集一律開放改編（CC BY-SA 4.0）：這本設成不開放，要改成開放才能發佈；不想開放的請用匯出 ZIP",
   cgRemixFix: "改成開放改編",
-  cgNeedCountry: "先在「岩場資訊」選國家：紅點貓的世界照國家分組，沒選會被放到最後的「其他」",
+  cgNeedCountry: "請先在上面選國家才能發佈：紅點貓的世界照國家分組",
   cgWorldOk: (name) => `已出現在紅點貓世界的「${name}」`,
   cgWorldWrong: (cc) => `世界清單上的國家是「${cc}」，跟這本選的不一樣`,
   cgWorldLate: "世界清單還沒更新（最多晚 5 分鐘），等一下到紅點貓的世界看看",

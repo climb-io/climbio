@@ -164,3 +164,8 @@ html:lang(en) .docs-en { display: inline; }
 
 /* AI Agent contribution identity shown on the project information page. */
 .pg-engine-mark { display: block; width: 72px; height: 72px; margin-bottom: 18px; object-fit: contain; }
+
+/* 給 AI Agent 的提示：一段可以整段複製的文字，右下角的鈕複製 */
+.pg-prompt { position: relative; margin: 16px 0 20px; max-width: 760px; }
+.pg-prompt pre { margin: 0; padding: 16px 16px 64px; border: 1px solid var(--pg-line); border-radius: 12px; background: var(--pg-surface-2); color: var(--pg-text); font: 14px/1.75 system-ui, -apple-system, 'Noto Sans TC', sans-serif; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pg-prompt .pg-btn { position: absolute; right: 12px; bottom: 12px; }

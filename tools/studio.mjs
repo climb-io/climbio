@@ -35,7 +35,7 @@
 //   node tools/studio.mjs look3d <資料夾> [--all] [--glow|--wide] [--ids 清單.json] [--studio 網址]     無畫面瀏覽器開 Studio 的 3D 牆，還沒看過的岩點一顆一張（左原樣、右加外框），
 //                                                                       每 12 張拼成一張總圖（.studio/work/look/sheet-*.jpg，左上角是編號），印出路徑
 //   node tools/studio.mjs review3d <資料夾> <判斷.json>               記下 AI 的判斷：[{ "n": 總圖上的編號（或 "id": 岩點 id）, "v": "keep|off|reshape|retake",
-//                                                                       "poly": [[x, y]…]（reshape：右半張的像素 0～256）；"v": "add" 配 "fb": 回報 id 在回報畫面描漏掉的岩點, "note": "…"（retake 必填：哪裡的照片不夠） }]
+//                                                                       "poly": [[x, y]…]（reshape：右半張的像素 0～256；加 "k": true 只改跟牆的交界，不動別顆岩點，照顏色邊界自動貼的用這個）；"v": "add" 配 "fb": 回報 id 在回報畫面描漏掉的岩點, "note": "…"（retake 必填：哪裡的照片不夠） }]
 // AI 看完之後、發佈之前要人試用（studio/wall3d/feedback.js，紀錄在 feedback3d.json）：人在 Studio 3D 牆的「試用」步驟點有問題的地方寫一句回報，
 // 代理修完記下怎麼處理，人再試用；這一版人按過「試用完」（或在對話裡說試用過沒問題）才出發佈題：
 //   look3d 也出還沒處理的回報當時的畫面（.studio/work/look/fb-<回報 id>.jpg，回報的岩點畫上外框、點的位置畫圈）
@@ -71,7 +71,6 @@ import { applyPatch as applyWall3dPatch } from '../studio/wall3d/patch.js';
 import { WORK_DIR, HUMAN_ONLY, questionsFromReport, publishQuestion, approval, refresh, isOpen, waitingFor, decide, stateOf, summary, merge, recordId, pendingPatches, hash } from '../studio/work/ledger.js';
 import { reasonText } from '../studio/crag/report.js';
 import { createService } from '../studio/service.js';
-import { loadKey, signerFor } from './publisher-auth.mjs';
 import { cameraFromFrame, modelCamera } from '../studio/scene/cameras.js';
 import { copyFileSync } from 'node:fs';
 
@@ -633,7 +632,7 @@ async function publish(dir) {
   const gym = docs.map(d => d?.props?.gym).find(g => typeof g === 'string' && g) || '';
   if (!gym) fail('牆的畫面沒有岩館名稱（props.gym）：公開牆一定要有岩館名稱，補上再發佈');
   const files = names.map(path => ({ path, bytes: new Uint8Array(readFileSync(join(root, path))) }));
-  const service = createService({ url: PUBLISH_URL, studioKey: async () => KEY(), sign: signerFor(loadKey()) });   // 發佈金鑰：第一次發佈的就是這面牆的擁有者
+  const service = createService({ url: PUBLISH_URL, studioKey: async () => KEY() });   // 不用發佈金鑰：牆沒有擁有者，任何人都能發佈新版本
   let res;
   try { res = await service.publishWall({ id: index.id, name: nameText(index.name), gym, files }); } catch (e) { fail(`發佈失敗：${e.status ? `${e.status} ` : ''}${e.message}`, 1); }
   logRun(P, 'publish', [], readJson(P.state, {}));
@@ -816,7 +815,7 @@ function review3d(P, file) {
       if (shot.empty) { errs.push(`${id}：模型上看不到，不能重描`); continue; }
       if (!Array.isArray(poly) || poly.length < 3 || !poly.every(p => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite))) { errs.push(`${id}：reshape 要有 poly（右半張的像素，至少三點）`); continue; }
       if (shot.crop && !shot.std) { errs.push(`${id}：這張光暈圖是舊版出的（沒有鏡頭換算），重跑 look3d --glow 再描`); continue; }
-      doc.edits = [...(doc.edits || []).filter(e => e.id !== id), { id, m3: { c: shot.c, p: poly.map(toStdOf(shot)), a: shot.a } }];
+      doc.edits = [...(doc.edits || []).filter(e => e.id !== id), { id, m3: { c: shot.c, p: poly.map(toStdOf(shot)), a: shot.a, ...(x.k ? { k: 1 } : {}) } }];
     } else if (x.v === 'retake') {
       if (!x.note) { errs.push(`${id}：retake 要寫 note（哪裡的照片不夠）`); continue; }
       if (!shot.empty) { mkdirSync(join(P.dir, '.studio', 'evidence'), { recursive: true }); copyFileSync(join(P.work, 'look', `${id}.jpg`), join(P.dir, '.studio', 'evidence', `${id}.jpg`)); }

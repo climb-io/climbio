@@ -219,7 +219,7 @@
   const pressBtns = (sel, on) => { for (const b of document.querySelectorAll(sel)) b.setAttribute('aria-pressed', on); };   // 定線上方和看路線圖上方各有一顆，狀態一起換
   // 路線的底切換灰階／暗彩（只在這一頁、只在畫面上看；分享的圖一律灰階）：手機按上方的圓鈕或快速點兩下（看路線圖在路線視角時、定線點空白處），電腦按空白鍵
   function toggleBase(mode = baseMode() === 'dim' ? 'gray' : 'dim') {
-    bases[setting() ? 'set' : 'view'] = mode;
+    bases[setting() ? 'set' : 'view'] = mode; saveBases();
     baseSwap();
     pressBtns('.base-btn', mode === 'dim');
     if (editorUi) editorUi.setOptions({ base: mode });
@@ -722,6 +722,9 @@
       if (viewing && trackable(state.wall) && !state.wall.m3d) setTimeout(() => preloadWall2dCam(state.wall), 0);
     }
     $('vwMenu').hidden = true; $('vwMore').setAttribute('aria-expanded', 'false');
+    // 公開牆只能修改、刪除自己的路線；別人的線在私人牆（收來的）可以改（另存成自己的）、刪，但不改名
+    const cur = route(), lockedPub = !!cur && isPublic(state.wall) && !mineRoute(cur);
+    $('vwEdit').hidden = $('vwDel').hidden = lockedPub || !cur; $('vwRename').hidden = !cur || !mineRoute(cur);
     $('edBack').hidden = editing;
     $('edCancel').hidden = !(editing && m === 'holds');   // 定線的取消、完成在操作介面（RouteKit.EditorUI）；單點編輯：取消在左上，完成在岩點旁的膠囊裡（#holdDone）
     $('rGrade').hidden = !(m === 'route' && !viewing);   // 定線：難度在上方

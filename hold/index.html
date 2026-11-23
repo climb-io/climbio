@@ -212,25 +212,12 @@ html{background:#0e0e0f}
   </div>
 </div>
 
-<!-- 長按路線小卡的選單：編輯、重新命名、刪除；重新命名就在這裡改（同一次點擊裡叫出鍵盤，iPhone 才會跳出來） -->
-<div class="sheet-backdrop" id="routeSheet" hidden>
-  <div class="sheet" role="dialog" data-i18n-aria="more" aria-label="更多">
-    <input class="field rs-name" id="rsName" maxlength="30" data-i18n-ph="routeName" data-i18n-aria="routeName" placeholder="路線名稱" aria-label="路線名稱" enterkeyhint="done" hidden>
-    <div class="sheet-group" id="rsMain"><button class="sheet-btn" id="rsEdit"><svg><use href="#i-edit"/></svg><span data-i18n="editRoute">編輯路線</span></button><button class="sheet-btn" id="rsRename"><svg><use href="#i-rename"/></svg><span data-i18n="renameWall">重新命名</span></button></div>
-    <div class="sheet-group" id="rsDanger"><button class="sheet-btn danger" id="rsDel"><svg><use href="#i-trash"/></svg><span data-i18n="deleteRoute">刪除路線</span></button></div>
-    <button class="sheet-cancel" id="routeSheetCancel" data-i18n="cancel">取消</button>
-  </div>
-</div>
-<!-- 長按牆面小卡、牆面頁橫幅的選單：不常用的功能（重新偵測、更新輪廓只在需要時出現），刪除放最下面 -->
-<div class="sheet-backdrop" id="wallSheet" hidden>
-  <div class="sheet" role="dialog" data-i18n-aria="more" aria-label="更多">
-    <div class="sheet-group">
-      <button class="sheet-btn" id="renameWallBtn"><svg><use href="#i-rename"/></svg><span data-i18n="renameWall">重新命名</span></button>
-      <button class="sheet-btn" id="addPhotoBtn"><svg><use href="#i-photo"/></svg><span data-i18n="addPhoto">增加照片</span></button>
-    </div>
-    <div class="sheet-group"><button class="sheet-btn danger" id="deleteWallBtn"><svg><use href="#i-trash"/></svg><span data-i18n="deleteWall">刪除這面牆</span></button></div>
-    <button class="sheet-cancel" id="wallSheetCancel" data-i18n="cancel">取消</button>
-  </div>
+<!-- 牆面頁右上「更多」的選單（跟看路線圖的「更多」同一種下拉選單）：重新命名、增加照片、分享牆面，刪除放最下面 -->
+<div class="menu wall-menu" id="wallSheet" role="menu" data-i18n-aria="more" aria-label="更多" hidden>
+  <button id="renameWallBtn"><svg><use href="#i-rename"/></svg><span data-i18n="renameWall">重新命名</span></button>
+  <button id="addPhotoBtn"><svg><use href="#i-photo"/></svg><span data-i18n="addPhoto">增加照片</span></button>
+  <button id="shareWallBtn"><svg viewBox="3.8 2.8 16.4 17.4" aria-hidden="true"><use href="#i-share" width="24" height="24"/></svg><span data-i18n="shareWall">分享牆面</span></button>
+  <button class="danger" id="deleteWallBtn"><svg><use href="#i-trash"/></svg><span data-i18n="deleteWall">刪除這面牆</span></button>
 </div>
 <div class="sheet-backdrop" id="sideSheet" hidden>
   <div class="sheet" role="dialog" data-i18n-aria="addPhoto" aria-label="增加照片">
@@ -307,9 +294,10 @@ html{background:#0e0e0f}
   <header class="bar">
     <button class="icon-btn" id="backBtn" data-i18n-aria="back" aria-label="回到牆面列表"><svg><use href="#i-back"/></svg></button>
     <h1 class="wall-title" id="wallTitle"></h1>
+    <button class="icon-btn wall-more" id="wallMore" data-i18n-aria="more" aria-label="更多" aria-haspopup="true"><svg><use href="#i-more"/></svg></button>
   </header>
   <div class="overview">
-    <!-- 橫幅：照片、左下牆名（點了改）；長按照片跳出牆面選單（跟首頁長按牆面小卡同一份） -->
+    <!-- 橫幅：照片、左下牆名（點了改）；牆面功能在右上「更多」 -->
     <div class="wall-hero" id="wallHero">
       <img id="wallPhoto" class="wall-photo" alt="">
       <input class="wall-name" id="wallName" data-i18n-aria="wallName" aria-label="牆面名稱" maxlength="40">
@@ -376,7 +364,9 @@ html{background:#0e0e0f}
     <div class="menu vw-menu" id="vwMenu" hidden>
       <button class="vw-item" id="vwCam" hidden><svg><use href="#i-camera"/></svg><span data-i18n="liveCamera">相機看線</span></button>
       <button class="vw-item" id="vwEdit"><svg><use href="#i-edit"/></svg><span data-i18n="editRoute">編輯路線</span></button>
+      <button class="vw-item" id="vwRename"><svg><use href="#i-rename"/></svg><span data-i18n="renameWall">重新命名</span></button>
       <button class="vw-item" id="vwShare"><svg viewBox="3.8 2.8 16.4 17.4" aria-hidden="true"><use href="#i-share" width="24" height="24"/></svg><span data-i18n="share">分享</span></button>
+      <button class="vw-item danger" id="vwDel"><svg><use href="#i-trash"/></svg><span data-i18n="deleteRoute">刪除路線</span></button>
     </div>
     <div class="rfab" id="vwFabWrap">
       <button class="rfab-btn" id="vwFab" aria-pressed="false" data-i18n-aria="logSend" aria-label="完攀"><svg><use href="#i-paw"/></svg></button>

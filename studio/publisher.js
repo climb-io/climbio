@@ -3,7 +3,6 @@
 import * as backend from './backend.js';
 import { createService } from './service.js';
 import { publishDataset } from './dataset-publish.js';
-import * as key from './publisher-key.js';
 
 /** 發佈對話框（studio/publish-ui.js）的文字，取自目前的語言包；呼叫時才查 */
 export const publishText = () => {
@@ -17,7 +16,7 @@ export const publishText = () => {
 
 let service = null;
 /** 雲端函式 datasets 的用戶端：不登入、不記擁有者；ping 看服務開了沒 */
-export const getService = () => (service ||= createService({ url: backend.SERVICE, idToken: async () => '', appCheck: backend.appCheck, studioKey: backend.studioKey, sign: key.sign }));
+export const getService = () => (service ||= createService({ url: backend.SERVICE, idToken: async () => '', appCheck: backend.appCheck, studioKey: backend.studioKey }));
 
 /** 發佈不認人的類型（3D 牆、Guidebook，見 docs/proposals/open-versions.md、crag-open-versions.md）：不登入、文件不記擁有者；已發佈的 id 不能再改，更新用新的 id、meta.origin 指到上一版 */
 export const publishAnonymous = (o) => publishDataset({ ...o, service: getService() });
@@ -25,7 +24,5 @@ export const publishAnonymous = (o) => publishDataset({ ...o, service: getServic
 /** 公開一面牆到開放資料集（雲端函式 datasets 寫進 Hugging Face）；不登入、不記擁有者，內容由伺服器驗證；files：[{ path, bytes }]，回 { id, version, current, base } */
 export const publishWall = (o) => getService().publishWall(o);
 
-/** 手動下架一面公開牆（擁有者的發佈金鑰簽章，或維護者金鑰）；pid 是牆 id */
+/** 手動下架一面公開牆（只有維護者金鑰）；pid 是牆 id */
 export const unpublishWall = (pid) => getService().unpublishWall(pid);
-/** 發佈金鑰：kid、匯出、匯入（換電腦或換 AI 代理） */
-export const publisherKey = { kid: key.publisherKid, export: key.exportKey, import: key.importKey };

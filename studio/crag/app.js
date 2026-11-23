@@ -1312,8 +1312,8 @@ function drawFit(g, bmp, x, y, w, h) {
 // ---- 發佈的畫面：共用的發佈對話框與過場（studio/publish-ui.js），這裡只放 Guidebook 自己的欄位 ----
 const pubBlocked = el('div', { id: 'pubBlocked', hidden: true }, el('p', { textContent: T('cgBlockedPhotos') }), el('ul'));
 const pubWho = el('div', { id: 'pubWho' }, el('p', { id: 'pubOrigin', className: 'origin', hidden: true }), el('label', { className: 'dk-field' }, el('span', { id: 'pubAuthorLabel', textContent: T('cgAuthor') }), el('input', { id: 'pubAuthor', className: 'field', maxLength: 80 })),
-  // 不列入世界：世界地圖、清單、資料集目錄都沒有，只有拿到連結的人打得開（檔案照樣在開放資料集）；寫在組合的 props.unlisted，別人接著改的下一版預設照舊
-  el('label', { id: 'pubUnlistedRow' }, el('input', { type: 'checkbox', id: 'pubUnlisted' }), el('span', {}, T('cgUnlisted'), el('small', { textContent: T('cgUnlistedHint') }))));
+  // 國家：發佈一定要有（紅點貓的世界照國家分組），直接在對話框選，不用回「岩場資訊」；沒選時框紅色、發佈鈕停用
+  el('label', { className: 'dk-field', id: 'pubCountryRow' }, el('span', { textContent: T('cgCountryReq') }), el('select', { id: 'pubCountry', className: 'field' })));
 const pubUI = createPublishUI({
   text: K.publishText(), extras: [pubBlocked, pubWho], visibility: false,   // 發佈就是公開（要私下給人用匯出 ZIP 或備份）
   actions: [el('button', { id: 'pubFix', className: 'dk-btn', hidden: true }), el('button', { id: 'pubEditLink', className: 'dk-btn', hidden: true, textContent: T('cgCopyEditLink') })],
@@ -1403,7 +1403,8 @@ function renderPublish() {
   const fix = !M.settings(state).country ? '' : M.tidyAttribution(state.book.attribution) !== (state.book.attribution || '') ? 'attr' : M.originAttribution(state) === undefined && !M.remix(state) ? 'remix' : '';
   $('#pubFix').hidden = !fix;
   $('#pubFix').dataset.fix = fix;
-  $('#pubUnlisted').checked = !!state.book.props?.unlisted;
+  $('#pubCountry').value = M.settings(state).country || '';
+  $('#pubCountryRow').classList.toggle('need', !M.settings(state).country);
   $('#pubFix').textContent = fix === 'attr' ? T('cgAttrFix') : fix === 'remix' ? T('cgRemixFix') : '';
   const base = {
     link: ps.link || ps.url || '',
@@ -1501,12 +1502,10 @@ $('#pubAuthor').addEventListener('change', async () => {
   await persist([...state.photos.keys()], [...state.layers.keys()]);
   renderPublish();
 });
-$('#pubUnlisted').addEventListener('change', async () => {
-  const props = { ...state.book.props };
-  if ($('#pubUnlisted').checked) props.unlisted = true; else delete props.unlisted;
-  state.book.props = props;   // 換列不列入算一次修改，才有下一版可以發
+$('#pubCountry').addEventListener('change', async () => {
+  M.setSettings(state, { country: $('#pubCountry').value });
   await persist([], []);
-  renderPublish();
+  renderInfo(); renderPublish();
 });
 $('#pubFix').addEventListener('click', async () => {
   const fix = $('#pubFix').dataset.fix;
@@ -1662,6 +1661,7 @@ const EDITABLE = ['grade', 'style', 'length', 'pitches', 'bolts', 'description',
 const GRADE_LABEL = { yds: 'YDS', french: 'French', uiaa: 'UIAA', british: 'British', v: 'V', font: 'Font', dan: T('cgGradeDan') };
 $('#rSys').replaceChildren(...M.GRADE_SYSTEMS.map(k => el('option', { value: k, textContent: GRADE_LABEL[k] })));
 const countryName = new Intl.DisplayNames([AppKit.i18n.lang === 'en' ? 'en' : 'zh-TW'], { type: 'region' });
+$('#pubCountry').replaceChildren(el('option', { value: '', textContent: T('cgPickCountry') }), ...M.COUNTRIES.map(c => ({ c, n: countryName.of(c.toUpperCase()) })).sort((a, b) => a.n.localeCompare(b.n)).map(({ c, n }) => el('option', { value: c, textContent: n })));
 $('#setCountry').replaceChildren(el('option', { value: '', textContent: '' }), ...M.COUNTRIES.map(c => ({ c, n: countryName.of(c.toUpperCase()) })).sort((a, b) => a.n.localeCompare(b.n)).map(({ c, n }) => el('option', { value: c, textContent: n })));
 $('#setGrade').replaceChildren(...M.GRADE_SYSTEMS.map(k => el('option', { value: k, textContent: GRADE_LABEL[k] })));
 $('#rStyle').replaceChildren(el('option', { value: '', textContent: '—' }), ...Object.entries(STYLE_LABEL).map(([k, v]) => el('option', { value: k, textContent: v })));

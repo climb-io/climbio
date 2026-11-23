@@ -51,7 +51,7 @@ Kit 是 AGPL-3.0：把 Kit 打包進自己的前端，那一部分前端要照 A
 | 外層 → 內嵌頁 | `init` | `viewUrl`（v2 照片畫面的官方網址）、`layerUrls`（v2 圖層的官方網址，可省略）、`photoUrl`（畫面 `href` 指的那張照片的官方網址） |
 | | `set…` | 該 Kit 的更新（例如 routekit 的 `setRoute`、`setType`） |
 
-routekit 的內容：`init` 的圖層裡有幾條路線都能切換；`setRoute` 帶 `routeId`（圖層裡的路線節點 id）；`setType` 帶 `holdType`（`s`、`h`、`t`；欄位不叫 `type`，免得跟訊息外框的 `type` 撞名）；`change` 的 `layer` 是 `RouteKit.routesLayer` 產生的 v2 圖層（路線節點的 `props.holds` 是 `{ 岩點 id: 's'｜'h'｜'f'｜'t' }`，有出手順序時帶 `props.seq`）。不輸出圈點格式（x、y、t、r）：外層要圈點時，自己用 `RouteKit.toCircles` 或依格式規格換算；內嵌頁不替外層算它自己的座標系。岩點貓公開牆的畫面本來就是 v2，官方網址直接就是它。
+routekit 的內容：一次只畫一條路線，圖層裡有幾條由外層用 `init` 或 `setRoute` 的 `routeId` 指定（內嵌頁沒有自己的切換）；`setRoute` 帶 `routeId`（圖層裡的路線節點 id）；`setType` 帶 `holdType`（`s`、`h`、`t`；欄位不叫 `type`，免得跟訊息外框的 `type` 撞名）；`change` 的 `layer` 是 `RouteKit.routesLayer` 產生的 v2 圖層（路線節點的 `props.holds` 是 `{ 岩點 id: 's'｜'h'｜'f'｜'t' }`，有出手順序時帶 `props.seq`）。不輸出圈點格式（x、y、t、r）：外層要圈點時，自己用 `RouteKit.toCircles` 或依格式規格換算；內嵌頁不替外層算它自己的座標系。岩點貓公開牆的畫面本來就是 v2，官方網址直接就是它。
 
 ### 縮放
 

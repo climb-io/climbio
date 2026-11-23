@@ -1,7 +1,7 @@
 // 公開牆的開放資料集：按「公開」的牆（照片、岩點、Wall 精修記錄；路線之後由排程補）寫進 Hugging Face 的公開資料集 climbio/walls，
 // 誰都能免登入讀（huggingface.co 的 resolve 網址有跨網域標頭）；Climbio 保管、不因發佈者要求刪除（見 docs/studio-holdlab.md）。
-//   POST { op: 'publishWall', id（包 id）, name, gym（必填）, licenseAccepted: true, auth（發佈金鑰簽章）, files: [{ path, b64 }] }：不登入，擁有者是第一次發佈的發佈金鑰（publisher-key.js；維護者金鑰可代替），額度按網路來源，內容照 wall-check.js 驗證；
-//   POST { op: 'transferWall', id, newKid, auth }：擁有者轉給新的發佈金鑰（維護者可認領沒有擁有者的舊牆）；
+//   POST { op: 'publishWall', id（包 id）, name, gym（必填）, licenseAccepted: true, files: [{ path, b64 }] }：不登入、不記擁有者、不用金鑰（只有 Studio 發佈，source 標記），額度按網路來源，內容照 wall-check.js 驗證；
+//     任何人都能發佈新版本，每次是新的一版；岩點貓看到哪一版由程式自動判定（見 publishWall 的「現行版」：驗證過、照片沒換、逐顆檢查完了才換）；
 //     檔案路徑只收 index.json、<id>.json（照片畫面）、<id>.jpg（照片）、<id>.thumb.jpg（縮圖）、<id>.edits.json（Wall 精修記錄），<id> 是 8～40 碼小寫英數；
 //     寫到 walls/<包 id>/v<版本>/；版本每次加一，舊版本留著；內容跟上一版完全一樣就不寫、回上一版。
 //   索引：Firestore datasets/{id}（{ owner: '', type: 'walls', name, version（現行版）, latest（最新版）, reviewed, at, files, sig }；現行版是最新一個逐顆檢查完了的版本，沒有就是最新的）是 Climbio 唯一保存的資料；
@@ -11,7 +11,6 @@
 const { createHash } = require('node:crypto');
 const { checkVersion } = require('./wall-check');
 const { clientIp } = require('./client-ip');
-const { verifyPublisher, KID } = require('./publisher-key');
 
 const REPO = 'climbio/walls', ID = /^[0-9a-z]{16}$/, NAME = '[0-9a-z]{8,40}', DAILY = 30;
 const MAX = { photo: 8e6, thumb: 1e6, json: 4e6, edits: 4e6, total: 20e6 }, MAX_FILES = 20;
@@ -126,19 +125,10 @@ function createHf({ token, repo = REPO, get = fetch }) {
 }
 
 // refreshGyms(包 id)：發佈後重算用到這個包的岩館公開牆清單（gym-walls.js），清單才指到新的現行版
-function createHandler({ db, hf, now = Date.now, refreshGyms = null, isOwner = async () => false, verify = verifyPublisher }) {   // isOwner：維護者身分（X-Studio-Key）；verify：驗發佈金鑰簽章（測試可換）
+function createHandler({ db, hf, now = Date.now, refreshGyms = null }) {
   const wall = id => db.collection('datasets').doc(id);
   // 不認人（docs/proposals/open-versions.md）：不登入、不記 owner；額度按網路來源；內容由 wall-check.js 驗證
   const keyOf = req => `ip${sha(clientIp(req)).slice(0, 16)}`;
-  // 誰能動這面牆：維護者永遠可以；其他人要用發佈金鑰簽章，而且牆有擁有者時要是同一把（第一次發佈的金鑰就是擁有者，見 publisher-key.js）
-  async function authorize(op, id, extra, body, req, old) {
-    const ownerKid = (old && old.exists && old.get('ownerKid')) || '';
-    const maintainer = await isOwner(req);
-    if (!body.auth && !maintainer) throw fail(401, 'key required');
-    const kid = body.auth ? verify(op, id, body.auth, extra, now()) : '';   // 有簽章就一定驗（維護者帶著發佈金鑰發佈，也記成擁有者）
-    if (!maintainer && ownerKid && kid !== ownerKid) throw fail(403, 'not owner');   // 維護者不受擁有者限制
-    return { maintainer, kid, ownerKid };
-  }
   const ops = {
     async publishWall(body, req) {
       // 公開牆只由 Climbio Studio 發佈；岩點貓 App 不上傳牆（舊版 App 沒帶標記，在這裡擋掉）。標記不是驗證（這裡不認人），只讓 App 不能意外把牆傳上來
@@ -150,10 +140,8 @@ function createHandler({ db, hf, now = Date.now, refreshGyms = null, isOwner = a
       const gym = String(body.gym || '').trim();
       if (!gym || gym.length > 60) throw fail(400, 'bad gym');   // Studio 發佈的公開牆一定有岩館名稱
       const files = checkFiles(body.files), old = await wall(body.id).get();
-      const who = await authorize('publishWall', body.id, '', body, req, old);
-      const ownerKid = who.ownerKid || who.kid;   // 第一次發佈（或還沒有擁有者的舊牆）的金鑰就是擁有者
       const sig = sha(files.map(f => `${f.path}:${sha(f.bytes)}`).sort().join('\n'));
-      if (old.exists && old.get('sig') === sig) { const v = old.get('version'); return { id: body.id, version: v, base: baseUrl(body.id, v), same: true, owner: ownerKid }; }   // 跟現行版一樣：不寫新版本
+      if (old.exists && old.get('sig') === sig) { const v = old.get('version'); return { id: body.id, version: v, base: baseUrl(body.id, v), same: true }; }   // 跟現行版一樣：不寫新版本
       // 內容驗證：外框合理、不少掉前一版的岩點、尺寸不變、變動不超過 30%；前一版的畫面從資料集讀
       const viewFile = files.find(f => f.kind === 'json' && f.path !== 'index.json' && (() => { try { return JSON.parse(f.bytes).kind === 'view'; } catch (e) { return false; } })());
       if (!viewFile) throw fail(400, 'no view');
@@ -170,26 +158,17 @@ function createHandler({ db, hf, now = Date.now, refreshGyms = null, isOwner = a
       const version = latest + 1, t = now(), dir = `walls/${body.id}/v${version}/`;
       const row = rowOf({ id: body.id, name, gym, version, t, files }), idx = await hf.read(INDEX), keep = idx && idx.split('\n').filter(Boolean).map(l => JSON.parse(l)).find(r => r.id === body.id);
       if (keep) row.routes = keep.routes || 0;
-      // 現行版：最新一個「逐顆檢查完了」（edits.json 的 reviewed）的版本；沒有就是最新的。新版本沒檢查過、現行版檢查過，現行版不換
-      const reviewed = !!row.edits?.reviewed, becomes = reviewed || !old.get('reviewed');
+      // 現行版（岩點貓看到的那一版）自動判定：內容驗證過了（上面 checkVersion）、照片還是同一張（指紋一樣），而且是最新一個「逐顆檢查完了」（edits.json 的 reviewed）的版本；
+      // 沒有檢查過的版本照樣存成新版本（用固定網址指到它），但新版本沒檢查過、現行版檢查過，或照片換了，現行版不換
+      const reviewed = !!row.edits?.reviewed, photoSame = !old.get('photoSha') || old.get('photoSha') === row.photoSha256,   // 跟現行版的照片比（舊資料沒有指紋就不擋）
+         becomes = photoSame && (reviewed || !old.get('reviewed'));
       await hf.commit(`公開 ${body.id} v${version}`, [...files.map(f => ({ path: dir + f.path, bytes: f.bytes })), { path: INDEX, bytes: Buffer.from(upsertRow(idx, row)) }]);
       // 留名不留權：歷代署名（畫面的 attribution）沿版本保留，不重複
       const credits = [...new Set([...(old.get('credits') || []), String(JSON.parse(viewFile.bytes).attribution || '')])].filter(Boolean).slice(-20);
-      await wall(body.id).set({ owner: '', ownerKid, type: 'walls', name, latest: version, credits, ...(becomes ? { version, at: t, files: files.map(f => f.path), sig, reviewed } : { version: old.get('version'), at: old.get('at'), files: old.get('files'), sig: old.get('sig'), reviewed: !!old.get('reviewed') }) });
+      await wall(body.id).set({ owner: '', type: 'walls', name, latest: version, credits, ...(becomes ? { version, at: t, files: files.map(f => f.path), sig, reviewed, photoSha: row.photoSha256 } : { version: old.get('version'), at: old.get('at'), files: old.get('files'), sig: old.get('sig'), reviewed: !!old.get('reviewed'), photoSha: old.get('photoSha') || '' }) });
       await qref.set({ n: (q.exists ? q.get('n') : 0) + 1, at: t });
       if (refreshGyms) try { await refreshGyms(body.id); } catch (e) { console.error('gym list refresh', body.id, e); }   // 發佈已成功；清單沒更新由日誌查，下次發佈或牆面變動會重算
-      return { id: body.id, version, current: becomes ? version : old.get('version'), base: baseUrl(body.id, version), owner: ownerKid };
-    },
-    // 轉交：把這面牆的擁有者換成新的發佈金鑰 kid（岩館換 AI 代理時用）。現在的擁有者簽章，或維護者；還沒有擁有者的舊牆只有維護者能認領
-    async transferWall(body, req) {
-      if (!ID.test(body.id || '')) throw fail(400, 'bad id');
-      if (!KID.test(body.newKid || '')) throw fail(400, 'bad kid');
-      const doc = await wall(body.id).get();
-      if (!doc.exists) throw fail(404, 'no wall');
-      const who = await authorize('transferWall', body.id, body.newKid, body, req, doc);
-      if (!who.maintainer && !who.ownerKid) throw fail(403, 'no owner');
-      await wall(body.id).update({ ownerKid: body.newKid });
-      return { id: body.id, owner: body.newKid };
+      return { id: body.id, version, current: becomes ? version : old.get('version'), base: baseUrl(body.id, version) };
     },
   };
   return async (req, res) => {

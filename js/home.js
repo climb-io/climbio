@@ -1,12 +1,12 @@
-// 首頁：選單與長按卡片的動作、右下「＋」、繼續爬、找牆、兩欄小卡。
+// 首頁：選單、右下「＋」、繼續爬、找牆、兩欄小卡。
 // 依序載入（app → home → profile → add-wall → edit → wall → sync → draw → export → mobile → tour → main），共用同一個全域範圍；載入當下只能用到前面檔案宣告的東西，
 // 事件處理、計時器等之後才執行的程式不受限制。啟動與事件綁定放在最後的 main.js。
-// English: Home screen: menus and long-press card actions, the + button, continue climbing, find a wall, card grid.
+// English: Home screen: menus, the + button, continue climbing, find a wall, card grid.
 'use strict';
   // ---------- 首頁「⋯」選單、下方選單（語言、攀爬紀錄、個人資料、牆面、路線、岩館）：打開時多一層紀錄，返回鍵先關掉選單 ----------
   // 點外面、取消、選好了：關掉並退回這一層；接著開別的頁面或對話框的（拍照、接收分享、使用說明…）只關選單，
   // 留下的這一層之後返回時跳過。選單換選單（例如「⋯」→ 語言）共用同一層
-  const LAYERS = ['homeMenu', 'gradeSheet', 'wallSheet', 'routeSheet', 'addSheet', 'sideSheet'];
+  const LAYERS = ['homeMenu', 'gradeSheet', 'wallSheet', 'addSheet', 'sideSheet'];
   const menuLayer = () => !!(history.state && history.state.s === 'menu');
   function openLayer(id) {
     $(id).hidden = false;
@@ -28,7 +28,6 @@
   }
   function dismissMenu() {
     for (const id of LAYERS) $(id).hidden = true;
-    closeCardMenu();
     if (menuLayer()) history.back();
   }
   // 蓋在畫面上的對話框、彈窗（不在 LAYERS 裡的）：開著時多一層返回紀錄，返回只關最上面那個，底下的畫面不動（不然首頁按返回會直接離開 App）。
@@ -39,37 +38,6 @@
   const closeOverlay = (id) => AppKit.backstack.close(id);
   // 返回時（js/wall.js 的 popstate）先問這裡：是 closeOverlay 自己退的、或返回關掉最上面的對話框，回傳 true，不再當成換頁
   const overlayBack = () => AppKit.backstack.handle();
-  // 長按卡片的選單：動作（只有圖示的圓鈕）直接排在被按的那張卡片裡（卡片變暗、螢光綠外框，其他畫面不動、照樣能捲）；點外面或卡片的空白處收起來。
-  // 動作就是那份選單（id）裡看得到的按鈕：按了轉按原本的按鈕，選單本身不打開。開著時多一層返回紀錄，返回手勢先收起來
-  let cardMenu = null;
-  function openCardMenu(id, card) {
-    closeCardMenu();
-    const acts = document.createElement('span'); acts.className = 'card-acts';
-    for (const src of $(id).querySelectorAll('.sheet-btn:not([hidden])')) {
-      const b = document.createElement('span'); b.className = 'card-act' + (src.classList.contains('danger') ? ' danger' : ''); b.setAttribute('role', 'button');
-      b.append(src.querySelector('svg').cloneNode(true)); b.setAttribute('aria-label', src.lastChild.textContent);   // 只放圖示
-      b.onclick = () => src.click();
-      acts.append(b);
-    }
-    acts.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); if (e.target === acts) dismissMenu(); });   // 卡片本身是按鈕：不能打開卡片
-    card.classList.add('acting'); card.append(acts);
-    cardMenu = { card, acts };
-    if (!menuLayer()) history.pushState({ s: 'menu' }, '');
-    if (reduceMotion()) return;
-    acts.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: 'ease-out' });
-    [...acts.children].forEach((b, i) => b.animate([{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'none' }],
-      { duration: 320, delay: 30 + i * 40, easing: 'cubic-bezier(.34, 1.56, .64, 1)', fill: 'backwards' }));
-  }
-  function closeCardMenu() {
-    const m = cardMenu; if (!m) return;
-    cardMenu = null;
-    m.acts.remove(); m.card.classList.remove('acting');
-  }
-  // 按到卡片外面：只收起來，這一下不觸發底下的東西（長按放開的那一下不算：它沒有新的按下）
-  let swallowClick = false;
-  document.addEventListener('pointerdown', (e) => { swallowClick = false; if (cardMenu && !cardMenu.acts.contains(e.target)) { swallowClick = true; dismissMenu(); } }, true);
-  document.addEventListener('click', (e) => { if (swallowClick) { swallowClick = false; e.stopPropagation(); e.preventDefault(); } }, true);
-
   // ---------- 右下「＋」（首頁、牆面頁、看路線圖共用）----------
   // 按了轉成「×」，功能沿著 1/4 圓彈出來（正上方到正左方，看得到的平均排開，按鈕多就排遠一點）。
   // set：要顯示的那一組（沒寫 data-set 的是 'main'）、'' 收起來；同時只開一個；開著時點外面收起來
@@ -275,4 +243,3 @@
       busy = false;
     });
   })();
-  // ---------- 長按卡片打開選單（首頁的牆面、牆面頁的橫幅和路線；長按手勢是 AppKit.gesture.longPress）----------

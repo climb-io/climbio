@@ -98,8 +98,8 @@
 
 /* 桌面滑鼠：以邊框回饋可點選範圍，不縮放卡片，避免照片飛入頁面時的位置跳動。 */
 @media (min-width: 900px) and (hover: hover) and (pointer: fine) {
-  :is(#wallList, #findList) .wall-card:hover:not(.acting),
-  #routeList .route-card:hover:not(.acting),
+  :is(#wallList, #findList) .wall-card:hover,
+  #routeList .route-card:hover,
   html[data-climbio-theme="outdoor"] :is(#cards, #packCards) .card:hover:not(.lifted):not(.dragging) {
     outline: 2px solid color-mix(in srgb, var(--accent) 42%, transparent);
     outline-offset: -2px;

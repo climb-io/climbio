@@ -106,14 +106,6 @@ html.ak-phone .ak-landing { display: flex; flex-direction: column; gap: 22px; ma
 :is(.wall-card, .ak-photo-card) .meta { padding: 10px 4px 6px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 :is(.wall-card, .ak-photo-card) .name { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 :is(.wall-card, .ak-photo-card) .sub { color: var(--muted); font-size: 13px; font-weight: 400; font-variant-numeric: tabular-nums; }
-.acting { box-shadow: 0 0 0 2px var(--accent); }
-.card-acts { position: absolute; inset: 0; z-index: 2; display: flex; flex-wrap: wrap; align-content: center; justify-content: center; gap: 12px 10px; padding: 18px 12px;
-  background: rgba(10,10,11,.7); border-radius: inherit; }
-.card-act { flex: none; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: rgba(255,255,255,.14);
-  transition: background-color .12s, transform .12s, scale .12s; }
-.card-act:active { background: rgba(255,255,255,.26); scale: .92; }
-.card-act svg { width: 23px; height: 23px; }
-.card-act.danger { color: var(--danger); }
 
 .vw-btn { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; pointer-events: auto; color: #fff;
   background: rgba(14,14,15,.55); transition: transform .12s; }   /* 浮在照片上不用模糊：照片縮放、轉場時每格都要重算後面的模糊 */

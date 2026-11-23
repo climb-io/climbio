@@ -15,7 +15,7 @@ function setup() {
   // 這個集合自己的文件（不含子集合的）
   const own = name => [...docs].filter(([p]) => p.startsWith(name + '/') && p.split('/').length === name.split('/').length + 1);
   const coll = name => ({
-    doc: id => ({ get: async () => snap(id, docs.get(`${name}/${id}`)), set: async v => { docs.set(`${name}/${id}`, v); }, update: async v => { docs.set(`${name}/${id}`, { ...docs.get(`${name}/${id}`), ...v }); }, delete: async () => { docs.delete(`${name}/${id}`); } }),
+    doc: id => (assert.ok(!String(id).includes('/'), `Firestore 文件 id 不能有斜線：${id}`), { get: async () => snap(id, docs.get(`${name}/${id}`)), set: async v => { docs.set(`${name}/${id}`, v); }, update: async v => { docs.set(`${name}/${id}`, { ...docs.get(`${name}/${id}`), ...v }); }, delete: async () => { docs.delete(`${name}/${id}`); } }),
     get: async () => ({ docs: own(name).map(([p, d]) => snap(p.split('/').pop(), d)) }),
     where: (f, op, v) => ({ limit: () => ({ get: async () => ({ docs: own(name).filter(([, d]) => (op === '<' ? d[f] < v : d[f] === v)).map(([p, d]) => snap(p.split('/')[1], d)) }) }) }),
   });
@@ -23,7 +23,7 @@ function setup() {
   let now = NOW, checked = true, owner = false;
   const refreshGym = async pid => { calls.push(['refresh', pid]); };
   // 簽章驗證換成假的：auth.kid 就是這把金鑰（真的驗證在 device-key.test.js）
-  const handler = createHandler({ db, now: () => now, refreshGym, appChecked: async () => checked, isOwner: async () => owner, verify: (op, b) => b.auth.kid, verifyOwner: (op, id, auth) => auth.kid });
+  const handler = createHandler({ db, now: () => now, refreshGym, appChecked: async () => checked, isOwner: async () => owner, verify: (op, b) => b.auth.kid });
   // who：裝置金鑰（寫線、收回自己的線要簽）；同時當網路來源
   const call = async (b, who = K1) => {
     const res = { statusCode: 200, set() {}, status(c) { this.statusCode = c; return this; }, json(d) { this.data = d; return this; } };
@@ -115,7 +115,7 @@ test('put 的檢查：沒簽章、格式不對、太大、一次太多、牆太�
   assert.equal((await call(put(['new1']))).statusCode, 413);
   assert.equal(Object.keys(docs.get(`wallRoutes/${PID}`).routes).length, 1000);
   docs.delete(`wallRoutes/${PID}`);
-  docs.set(`putQuota/k:${K1}_${DAY}`, { n: 600 });
+  docs.set(`putQuota/${createHash('sha256').update(`k:${K1}`).digest('hex').slice(0, 28)}_${DAY}`, { n: 600 });
   assert.equal((await call(put(['r1']))).statusCode, 429);
   tick(864e5);
   assert.equal((await call(put(['r1']))).statusCode, 200);
@@ -194,11 +194,11 @@ test('3D 牆的線：帶 e（修點）也收；e 不是物件、太多顆就拒�
   assert.equal((await call(one('r4', { pad: 'x'.repeat(24000) }))).statusCode, 400);
 });
 
-test('unpublish：只有擁有者身分能下架；拿掉入口和所有人的線，重複呼叫沒事，重新發佈就回來', async () => {
+test('unpublish：只有維護者身分能下架；拿掉入口和所有人的線，重複呼叫沒事，重新發佈就回來', async () => {
   const { call, docs, calls, asOwner } = setup();
   await call(body());
   docs.set(`wallRoutes/${PID}`, { routes: { r1: { uid: `k:${K1}`, t: 1, r: '{}' } }, t: 1 });
-  assert.equal((await call({ op: 'unpublish', pid: PID })).statusCode, 401);   // 不是擁有者：拒絕
+  assert.equal((await call({ op: 'unpublish', pid: PID })).statusCode, 401);   // 不是維護者：拒絕
   assert.ok(docs.get(`shared/${PID}`).src);
   asOwner(true);
   assert.deepEqual((await call({ op: 'unpublish', pid: PID })).data, { removed: true });
@@ -210,15 +210,26 @@ test('unpublish：只有擁有者身分能下架；拿掉入口和所有人的�
   assert.ok(docs.get(`shared/${PID}`).src);
 });
 
-test('unpublish：發佈金鑰的擁有者本人能下架，別把金鑰和沒有擁有者的舊牆不行', async () => {
-  const { call, docs } = setup();
+test('網站來源身分（內嵌頁 iframe 提交）：同一個網站所有人提交的線都在 o:<來源> 名下，這個網站能更新、刪除自己的全部，別的來源和裝置金鑰動不了', async () => {
+  const { call, docs, appCheck } = setup();
   await call(body());
-  const withOwner = kid => docs.set(`datasets/${PROJECT}`, { ...PACKAGE, ownerKid: kid });
-  assert.equal((await call({ op: 'unpublish', pid: PID, auth: { kid: K1 } })).statusCode, 403);   // 舊牆：沒有擁有者，只有維護者
-  withOwner(K1);
-  const other = await call({ op: 'unpublish', pid: PID, auth: { kid: K2 } });
-  assert.equal(other.statusCode, 403); assert.equal(other.data.error, 'not owner');
-  assert.ok(docs.get(`shared/${PID}`).src);
-  assert.deepEqual((await call({ op: 'unpublish', pid: PID, auth: { kid: K1 } })).data, { removed: true });
-  assert.equal(docs.get(`shared/${PID}`).src, undefined);
+  const A = 'https://gym.example.com', B = 'https://other.example.com';
+  const site = (origin, o) => ({ ...put(['s1', 's2']), site: origin, ...o });
+  assert.deepEqual((await call(site(A))).data, { ok: true, results: { s1: 'ok', s2: 'ok' } });
+  assert.equal(docs.get(`wallRoutes/${PID}`).routes.s1.uid, `o:${A}`);
+  assert.deepEqual((await call(site(A))).data.results, { s1: 'ok', s2: 'ok' });   // 同一個網站：更新自己的
+  assert.deepEqual((await call(site(B))).data.results, { s1: 'taken', s2: 'taken' });   // 別的網站來源動不了
+  assert.deepEqual((await call(put(['s1']), K2)).data.results, { s1: 'taken' });   // 裝置金鑰也不行
+  assert.deepEqual((await call({ op: 'put', pid: PID, site: A, del: ['s1'] })).data.results, { s1: 'ok' });   // 這個網站刪自己的
+  assert.deepEqual(Object.keys(docs.get(`wallRoutes/${PID}`).routes), ['s2']);
+  // 來源不合格、不是 put、沒有 App Check、被擋的來源
+  for (const bad of ['null', 'http://evil.com', 'https://a.com/x', 'https://u:p@a.com', '', 5]) assert.equal((await call(site(bad))).data.error, 'bad site', String(bad));
+  assert.equal((await call({ op: 'withdraw', pid: PID, site: A })).data.error, 'bad site op');
+  appCheck(false);
+  assert.equal((await call(site(A))).data.error, 'app check');
+  appCheck(true);
+  const sha = (await import('node:crypto')).createHash('sha256').update(A).digest('hex').slice(0, 28);
+  docs.set(`deviceKeys/site${sha}`, { blocked: true });
+  assert.equal((await call(site(A))).statusCode, 403);
+  assert.equal((await call(site(B, { routes: [{ id: 's9', r: route('s9') }] }))).statusCode, 200);   // 只擋被封鎖的來源
 });

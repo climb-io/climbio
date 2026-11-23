@@ -53,7 +53,7 @@ export function clipPolygon(poly, planes, spare = () => 0) {
 // 修點的外框照描的線切開網格：修點是從一個鏡頭描的多邊形，每條邊跟鏡頭位置定出一個平面，跨過外框的三角形沿這些平面切開，
 // 切出來的小塊照重心投影在不在多邊形裡分給這顆或外面。這樣光暈和點選的範圍就是描的線（量體的直線邊是直線），
 // 不會變成貼圖像素或三角面的鋸齒（量體的邊在側面，一個像素拉得很長）。
-// cuts：[{ idx, faces（要看的面，原本的編號）, eye（鏡頭位置）, rays（多邊形每個頂點從鏡頭出去的方向）, poly（畫面座標）, project(p)→[x,y]|null, guests（裝在上面、留給自己的岩點編號） }]，座標都在模型的座標系。
+// cuts：[{ idx, faces（要看的面，原本的編號）, eye（鏡頭位置）, rays（多邊形每個頂點從鏡頭出去的方向）, poly（畫面座標）, project(p)→[x,y]|null, guests（裝在上面、留給自己的岩點編號）, keep（只改跟牆的交界：別顆的面都不動） }]，座標都在模型的座標系。
 // 回傳新的 positions/uvs/fade/index/faceLabels，和 parent（每個新三角形是原本第幾個）、inside（每個新三角形落在哪顆修點的外框裡，0 是都不在）
 export function cutOutlines({ positions, uvs, fade, index, faceLabels, cuts, inside: within }) {
   const P = Array.from(positions), UV = Array.from(uvs), FD = fade ? Array.from(fade) : new Array(positions.length / 3).fill(0);
@@ -78,7 +78,7 @@ export function cutOutlines({ positions, uvs, fade, index, faceLabels, cuts, ins
       const bx = [Math.min(s[0][0], s[1][0], s[2][0]), Math.min(s[0][1], s[1][1], s[2][1]), Math.max(s[0][0], s[1][0], s[2][0]), Math.max(s[0][1], s[1][1], s[2][1])];
       const cross = planes.filter(q => q.box[0] <= bx[2] && q.box[2] >= bx[0] && q.box[1] <= bx[3] && q.box[3] >= bx[1]);
       const L0 = L[f], label = (inP) => inP ? ((c.guests && c.guests.has(L0)) ? L0 : c.idx) : (L0 === c.idx ? 0 : L0);
-      if (inV[0] === inV[1] && inV[1] === inV[2] && !cross.length) { L[f] = label(inV[0]); if (inV[0]) ins[f] = c.idx; continue; }
+      if (inV[0] === inV[1] && inV[1] === inV[2] && !cross.length) { L[f] = label(inV[0]); if (inV[0] && (!c.keep || L[f] === c.idx)) ins[f] = c.idx; continue; }
       let pieces = [v];
       for (const q of cross) pieces = pieces.flatMap(p => split(p, x => dot(q.n, x) - q.d).filter(x => x.length >= 3));
       const tris = [];
@@ -90,7 +90,7 @@ export function cutOutlines({ positions, uvs, fade, index, faceLabels, cuts, ins
         const lab = label(inP);
         if (j > 0) { I.push(0, 0, 0); L.push(lab); parent.push(orig); ins.push(0); list.push(g); } else L[g] = lab;
         I[g * 3] = add(t[0]); I[g * 3 + 1] = add(t[1]); I[g * 3 + 2] = add(t[2]);
-        if (inP) ins[g] = c.idx;
+        if (inP && (!c.keep || lab === c.idx)) ins[g] = c.idx;   // keep（只改跟牆的交界）：別顆的面不算這顆的外框裡，不填
       });
       kids.set(orig, list);
     }

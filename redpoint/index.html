@@ -54,6 +54,11 @@
   .btn { min-height: 44px; padding: 0 20px; }
   .btn.big { width: 100%; max-width: 420px; min-height: 52px; font-size: 17px; }
   .text-btn { padding: 8px 10px; font-weight: 700; color: var(--accent); }
+  .rp-more { position: fixed; z-index: 60; min-width: 168px; padding: 6px; border-radius: 16px; background: var(--surface-2); border: 1px solid var(--line); box-shadow: 0 20px 50px var(--shadow); display: flex; flex-direction: column; animation: acct-in .2s var(--spring) both; transform-origin: top right; }
+  .rp-more button { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; font-weight: 600; text-align: left; color: inherit; }
+  .rp-more button:active { background: var(--line); }
+  .rp-more button.danger { color: var(--danger); }
+  .rp-more svg { width: 20px; height: 20px; flex: none; }
   .skel { background: linear-gradient(100deg, var(--surface-2) 30%, var(--line) 50%, var(--surface-2) 70%) 0 0 / 300% 100%; animation: skel 1.4s linear infinite; }
 
   /* 頁面：一次一頁，全螢幕疊在一起 */
@@ -477,6 +482,7 @@
   <symbol id="i-paw" viewBox="0 0 24 24"><g fill="currentColor"><path d="M12 11.2c-2.9 0-6.2 3.3-6.2 6.1 0 1.9 1.4 2.9 3 2.9 1.3 0 2.1-.7 3.2-.7s1.9.7 3.2.7c1.6 0 3-1 3-2.9 0-2.8-3.3-6.1-6.2-6.1z"/><ellipse cx="5.2" cy="10.4" rx="1.9" ry="2.4" transform="rotate(-20 5.2 10.4)"/><ellipse cx="9.2" cy="5.6" rx="2" ry="2.6" transform="rotate(-8 9.2 5.6)"/><ellipse cx="14.8" cy="5.6" rx="2" ry="2.6" transform="rotate(8 14.8 5.6)"/><ellipse cx="18.8" cy="10.4" rx="1.9" ry="2.4" transform="rotate(20 18.8 10.4)"/></g></symbol>
   <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4"/></symbol>
   <symbol id="i-split" viewBox="0 0 24 24"><rect x="4" y="5" width="7" height="14" rx="1.5"/><rect x="13" y="5" width="7" height="14" rx="1.5"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.8" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.8" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></symbol>
   <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="9" r="3.5"/><path d="M5.5 19c1.2-3 3.6-4.5 6.5-4.5s5.3 1.5 6.5 4.5"/></symbol>
   <symbol id="i-sign" viewBox="0 0 24 24"><path d="M4 17c3-5 5-8 7-8 1.5 0-1 6 1 6 1.5 0 2.5-3 4-3 1 0 1 2 4 2"/><path d="M4 21h16"/></symbol>
@@ -505,7 +511,7 @@
   <header class="bar">
     <button class="icon-btn" id="packBack" data-i18n-aria="back" aria-label="返回"><svg><use href="#i-back"/></svg></button>
     <h1 class="pk-title" id="packTitle" aria-hidden="true"></h1>
-    <button class="icon-btn" id="packShare" data-i18n-aria="share" aria-label="分享"><svg><use href="#i-share"/></svg></button>
+    <button class="icon-btn" id="packMore" data-i18n-aria="more" aria-label="更多" aria-haspopup="true"><svg><use href="#i-more"/></svg></button>
   </header>
   <div class="banner" id="packBanner"><img alt=""><div class="cap"><b></b><span></span></div>
     <div class="bn-acts"><a class="bn-btn" id="packSource" data-i18n-aria="sourceData" aria-label="原始資料" target="_blank" rel="noopener noreferrer" hidden><svg><use href="#i-doc"/></svg></a><button class="bn-btn" id="packWay" data-i18n-aria="access" aria-label="交通" hidden><svg><use href="#i-way"/></svg></button><button class="bn-btn" id="packArea" data-i18n-aria="areaPhotos" aria-label="區域照片" hidden><svg><use href="#i-map"/></svg></button></div></div>
@@ -593,7 +599,7 @@
   <header class="vw">
     <button class="vw-btn vw-back" id="closeTopo" data-i18n-aria="back" aria-label="返回"><svg><use href="#i-back"/></svg></button>
     <div class="tp-where" id="topoWhere" hidden><b></b><span></span></div>
-    <button class="vw-btn vw-share" id="shareTopo" data-i18n-aria="share" aria-label="分享"><svg><use href="#i-share"/></svg></button>
+    <button class="vw-btn vw-share" id="topoMore" data-i18n-aria="more" aria-label="更多" aria-haspopup="true"><svg><use href="#i-more"/></svg></button>
   </header>
   <button class="vw-btn tp-nav tp-prev" id="topoPrev" data-i18n-aria="prevPhoto" aria-label="上一張" hidden><svg><use href="#i-back"/></svg></button>
   <button class="vw-btn tp-nav tp-next" id="topoNext" data-i18n-aria="nextPhoto" aria-label="下一張" hidden><svg><use href="#i-back"/></svg></button>

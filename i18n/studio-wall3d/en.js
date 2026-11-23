@@ -94,5 +94,6 @@ AppKit.i18n.add('studio-wall3d', 'en', {
   w3Tried: 'Marked as tried',
   w3TrialReadOnly: 'A trial link can only report problems, not edit the wall',
   w3TrialExpired: 'This trial link has expired or was replaced. Ask for a new one.',
+  w3TrialStale: 'The trial build does not match this wall. Ask for a new link.',
   w3TryBaking: 'Preparing the trial: baking it as it will be published',
 });

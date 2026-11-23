@@ -255,9 +255,10 @@
   dialog details.adv { margin: 4px 0 8px; font-size: 14px; }
   dialog details.adv summary { cursor: pointer; color: var(--muted); }
   dialog .cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 12px; margin-top: 10px; }
-  #pubUnlistedRow { display: flex; flex-direction: row; align-items: flex-start; gap: 8px; margin: 10px 0 0; color: var(--text); font-size: 14px; }
-  #pubUnlistedRow input { margin-top: 3px; }
-  #pubUnlistedRow small { display: block; color: var(--muted); font-size: 12px; }
+  #pubCountryRow { margin: 10px 0 0; }
+  #pubCountryRow.need span { color: #e5484d; font-weight: 600; }
+  #pubCountryRow.need select { border-color: #e5484d; }
+  #pubMsg { font-weight: 600; }
   dialog .cols label { flex-direction: row; align-items: center; gap: 6px; margin: 0; color: var(--text); font-size: 14px; }
   /* 區域圖的右邊：區域清單（區域、岩壁、岩石照節點樹，顏色跟路線表格一樣）；點一列選地圖上的形狀，點地圖這裡跟著亮 */
   #book[data-focus="map"] #walls { display: none; }

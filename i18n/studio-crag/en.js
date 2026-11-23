@@ -349,8 +349,8 @@
     cgBigRename: (why, name) => `This is a big change (${why}) and will be published as a new crag: first give it a name different from "${name}" in Crag info.`,
     cgPublishedNew: "Published as a new crag (version 1)",
     // Unlisted (publish dialog)
-    cgUnlisted: "Don't list in the world",
-    cgUnlistedHint: "Not on the world map or list; only people with the link can open it. Files are still in the open dataset, so it is low-key, not secret.",
+    cgCountryReq: "Country (required): the world is grouped by country",
+    cgPickCountry: "Choose a country…",
     cgPublishedUnlisted: "Unlisted: send the link to the people you want to share with.",
     // Version history (studio/crag/versions.js)
     cgSameAsSource: "Same as the imported version: make a change to publish",
@@ -359,7 +359,7 @@
     cgAttrFix: "Tidy credit",
     cgNeedRemix: "The open dataset only accepts CC BY-SA 4.0: this crag is set to no derivatives, so allow adaptations to publish, or export a ZIP instead",
     cgRemixFix: "Allow adaptations",
-    cgNeedCountry: "Choose a country in Crag info first: Redpoint Cat's world groups crags by country, and crags without one go to Other at the end",
+    cgNeedCountry: "Choose a country above to publish: the world is grouped by country",
     cgWorldOk: (name) => `Now in Redpoint Cat's world under "${name}"`,
     cgWorldWrong: (cc) => `The world list shows country "${cc}", not the one chosen for this crag`,
     cgWorldLate: "The world list hasn't updated yet (up to 5 minutes); check Redpoint Cat's world shortly",

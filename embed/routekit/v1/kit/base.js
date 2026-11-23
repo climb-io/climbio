@@ -274,9 +274,27 @@
   // mode：'gray' 灰階、'dim' 暗彩；tint 見 routeLayer；glow：{ roles, colors, dpr? }，沒給就沒有光暈
   function drawRouteBase(c, scene, routeHolds, { mode = 'gray', tint = true, glow } = {}) {
     c.drawImage(scene.plain(mode), 0, 0);
-    if (glow) drawGlow(c, routeHolds, glow.roles, glow.colors, glow.dpr);
-    const L = scene.routeLayer(routeHolds, { tint });
-    if (L) c.drawImage(L.c, L.x, L.y);
+    glowLayered(c, routeHolds, glow, scene.routeLayer(routeHolds, { tint }));
+  }
+  // 疊在別顆路線岩點上的路線岩點（例如 volume 上的點）：它的光暈在 volume 的原色圖層下面會被蓋掉，
+  // 所以這些點的光暈改畫在圖層上面，岩點裡面不蓋（挖掉外框內側），只留外圈
+  function nestedHolds(routeHolds) {
+    return routeHolds.filter(h => {
+      const b = bbox(h.poly), x = (b.x0 + b.x1) / 2, y = (b.y0 + b.y1) / 2, a = area(h.poly);
+      return routeHolds.some(o => o !== h && area(o.poly) > a && inPoly(x, y, o.poly));
+    });
+  }
+  function glowLayered(c, routeHolds, glow, layer) {
+    const nest = glow ? nestedHolds(routeHolds) : [], outer = nest.length ? routeHolds.filter(h => !nest.includes(h)) : routeHolds;
+    if (glow) drawGlow(c, outer, glow.roles, glow.colors, glow.dpr);
+    if (layer) c.drawImage(layer.c, layer.x, layer.y);
+    if (!nest.length) return;
+    c.save();
+    c.beginPath(); c.rect(-1e6, -1e6, 2e6, 2e6);
+    for (const h of nest) tracePoly(c, h.poly);
+    c.clip('evenodd');
+    drawGlow(c, nest, glow.roles, glow.colors, glow.dpr);
+    c.restore();
   }
 
   // 畫在線條層（螢幕解析度、照片座標的轉換）上的光暈：順序跟 drawRouteBase 一樣——光暈在下、路線岩點的原色圖層（layer，沒給就不蓋）蓋在上面，
@@ -284,8 +302,7 @@
   // 寬度照螢幕點算，放大縮小一樣寬（底圖是照片大小的畫布、用 CSS 縮放時，光暈要畫在這一層才不會跟著照片變粗變細）
   function glowAround(c, routeHolds, roles, colors, dpr = 1, layer = null) {
     if (!routeHolds.length) return;
-    drawGlow(c, routeHolds, roles, colors, dpr);
-    if (layer) c.drawImage(layer.c, layer.x, layer.y);
+    glowLayered(c, routeHolds, { roles, colors, dpr }, layer);
   }
 
   return { liftTint, tintCard, grayOf, plainGrayOf, mutedOf, routeLayers, routeMask, routeLayer, drawRouteBase, glowAround };

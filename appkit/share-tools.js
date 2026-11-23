@@ -234,13 +234,16 @@
   // 從貼上的文字取出分享的路線：路線連結 /r/{照片編號}/{路線 id}/，或 App 網址 ?p=照片編號&r=路線 id（任何網域）。
   // src＝這條線在哪台伺服器（路線連結的資料夾，後面接 route.json：路線圖層）；本機預覽沒有雲端函式，改讀開發版
   const DEV_SITE = 'https://climbio-dev.web.app';
+  const SHORT_WALL = /^[\w-]{8,40}\/[\w.-]{1,64}$/;
   function linkFrom(text) {
     const m = String(text || '').match(/https?:\/\/\S+/);
     if (!m) return null;
     try {
       const u = new URL(m[0]), p = u.pathname.match(/^\/r\/([^/]+)\/([^/]+)/), wall = u.searchParams.get('wall');
       // 牆的連結（?wall＝公開格式的牆畫面、路線圖層，或同一面牆的幾張照片的組合）；再帶 r＝圖層裡的那一條線（分享一條線）
-      if (wall) return REMOTE.test(wall) ? { wall, ...(RID_RE.test(u.searchParams.get('r') || '') ? { rid: u.searchParams.get('r') } : {}) } : null;
+      // 短連結 ?wall=專案id/檔名：補成這個站的 /p/專案id/檔名（分享牆面用，網址短）
+      const full = SHORT_WALL.test(wall || '') ? `${/^(localhost|127\.0\.0\.1)$/.test(u.hostname) ? DEV_SITE : u.origin}/p/${wall}` : wall;
+      if (wall) return REMOTE.test(full) ? { wall: full, ...(RID_RE.test(u.searchParams.get('r') || '') ? { rid: u.searchParams.get('r') } : {}) } : null;
       const pid = p ? p[1] : u.searchParams.get('p'), rid = p ? decodeURIComponent(p[2]) : u.searchParams.get('r');
       if (!PID_RE.test(pid || '') || !RID_RE.test(rid || '')) return null;
       const site = /^(localhost|127\.0\.0\.1)$/.test(u.hostname) ? DEV_SITE : u.origin;

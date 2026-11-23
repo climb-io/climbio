@@ -791,6 +791,7 @@
     (async () => {
       for (const p of st.pairs) { const r = await roomOfPsk(p.psk); p.room = r; st.rooms.set(r, p); }
       if (!devices) st.items = (await Promise.resolve(o.list(false)).catch(() => [])).map((x) => ({ ...x }));
+      if (!devices && o.pick) for (const i of st.items) if (o.pick.includes(i.id)) st.pick.add(i.id);   // 從牆面頁分享：這面牆先選好
       if (st.closed) return;
       render(); if (endpoint) poll();
     })();
@@ -799,7 +800,7 @@
 
   /**
    * 附近交換（mode: 'send'）或我的裝置（mode: 'devices'）的入口，岩點貓、紅點貓、Studio 共用的接線：確認暱稱 → 打開。
-   * adapter：{ app, label（字串或回傳字串的函式）, suggested?（暱稱的建議，可以是 async 函式）, list, pack, take, sharePair?, takePair?, onClose? }，其餘跟 open 一樣；endpoint 取自站台設定 SITE.cloud.nearby。
+   * adapter：{ app, label（字串或回傳字串的函式）, suggested?（暱稱的建議，可以是 async 函式）, pick?（傳給別人時先選好的項目 id 清單）, list, pack, take, sharePair?, takePair?, onClose? }，其餘跟 open 一樣；endpoint 取自站台設定 SITE.cloud.nearby。
    * 回傳 open 的結果；使用者沒設暱稱就取消時回 null
    */
   async function start(mode, adapter) {
