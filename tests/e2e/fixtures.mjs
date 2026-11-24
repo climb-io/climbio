@@ -9,7 +9,7 @@ export const test = base.extend({
   page: async ({ page, inBrowser }, use) => {
     if (!inBrowser) await page.addInitScript(() => { if (location.pathname.startsWith('/redpoint/')) Object.defineProperty(navigator, 'standalone', { get: () => true }); });
     // 本機預覽預設不接後端（site.js）；測試要主網的後端介面，各例再換成假的
-    await page.addInitScript(() => { localStorage.setItem('climbio.site.main', '1'); });
+    await page.addInitScript(() => { localStorage.setItem('climbio.site.main', '1'); window.climbioShareDelay = 2500; window.climbioModelsOk = true; });   // climbioModelsOk：辨識用的資料當作已經下載齊（要測第一次下載的案例自己拿掉）   // 公開牆的線自動傳：測試縮短等待（正式是改完停 30 秒）
     // 分享的替身（Backend.shareRoutes：牆的照片由第一個發佈的人傳到他的 Drive、線存在 Climbio）：fakeShare(每條路線的假伺服器)。
     // 假伺服器拿到 { pid, gym, wall, route, photo, base, signature }，回 false＝更新（不是新建），
     // 丟錯＝整次呼叫失敗（跟伺服器回錯一樣）。Drive 授權當作已經有（driveReady），不連 Google、Firebase

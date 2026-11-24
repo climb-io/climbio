@@ -186,9 +186,11 @@
     return failed;
   }
   // 公開牆上定好的線（有起攀、完攀）就公開：存線後等一下自動傳（沒網路、沒暱稱就先留著，下次存線或開牆再傳）；自己的線隨時可以刪，刪了就從公開牆拿掉（dropLine）。
-  let autoTimer = 0;
-  function autoShare(id) {
+  // 改完停 30 秒才傳（編輯中每動一下不傳）；離開畫面（切到背景）馬上傳。測試用 climbioShareDelay 縮短
+  let autoTimer = 0, autoId = '';
+  function autoShare(id, now = false) {
     clearTimeout(autoTimer);
+    autoId = id;
     autoTimer = setTimeout(async () => {
       try {
         if (navigator.onLine === false || !AppKit.nearby.nickname()) return;
@@ -197,10 +199,11 @@
         const rids = pendingRoutes(w).map(r => r.id);
         if (rids.length) await pushWall(id, rids);
       } catch (e) { console.warn('公開牆上的線沒傳上去', e); }
-    }, 2500);
+    }, now ? 0 : self.climbioShareDelay ?? 30000);
   }
   self.climbioAutoShare = autoShare;
   addEventListener('online', () => { if (state.wall) autoShare(state.wall.id); });   // 連上網就補傳
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && autoTimer && autoId) autoShare(autoId, true); });   // 切到背景：有等著傳的就現在傳
   // 新增、修改與重新命名先存本機；公開牆上定好的線由 autoShare 自動公開。
   // 刪除：記刪除紀錄；自己傳過的公開線馬上從公開牆拿掉
   function dropLine(w, r) {

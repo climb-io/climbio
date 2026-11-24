@@ -19,6 +19,8 @@ const dayKey = ms => new Date(ms + 8 * 3600e3).toISOString().slice(0, 10);
 const baseUrl = (id, version) => `https://huggingface.co/datasets/${REPO}/resolve/main/walls/${id}/v${version}/`;
 const sha = (bytes, algo = 'sha256') => createHash(algo).update(bytes).digest('hex');
 const INDEX = 'walls.jsonl', LICENSE = 'CC-BY-SA-4.0';
+/** 現行版的指標檔 walls/{包 id}/current.json：內嵌頁直接讀資料集就知道現行版是哪一版，不用呼叫雲端函式（/p/）查 */
+const currentFile = (id, version) => ({ path: `walls/${id}/current.json`, bytes: Buffer.from(JSON.stringify({ climbio: 2, kind: 'current', version })) });
 const isText = path => /\.(json|jsonl|md)$/.test(path);   // 文字放在 commit 裡；JPEG 這類二進位檔 Hub 只收 LFS
 
 /** 誰檢查完的：AI 代理流程的記錄有 ai（reviews 裡有人就是 ai+human）；Studio 的人按「逐顆檢查完了」是 human；沒檢查完不寫 */
@@ -127,7 +129,7 @@ function createHf({ token, repo = REPO, get = fetch }) {
 }
 
 // refreshGyms(包 id)：發佈後重算用到這個包的岩館公開牆清單（gym-walls.js），清單才指到新的現行版
-function createHandler({ db, hf, now = Date.now, refreshGyms = null }) {
+function createHandler({ db, hf, now = Date.now, refreshGyms = null, isOwner = async () => false }) {
   const wall = id => db.collection('datasets').doc(id);
   // 不認人（docs/proposals/open-versions.md）：不登入、不記 owner；額度按網路來源；內容由 wall-check.js 驗證
   const keyOf = req => `ip${sha(clientIp(req)).slice(0, 16)}`;
@@ -164,13 +166,20 @@ function createHandler({ db, hf, now = Date.now, refreshGyms = null }) {
       // 沒有檢查過的版本照樣存成新版本（用固定網址指到它），但新版本沒檢查過、現行版檢查過，或照片換了，現行版不換
       const reviewed = !!row.edits?.reviewed, photoSame = !old.get('photoSha') || old.get('photoSha') === row.photoSha256,   // 跟現行版的照片比（舊資料沒有指紋就不擋）
          becomes = photoSame && (reviewed || !old.get('reviewed'));
-      await hf.commit(`公開 ${body.id} v${version}`, [...files.map(f => ({ path: dir + f.path, bytes: f.bytes })), { path: INDEX, bytes: Buffer.from(upsertRow(idx, row)) }]);
+      await hf.commit(`公開 ${body.id} v${version}`, [...files.map(f => ({ path: dir + f.path, bytes: f.bytes })), { path: INDEX, bytes: Buffer.from(upsertRow(idx, row)) }, ...(becomes ? [currentFile(body.id, version)] : [])]);
       // 留名不留權：歷代署名（畫面的 attribution）沿版本保留，不重複
       const credits = [...new Set([...(old.get('credits') || []), String(JSON.parse(viewFile.bytes).attribution || '')])].filter(Boolean).slice(-20);
       await wall(body.id).set({ owner: '', type: 'walls', name, latest: version, credits, ...(becomes ? { version, at: t, files: files.map(f => f.path), sig, reviewed, photoSha: row.photoSha256 } : { version: old.get('version'), at: old.get('at'), files: old.get('files'), sig: old.get('sig'), reviewed: !!old.get('reviewed'), photoSha: old.get('photoSha') || '' }) });
       await qref.set({ n: (q.exists ? q.get('n') : 0) + 1, at: t });
       if (refreshGyms) try { await refreshGyms(body.id); } catch (e) { console.error('gym list refresh', body.id, e); }   // 發佈已成功；清單沒更新由日誌查，下次發佈或牆面變動會重算
       return { id: body.id, version, current: becomes ? version : old.get('version'), base: baseUrl(body.id, version) };
+    },
+    // 維護者：把所有公開牆的現行版指標檔補寫進資料集（一個 commit；現行版沒變的重寫也是同樣內容）
+    async syncCurrent(body, req) {
+      if (!(await isOwner(req))) throw fail(401, 'maintainer only');
+      const snap = await db.collection('datasets').where('type', '==', 'walls').get(), rows = snap.docs.filter(d => d.get('version'));
+      if (rows.length) await hf.commit('現行版指標檔', rows.map(d => currentFile(d.id, d.get('version'))));
+      return { n: rows.length };
     },
   };
   return async (req, res) => {

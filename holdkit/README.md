@@ -64,10 +64,10 @@ npm 套件（`@climbio/holdkit`）的 `files` 清單：`holdkit.js`、`index.mjs
 
 | 名稱 | 簽章 | 說明 |
 |---|---|---|
-| `configure(cfg)` | 回傳目前設定 | 第一次用之前呼叫。`t(key, ...args)` 訊息翻譯（不給用內建英文）；`db` IndexedDB 名稱（預設 `holdkit-sam`）；`cloudUrl`（網址，或回傳網址的函式；空的＝這次不用雲端）、`idToken(forceRefresh?)`、`appCheck(forceRefresh?)` 雲端重描；`base` holdkit 資料夾網址（`samworker.js`、`ort.js` 所在，不給就用載入 `samrefine.js` 的 `<script>` 所在資料夾，打包工具 import 時必須給）；`decoder`、`encoder` 解碼器、編碼器模型網址（預設 `base` 底下 `models/mobilesam-decoder.onnx`、`models/mobilesam-encoder.onnx`）；`modelCache` Cache API 名稱（模型下載完整才存，下次先讀） |
+| `configure(cfg)` | 回傳目前設定 | 第一次用之前呼叫。`t(key, ...args)` 訊息翻譯（不給用內建英文）；`db` IndexedDB 名稱（預設 `holdkit-sam`）；`cloudUrl`（網址，或回傳網址的函式；空的＝這次不用雲端）、`idToken(forceRefresh?)`、`appCheck(forceRefresh?)` 雲端重描；`base` holdkit 資料夾網址（`samworker.js`、`ort.js` 所在，不給就用載入 `samrefine.js` 的 `<script>` 所在資料夾，打包工具 import 時必須給）；`decoder`、`encoder` 解碼器、編碼器模型網址（預設 `base` 底下 `models/mobilesam-decoder.onnx`、`models/mobilesam-encoder.onnx`）；`modelCache` Cache API 名稱（模型下載完整才存，下次先讀）；`local`（預設 true）false＝不在這台分析照片、不下載編碼器，只問雲端，雲端不能用就丟錯；`encodeBudgetMs`（預設 0＝5 分鐘）在這台分析照片（編碼）的安全上限，超過就結束 Worker、丟 `slow` 為 true 的錯 |
 | `traceWall(src, key, items, status?, { onHolds?, localFallback? })` | `Promise<{ id, poly \| null }[]>` | 整面牆重描：有雲端送雲端；沒有雲端（`cloudUrl` 空的或沒給 `idToken`）或雲端失敗（重試完仍失敗、超過次數）就在 Worker 裡下載編碼器分析照片（存過不再下載），再一顆顆解碼。`localFallback: false`：有雲端時，雲端失敗就丟錯，不在這台描整面牆（`items` 為空陣列時照舊在這台分析照片）。雲端失敗過的 `key` 在這個頁面開著時不再問雲端（`traceWall`、`refine` 直接在這台分析照片；`localFallback: false` 的整面牆重描丟 `samCloudFailed`），`forget(key)`、`clear()` 或重新載入頁面才再試。`src` 是畫布／圖片／ImageBitmap；`key` 是這張照片的識別（例如牆面 id，照片特徵存在 IndexedDB 用它當 key）；`items` ＝ `[{ id, poly, box? }]`（`box` 是提示框，不給用 `poly` 的外框；`items` 為空陣列＝只要照片特徵）。雲端時照片縮成長邊 1024 JPEG 上傳；`onHolds(part)` 每 0.3 秒收到一批；全部描完才 resolve，切不出來的 `poly` 是 `null` |
 | `refine(src, key, poly, status?, { box?, point? })` | `Promise<Poly \| null>` | 單顆重描（Worker，只跑解碼器）。提示用 `poly` 的外框，或 `box`，或 `point: [x, y]`（沒偵測到的岩點，此時 `poly` 傳 `null`）。這張照片沒有特徵就先向雲端要（沒有雲端就在 Worker 裡分析）。同一張照片、同一個提示共用同一個 Promise。一次只做一顆，照順序排隊 |
-| `warm()` | `void` | 背景下載、載入解碼器，接著編碼器（雲端不能用時在這台分析照片）；失敗不丟錯 |
+| `warm()` | `void` | 背景下載、載入解碼器，接著編碼器（`local` 為 false 時只有解碼器）；失敗不丟錯 |
 | `hasEmb(key)` | `Promise<boolean>` | 有沒有這張照片的特徵 |
 | `forget(key)` | `Promise<void>` | 刪掉一張照片的特徵 |
 | `clear()` | `Promise<void>` | 刪掉全部 |

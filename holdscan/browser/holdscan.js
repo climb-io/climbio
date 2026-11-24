@@ -2,7 +2,7 @@
 // 要放在網站上的檔案見 holdscan/README.md（含旁邊的 holdkit/ort.js），用 <script> 載入這個檔，掛在全域 HoldScan。
 //
 // 用法：
-//   HoldScan.configure({ cache })                           模型快取（Cache API）的名稱：網頁先下載好存在那裡，Worker 直接讀
+//   HoldScan.configure({ cache, model })                    cache：模型快取（Cache API）的名稱：網頁先下載好存在那裡，Worker 直接讀；model：模型的網址（不給就是 holdscan/models/ 底下的檔案）
 //   HoldScan.warm()                                         先在背景下載、載入模型（例如使用者選照片時）
 //   const { boxes } = await HoldScan.detect(canvas, status)  boxes：[[x0, y0, x1, y1, score], ...]（canvas 的座標）；
 //                                                           status(key)：進度，'detDownload'（下載模型）、'detFinding'（偵測中）；失敗的 Error 帶 download: true ＝下載模型失敗
@@ -11,12 +11,12 @@
   'use strict';
   const WORKER_URL = new URL('worker.js', document.currentScript.src).href;
   const jobs = new Map();
-  let worker = null, seq = 0, cache = '';
+  let worker = null, seq = 0, cache = '', model = '';
 
   function getWorker() {
     if (!worker) {
       worker = new Worker(WORKER_URL);
-      if (cache) worker.postMessage({ type: 'config', cache });
+      if (cache || model) worker.postMessage({ type: 'config', cache, model });
       worker.onmessage = ({ data: m }) => {
         const job = jobs.get(m.id);
         if (!job) return;
@@ -39,7 +39,7 @@
   });
 
   // cache：模型的 Cache API 名稱；網頁先下載好存在那裡，Worker 直接讀（沒設就自己下載）
-  const configure = (o) => { cache = o.cache || ''; if (worker && cache) worker.postMessage({ type: 'config', cache }); };
+  const configure = (o) => { cache = o.cache || ''; model = o.model || ''; if (worker && (cache || model)) worker.postMessage({ type: 'config', cache, model }); };
   const warm = () => call({ type: 'warm' }).then(() => {}, () => {});   // 失敗不用管：真的偵測時會再試、再回報
   async function detect(canvas, status) {
     const image = await createImageBitmap(canvas);

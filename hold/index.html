@@ -451,6 +451,21 @@ html{background:#0e0e0f}
 </div>
 
 
+<!-- 第一次新增牆面要下載辨識用的資料（約 72 MB）：跟收牆同一個全螢幕畫面，貓咪在學認岩點，百分比往上跳，短句輪播；下載完按「開始」才拍照、選照片（js/add-wall.js 的 ensureModels） -->
+<div class="recv-page" id="modelsPage" role="dialog" aria-modal="true" aria-labelledby="mdTitle" hidden>
+  <div class="rv-box md-box">
+    <div class="md-cat" id="mdCatBox" aria-hidden="true"></div>   <!-- 貓咪：打開時從 #i-mascot 複製一份（動畫要完整的 SVG，js/mascot-motion.js） -->
+    <h2 class="md-title" id="mdTitle"></h2>
+    <p class="md-ask" id="mdAsk"></p>
+    <p class="rv-count" id="mdCount" hidden><b id="mdPct">0</b><span>%</span></p>
+    <div class="md-bar" id="mdBarBox" hidden><i id="mdBar"></i></div>
+    <p class="rv-status md-fun" id="mdStatus" role="status"></p>
+    <div class="rv-ask-btns md-btns" id="mdBtns"><button class="btn" id="mdNo" type="button" data-i18n="cancel">取消</button><button class="btn primary" id="mdYes" type="button"></button></div>
+    <button class="btn primary rv-go" id="mdGo" type="button" hidden></button>
+  </div>
+  <button class="vw-btn rv-x" id="mdClose" data-i18n-aria="close" aria-label="關閉"><svg><use href="#i-plus"/></svg></button>
+</div>
+
 <!-- 第一次使用的導覽：首次打開時顯示，看完或略過後不再出現；選單「使用說明」改為正式文件。 -->
 <!-- 體驗版（瀏覽器裡、還沒加到主畫面）：首頁換成簡單的介紹＋加到主畫面的步驟；收到的線照樣能看，編輯類的功能換成下面這條 -->
 <section class="landing" id="landing" hidden>

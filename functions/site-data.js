@@ -95,7 +95,7 @@ async function sendSiteData(res, { db, origin, listed, p }) {
     if (p.file === 'thumb.jpg') return await sendThumb(res, { db, pid: p.pid, none });
     if (p.file === 'shared.json') return res.set('Cache-Control', SHARED_CACHE).json(await sharedData({ db, pid: p.pid }));
     const data = await routesData({ db, origin, pid: p.pid });
-    return data ? res.set('Cache-Control', LIST_CACHE).json(data) : none();
+    return data ? res.set('Cache-Control', SHARED_CACHE).json(data) : none();
   } catch (e) {
     console.error('公開牆面資料失敗', e);
     return res.set('Cache-Control', 'no-store').status(500).json({ error: 'unavailable' });

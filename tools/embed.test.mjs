@@ -5,7 +5,7 @@ import { outputs } from './build-embed.mjs';
 import { readFileSync, existsSync } from 'node:fs';
 
 const require = createRequire(import.meta.url);
-const { connect, decodePhoto, fullscreen, resolveInit, dataUrl } = require('../embed/shared/embed.js');
+const { connect, decodePhoto, fullscreen, resolveInit, expandInit, dataUrl } = require('../embed/shared/embed.js');
 
 // 內嵌頁共用的訊息外框（embed/shared/embed.js）：只收父視窗、第一個一定是 init、之後只收發 init 的來源
 function setup(handlers) {
@@ -101,11 +101,19 @@ test('init 的資料：只給 wallId，網址由內嵌頁補（照片走 /p/ 導
   const VW = `https://climbio.app/p/${W}.json`, PW = `https://climbio.app/p/${W}.jpg`, LW = 'https://climbio.app/w/wall12345678/routes.json';
   const files = { [VW]: '{"id":"v"}', [PW]: new Uint8Array([1]), [LW]: '{"id":"l"}' };
   assert.deepEqual((await resolveInit({ wallId: W }, fakeFetch(files, calls))).layers.map((l) => l.id), ['l']);
-  assert.deepEqual(calls.map((c) => c.url).sort(), [LW, PW, VW].sort());
+  assert.deepEqual(calls.map((c) => c.url).filter((u) => !u.endsWith('current.json')).sort(), [LW, PW, VW].sort());   // 指標檔讀不到：走 /p/
   assert.deepEqual((await resolveInit({ wallId: W }, fakeFetch({ [VW]: '{"id":"v"}', [PW]: new Uint8Array([1]) }))).layers, []);
   assert.deepEqual((await resolveInit({ wallId: W, layerUrls: [] }, fakeFetch(files))).layers, []);
   await assert.rejects(resolveInit({ wallId: W, layerUrls: [L1] }, fakeFetch({ [VW]: '{}', [PW]: new Uint8Array([1]) })), /layerUrls\[0\]/);
   await assert.rejects(resolveInit({ wallId: '../x' }, fakeFetch({})), /wallId/);
+});
+test('init 的資料：wallId 先讀資料集的 current.json，畫面和照片直接讀那一版（不經 climbio.app/p/）', async () => {
+  const W = '0123456789abcdef/wall12345678', HF = 'https://huggingface.co/datasets/climbio/walls/resolve/main/walls/0123456789abcdef', calls = [];
+  const files = { [`${HF}/current.json`]: '{"version":5}', [`${HF}/v5/wall12345678.json`]: '{"id":"v5"}', [`${HF}/v5/wall12345678.jpg`]: new Uint8Array([1]) };
+  const out = await resolveInit({ wallId: W }, fakeFetch(files, calls));
+  assert.equal(out.view.id, 'v5');
+  assert.deepEqual(calls.map((c) => c.url).filter((u) => u.startsWith('https://climbio.app/p/')), []);
+  assert.equal((await expandInit({ wallId: W }, fakeFetch(files))).viewHref, `https://climbio.app/p/${W}.json`);   // 圖層的畫面路徑仍是穩定的 /p/
 });
 test('init 的資料：訊息直接帶的 view、layers、photo 不收，一定要給網址', async () => {
   await assert.rejects(resolveInit({ view: { id: 'v' }, layers: [], photo: new Blob([]) }, fakeFetch({})), /viewUrl/);

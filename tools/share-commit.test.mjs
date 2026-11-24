@@ -49,20 +49,20 @@ const ops = s => s.calls.map(c => `${c.name}.${c.body.op}`);
 const published = (name, b) => (b.op === 'routes' ? [200, { published: true, routes: [] }] : null);
 
 test('牆還沒公開（手機自己拍的牆）：什麼都不傳，不上傳照片、不登記、不寫線，丟 code: private', async () => {
-  const s = setup();
+  const s = setup({ replies: (name, b) => (b.op === 'put' ? [404, { error: 'no wall' }] : null) });
   await assert.rejects(s.api.shareRoutes(body()), { code: 'private' });
-  assert.deepEqual(ops(s), ['walls.routes']);   // 只問了這面牆有沒有公開
+  assert.deepEqual(ops(s), ['walls.put']);   // 不先問牆有沒有公開（少一次呼叫）：直接傳，伺服器回 404 就是還沒公開
   assert.ok(s.calls.every(c => c.auth === undefined), '沒有帳號，沒有 Authorization');
 });
 
 test('牆已經公開了：不再傳包、不登記，只把自己的線存到 Climbio；之後改線、加線、刪線一次 put；牆名改了也不重發包', async () => {
   const t = setup({ replies: published });
   await t.api.shareRoutes(body());
-  assert.deepEqual(ops(t), ['walls.routes', 'walls.put']);
+  assert.deepEqual(ops(t), ['walls.put']);
   t.calls.length = 0;
   await t.api.shareRoutes(body({ routes: [{ route: { id: 'r2', t: 4 }, k: 'k2' }], wall: '新牆名' }));
-  assert.deepEqual(ops(t), ['walls.routes', 'walls.put']);
-  assert.deepEqual(t.calls[1].body.routes.map(x => x.id), ['r2']);
+  assert.deepEqual(ops(t), ['walls.put']);
+  assert.deepEqual(t.calls[0].body.routes.map(x => x.id), ['r2']);
   t.calls.length = 0;
   assert.deepEqual(plain(await t.api.unshareRoutes(PID, ['r1', 'r2'])), { results: { r1: 'ok', r2: 'ok' } });
   assert.deepEqual(plain(t.calls.map(c => [c.body.op, c.body.del])), [['put', ['r1', 'r2']]]);
@@ -107,16 +107,16 @@ test('寫自己的線：put 帶裝置金鑰的簽章（公鑰、時間、亂數�
   const s = setup({ replies: published });
   const r = await s.api.shareRoutes(body());
   assert.deepEqual(plain(r.results), { r1: { ok: true, made: true } });
-  assert.deepEqual(ops(s), ['walls.routes', 'walls.put']);   // 牆已經公開：不碰資料集、不登記
-  const first = s.calls[1], a = first.body.auth;
+  assert.deepEqual(ops(s), ['walls.put']);   // 牆已經公開：不碰資料集、不登記、不先問
+  const first = s.calls[0], a = first.body.auth;
   assert.equal(first.auth, undefined);
   assert.equal(verifyRequest('put', first.body, first.body.auth.ts), first.body.auth.kid);   // App 簽的章，雲端函式（functions/device-key.js）驗得過
   assert.match(a.kid, /^[0-9a-f]{32}$/);
   assert.deepEqual([a.pub.kty, a.pub.crv, a.sig.length, typeof a.ts, /^[A-Za-z0-9_-]{16}$/.test(a.nonce)], ['EC', 'P-256', 86, 'number', true]);
   await s.api.unshareRoutes(PID, ['r1']);
-  const second = s.calls[2].body;
+  const second = s.calls[1].body;
   assert.deepEqual([second.op, second.del, second.auth.kid], ['put', ['r1'], a.kid]);   // 同一把金鑰，簽章不同
   assert.notEqual(second.auth.sig, a.sig);
   await s.api.primeShared([PID]);
-  assert.equal(s.calls[3].body.kid, a.kid);   // 已經有金鑰：讀線時帶 kid
+  assert.equal(s.calls[2].body.kid, a.kid);   // 已經有金鑰：讀線時帶 kid
 });

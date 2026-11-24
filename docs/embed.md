@@ -35,7 +35,7 @@ Climbio 只放牆面與路線；岩館 App 裡的使用者怎麼對應到路線�
 
 | `init` 欄位 | 內容 | 網址 |
 |---|---|---|
-| `wallId`（最簡單） | `<包 id>/<牆 id>`：只給這個，下面的畫面、照片、整面牆路線圖層的網址由內嵌頁補（照片走 `https://climbio.app/p/<包 id>/<牆 id>.jpg`，導向現行版，所以換了現行版 App 不用改；牆還沒有路線就沒有圖層）。下面三列是要自己指定時才用，明確給的優先 | `https://climbio.app/p/<包 id>/<牆 id>.json` 等 |
+| `wallId`（最簡單） | `<包 id>/<牆 id>`：只給這個，下面的畫面、照片、整面牆路線圖層的網址由內嵌頁補（畫面和照片直接讀資料集：先讀 `walls/<包 id>/current.json`（發佈時寫的現行版指標檔）知道現行版，再讀那一版的檔案，所以換了現行版 App 不用改，也不呼叫 Climbio 的雲端函式（讀不到指標檔才退回 `climbio.app/p/`）；牆還沒有路線就沒有圖層）。下面三列是要自己指定時才用，明確給的優先 | `https://climbio.app/p/<包 id>/<牆 id>.json` 等 |
 | `viewUrl` | 牆的畫面（岩點外框，Climbio 公開格式 v2） | `https://climbio.app/p/<包 id>/<牆 id>.json`（導向現行版） |
 | `photoUrl` | 畫面指的那張照片，尺寸要等於畫面的 `w × h`，最大 10 MB | `https://huggingface.co/datasets/climbio/walls/resolve/main/walls/<包 id>/v<版本>/<牆 id>.jpg` |
 | `layerUrls`（選給） | 路線圖層（疊在牆上，v2），最大 16 MB | 整面牆 `https://climbio.app/w/<牆 id>/routes.json`；單條 `https://climbio.app/r/<牆 id>/<路線 id>/route.json`（岩點貓的路線連結） |

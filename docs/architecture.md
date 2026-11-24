@@ -61,7 +61,7 @@
 | `js/mobile.js` | 手機介面 |
 | `js/wall3d.js`、`wall3dkit/` | 3D 牆（載入、繪製、沿牆鏡頭、烘焙在 Wall3DKit）：私人連結下載成一面牆、牆頁底圖換成模型、路線連結（見 [3D 牆](3d-wall.md)） |
 | `js/main.js` | 啟動與事件綁定、導覽、開著不動時的版本檢查 |
-| `site.js` | 站台設定：用哪個後端（`SITE.backend`）、雲端加速、App 網址；主網網域接主網的後端，其他網域和本機預覽自動不接（自架站不用改；瀏覽器測試用 localStorage 的 `climbio.site.main` 接回）；預設的空後端 `window.Backend` |
+| `site.js` | 站台設定：用哪個後端（`SITE.backend`）、模型檔位置（`SITE.models`）、App 網址；主網網域接主網的後端，其他網域和本機預覽自動不接（自架站不用改；瀏覽器測試用 localStorage 的 `climbio.site.main` 接回）；預設的空後端 `window.Backend` |
 | `appkit/share-tools.js` | 不需要後端的分享工具：收線、找牆面（讀任何網址的公開格式 v2，先過 `format/format.js` 的 validate）、一面牆的分享包（`wallPackage`）、解析連結、gzip |
 | `holdscan/` | 岩點偵測（AGPL-3.0，freeclimbs YOLOv8n）：瀏覽器版（`browser/`，App 在手機上偵測）、共用前後處理（`core/`）、模型、雲端函式 `detect`（`functions/`，設了 `SITE.cloud.detect` 的站才用） |
 | `backend/firebase.js` | 主網站的可替換後端（`window.Backend`）：公開資料集的索引（`datasets`／`walls`）、找牆面及舊版相容的 Storage 路徑；分享貢獻數由 App 在本機計算 |
@@ -85,7 +85,7 @@
 
 1. **照片**（`js/add-wall.js`）：拍照或選照片 → 裁切（`state.img`、`state.w`、`state.h`）。牆的 id 就是照片編號，之後分享、收線、同步都用它認同一面牆。
 2. **偵測**（`localDetect`）：在手機上跑 `holdscan/browser/`（`HoldScan.detect`），得到照片座標的框 `[x0, y0, x1, y1, score]`。
-3. **岩點資料**（`holdkit/`）：框 → 依顏色描外框（`HoldKit.boxToPoly`），組成岩點 `{ id, poly, source: 'detect' }`；設了 `SITE.cloud.retrace` 再在背景用 MobileSAM 整面重描（`HoldRefiner`，雲端串流回傳），外框一批一批換上。三份岩點資料（原始岩點檔 `w.base`、我的岩點檔 `w.holds`、路線自帶外框 `r.shapes`）誰能改見 [hold-data.md](hold-data.md)。
+3. **岩點資料**（`holdkit/`）：框 → 依顏色描外框（`HoldKit.boxToPoly`），組成岩點 `{ id, poly, source: 'detect' }`；偵測完在這台用 MobileSAM 重描最大的 24 顆（`HoldRefiner`，沒有雲端；掃描畫面最多等 10 秒，沒描完先定線、背景接著描，描好一顆換一顆，編輯過的不換）。辨識用的資料（偵測模型、onnxruntime、重描的解碼器和編碼器，約 72 MB）第一次新增牆面時一次下載齊（同意才下載、下載完才拍照選照片、條件不合不給新增），放在 Hugging Face（`SITE.models`），見 [app.md](app.md)。三份岩點資料（原始岩點檔 `w.base`、我的岩點檔 `w.holds`、路線自帶外框 `r.shapes`）誰能改見 [hold-data.md](hold-data.md)。
 4. **定線、看線**（`js/edit.js`、`routekit/`）：路線 `{ id, holds: { 岩點 id: 角色 }, shapes, grade, name, t, … }` 存在 `w.routes`。畫路線圖、點岩點的規則在 `RouteKit`，它只從參數拿資料（照片和岩點包成 `RouteScene`，打開的牆是 `state.scene`），不碰 App 的狀態。
 5. **儲存**（`js/app.js`）：`putWall(w)`／`putNewWall(w, blob)` 寫進 IndexedDB `climbio-db`。存檔前 `settleWall`（`js/draw.js`）整理原始岩點檔和路線外框；一面牆拆成 `walls`、`holds`、`routes`、`images` 幾筆，只寫這份物件改過的記錄。
 6. **同步、分享**（`js/sync.js` → `window.Backend`）：按分享批次傳送的線 `pushWall`（只限 Studio 發佈的公開牆：只把線傳到 Climbio，不上傳牆的照片與岩點；手機自己拍的牆只走附近交換）、讀公開牆 `pullWall`，都經過 `Backend`（主網是 `backend/firebase.js`，沒有後端時是 `site.js` 的空後端）。收線 `fetchShared`（`appkit/share-tools.js`）直接讀連結指到的路線圖層（分享包的圖層，或那台伺服器的 `route.json`）和它疊的牆，不經過後端；圖層轉成 App 的路線用 routekit 的 `fromFormat`。規則見 [sharing.md](sharing.md)，格式見 [route-format.md](route-format.md)。

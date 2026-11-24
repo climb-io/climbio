@@ -4,11 +4,11 @@
 // English: HoldScan Worker: runs the detection model with onnxruntime-web (CPU), photo -> boxes.
 importScripts('../../holdkit/ort.js', '../core/detect-core.js');   // onnxruntime 核對內容後才載入（holdkit/ort.js）
 const Core = self.HoldDetectCore;
-let session = null, cacheName = '';
+let session = null, cacheName = '', modelUrl = '';
 
 // 模型先看 Cache API（名稱由頁面用 configure 傳來；頁面先下載好存在那裡，Service Worker 也從同一個快取拿），沒有才自己下載
 async function modelBytes() {
-  const url = new URL(`../models/${Core.MODEL}.onnx`, location.href);
+  const url = new URL(modelUrl || `../models/${Core.MODEL}.onnx`, location.href);
   try { const c = cacheName && await caches.open(cacheName), hit = c && await c.match(url); if (hit) return new Uint8Array(await hit.arrayBuffer()); } catch (e) { /* 快取讀不到：照常下載 */ }
   const res = await fetch(url);
   if (!res.ok) throw new Error(`model HTTP ${res.status}`);
@@ -41,7 +41,7 @@ async function detect(s, bmp) {
 }
 
 onmessage = async ({ data: m }) => {
-  if (m.type === 'config') { cacheName = m.cache || ''; return; }
+  if (m.type === 'config') { cacheName = m.cache || ''; modelUrl = m.model || ''; return; }
   const post = (x) => postMessage({ id: m.id, ...x });
   try {
     const s = await load(post);

@@ -930,8 +930,23 @@ body.flying { pointer-events: none; }
 /* 「看這條線」浮在下面、不佔位置：出現時上面的卡片不會因為置中而往上移 */
 .rv-go { position: absolute; top: 100%; left: 0; right: 0; width: fit-content; min-width: 200px; margin: 14px auto 0; animation: item-in .35s var(--spring) both; }
 .rv-go[hidden] { display: none; }
+/* 第一次新增牆面的下載畫面（跟收牆同一個全螢幕）：貓咪、百分比像岩點數一樣跳、短句輪播 */
+.md-box { align-items: center; text-align: center; }
+.md-cat { width: min(46vw, 200px); filter: drop-shadow(0 18px 30px rgba(0,0,0,.5)); }
+.md-cat svg { display: block; width: 100%; height: auto; }
+.md-title { margin: 6px 0 0; font: italic 800 26px/1.2 var(--display); }
+.md-ask { margin: 0; max-width: 320px; color: rgba(255,255,255,.75); font-size: 15px; line-height: 1.6; }
+.md-ask:empty { display: none; }
+.md-bar { width: min(70vw, 280px); height: 6px; border-radius: 3px; background: rgba(255,255,255,.14); overflow: hidden; }
+.md-bar i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 3px; transition: width .3s ease-out; }
+.md-fun { min-height: 2.6em; max-width: 300px; transition: opacity .35s ease; }
+.md-fun.out { opacity: 0; }
+.md-btns { align-self: stretch; margin-top: 8px; }
+.md-btns[hidden], .md-bar[hidden], .rv-count[hidden] { display: none; }
+.md-box.failed .md-fun { color: var(--danger, #ff7b7b); }
 @media (prefers-reduced-motion: reduce) {
   .rv-card { animation: none; transition: none; }
+  .md-fun, .md-bar i { transition: none; }
 }
 
 /* 個人資料：我出的線是主角——大字完攀我的線的人數，一排出的線、分享路線、分享牆面，下面是我的線的小卡 */

@@ -171,7 +171,6 @@
     document.getElementById('bootSplash')?.remove();   // 拿掉 hold/index.html 的啟動畫面
     // Service Worker 第一次安裝要下載整版檔案：等首頁畫好、瀏覽器閒下來才開始，不跟首屏搶頻寬
     if ('serviceWorker' in navigator && location.protocol === 'https:') { if (self.requestIdleCallback) requestIdleCallback(registerSW, { timeout: 3000 }); else setTimeout(registerSW, 1000); }
-    if (!PCLAND) setTimeout(prefetchModels, 2000);   // 偵測、重描的模型在背景先下載好（只存不載入），第一次拍照不用等
     // 岩館目錄（兩個小檔，冷請求要 2、3 秒）閒下來先讀（只有接後端的主網；其他站按了才連外）：第一次按「找牆面」不用等，同時存成下次的快取；失敗不吭聲，按「找牆面」時會重讀並說原因
     if (can('gyms')) { const go = () => { if (!findPre) preloadFind().p.catch(() => {}); }; setTimeout(() => { if (self.requestIdleCallback) requestIdleCallback(go, { timeout: 5000 }); else go(); }, 4000); }   // 等首屏、Service Worker 和模型下載先跑
     if (SITE.listed && SITE.directory && SITE.directory !== SITE.url && !PCLAND) ShareTools.registerSite(SITE.directory);   // 登記進總目錄，別的站找得到這裡的牆（總目錄自己的站不送：總目錄每天的複查列進自己）   // 岩點偵測在手機上做：開場畫面出來後在背景準備好模型
@@ -305,8 +304,8 @@
   // 長按出現的系統選單（選字、存圖、複製連結）一律擋掉；輸入框保留，才能貼上
   document.addEventListener('contextmenu', (e) => { if (!e.target.closest('input, textarea, [contenteditable]')) e.preventDefault(); });
 
-  // 重描輪廓（holdkit 的 HoldRefiner）：訊息用語言包；照片特徵存 IndexedDB climbio-sam；整面牆送 retrace 雲端函式（要登入 Google），沒登入或沒有雲端就在手機上分析照片、重描
-  HoldRefiner.configure({ t: self.climbioT, db: 'climbio-sam', modelCache: MODELS_CACHE,
-    cloudUrl: () => RETRACE_URL, appCheck: cloudAppCheck });
+  // 重描輪廓（holdkit 的 HoldRefiner）：訊息用語言包；照片特徵存 IndexedDB climbio-sam；全部在這台算（沒有雲端）：編碼最多等 2 分鐘（只是安全上限，慢的手機是晚點才變準）
+  HoldRefiner.configure({ t: self.climbioT, db: 'climbio-sam', modelCache: MODELS_CACHE, encodeBudgetMs: 120000,
+    decoder: SITE.modelUrl('mobilesam-decoder.onnx', '../holdkit/models/mobilesam-decoder.onnx'), encoder: SITE.modelUrl('mobilesam-encoder.onnx', '../holdkit/models/mobilesam-encoder.onnx') });
   // 定線中（重新整理後回到定線）馬上準備長按要用的解碼器和照片特徵
   if (state.mode === 'route' && !state.routeView) warmSam();

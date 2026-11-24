@@ -19,7 +19,7 @@ const body = (o = {}) => ({ op: 'publishWall', source: 'studio', id: WID, name: 
 function fakeDb() {
   const docs = new Map();
   const snap = v => ({ exists: v !== undefined, get: k => (v || {})[k] });
-  const db = { collection: c => ({ doc: id => ({ get: async () => snap(docs.get(`${c}/${id}`)), set: async v => { docs.set(`${c}/${id}`, structuredClone(v)); }, update: async v => { docs.set(`${c}/${id}`, { ...docs.get(`${c}/${id}`), ...structuredClone(v) }); } }) }) };
+  const db = { collection: c => ({ where: () => ({ get: async () => ({ docs: [...docs].filter(([k]) => k.startsWith(`${c}/`)).map(([k, v]) => ({ id: k.split('/')[1], get: x => v[x] })) }) }), doc: id => ({ get: async () => snap(docs.get(`${c}/${id}`)), set: async v => { docs.set(`${c}/${id}`, structuredClone(v)); }, update: async v => { docs.set(`${c}/${id}`, { ...docs.get(`${c}/${id}`), ...structuredClone(v) }); } }) }) };
   return { db, docs };
 }
 function setup(extra = {}) {
@@ -51,7 +51,8 @@ test('發佈：不登入，寫進 walls/<id>/v1/ 與根目錄的 walls.jsonl；F
   const r = await call(body({ gym: '測試館', files: files(view(), [{ path: `${PID}.thumb.jpg`, b64: JPG }, { path: `${PID}.edits.json`, b64: json({ holdlab: 1, reviewed: 1, deleted: ['a'], added: ['b', 'c'], flagged: { x: 1, y: 2 } }) }]) }));
   assert.equal(r.statusCode, 200);
   assert.deepEqual(r.data, { id: WID, version: 1, current: 1, base: baseUrl(WID, 1) });
-  assert.deepEqual(commits[0].paths, [`${PID}.jpg`, `${PID}.json`, `${PID}.thumb.jpg`, `${PID}.edits.json`, 'index.json'].map(p => `walls/${WID}/v1/${p}`).concat('walls.jsonl').filter(p => !p.endsWith('/index.json')));
+  assert.deepEqual(commits[0].paths, [`${PID}.jpg`, `${PID}.json`, `${PID}.thumb.jpg`, `${PID}.edits.json`, 'index.json'].map(p => `walls/${WID}/v1/${p}`).concat('walls.jsonl', `walls/${WID}/current.json`).filter(p => !p.endsWith('/index.json')));
+  assert.equal(store.files.get(`walls/${WID}/current.json`), '{"climbio":2,"kind":"current","version":1}');   // 現行版的指標檔跟著發佈寫
   const idx = docs.get(`datasets/${WID}`);
   assert.deepEqual([idx.owner, idx.type, idx.name, idx.version, idx.latest, idx.at], ['', 'walls', '測試牆', 1, 1, 2e12]);
   const row = JSON.parse(store.text);
@@ -220,4 +221,15 @@ test('現行版自動判定：照片換了（指紋不同）的新版本照樣�
   assert.deepEqual([docs.get(`datasets/${WID}`).version, docs.get(`datasets/${WID}`).latest], [1, 2]);
   const same = await call(body({ files: files(view(3)) }));   // 照片同一張：成為現行版
   assert.equal(same.data.version, 3); assert.equal(same.data.current, 3);
+});
+
+test('syncCurrent：只有維護者；把每面公開牆的現行版指標檔一次補寫', async () => {
+  const { call, docs, commits, store } = setup({ isOwner: async (req) => req.get('x-key') === 'k' });
+  await call(body());
+  store.files.clear(); commits.length = 0;
+  assert.equal((await call({ op: 'syncCurrent' })).statusCode, 401);
+  const res = { statusCode: 200, set() { return this; }, status(c) { this.statusCode = c; return this; }, json(d) { this.data = d; return this; } };
+  await createHandler({ db: { collection: (c) => ({ where: () => ({ get: async () => ({ docs: [{ id: WID, get: (k) => ({ version: 3 }[k]) }, { id: 'zzzzzzzzzzzzzzzz', get: () => 0 }] }) }) }) }, hf: { read: async () => null, commit: async (m, fs) => commits.push(fs.map((f) => f.path + ':' + f.bytes)) }, isOwner: async () => true })({ method: 'POST', body: { op: 'syncCurrent' }, get: () => '' }, res);
+  assert.deepEqual([res.data, commits.length], [{ n: 1 }, 1]);
+  assert.match(commits[0][0], new RegExp(`${WID}/current.json:.*"version":3`));
 });

@@ -110,9 +110,9 @@
   const fragmentOf = (pid, route, b) => { const l = RouteKit.routesLayer({ id: pid, pid, href: `${pid}.json`, w: b.w, h: b.h, holds: b.holds, routes: [route], t: 0 }); return JSON.stringify({ nodes: l.nodes, marks: l.marks }); };
   async function shareRoutes({ pid, routes, base }) {
     needNet();
-    const st = await wallRoutesPost({ pid });   // { published }：只有 Studio 發佈的公開牆能傳線；手機自己拍的牆不會被傳上去，丟 code: 'private'
-    if (!st.published) throw Object.assign(new Error('這面牆不是公開牆，只能傳給朋友'), { code: 'private' });
-    const b = await base(), out = await putRoutes(pid, { routes: routes.map(x => ({ id: x.route.id, r: fragmentOf(pid, x.route, b) })) });
+    const b = await base();
+    // 不先問牆有沒有公開（少一次呼叫）：直接傳，牆不是公開牆時伺服器回 404（no wall），丟 code: 'private'
+    const out = await putRoutes(pid, { routes: routes.map(x => ({ id: x.route.id, r: fragmentOf(pid, x.route, b) })) }).catch((e) => { throw e.status === 404 ? Object.assign(new Error('這面牆不是公開牆，只能傳給朋友'), { code: 'private' }) : e; });
     return { results: Object.fromEntries(routes.map(x => [x.route.id, out.results[x.route.id] === 'ok' ? { ok: true, made: true } : { ok: false, error: out.results[x.route.id] || 'failed' }])) };
   }
   // 公開牆的線（Climbio 的 wallRoutes，一次最多 100 條）：routes: [{ id, r: 片段 JSON 字串 }] 新增或更新，del: [路線 id] 刪除；只能動自己的。回 { results: { 路線 id: 'ok' | 'taken' } }

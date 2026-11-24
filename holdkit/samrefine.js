@@ -13,12 +13,14 @@
 //     base：holdkit 資料夾的網址（samworker.js、ort.js 所在），不給就用載入本檔的 <script> 所在的資料夾（用打包工具 import 時要給）；
 //     modelCache：Cache API 的名稱，解碼器下載完整才存進去、下次先讀（網頁和 Service Worker 共用，不給就不存）；
 //     decoder、encoder：解碼器、編碼器模型的網址，不給就是 base 底下的 models/mobilesam-decoder.onnx、models/mobilesam-encoder.onnx
+//     encodeBudgetMs：在這台分析照片（編碼）的安全上限（毫秒），超過就放棄、結束 Worker、丟 e.slow 為 true 的錯；0＝5 分鐘
+//     local：false＝不在這台分析照片（不下載編碼器，約 28 MB）：照片特徵、整面牆重描只問雲端，雲端不能用就丟錯；預設 true（沒有雲端時在這台描）
 //   const res = await HoldRefiner.traceWall(src, key, items, status, { onHolds })   → [{ id, poly }]（poly 是 null＝切不出來）；onHolds(part) 每描好一批就先給
 //     items：[{ id, poly, box }]（照片座標；box 是提示用的框，不給就用 poly 的外框）；空的＝只要照片特徵
 //   const poly = await HoldRefiner.refine(src, key, poly, status, { box, point })   → 外框或 null
 //     box：提示用的框，不給就用 poly 的外框；point：[x, y] 用一個點當提示（沒偵測到的岩點），poly 不用
 //     status(文字, 進度 0–1 或 null)：下載模型、跟雲端要照片特徵時回報
-//   HoldRefiner.warm()                     背景下載、載入解碼器，接著編碼器
+//   HoldRefiner.warm()                     背景下載、載入解碼器，接著編碼器（local 為 false 時只有解碼器）
 //   HoldRefiner.hasEmb(key)、forget(key)、clear()   有沒有這張照片的特徵、刪掉一張、全部刪掉
 //   HoldRefiner.stats                      download、load、decode（最近一顆）、decodes、cloud（雲端各段時間）
 // English: Hold outline retrace with MobileSAM: image features from the cloud (or the browser Worker without one), decoding in the Worker.
@@ -26,7 +28,7 @@
   'use strict';
   const scriptBase = typeof document !== 'undefined' && document.currentScript ? document.currentScript.src : null;
   const DEC_BYTES = 16.5e6, ENC_BYTES = 28.2e6;
-  const cfg = { t: null, db: 'holdkit-sam', cloudUrl: null, idToken: null, appCheck: null, base: null, decoder: null, encoder: null };
+  const cfg = { t: null, db: 'holdkit-sam', cloudUrl: null, idToken: null, appCheck: null, base: null, decoder: null, encoder: null, local: true, encodeBudgetMs: 0 };
   const cloudUrl = () => (typeof cfg.cloudUrl === 'function' ? cfg.cloudUrl() : cfg.cloudUrl) || null;
   const baseUrl = () => {
     if (cfg.base) return new URL(cfg.base.endsWith('/') ? cfg.base : cfg.base + '/', location.href).href;
@@ -103,7 +105,7 @@
   let eReady = null;   // 編碼器載入一次（Worker 重來時清掉）
   const loadEnc = () => eReady || (eReady = call({ type: 'initEnc', cache: cfg.modelCache || '', enc: new URL(cfg.encoder || 'models/mobilesam-encoder.onnx', baseUrl()).href }, [], 10 * 60000)
     .catch((e) => { eReady = null; throw e; }));
-  const warm = () => initWorker().then(loadEnc).catch(() => { /* 用到時再試 */ });   // 編碼器也先下載、載入：雲端不能用（沒登入、超過次數、沒訊號）時馬上在這台描
+  const warm = () => initWorker().then(() => cfg.local === false ? null : loadEnc()).catch(() => { /* 用到時再試 */ });   // 編碼器也先下載、載入：雲端不能用（沒登入、超過次數、沒訊號）時馬上在這台描
 
   // ---------- 雲端（functions/ 的 retrace）：照片只在伺服器記憶體裡算、不存檔 ----------
   // 整面牆一次送一份：分份同時送時常拿不到第二個執行個體，塞進同一台或新開的冷執行個體每顆都變慢，總時間沒有比較短。
@@ -112,9 +114,9 @@
   const cloudFailed = new Set();
   // localFallback: false：有雲端時，雲端失敗就丟錯，不在這台一顆顆描整面牆（手機描幾百顆要幾分鐘）；沒有雲端照舊在這台描
   async function traceWall(src, key, items, status = () => {}, opts = {}) {
-    const url = cloudUrl(), local = opts.localFallback !== false;
-    if (!url || (cloudFailed.has(key) && (local || !items.length))) return traceLocal(src, key, items, status, opts);
-    if (cloudFailed.has(key)) throw new Error(T('samCloudFailed'));
+    const noLocal = cfg.local === false, url = cloudUrl(), local = !noLocal && opts.localFallback !== false;
+    if (!url) { if (noLocal) throw new Error(T('samCloudFailed')); return traceLocal(src, key, items, status, opts); }
+    if (cloudFailed.has(key)) { if (!noLocal && (local || !items.length)) return traceLocal(src, key, items, status, opts); throw new Error(T('samCloudFailed')); }
     return traceCloud(url, src, key, items, status, opts).catch((e) => {
       cloudFailed.add(key);
       if (local) return traceLocal(src, key, items, status, opts);   // 雲端不能用就在這台描
@@ -209,7 +211,7 @@
     const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(src, 0, 0, w, h);
     const px = g.getImageData(0, 0, w, h).data, rgb = new Float32Array(w * h * 3);
     for (let i = 0, j = 0; i < px.length; i += 4, j += 3) { rgb[j] = px[i]; rgb[j + 1] = px[i + 1]; rgb[j + 2] = px[i + 2]; }
-    const r = await call({ type: 'encode', rgb, w, h }, [rgb.buffer], 5 * 60000);
+    const r = await call({ type: 'encode', rgb, w, h }, [rgb.buffer], cfg.encodeBudgetMs || 5 * 60000).catch((e) => { throw cfg.encodeBudgetMs ? Object.assign(e, { slow: true }) : e; });
     stats.encode = r.ms;
     memo = null; wKey = key;   // Worker 裡已經是這張照片的特徵
     await embTx('readwrite', st => st.put({ q: r.q, lo: r.lo, sc: r.sc, w, h }, key)).catch(() => { /* 存不了：下次重描再算 */ });
@@ -272,7 +274,10 @@
     if (!rec) {
       status(T('samAnalyzing'), null);
       const url = !cloudFailed.has(key) && cloudUrl();   // 這張照片雲端剛失敗過：不再等重試，直接在這台分析
-      if (!url || !await traceCloud(url, src, key, [], status).then(() => true, () => { cloudFailed.add(key); return false; })) { await encodeLocal(src, key, status); return; }   // 在佇列裡：直接分析，不再排隊；雲端不能用也在這台分析
+      if (!url || !await traceCloud(url, src, key, [], status).then(() => true, () => { cloudFailed.add(key); return false; })) {
+        if (cfg.local === false) throw new Error(T('samCloudFailed'));   // 不在這台分析：雲端不能用就回報
+        await encodeLocal(src, key, status); return;
+      }   // 在佇列裡：直接分析，不再排隊；雲端不能用也在這台分析
       rec = await embGet(key);
     }
     if (!rec) throw new Error(T('samTimeout'));

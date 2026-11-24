@@ -72,7 +72,10 @@ for f in dist/redpoint-collect/index.html dist/en/redpoint-collect/index.html di
   [ -f "$f" ] || { echo "缺少紅點貓收藏檔案：$f" >&2; exit 1; }
 done
 if find dist -type l | grep -q .; then echo "dist 裡有捷徑（符號連結）" >&2; exit 1; fi
-for f in holdkit/holdkit.js holdkit/samrefine.js holdkit/samworker.js holdkit/ort.js holdkit/models/mobilesam-decoder.onnx holdkit/models/mobilesam-encoder.onnx; do
+for f in holdkit/holdkit.js holdkit/samrefine.js holdkit/samworker.js holdkit/ort.js; do
   [ -f "dist/$f" ] || { echo "dist 裡少了 $f" >&2; exit 1; }
 done
+# 大模型檔（.onnx）放在 Hugging Face（site.js 的 SITE.models），不進 Hosting（流量費）：dist 裡一個都不留
+find dist -name '*.onnx*' -delete
+if find dist -name '*.onnx*' | grep -q .; then echo "dist 裡不該有模型檔" >&2; exit 1; fi
 echo "dist 打包完成：$(du -sh dist | cut -f1)"

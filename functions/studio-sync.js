@@ -8,7 +8,8 @@
 //
 //   GET                       { ok: true, auth }：服務開了沒、金鑰（或 GitHub 權杖）對不對
 //   GET  ?pid=&path=          下載檔案（分段的大檔不行，照 parts 一段一段用 ?pid=&sha= 下載）
-//   GET  ?pid=&sha=           照內容下載一段（sha256）
+//   GET  ?pid=&sha=           照內容下載一段（sha256）；內容不會變，回 Cache-Control: immutable
+//   下載都看 Accept-Encoding：收 gzip 就送壓好的（照內容存的壓一次存成 <blob>.gz）
 //   PUT  ?pid=&path=          上傳檔案（內容是原始位元組，最多 30 MB）：照內容存（sha256），還不算進專案；push 帶著檔案清單才換上。
 //                             超過 30 MB 的檔（3D 模型）用戶端切成幾段各傳一次（雲端函式一次請求最多約 32 MB），清單記 parts
 //   POST { op: 'list' }                         專案清單：[{ id, name, line, state, updated, rev }]
@@ -25,6 +26,7 @@
 //
 // Firestore（資料庫 climbio）：studioProjects/{pid}，子集合 questions、decisions、runs、notes；Storage：studio/{pid}/{路徑}
 const { createHash, timingSafeEqual, randomBytes } = require('node:crypto');
+const { gzipSync } = require('node:zlib');
 
 const PID = /^[0-9a-z]{16}$/, RID = /^[A-Za-z0-9._-]{1,120}$/;
 const SEGMENT = /^[A-Za-z0-9À-￿][A-Za-z0-9À-￿ ._()-]{0,120}$/;
@@ -153,6 +155,7 @@ function createHandler({ db, bucket, key, member, now = () => Date.now() }) {
       if (!doc.exists) throw fail(404, 'no project');
       const days = Math.min(Math.max(Number(body.days) || TRIAL_DAYS, 1), TRIAL_MAX), token = randomBytes(24).toString('base64url'), exp = now() + days * DAY;
       await project(pid).set({ trial: { hash: sha256Hex(token), exp } }, { merge: true });
+      trialSeen.clear();   // 舊權杖馬上失效
       return { token, exp };
     }
     if (op === 'pull') {
@@ -176,39 +179,56 @@ function createHandler({ db, bucket, key, member, now = () => Date.now() }) {
 
   async function getFile(req, res) {
     const pid = pidOf(req.query.pid);
-    if (req.query.sha !== undefined) return send(res, await blob(pid, req.query.sha));
+    if (req.query.sha !== undefined) {   // 照內容存的：內容永遠不變，瀏覽器可以一直快取
+      if (!SHA.test(req.query.sha || '')) throw fail(400, 'sha');
+      return send(req, res, bucket.file(blobOf(pid, req.query.sha)), { immutable: true, gz: `${blobOf(pid, req.query.sha)}.gz` });
+    }
     const path = req.query.path;
     if (!validPath(path)) throw fail(400, 'path');
     const doc = await project(pid).get(), entry = doc.exists ? doc.data().files?.[path] : null, sha256 = entry?.sha256 || '';
     if (entry?.parts) throw fail(413, 'parts');   // 大檔一次回不了：照清單的 parts 一段一段下載
     // 照內容存的；更早的檔案存在路徑上
-    let f = sha256 && bucket.file(blobOf(pid, sha256));
-    if (!f || !(await f.exists())[0]) f = bucket.file(`studio/${pid}/${path}`);
-    const [exists] = await f.exists();
-    if (!exists) throw fail(404, 'no file');
-    return send(res, f);
+    if (sha256) try { return await send(req, res, bucket.file(blobOf(pid, sha256)), { gz: `${blobOf(pid, sha256)}.gz` }); } catch (e) { if (e.status !== 404) throw e; }
+    return send(req, res, bucket.file(`studio/${pid}/${path}`));
   }
-  /** 照內容存的一段 */
-  async function blob(pid, sha256) {
-    if (!SHA.test(sha256 || '')) throw fail(400, 'sha');
-    const f = bucket.file(blobOf(pid, sha256));
-    if (!(await f.exists())[0]) throw fail(404, 'no file');
-    return f;
-  }
-  async function send(res, f) {
-    const [meta] = await f.getMetadata();
-    const [data] = await f.download();
-    res.set('Content-Type', meta.contentType || 'application/octet-stream');
-    res.set('Cache-Control', 'private, no-store');
+  /** 送檔：瀏覽器收 gzip、檔案又壓得小（不是 jpg、png 這類已經壓過的）就送壓好的版本；照內容存的壓一次存成 <blob>.gz，之後直接送 */
+  async function send(req, res, f, { immutable = false, gz = null } = {}) {
+    const miss = (e) => { if (e?.code === 404) throw fail(404, 'no file'); throw e; };
+    const head = (type) => {
+      res.set('Content-Type', type);
+      res.set('Cache-Control', immutable ? 'private, max-age=31536000, immutable' : 'private, no-store');
+      const vary = (res.getHeader && res.getHeader('Vary')) || res.headers?.Vary || '';   // 追加，不能蓋掉 CORS 的 Vary: Origin（不然別的網域快取的回應會被拿來用、被擋）
+      res.set('Vary', [vary, 'Accept-Encoding'].filter(Boolean).join(', '));
+    };
+    const accepts = /\bgzip\b/.test(req.get('accept-encoding') || '');
+    if (gz && accepts) {   // 已經壓好的：只抓它，不抓原檔
+      const [[meta], z] = await Promise.all([f.getMetadata().catch(miss), bucket.file(gz).download().then(([x]) => x, () => null)]);
+      if (z) { head(meta.contentType || 'application/octet-stream'); res.set('Content-Encoding', 'gzip'); return res.status(200).send(z); }
+    }
+    const [[meta], [data]] = await Promise.all([f.getMetadata(), f.download()]).catch(miss);
+    const type = meta.contentType || 'application/octet-stream';
+    head(type);
+    if (accepts && data.length > 1024 && !/^image\/|zip|gzip/.test(type)) {
+      const z = gzipSync(data, { level: 1 });
+      if (z.length < data.length * 0.9) {
+        if (gz) await bucket.file(gz).save(z, { resumable: false, contentType: 'application/gzip' }).catch(() => {});
+        res.set('Content-Encoding', 'gzip'); return res.status(200).send(z);
+      }
+    }
     res.status(200).send(data);
   }
 
-  /** 試用權杖對不對：是發給這個專案、還沒過期的 */
+  /** 試用權杖對不對：是發給這個專案、還沒過期的。對的記 15 秒（試用一次開十幾個檔，不用每個都查資料庫）；不對的不記（剛發的新權杖要馬上能用）；這台發新權杖時清掉（舊的馬上失效，別台最多再認 15 秒） */
+  const trialSeen = new Map();
   async function trialOk(req, pid) {
     const got = req.get('x-studio-trial') || '';
     if (!got || !PID.test(pid || '')) return false;
+    const k = `${pid}:${sha256Hex(got)}`, hit = trialSeen.get(k);
+    if (hit && hit.until > now() && hit.exp > now()) return true;
     const doc = await project(pid).get(), t = doc.exists ? doc.data().trial : null;
-    return !!t && t.exp > now() && keyMatches(t.hash, sha256Hex(got));
+    const ok = !!t && t.exp > now() && keyMatches(t.hash, sha256Hex(got));
+    if (ok) { if (trialSeen.size > 200) trialSeen.clear(); trialSeen.set(k, { until: now() + 15e3, exp: t.exp }); }
+    return ok;
   }
   /** 拿試用權杖的：只能下載、看檔案清單、寫回回報 */
   async function trial(req, res) {

@@ -67,7 +67,7 @@
     ep = gpu ? 'webgpu' : 'wasm';
     toWasm = async e => { console.warn('WebGPU 跑不動，改用 WASM：', e.message); ep = 'wasm'; toWasm = null; enc = await make(ep); };
     try { enc = gpu ? await slow(make(ep), GPU_WAIT) : await make(ep); } catch (e) { if (!gpu || e.stuck) { if (e.stuck) toWasm = null; throw e; } await toWasm(e); }
-    const dec = async f => ort.InferenceSession.create(await (await fetch(`models/${f}`)).arrayBuffer(), { executionProviders: ['wasm'] });
+    const dec = async f => ort.InferenceSession.create(await (await fetch((root.SITE && SITE.models ? SITE.models : 'models/') + f)).arrayBuffer(), { executionProviders: ['wasm'] });
     [decS, decM] = await Promise.all([dec('decoder_single.onnx'), dec('decoder_multi.onnx')]);
     return ep;
   }

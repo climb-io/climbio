@@ -251,9 +251,28 @@ export class WalkCam {
     if (m.has(key)) return m.get(key);
     const [wl, wh] = this.vlim(this.s, hh * this.W / this.H * 0.5, this.v), [lo, hi] = this.holdSpan();
     let a = wl + hb, b = wh - ht;   // vlim 給的是畫面上下緣（距離 d）可以到的牆腳、牆頂；可用畫面上下扣掉表的 top、bottom
-    a = Math.min(a, lo + hb - HOLD_RV); b = Math.max(b, hi - ht + HOLD_RV);
+    a = Math.min(a, lo + hb - HOLD_RV); b = Math.max(b, hi - ht + HOLD_RV, this.vHead());   // 牆頂往外傾時離鏡頭比較近、在畫面上比較高，vlim 估得太低：用射線量的牆頂
     if (a > b) a = b = (a + b) / 2;
     const r = [a, b]; if (m.size > 4000) m.clear(); m.set(key, r); return r;
+  }
+  // 鏡頭最高可以到哪裡：畫面上緣中間那條線還打在前方的牆上的最高鏡頭高度（用模型打射線；上下拖升到最高剛好看到牆頂，牆頂往外傾也一樣）
+  vHead() {
+    if (!this.sees) return -Infinity;
+    const key = [Math.round(this.s / STEP), this.dQuant(this.d), this.yawKey(), this.W, this.H].join('|'), m = this.vh || (this.vh = new Map());
+    if (m.has(key)) return m.get(key);
+    const r = this.keepCam(() => {
+      const v0 = this.v, c = this.cam, f = new Vector3(), u = new Vector3(), ty = this.tan;   // 整個畫面的上緣（不扣表的 top：只補 vlim 估低的部分，不多露出牆外）
+      const hits = (v) => { this.v = v; this.place(this.s, this.d); c.getWorldDirection(f); u.setFromMatrixColumn(c.matrixWorld, 1); return this.sees(c.position.clone(), f.clone().addScaledVector(u, ty).normalize(), far); };   // 只認前方的牆（斜往上的射線打到遠處的側牆、天花板殘片不算）
+      const far = 1.5 * this.d * Math.hypot(1, ty);
+      try {
+        let [lo, hi] = this.vSpan(); hi += 2;
+        if (!hits(lo)) return -Infinity;
+        if (hits(hi)) return hi;
+        for (let k = 0; k < 12; k++) { const mid = (lo + hi) / 2; if (hits(mid)) lo = mid; else hi = mid; }
+        return lo;
+      } finally { this.v = v0; }
+    });
+    if (m.size > 4000) m.clear(); m.set(key, r); return r;
   }
   // 這個位置（含轉的角度）左右畫面裡的岩點最低、最高的高度（沒有就用全部的）
   holdSpan() {
@@ -269,7 +288,7 @@ export class WalkCam {
   }
 
   // 人的模式左右拖（像 2D 平移，dx>0 鏡頭往左）：一邊走一邊慢慢轉向要走的那邊（yaw，繞著看的那一點轉），拖約一個半畫面寬轉到 YAW_LEAD；
-  // 走到左右盡頭鏡頭停住，再拖就原地轉頭（head，鏡頭不動），最多 HEAD_END（看內角的側面），畫面中間和左右一半的地方要還打得到牆，轉不動就停。
+  // 走到左右盡頭鏡頭停住，再拖就原地轉頭（head，鏡頭不動），最多 HEAD_END（看內角的側面），畫面中間、左右一半和左右邊緣都要還打得到牆（不轉到看見牆外），轉不動就停。
   // 往回拖：先把頭轉回來，再邊走邊轉回去
   walk(dx) {
     if (!dx) return;
@@ -358,7 +377,7 @@ export class WalkCam {
   useTable(t) {
     this.table = t; const n = t.lo[0].length, L = t.levels;
     // 像人站在牆前：地面＝牆腳（各段牆腳高度的中位數），眼睛在地面上 EYE（cave 的站位用）
-    const foot = Array.from(this.lo).sort((a, b) => a - b); this.floor = foot[foot.length >> 1]; this.eye = this.floor + Math.min(EYE, 0.55 * this.hTyp); this.person = true; this.cvL = this.cvR = undefined; this.cn = null; this.vsl = null;   // 模型的尺度不一定準：矮的牆照牆高的 55% 算
+    const foot = Array.from(this.lo).sort((a, b) => a - b); this.floor = foot[foot.length >> 1]; this.eye = this.floor + Math.min(EYE, 0.55 * this.hTyp); this.person = true; this.cvL = this.cvR = undefined; this.cn = null; this.vsl = null; this.vh = null;   // 模型的尺度不一定準：矮的牆照牆高的 55% 算
     // 每個取樣點最遠能拉到多遠：從最近的距離往遠找，到第一個塞不滿的為止（在那個距離的兩端之外的不算：那是牆的盡頭，由左右範圍管）
     const inside = (r, i) => { const x = t.s0 + i * t.step, hw = L[r] * this.tan * t.aspect; return x >= t.sa[r] + hw - 1e-6 && x <= t.sb[r] - hw + 1e-6; };
     this.reach = Array.from({ length: n }, (_, i) => { let f = this.dMin; for (let r = L.length - 1; r >= 0 && (t.lo[r][i] !== null || !inside(r, i)); r--) f = L[r]; return f; });
@@ -702,7 +721,7 @@ export class WalkCam {
     return this.keepCam(() => {
       const h0 = this.head; this.head = head; this.place(this.s, this.d); this.head = h0;
       const c = this.cam, f = new Vector3(), r = new Vector3(), hw = this.tan * this.W / this.H; c.getWorldDirection(f); r.setFromMatrixColumn(c.matrixWorld, 0);
-      return [0, -0.5, 0.5].every(x => this.sees(c.position.clone(), f.clone().addScaledVector(r, x * hw).normalize()));
+      return [0, -0.5, 0.5, -0.95, 0.95].every(x => this.sees(c.position.clone(), f.clone().addScaledVector(r, x * hw).normalize()));   // 左右邊緣也要是牆：轉頭不轉到看見牆外（圖案牆這類窄的轉角）
     });
   }
   // 人的模式左右走到哪裡：從中間往兩邊，牆線（左右平滑 0.3 m）跟正面左右軸的夾角超過 CORNER 的地方（內角、側牆），

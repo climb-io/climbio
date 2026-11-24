@@ -31,7 +31,7 @@ export const PRODUCTS = {
   },
   shared: {
     label: '共用層（appkit、站台設定、登入、品牌）與跨產品的入口、同步',
-    unit: [u('appkit|appkit-share|appkit-idb|manual-backup|brand-.+|site|sign|auth|consumer-entry-links|site-content|social-cover')],
+    unit: [u('appkit|appkit-share|appkit-idb|manual-backup|brand-.+|site|site-models|sign|auth|consumer-entry-links|site-content|social-cover')],
     e2e: [e('entry|sync|sync-hint|backend-none|environment|pc-landing|nickname|home-reel-responsive|static-parity')],
   },
   backend: {

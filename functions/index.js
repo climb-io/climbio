@@ -58,13 +58,13 @@ const cragsHandler = projectsHandler({
   saveWorld,
   registerWall: o => registerWall3d({ db: wallsDb, ...o }),
 });
-const wallsDataHandler = wallsDatasetHandler({ db: wallsDb, hf: createHf({ token: () => HF_TOKEN.value() }), refreshGyms: project => updateGymWallsOf({ db: wallsDb, project }) });
+const wallsDataHandler = wallsDatasetHandler({ db: wallsDb, hf: createHf({ token: () => HF_TOKEN.value() }), refreshGyms: project => updateGymWallsOf({ db: wallsDb, project }), isOwner: ownerKey });
 exports.datasets = onRequest({ region: 'asia-east1', invoker: 'public', cors: ORIGINS, memory: '512MiB', maxInstances: 3, timeoutSeconds: 120, secrets: [HF_TOKEN, STUDIO_KEY] },
   whenUploadsOn(wallsDb, async (req, res) => {
     // 會寫入的 op（準備上傳、發佈）要 App Check 權杖，或擁有者的同步金鑰（代理用）；files、versions 是公開的唯讀查詢
     const op = req.body && req.body.op;
     if (req.method === 'POST' && op !== 'files' && op !== 'versions' && !(await ownerKey(req)) && !(await appChecked(req))) return res.status(401).json({ error: 'app check' });
-    return (op === 'publishWall' ? wallsDataHandler : cragsHandler)(req, res);
+    return (op === 'publishWall' || op === 'syncCurrent' ? wallsDataHandler : cragsHandler)(req, res);
   }));
 // 世界的靜態清單每天補寫一次（發佈、下架時已經寫過；這是保險）
 exports.refreshWorld = onSchedule({ schedule: 'every day 05:00', timeZone: 'Asia/Taipei', region: 'asia-east1' }, saveWorld);

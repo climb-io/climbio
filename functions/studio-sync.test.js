@@ -25,13 +25,14 @@ function fakeDb() {
 }
 function fakeBucket() {
   const files = new Map();
-  return { files, file: (p) => ({ save: async (data, o) => { files.set(p, { data, type: o.contentType }); }, exists: async () => [files.has(p)], getMetadata: async () => [{ contentType: files.get(p).type }], download: async () => [files.get(p).data] }) };
+  const miss = (p) => { if (!files.has(p)) throw Object.assign(new Error('No such object'), { code: 404 }); };   // 跟 Cloud Storage 一樣：沒有的檔回 code 404
+  return { files, file: (p) => ({ save: async (data, o) => { files.set(p, { data, type: o.contentType }); }, exists: async () => [files.has(p)], getMetadata: async () => { miss(p); return [{ contentType: files.get(p).type }]; }, download: async () => { miss(p); return [files.get(p).data]; } }) };
 }
 function setup(key = KEY, member) {
   const db = fakeDb(), bucket = fakeBucket(), handler = createHandler({ db, bucket, key: () => key, member, now: () => 1000 });
-  const call = async ({ method = 'POST', body, query = {}, auth = KEY, raw, type }) => {
-    const headers = { 'x-studio-key': auth || '', 'content-type': type };
-    const res = { statusCode: 200, headers: {}, set(k, v) { this.headers[k] = v; return this; }, status(c) { this.statusCode = c; return this; }, json(d) { this.data = d; return this; }, send(d) { this.data = d; return this; } };
+  const call = async ({ method = 'POST', body, query = {}, auth = KEY, raw, type, headers: extra = {} }) => {
+    const headers = { 'x-studio-key': auth || '', 'content-type': type, ...extra };
+    const res = { statusCode: 200, headers: { Vary: 'Origin' }, set(k, v) { this.headers[k] = v; return this; }, status(c) { this.statusCode = c; return this; }, json(d) { this.data = d; return this; }, send(d) { this.data = d; return this; } };
     await handler({ method, body, query, rawBody: raw, get: k => headers[k.toLowerCase()] }, res);
     return res;
   };
@@ -172,4 +173,34 @@ test('GitHub 權杖：repo 的協作者（permissions.push）才算擁有者；�
   assert.equal((await call({ body: { op: 'list' }, auth: GOOD })).statusCode, 200);
   assert.equal((await call({ body: { op: 'list' }, auth: READ })).statusCode, 401);
   assert.equal((await call({ body: { op: 'list' } })).statusCode, 200, '金鑰照樣能用');
+});
+
+test('下載：收 gzip 就送壓好的（照內容存的壓一次存成 .gz）、圖片不壓；照內容下載可以一直快取；試用權杖記一下不用每次查', async () => {
+  const { call, bucket } = setup();
+  const json = Buffer.from(JSON.stringify({ holds: Array.from({ length: 300 }, (_, i) => ({ id: `p${i}`, position: [i, i, i] })) }));
+  const up = await call({ method: 'PUT', query: { pid: PID, path: 'wall.json' }, raw: json, type: 'application/json' });
+  const img = Buffer.alloc(4000, 7), upi = await call({ method: 'PUT', query: { pid: PID, path: 'snap.jpg' }, raw: img, type: 'image/jpeg' });
+  await call({ body: { op: 'push', pid: PID, name: '明德', line: 'wall3d', files: { 'wall.json': { sha256: up.data.sha256, size: json.length }, 'snap.jpg': { sha256: upi.data.sha256, size: img.length } } } });
+  const gz = { 'accept-encoding': 'gzip, deflate, br' };
+  const a = await call({ method: 'GET', query: { pid: PID, path: 'wall.json' }, headers: gz });
+  assert.equal(a.headers['Content-Encoding'], 'gzip');
+  assert.equal(a.headers['Cache-Control'], 'private, no-store');   // 路徑下載：同一個路徑內容會換
+  assert.deepEqual(require('node:zlib').gunzipSync(a.data), json);
+  assert.ok(bucket.files.has(`studio/${PID}/blobs/${up.data.sha256}.gz`));
+  const b = await call({ method: 'GET', query: { pid: PID, sha: up.data.sha256 }, headers: gz });
+  assert.match(b.headers['Cache-Control'], /immutable/);
+  assert.equal(b.headers.Vary, 'Origin, Accept-Encoding');
+  assert.deepEqual(require('node:zlib').gunzipSync(b.data), json);
+  const plain = await call({ method: 'GET', query: { pid: PID, sha: up.data.sha256 } });   // 不收 gzip 的送原檔
+  assert.equal(plain.headers['Content-Encoding'], undefined); assert.deepEqual(plain.data, json);
+  const c = await call({ method: 'GET', query: { pid: PID, path: 'snap.jpg' }, headers: gz });
+  assert.equal(c.headers['Content-Encoding'], undefined); assert.deepEqual(c.data, img);
+  // 試用權杖：記一下不用每次查；換發新權杖後新的馬上能用、舊的馬上失效
+  const t1 = (await call({ body: { op: 'trialLink', pid: PID } })).data.token;
+  const asTrial = (tok) => call({ method: 'GET', query: { pid: PID, path: 'wall.json' }, auth: '', headers: { 'x-studio-trial': tok } });
+  assert.equal((await asTrial(t1)).statusCode, 200);
+  assert.equal((await asTrial('x'.repeat(32))).statusCode, 401);
+  const t2 = (await call({ body: { op: 'trialLink', pid: PID } })).data.token;
+  assert.equal((await asTrial(t2)).statusCode, 200);
+  assert.equal((await asTrial(t1)).statusCode, 401);
 });

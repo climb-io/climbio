@@ -721,7 +721,7 @@ class Stage {
       this.wc = new WalkCam(unpackWalk(this.pack.walkData), cam);
       this.wc.holds = this.holdPos;   // 每顆岩點都要點得到：左右、上下範圍延伸到最外側的岩點（WalkCam.sRange、needCell）
       this.wc.hit = (o, d) => { const rc = this.raycaster; rc.set(o, d); rc.near = 0; rc.far = 30; const h = rc.intersectObjects(this.surfaces, false).find(this.shownHit()); rc.far = Infinity; return h ? h.distance : Infinity; };   // 射線打到看得到的牆多遠（cave 的站位看不看得到岩點：WalkCam.caveOf）
-      this.wc.sees = (o, d) => { const rc = this.raycaster; rc.set(o, d); rc.near = 0; rc.far = 30; const h = rc.intersectObjects(this.surfaces, false).find(this.shownHit()); rc.far = Infinity; return !!h; };   // 左右盡頭：畫面邊緣看出去有沒有看得到的牆（跟點擊一樣不算裁掉、淡出的部分；WalkCam.sRange）
+      this.wc.sees = (o, d, far = 30) => { const rc = this.raycaster; rc.set(o, d); rc.near = 0; rc.far = far; const h = rc.intersectObjects(this.surfaces, false).find(this.shownHit()); rc.far = Infinity; return !!h; };   // 左右盡頭：畫面邊緣看出去有沒有看得到的牆（跟點擊一樣不算裁掉、淡出的部分；WalkCam.sRange）；far：只算這麼近以內的（WalkCam.vHead 只認前方的牆）
     }
     const wc = this.wc;
     if (wc.W !== W || wc.H !== H) { wc.W = W; wc.H = H; wc.far = null; wc.useTable(tableFor(this.pack.walkData, W / H)); }

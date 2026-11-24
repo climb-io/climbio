@@ -130,38 +130,63 @@ async function syncGetter() {
   const r = await fetch(syncUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', ...head }, body: JSON.stringify({ op: 'pull', pid: syncPid }) });
   if (!r.ok) throw new Error(r.status === 401 ? T('w3TrialExpired') : `HTTP ${r.status}`);
   const files = (await r.json()).project.files || {};
-  return async (name, need) => {
+  const get = async (name, need) => {
     const f = files[name];
     if (!f) { if (need) throw new Error(`${name}：沒有`); return null; }
-    const one = async (q) => { const x = await fetch(`${syncUrl}?pid=${syncPid}&${q}`, { headers: head, cache: 'no-store' }); if (!x.ok) throw new Error(`${name}：HTTP ${x.status}`); return new Uint8Array(await x.arrayBuffer()); };
-    if (!f.parts) return one(`path=${encodeURIComponent(name)}`);
-    const parts = []; for (const sha of f.parts) parts.push(await one(`sha=${sha}`));   // 大檔（模型）一段一段接起來
+    const one = async (q, ok404) => {   // 照內容（sha）下載的內容不會變，讓瀏覽器快取；照路徑的不快取
+      const x = await fetch(`${syncUrl}?pid=${syncPid}&${q}`, { headers: head, cache: q.startsWith('sha=') ? 'default' : 'no-store' });
+      if (x.status === 404 && ok404) return null;
+      if (!x.ok) throw new Error(`${name}：HTTP ${x.status}`); return new Uint8Array(await x.arrayBuffer());
+    };
+    if (!f.parts) return (f.sha256 && await one(`sha=${f.sha256}`, true)) || one(`path=${encodeURIComponent(name)}`);   // 早期的檔存在路徑上，照內容找不到再照路徑
+    const parts = await Promise.all(f.parts.map(sha => one(`sha=${sha}`)));   // 大檔（模型）分段同時下載再接起來
     const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0)); let at = 0; for (const p of parts) { out.set(p, at); at += p.length; }
     return out;
   };
+  return { get, size: (name) => files[name]?.size };   // 大小：手機上已經有同一個檔就不重抓
 }
+// 檔名帶內容雜湊的檔（model-<12 碼>.glb 這類）：名字一樣、大小一樣就是同一份
+const HASHED = /-[0-9a-f]{12}\.\w+$/, KEEP = Symbol('keep');
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* 私密瀏覽等存不了：只是下次要重抓 */ } };
 if ((srcBase && /^\/[\w./-]*\/$/.test(srcBase)) || (syncPid && /^[0-9a-z]{16}$/.test(syncPid) && syncToken)) (async () => {
   const b = syncPid ? StudioShell.busy(T('w3Restoring')) : null;
   try {
-    const get = syncPid ? await syncGetter() : async (name, need) => { const r = await fetch(srcBase + name, { cache: 'no-store' }); if (r.ok) return new Uint8Array(await r.arrayBuffer()); if (need) throw new Error(`${name}：HTTP ${r.status}`); return null; };
-    const wall = await get('wall.json', true), doc = JSON.parse(new TextDecoder().decode(wall));
+    const src = syncPid ? await syncGetter() : { get: async (name, need) => { const r = await fetch(srcBase + name, { cache: 'no-store' }); if (r.ok) return new Uint8Array(await r.arrayBuffer()); if (need) throw new Error(`${name}：HTTP ${r.status}`); return null; } };
+    const root = await navigator.storage.getDirectory(), put = async (d, name, data) => { const w = await (await d.getFileHandle(name, { create: true })).createWritable(); await w.write(data); await w.close(); };
+    // 上次從這個連結開過的牆（私有檔案系統的資料夾），檔名帶雜湊、大小也對的就不重抓
+    const hint = syncPid && lsGet(`w3sync-${syncPid}`), hintDir = /^[0-9a-z]{16}$/.test(hint || '') ? await root.getDirectoryHandle(`wall3d-${hint}`).catch(() => null) : null;
+    const have = async (d, name, path) => { const sz = src.size?.(path); if (!d || sz == null || !HASHED.test(name)) return false; try { return (await (await d.getFileHandle(name)).getFile()).size === sz; } catch { return false; } };
+    const fetchKeep = async (d, name, path, need) => (await have(d, name, path)) ? KEEP : src.get(path, need);
+    // 代理先烘好的試用成品（trial/，照 manifest 的清單；同步服務裡還留著舊版的）：跟 wall.json、工作檔同時下載
+    const trialP = (async () => {
+      const man = await src.get(`${TRIAL_DIR}/manifest.json`, false).catch(() => null), list = man && JSON.parse(new TextDecoder().decode(man)).files;
+      if (!Array.isArray(list) || !list.every(n => /^[\w.-]+$/.test(n))) return null;
+      const tdir = hintDir && await hintDir.getDirectoryHandle(TRIAL_DIR).catch(() => null);
+      return [['manifest.json', man], ...await Promise.all(list.map(async n => [n, await fetchKeep(tdir, n, `${TRIAL_DIR}/${n}`, true)]))];
+    })();
+    trialP.catch(() => {});   // 下面 await 時才報錯
+    const wall = await src.get('wall.json', true), doc = JSON.parse(new TextDecoder().decode(wall));
     if (!/^[0-9a-z]{16}$/.test(doc.id || '') || !doc.model || !doc.faces) throw new Error('not a pack');
-    const dir = await (await navigator.storage.getDirectory()).getDirectoryHandle(`wall3d-${doc.id}`, { create: true });
+    const dir = await root.getDirectoryHandle(`wall3d-${doc.id}`, { create: true });
+    if (syncPid) lsSet(`w3sync-${syncPid}`, doc.id);
     const names = [doc.model, doc.faces, 'review3d.json', 'feedback3d.json', ...ClimbioWall3dReport.FILES.map(n => `${n}-summary.json`)];
-    const files = [['wall.json', wall], ...await Promise.all(names.map(async n => [n, await get(n, n === doc.model || n === doc.faces)]))];
+    const files = [['wall.json', wall], ...await Promise.all(names.map(async n => [n, await fetchKeep(dir, n, n, n === doc.model || n === doc.faces)]))];
     for (const [name, data] of files) {
+      if (data === KEEP) continue;
       if (!data) { await dir.removeEntry(name).catch(() => {}); continue; }   // 資料夾裡沒有的，私有檔案系統裡上次的也拿掉
-      const w = await (await dir.getFileHandle(name, { create: true })).createWritable(); await w.write(data); await w.close();
+      await put(dir, name, data);
     }
-    // 代理先烘好的試用成品（trial/）：一起放進來，試用直接打開，不用在手機上烘
-    await dir.removeEntry(TRIAL_DIR, { recursive: true }).catch(() => {});
-    const man = await get(`${TRIAL_DIR}/manifest.json`, false).catch(() => null), list = man && JSON.parse(new TextDecoder().decode(man)).files;
-    if (Array.isArray(list) && list.every(n => /^[\w.-]+$/.test(n))) {
-      const tdir = await dir.getDirectoryHandle(TRIAL_DIR, { create: true });
-      for (const [n, data] of [['manifest.json', man], ...await Promise.all(list.map(async n => [n, await get(`${TRIAL_DIR}/${n}`, true)]))]) {
-        const w = await (await tdir.getFileHandle(n, { create: true })).createWritable(); await w.write(data); await w.close();
+    const trial = await trialP;
+    if (trial) {   // 試用直接打開，不用在手機上烘；上次留下、這一版沒有的檔拿掉
+      const tdir = await dir.getDirectoryHandle(TRIAL_DIR, { create: true }), want = new Set(trial.map(([n]) => n));
+      const old = []; for await (const n of tdir.keys()) if (!want.has(n)) old.push(n);   // 先列完再刪（邊列邊刪會漏）
+      for (const n of old) await tdir.removeEntry(n).catch(() => {});
+      for (const [n, data] of trial) {
+        if (data === KEEP && hint === doc.id) continue;
+        await put(tdir, n, data === KEEP ? await src.get(`${TRIAL_DIR}/${n}`, true) : data);
       }
-    }
+    } else await dir.removeEntry(TRIAL_DIR, { recursive: true }).catch(() => {});
     srcOut = syncPid ? { url: syncUrl, pid: syncPid, token: syncToken } : srcBase;
     // 下載完還要開模型、掛上試用的牆：下載中一直留到牆出來才關（先關會露出選資料夾的畫面幾秒，像是壞了）
     const shown = srcStep === 'try' ? new Promise(r => { tryShown = r; }) : null;
