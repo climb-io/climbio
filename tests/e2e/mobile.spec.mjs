@@ -42,7 +42,7 @@ test('啟動畫面：程式還沒載入就先有（內嵌、岩點貓圖示）�
   expect(html.indexOf('id="bootSplash"')).toBeGreaterThan(0);
   expect(html.indexOf('id="bootSplash"')).toBeLessThan(html.indexOf('<script src="../js/rename.js"'));   // 在所有 App 程式之前
   // 同步載入修復、錯誤回報、換站網址、設定搬家與語言包；App 主程式維持 defer。
-  expect(html.match(/<script src="[^"]+"/g).map(m => m.slice(13, -1))).toEqual(['../appkit/recover.js', '../appkit/errors.js', '../host-redirect.js', '../js/rename.js', '../appkit/i18n.js', '../js/boot.js']);
+  expect(html.match(/<script src="[^"]+"/g).map(m => m.slice(13, -1))).toEqual(['../appkit/recover.js', '../host-redirect.js', '../js/rename.js', '../appkit/i18n.js', '../js/boot.js']);
   await page.route('**/js/main.js', async route => { await new Promise(r => setTimeout(r, 1500)); await route.continue(); });
   await page.goto('/hold/', { waitUntil: 'commit' });
   await expect(page.locator('#bootSplash svg')).toBeVisible();   // 主程式還沒到，看到的是啟動畫面

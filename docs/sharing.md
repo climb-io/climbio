@@ -30,7 +30,7 @@
    **公開牆資料流**：Firestore 的 `datasets/{包 id}` 與公開牆索引只記種類、版本與檔案資訊；照片、縮圖及岩點檔案儲存在公開資料集 `walls/<包 id>/v<版本>/`，路線更新存於 `wallRoutes`。
    - **岩點貓收牆**：找牆面清單（`/w/gym/…`，伺服器快取）裡每面牆的入口和縮圖直接是資料集的網址（版本在路徑裡，內容不變，Hub 的 CDN 送），不經過函式、不讀 Firestore；一次下載整面牆（圖層、畫面、照片）到手機，之後離線看。`/p/<包 id>/<檔>` 也導向資料集，不存副本。
    - **研究者**：只下載根目錄的 `walls.jsonl`（每面牆一行：大小、岩點數、有沒有精修、逐顆檢查完沒有…）就知道要哪些牆，再用 `allow_patterns` 只抓那些牆的最新版；說明在資料集的 `README.md`（原稿 [walls-dataset-card.md](walls-dataset-card.md)）。
-   - **路線**：大家定的線留在 Climbio 的 `wallRoutes`（岩點貓要即時看、改），每天一次（排程 `exportDataset`）把有變的牆匯出到 `walls/<包 id>/routes.json`（不帶帳號），更新 `walls.jsonl` 的路線數。
+   - **路線**：大家定的線留在 Climbio 的 `wallRoutes`（岩點貓要即時看、改），路線有變動就馬上由函式把 `walls/<包 id>/routes.json` 和 `index/world.json` 的那一行寫進資料集（`hf-public.js`）；每天一次（排程 `daily`）更新 `walls.jsonl` 的路線數與統計。
    - **天然岩場**：Guidebook 及 Topo 公開成品放在 `climbio/crags`，`datasets` 索引供紅點貓「世界」與固定分享網址讀取。Studio Crag 發佈使用 `prepare` 取得上傳位置，照片直傳資料集，完成後由 `publish` 登記；每次發佈建立新的專案 id，以 `origin`、`root` 與 `lineage` 關聯版本。世界清單按同一來源的版本群組顯示，公開資料集保留發佈內容。
    - **3D**：室內 3D 牆放 `climbio/walls3d`（`walls3d/<id>/`，專案 `type` 是 `wall3d`），天然岩場的 3D 模型放 `climbio/crags3d`（`crag3d`；大砲岩的模型從 Guidebook 複製一份進來，Guidebook 裡的照舊給紅點貓用）。做法跟岩場一樣（`prepare` 取 Hub 上傳網址、模型由瀏覽器直接傳、`publish` `hf: true` 一次 commit），單檔上限 400 MB、整包 1.5 GB；Studio 3D 牆公開發佈走這條，尚未公開的專案仍保存在作者自己的裝置或資料夾。說明：[walls3d-dataset-card.md](walls3d-dataset-card.md)、[crags3d-dataset-card.md](crags3d-dataset-card.md)。
    - **統計**：同一個排程把整份數字寫成資料集的 `stats.json`（資料集大小、岩點、路線、精修記錄、Firestore 各集合文件數），[統計頁](https://climbio.app/stats/)（`stats/index.html`）直接從 Hub 讀，不經過任何函式。
@@ -97,7 +97,7 @@
 - **公開牆與路線**：牆面第一次公開時上傳照片、縮圖與岩點。路線資料存於 `wallRoutes/{照片編號}`，每個路線 id 對應獨立的修改時間、內容與作者金鑰；路線 id 在收線、再分享與「我的裝置」交換時不變。路線修改只影響該 id，其他人的路線不覆寫。
 - **編輯權限**：建立路線的裝置第一次需要公開寫入時，在背景建立 ECDSA P-256 裝置金鑰；金鑰公鑰指紋 `kid` 是作者識別。後端 `functions/device-key.js` 驗證 `put` 等寫入簽章及重放保護，只有同一作者金鑰能更新或撤回該路線。金鑰由本機備份或已配對的「我的裝置」交換，不顯示成帳號操作。
 - **本機收線**：從 `/r/<牆 id>/<路線 id>/` 讀取路線圖層、對應牆面與照片；若本機已有照片只合併路線。相同路線 id 依修改時間更新，不同 id 的相同岩點組合可以共存。收到的資料先屬於本機，公開前仍須使用者主動分享。
-- **公開索引**：找牆面讀 `/dir/gyms.json`、`/w/gym/<岩館>.json`，公開路線由 `/r/<牆 id>/<路線 id>/route.json` 提供；發佈的 Guidebook 與 3D 可從 `/p/<專案 id>` 取得固定分享網址。後端只管理公開索引與必要的路線寫入，不代替本機備份。
+- **公開索引**：找牆面讀資料集的 `index/world.json`（Climbio 官方站；別的站照開放格式），公開路線讀 `walls/<包>/routes.json`；`/r/<牆 id>/<路線 id>/` 預覽頁與 `route.json` 由 `routePage` 從資料集切出（只讀、不查資料庫）；發佈的 Guidebook 與 3D 可從 `/p/<專案 id>` 取得固定分享網址。後端只管理公開索引與必要的路線寫入，不代替本機備份。
 - **公開授權**：首次公開時確認使用者的暱稱、素材權利及 CC BY-SA 4.0。已公開的資料集內容無法當作私人資料收回；本機刪除與撤回自己的公開路線是不同操作。
 
 ## 可替換後端

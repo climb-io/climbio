@@ -1,6 +1,6 @@
-// 開放資料集每天一次的整理（排程 exportDataset）：把岩點貓公開牆的線匯出到資料集、更新目錄的路線數、寫統計 stats.json。一次 commit，沒有變就不寫。
-//   walls/{包 id}/routes.json：{ climbio: 2, kind: 'routes', wall, pid, t, routes: [{ id, t, r: 路線片段 }] }（不帶帳號；發佈過的線 Climbio 保管、不因收回刪除，所以只增不減）
-//   walls.jsonl：每面牆的 routes 欄位換成這裡匯出的條數
+// 開放資料集每天一次的整理（排程 daily 的一步）：更新目錄的路線數、寫統計 stats.json。一次 commit，沒有變就不寫。
+//   路線本身不在這裡寫：路線有變動就由 hf-public.js 馬上把 routes.json 和 index 寫進資料集（這裡再寫會用舊格式蓋掉它）
+//   walls.jsonl：每面牆的 routes 欄位換成目前的條數
 //   stats.json：統計頁（/stats/）讀的數字，從資料集目錄、Hub 的用量、Firestore 各集合的文件數算出，Climbio 的網站讀不用經過任何函式
 // 只看上次匯出之後有變的牆（wallRoutes.t），所以每天的讀取量跟當天有多少牆被改成正比，不是跟總數。
 const { INDEX, REPO } = require('./walls-dataset');
@@ -30,14 +30,13 @@ async function exportDataset({ db, hf, now = Date.now, hub = async () => null, o
   const changed = await db.collection('wallRoutes').where('t', '>', since).get();
   const prev = await hf.read(INDEX), rows = new Map((prev || '').split('\n').filter(Boolean).map(l => JSON.parse(l)).map(r => [r.id, r]));
   const files = [];
-  let latest = since;
+  let latest = since, counted = false;
   for (const d of changed.docs) {
     latest = Math.max(latest, d.get('t') || 0);
     const src = (await db.collection('shared').doc(d.id).get()).get('src'), row = src && rows.get(src.project);
     if (!row) continue;   // 還沒進資料集的牆（或不是岩點貓公開牆）
-    const routes = Object.entries(d.get('routes') || {}).map(([id, x]) => ({ id, t: x.t || 0, r: JSON.parse(x.r) })).sort((a, b) => (a.id < b.id ? -1 : 1));
-    files.push({ path: `walls/${src.project}/routes.json`, bytes: Buffer.from(JSON.stringify({ climbio: 2, kind: 'routes', wall: src.project, pid: d.id, t: d.get('t') || 0, routes })) });
-    row.routes = routes.length;
+    row.routes = Object.keys(d.get('routes') || {}).length;
+    counted = true;
   }
   const list = [...rows.values()].sort((a, b) => (a.id < b.id ? -1 : 1));
   const collections = {};
@@ -46,13 +45,13 @@ async function exportDataset({ db, hf, now = Date.now, hub = async () => null, o
   for (const [k, o] of Object.entries(others)) extra[k] = { rows: String(await o.hf.read(o.index) || '').split('\n').filter(Boolean).map(l => JSON.parse(l)), hub: await (o.hub || (async () => null))().catch(() => null) };
   const stats = statsOf({ rows: list, hub: await hub().catch(() => null), collections, t: now(), others: extra });
   const old = await hf.read(STATS), same = old && JSON.stringify({ ...JSON.parse(old), t: 0 }) === JSON.stringify({ ...stats, t: 0 });
-  if (files.length || !same) {
-    if (files.length) files.push({ path: INDEX, bytes: Buffer.from(list.map(r => JSON.stringify(r)).join('\n') + '\n') });
+  if (counted || !same) {
+    if (counted) files.push({ path: INDEX, bytes: Buffer.from(list.map(r => JSON.stringify(r)).join('\n') + '\n') });
     files.push({ path: STATS, bytes: Buffer.from(JSON.stringify(stats, null, 1)) });
     await hf.commit(`整理 ${new Date(now() + 8 * 3600e3).toISOString().slice(0, 10)}`, files);
   }
   if (latest > since) await db.doc(STATE).set({ at: latest });
-  return { routes: files.filter(f => f.path.endsWith('/routes.json')).length, committed: files.length > 0 };
+  return { walls: changed.docs.length, committed: files.length > 0 };
 }
 
 /** Hub 的用量：整個倉庫佔多少、下載幾次（要有讀權杖；查不到就不放） */

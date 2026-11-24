@@ -22,14 +22,11 @@ function setup({ rows = [row('p1'), row('p2', { gym: 'G', edits: { reviewed: tru
 const route = (t, uid = 'u9') => ({ uid, t, r: JSON.stringify({ nodes: [], marks: [] }) });
 const wall = (project, routes, t) => ({ src: { project, path: 'x.json' }, routesDoc: { t, routes } });
 
-test('匯出：只處理上次之後變過的牆，routes.json 不帶帳號，目錄的 routes 換成條數，記下最新時間', async () => {
+test('匯出：只處理上次之後變過的牆，目錄的 routes 換成條數，不寫 routes.json（那是 hf-public 的），記下最新時間', async () => {
   const s = setup({ walls: { w1: wall('p1', { a: route(5), b: route(7) }, 7), w0: wall('p2', { c: route(1) }, 1) }, since: 3 });
   const r = await exportDataset({ db: s.db, hf: s.hf, now: () => 1e12 });
-  assert.deepEqual(r, { routes: 1, committed: true });
-  assert.deepEqual(s.commits[0].sort(), ['stats.json', 'walls.jsonl', 'walls/p1/routes.json']);
-  const f = JSON.parse(s.files.get('walls/p1/routes.json'));
-  assert.deepEqual([f.wall, f.pid, f.routes.map(x => x.id)], ['p1', 'w1', ['a', 'b']]);
-  assert.equal(s.files.get('walls/p1/routes.json').includes('u9'), false);
+  assert.deepEqual(r, { walls: 1, committed: true });
+  assert.deepEqual(s.commits[0].sort(), ['stats.json', 'walls.jsonl']);
   assert.deepEqual(s.files.get('walls.jsonl').split('\n').filter(Boolean).map(l => JSON.parse(l).routes), [2, 0]);
   assert.equal(s.docs.get('datasetExport/state').at, 7);
 });

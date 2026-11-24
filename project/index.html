@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#F7F9FB">
 <title>把 Climbio 放進你的岩館 App | Climbio</title>
 <script src="../doc-language.js"></script>
-<meta name="description" content="用你熟悉的 AI Agent，把看線與定線畫面放進現有的岩館 App，不必另外開發。這裡說明做法；技術規格與整合步驟統一在 GitHub。">
+<meta name="description" content="岩館經營者專用：不必自己開發，就能讓你的 App 有看線與定線。看實際範例，再複製指令交給 AI Agent 完成整合。">
 <link rel="canonical" href="https://climbio.app/project/">
 <link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/project/">
 <link rel="alternate" hreflang="en" href="https://climbio.app/en/project/">
@@ -27,16 +27,30 @@
 <nav class="site-nav"><a href="../guides/">使用說明</a></nav>
 </header>
 <main class="pg">
-<div class="pg-hero"><img class="pg-engine-mark" src="../icons/brand/ai-engine.svg" width="72" height="72" alt=""><h1>把 Climbio 放進你的岩館 App</h1><p class="pg-lead">用你熟悉的 AI Agent，把看線與定線畫面放進現有的岩館 App，不必另外開發。這裡說明做法；技術規格與整合步驟統一在 GitHub。</p></div>
-<section class="pg-section"><h2>用 AI Agent 整合進你的 App</h2><p>岩館人員只要三步：1. 複製下面這段話。2. 貼給你平常用的 AI Agent（Claude、ChatGPT、Codex 都可以）。3. 照它的提問回答，例如牆面照片放在哪裡。Agent 會先處理牆面，再整合進 App；之後牆面有更新，也照同一份說明做。需要你決定的它會先問。</p><div class="pg-prompt"><pre id="agent-prompt" lang="zh-Hant">請先閱讀 https://github.com/climb-io/climbio/blob/main/docs/embed.md 和 https://github.com/climb-io/climbio/blob/main/docs/gym-agent.md，幫我把我們岩館整合進 Climbio，分三個階段做：
-1. 處理牆面：用 Climbio Studio（https://climbio.app/studio/wall/）把牆面照片整理成岩點檔並發布，取得牆 id。若由你操作命令列，執行 node tools/studio.mjs start gym &lt;資料夾&gt; &lt;照片…&gt;，照它印的下一步做；岩點要自己看圖檢查到定案，看不準的放大再看。
-2. 整合 App：在現有的岩館 App 放內嵌頁（iframe 或 WebView），資料只用官方網址；使用者定完路線用 submit 提交，記下回傳的 routeId 對應我們自己的使用者。
-3. 之後的牆面更新：牆面或岩點有調整，就在 Studio 用同一面牆重新發布（會是新版本，舊路線照舊）；如果換了照片，要當成新的一面牆，換新的牆 id，並告訴我 App 要怎麼切換。
-需要我決定或提供的東西（牆面照片、使用者怎麼對應路線、要不要固定某一版）請先問我，不要自己編造。每個階段做完，告訴我怎麼驗收。</pre><button type="button" class="pg-btn primary" data-copy="#agent-prompt" data-done="已複製">複製</button></div><p>請 AI Agent 先閱讀整合說明，三步完成：用 Studio 整理並發布牆面，把看線、定線畫面放進 App，再用固定的牆 id 更新路線。適合願意和岩友分享路線的岩館；使用者與路線怎麼對應，由你的 App 決定，Climbio 不介入。</p><div class="pg-actions"><a class="pg-btn primary" href="https://github.com/climb-io/climbio/blob/main/docs/embed.md">整合說明（給 AI Agent）</a><a class="pg-btn" href="https://github.com/climb-io/climbio/blob/main/docs/gym-agent.md">岩館 Agent 指南</a></div></section>
-<section class="pg-section"><h2>目前能做什麼</h2><p>岩點貓可用來定線與分享；紅點貓可下載岩場資料離線閱讀；朋友互傳、紅點貓收藏及 Studio 提供不同的資料整理方式。各功能仍持續改善。</p></section>
-<section class="pg-section"><h2>查看最新進度</h2><p>公開版的程式變更可在 GitHub 查看。規劃與尚待改善的項目以專案紀錄為準；網站不把規劃中的功能寫成已完成。</p><div class="pg-actions"><a class="pg-btn" href="https://github.com/climb-io/climbio/commits/main/">查看公開開發進度</a></div></section>
+<div class="pg-hero"><span class="pg-eyebrow">給岩館經營者</span><h1>讓你的岩館 App 有看線與定線，不必自己開發</h1><p class="pg-lead">把牆面照片交給 Climbio 整理成可以點岩點的牆，再放進你現有的 App。岩友在你的 App 裡就能看線、定線；你的帳號、紀錄與資料庫都不用動。</p><div class="pg-actions"><a class="pg-btn primary" href="#demo">看實際範例</a><a class="pg-btn" href="#prompts">複製給 AI Agent 的指令</a></div></div>
+<section class="pg-section"><h2>放進去之後，你的岩館得到什麼</h2><div class="pg-grid"><div class="pg-card"><h3>不用另外開發</h3><p>看線與定線畫面是現成的：在 App 放一個內嵌頁（網頁用 iframe，原生 App 用 WebView），告訴它牆的 id，就完成。</p></div><div class="pg-card"><h3>牆面整理交給 AI</h3><p>拍一張牆面照片，Studio 自動偵測岩點，AI 檢查後發佈；手機也能做。牆面調整時，用同一面牆重新發佈，舊路線照樣可用。</p></div><div class="pg-card"><h3>岩友在別處也找得到你</h3><p>你的牆同時出現在岩點貓的「找牆面」，路線在你的 App 與岩點貓都看得到，不必各維護一份。</p></div><div class="pg-card"><h3>你的使用者與紀錄不用動</h3><p>Climbio 只放牆面與路線。使用者怎麼對應路線、完攀紀錄、留言，全由你的 App 決定；提交路線以你的網站為身分，不需要另外申請金鑰。</p></div></div></section>
+<section class="pg-section" id="demo"><h2>實際看看</h2><p>這是放進岩館 App 的定線畫面：點牆上的岩點，就能定出一條路線（示範用，不會儲存）。看線是同一個內嵌頁，只差在模式。</p>
+<div class="pg-demo-box" id="demo-box" data-wall="0fe38b21d07b3771/nbh6yueynqa0" data-loading="載入中…"><button type="button" class="pg-btn primary" id="demo-load">載入範例</button><span class="pg-demo-hint">點一下才會載入（照片約 2 MB）</span></div>
+<div class="pg-grid two pg-reg"><img class="pg-shot" src="../demo/home/hold-community-view-zh.webp" alt="岩點貓看一面公開牆的路線" loading="lazy"><div><h3>一般使用者看到的是同一面牆</h3><p>你的牆發佈後也會出現在岩點貓。岩友可以直接在岩點貓看線、定線，不用安裝你的 App，路線兩邊都看得到。</p><a class="pg-btn" href="../hold/">開啟岩點貓</a></div></div></section>
+<section class="pg-section"><h2>怎麼做</h2><ol class="pg-steps"><li>AI Agent 處理牆面：在本機把牆面照片整理成岩點檔，自己看圖檢查，打包成一個 ZIP。</li><li>放進 App：路線頁放內嵌頁；後台放「牆發佈」內嵌頁，工作人員把 ZIP 丟進去、同意、按發佈，岩館 App 鎖定發佈的那一版。</li><li>使用者定線：定完按提交，路線就公開在這面牆；你的 App 記下回傳的路線 id，對應你自己的使用者。</li></ol></section>
+<section class="pg-section" id="prompts"><h2>複製給 AI Agent</h2><p>貼給你平常用的 AI Agent（Claude、ChatGPT、Codex 都可以）。它讀完整份流程後，會一次把需要你提供的照片和資料列成清單問你，你回答就好；公開發佈前一定會先問你同意。</p><div class="pg-prompt"><pre id="agent-prompt" lang="zh-Hant">請先閱讀 https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md ，照裡面的流程幫我們岩館整合 Climbio。一開始請把需要我提供的照片和資料一次列成清單問我，不要分很多次問；我答不出來的，請給我選項和建議，不要自己編造。</pre><button type="button" class="pg-btn primary" data-copy="#agent-prompt" data-done="已複製">複製</button></div><p>技術細節都在 GitHub，AI Agent 會自己讀：</p><div class="pg-actions"><a class="pg-btn" href="https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md">整合說明</a></div></section>
 <footer class="pg-foot docs-footer"><span>© 2026 Climbio</span><nav><a href="../">首頁</a> · <a href="../privacy.html">隱私權</a> · <a href="../terms.html">使用條款</a></nav></footer>
 </main>
-<script>document.addEventListener('click',function(e){var b=e.target.closest('[data-copy]');if(!b)return;var el=document.querySelector(b.dataset.copy),t=el.textContent,done=function(){var o=b.textContent;b.textContent=b.dataset.done;setTimeout(function(){b.textContent=o;},1800);},fb=function(){var r=document.createRange();r.selectNodeContents(el);var g=getSelection();g.removeAllRanges();g.addRange(r);try{document.execCommand('copy');done();}catch(x){}};if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,fb);else fb();});</script>
+<script>
+document.addEventListener('click',function(e){var b=e.target.closest('[data-copy]');if(!b)return;var el=document.querySelector(b.dataset.copy),t=el.textContent,done=function(){var o=b.textContent;b.textContent=b.dataset.done;setTimeout(function(){b.textContent=o;},1800);},fb=function(){var r=document.createRange();r.selectNodeContents(el);var g=getSelection();g.removeAllRanges();g.addRange(r);try{document.execCommand('copy');done();}catch(x){}};if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,fb);else fb();});
+(function(){
+var box=document.getElementById('demo-box'),btn=document.getElementById('demo-load');if(!box||!btn)return;
+var frame=null;
+function send(m){if(frame&&frame.contentWindow)frame.contentWindow.postMessage(Object.assign({climbio:'routekit',v:1},m),'*');}
+btn.addEventListener('click',function(){
+  btn.disabled=true;btn.textContent=box.dataset.loading;
+  addEventListener('message',function(e){if(!frame||e.source!==frame.contentWindow||!e.data||e.data.climbio!=='routekit')return;
+    if(e.data.type==='ready')send({type:'init',wallId:box.dataset.wall,layerUrls:[]});
+    if(e.data.type==='fullscreen'){frame.classList.toggle('full',!!e.data.on);send({type:'setFullscreen',on:!!e.data.on});}});
+  frame=document.createElement('iframe');frame.className='pg-demo';frame.allow='fullscreen';frame.title=document.querySelector('#demo h2').textContent;frame.src='https://embed.climbio.app/routekit/v1/?mode=edit&maxStart=2';
+  box.replaceWith(frame);
+});
+})();
+</script>
 </body>
 </html>

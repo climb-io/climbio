@@ -8,7 +8,7 @@
 //   分享包：await ShareTools.wallPackage({ id, layerId, pid, name, gym, w, h, thumb, holds, routes, photo, attribution, version, t }) → [{ path, bytes }]
 //   站的公開牆面：await ShareTools.siteGyms(site) → [{ gym, n, t }]；await ShareTools.gymWalls(site, gym) → [{ pid, name, thumb, routes, t, href }]；
 //   const { base, photo, routes } = await ShareTools.fetchWall(href, pid)；const { base } = await ShareTools.fetchHolds(href, pid)（只讀岩點，不下載照片）；ShareTools.homeSite() → 這個站的網址
-//   總目錄：await ShareTools.directoryGyms(dir) → [{ gym, n, t, sites: [{ url, name }] }]；ShareTools.registerSite(dir) 登記這個站（一週最多一次）
+//   總目錄：await ShareTools.directoryGyms(dir) → [{ gym, n, t, sites: [{ url, name }] }]
 // English: Backend-free sharing tools: fetch Climbio format v2 routes and walls from any https URL, link parsing, gzip.
 (() => {
   'use strict';
@@ -268,13 +268,31 @@
     listMemo.set(key, { t: Date.now(), p });
     return p;
   };
+  // Climbio 自己的公開牆：進 App 只讀一個 index（資料集的固定網址，每面牆一行），岩館清單、各岩館的牆都從它分出來；
+  // 別的站（自己架的、總目錄裡的）照開放格式讀它的 climbio.json 和 w/gym/<岩館>.json
+  const OFFICIAL = 'https://climbio.app', HF_WALLS = 'https://huggingface.co/datasets/climbio/walls/resolve/main/';
+  const officialIndex = () => memoList('climbio index', async () => {
+    needNet();
+    const d = await (await get(`${HF_WALLS}index/world.json`)).json().catch(() => null);
+    if (!d || !Array.isArray(d.walls)) throw new Error(T('shareNotFound'));
+    return d.walls.filter(x => typeof x.id === 'string' && typeof x.gym === 'string' && x.gym);
+  });
   // 站（組合 type: site）→ 有公開牆面的岩館
-  const siteGyms = (site) => memoList(`site ${site}`, async () => {
+  const siteGyms = (site) => site === OFFICIAL ? officialIndex().then((walls) => {
+    const gyms = new Map();
+    for (const x of walls) { const g = gyms.get(x.gym) || { gym: x.gym, n: 0, t: 0 }; g.n++; g.t = Math.max(g.t, x.t || 0); gyms.set(x.gym, g); }
+    return [...gyms.values()].sort((a, b) => b.t - a.t);
+  }) : memoList(`site ${site}`, async () => {
     const d = await getDoc(`${site}/climbio.json`, 'set');
     return (d.items || []).filter(x => typeof x.name === 'string').map(x => ({ gym: x.name, n: count(x, 'walls'), t: x.t || 0 }));
   });
   // 岩館的公開牆面（組合 type: walls）→ 一面牆一項；href＝從哪裡收（路線圖層或牆），縮圖網址照清單的網址解析
-  const gymWalls = (site, gym) => memoList(`gym ${site} ${gym}`, async () => {
+  const gymWalls = (site, gym) => site === OFFICIAL ? officialIndex().then((walls) => walls.filter(x => x.gym === gym).sort((a, b) => (b.t || 0) - (a.t || 0)).map((x) => {
+    const [pack, pid] = x.id.split('/'), base = `${HF_WALLS}walls/${pack}/`;
+    // 3D 牆：資料在 walls3d 的資料夾（x.base），從牆面清單進去是用 pid 開（W3D.receive），href 只是這面牆的入口
+    if (x.m3d && typeof x.base === 'string') return { pid, name: nameOf(x.name), thumb: `${x.base}thumb.jpg`, routes: x.n || 0, t: x.t || 0, href: `${x.base}index.json`, m3d: 1 };
+    return { pid, name: nameOf(x.name), thumb: `${base}current/${pid}.thumb.jpg`, routes: x.n || 0, t: x.t || 0, href: x.n ? `${base}routes.json` : `${base}current/${pid}.json` };
+  })) : memoList(`gym ${site} ${gym}`, async () => {
     // Split the project-reader response from cached lists that still contain direct Drive links.
     const url = `${site}/w/gym/${encodeURIComponent(gym)}.json?read=project`, d = await getDoc(url, 'set');
     return (d.items || []).filter(x => PID_RE.test(x.id || '')).map(x => {
@@ -321,6 +339,8 @@
   // ---------- 總目錄（docs/route-format.md 的「總目錄」）：一項是一個站的一間岩館；dir＝總目錄的網址（site.js 的 SITE.directory） ----------
   // → [{ gym, n, t, sites: [{ url: 站的網址, name }] }]，同一間岩館的站合在一起
   async function directoryGyms(dir) {
+    // Climbio 官方的總目錄就是官方站自己的 index（沒有別的站登記過），不另外讀檔
+    if (dir === OFFICIAL) return (await siteGyms(OFFICIAL)).map(g => ({ ...g, sites: [{ url: OFFICIAL, name: 'Climbio' }] }));
     const d = await getDoc(`${dir}/dir/gyms.json`, 'set'), byGym = new Map();
     for (const x of d.items || []) {
       const m = typeof x.name === 'string' && /^(https:\/\/.+)\/w\/gym\/[^/]+\.json$/.exec(resolve(x.href, `${dir}/dir/gyms.json`));
@@ -331,17 +351,6 @@
     }
     return [...byGym.values()];
   }
-  // 登記這個站：每台手機一週最多送一次，只送網址；總目錄自己去讀這個站的 climbio.json 驗證（props.listed: true 才收）
-  const DIR_KEY = 'climbio.dirAt', WEEK = 7 * 864e5;
-  function registerSite(dir) {
-    if (navigator.onLine === false) return;
-    let at = 0;
-    try { at = Number(localStorage.getItem(DIR_KEY)) || 0; } catch (e) { /* 儲存空間不可用：照送 */ }
-    if (Date.now() - at < WEEK) return;
-    try { localStorage.setItem(DIR_KEY, String(Date.now())); } catch (e) { /* 同上 */ }
-    fetch(`${dir}/dir/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: homeSite() }) }).catch(() => {});
-  }
-
   // 手機精修的記錄，格式同開放資料集的 edits.json（docs/walls-dataset-card.md）：base 是原始岩點檔，mine 是我的岩點檔（source：detect、edited、manual）。
   // 公開的牆畫面維持原始岩點檔；final 帶改過、手畫的岩點的最後外框。沒有任何修改回 null。
   function phoneEdits({ pid, base = [], mine = [], license = 'CC-BY-SA-4.0' }) {
@@ -355,5 +364,5 @@
     return { holdlab: 1, wall: pid, license, reviewed: false, tools: { by: 'phone' }, flagged: {}, deleted, reshaped, added, final, sam: {} };
   }
 
-  window.ShareTools = { T, open, memPut, memDrop, needNet, offlineError, cancelledError, loadScript, qrDataURL, scan, PID_RE, RID_RE, fetchShared, layerRoutes, wallPackage, wallBundle, phoneEdits, gzip, gunzip, linkFrom, homeSite, siteGyms, gymWalls, fetchWall, fetchHolds, wallPhotos, directoryGyms, registerSite };
+  window.ShareTools = { T, open, memPut, memDrop, needNet, offlineError, cancelledError, loadScript, qrDataURL, scan, PID_RE, RID_RE, fetchShared, layerRoutes, wallPackage, wallBundle, phoneEdits, gzip, gunzip, linkFrom, homeSite, siteGyms, gymWalls, fetchWall, fetchHolds, wallPhotos, directoryGyms };
 })();

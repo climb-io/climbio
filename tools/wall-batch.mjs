@@ -19,6 +19,7 @@
 //   node tools/wall-batch.mjs review <工作資料夾>             整理要人判斷的清單：review/index.html（單檔、手機看）和 review.json；印出總結
 //   node tools/wall-batch.mjs resolve <工作資料夾> <牆>:<題 id 或 sam:<岩點 id>> <ok|rm1|rm2|merge|keep|sam> --by human:<名稱> --said "<人的原話>"
 //                                                             記下人的判斷（會先照判斷改岩點）；<牆>:publish 是「要不要公開發佈」，答 ok 才記，這個指令不發佈
+//   node tools/wall-batch.mjs zip <工作資料夾> --gym "<岩館名稱>"   通過 verify 的牆打成一個 <工作資料夾>/walls.zip（每面牆一個資料夾，畫面帶岩館名稱），交給岩館 App 後台的「牆發佈」內嵌頁
 //   node tools/wall-batch.mjs status <工作資料夾>             每面牆做到哪
 //
 // 檢查分級（POLICY）：程式自己處理的（SAM2 沒旗標、重複岩點 IoU ≥ 0.70）→ 隨機抽查 → AI 看圖的（SAM2 候選對不上／分數低、其餘重複岩點）→ 只剩 AI 看不準的給人。
@@ -32,6 +33,7 @@ import { readFileSync, writeFileSync, appendFileSync, mkdirSync, existsSync, rea
 import { join, dirname, basename, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
+import AppKit from '../appkit/index.mjs';   // zip（牆發佈的 ZIP）用它的 ZIP 打包
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { DELETE_REASONS, HOLD_RULES } from './hold-rubric.mjs';
@@ -827,6 +829,30 @@ function resolveOne() {
   console.log(`${n}：${decideOne(pack, view, q, choice, { by, said })}`);
 }
 
-const table = { run, check, recheck, shapes: shapesCmd, shapecheck: shapecheckCmd, onvolume: onvolumeCmd, apply, verify, reviewed: reviewedCmd, review, status, next, resolve: resolveOne };
-if (!table[cmd]) fail('用法：node tools/wall-batch.mjs next|run|check|recheck|shapes|shapecheck|apply|verify|review|resolve|status …（不知道做什麼先跑 next；說明在檔案開頭）');
+// ---------- zip（交給牆發佈的內嵌頁）----------
+/** 通過 verify 的每面牆（<牆>/pack）打成一個 walls.zip：<牆>/<檔案>；岩館名稱寫進畫面的 props.gym（公開牆一定要有，由館主提供、不推測） */
+async function zipCmd() {
+  const work = rest[0], gym = (flag('--gym') || '').trim();
+  if (!work) fail('用法：node tools/wall-batch.mjs zip <工作資料夾> --gym "<岩館名稱>"');
+  if (!gym || gym.length > 60) fail('要 --gym "<岩館名稱>"（最多 60 字）：岩館名稱由館主提供，不推測');
+  const walls = wallsOf(work), entries = [];
+  if (!walls.length) fail(`${work} 裡沒有牆（要先 run）`);
+  for (const n of walls) {
+    if (!existsSync(join(work, n, 'result.json'))) fail(`${n} 還沒通過 verify（沒有 result.json）：先 node tools/wall-batch.mjs next ${work}`);
+    const pack = packOf(work, n), view = viewOf(pack);
+    if (!view) fail(`${n}/pack 沒有牆的畫面`);
+    for (const f of readdirSync(pack).sort()) {
+      let bytes = readFileSync(join(pack, f));
+      if (f === `${view.id}.json`) bytes = Buffer.from(JSON.stringify({ ...view, props: { ...(view.props || {}), gym } }));
+      entries.push({ name: `${n}/${f}`, blob: new Blob([bytes]) });
+    }
+  }
+  const out = join(work, 'walls.zip');
+  writeFileSync(out, Buffer.from(await (await AppKit.files.zip(entries)).arrayBuffer()));
+  console.log(`已打包 ${walls.length} 面牆（岩館「${gym}」）：${resolve(out)}
+下一步：把這個檔案交給岩館 App 後台的「牆發佈」內嵌頁（館主同意公開後按發佈，見 docs/gym-onboarding.md）。公開收不回，發佈前要有館主明確同意。`);
+}
+
+const table = { run, check, recheck, shapes: shapesCmd, shapecheck: shapecheckCmd, onvolume: onvolumeCmd, apply, verify, reviewed: reviewedCmd, review, zip: zipCmd, status, next, resolve: resolveOne };
+if (!table[cmd]) fail('用法：node tools/wall-batch.mjs next|run|check|recheck|shapes|shapecheck|apply|verify|review|zip|resolve|status …（不知道做什麼先跑 next；說明在檔案開頭）');
 await table[cmd]();

@@ -19,8 +19,9 @@ const dayKey = ms => new Date(ms + 8 * 3600e3).toISOString().slice(0, 10);
 const baseUrl = (id, version) => `https://huggingface.co/datasets/${REPO}/resolve/main/walls/${id}/v${version}/`;
 const sha = (bytes, algo = 'sha256') => createHash(algo).update(bytes).digest('hex');
 const INDEX = 'walls.jsonl', LICENSE = 'CC-BY-SA-4.0';
-/** 現行版的指標檔 walls/{包 id}/current.json：內嵌頁直接讀資料集就知道現行版是哪一版，不用呼叫雲端函式（/p/）查 */
-const currentFile = (id, version) => ({ path: `walls/${id}/current.json`, bytes: Buffer.from(JSON.stringify({ climbio: 2, kind: 'current', version })) });
+/** 現行版的固定網址 walls/{包 id}/current/{檔}：跟 v{版本}/ 同樣的檔案，客戶端直接讀（不用查現行版是哪一版、不經過函式）。
+ *  二進位檔在同一個 commit 用 LFS 指到同一個物件（內容雜湊相同），不多佔空間；files：[{ path, bytes }] */
+const currentCopies = (id, files) => files.map(f => (isText(f.path) ? { path: `walls/${id}/current/${f.path}`, bytes: f.bytes } : { path: `walls/${id}/current/${f.path}`, oid: sha(f.bytes), size: f.bytes.length }));
 const isText = path => /\.(json|jsonl|md)$/.test(path);   // 文字放在 commit 裡；JPEG 這類二進位檔 Hub 只收 LFS
 
 /** 誰檢查完的：AI 代理流程的記錄有 ai（reviews 裡有人就是 ai+human）；Studio 的人按「逐顆檢查完了」是 human；沒檢查完不寫 */
@@ -108,6 +109,18 @@ function createHf({ token, repo = REPO, get = fetch }) {
   }
   return {
     lfsBatch,
+    /** 倉庫現在最新的 commit（寫入時用 parentCommit 確認沒有別的 commit 先進去） */
+    async head() {
+      const r = await get(`https://huggingface.co/api/datasets/${repo}`, { headers: auth() });
+      if (!r.ok) await bad('HF head', r);
+      return (await r.json()).sha;
+    },
+    /** 資料夾裡的檔案：[{ path, size, oid? }]（oid 是 LFS 的 sha256；文字檔沒有） */
+    async tree(dir) {
+      const r = await get(`https://huggingface.co/api/datasets/${repo}/tree/main/${dir}`, { headers: auth() });
+      if (!r.ok) await bad('HF tree', r);
+      return (await r.json()).filter(x => x.type === 'file').map(x => ({ path: x.path, size: x.size, ...(x.lfs && x.lfs.oid ? { oid: x.lfs.oid, size: x.lfs.size || x.size } : {}) }));
+    },
     /** 讀資料集裡的一個文字檔；不在回 null */
     async read(path) {
       const r = await get(`https://huggingface.co/datasets/${repo}/resolve/main/${path}`, { headers: { ...auth(), 'Cache-Control': 'no-cache' } });
@@ -116,27 +129,28 @@ function createHf({ token, repo = REPO, get = fetch }) {
       return r.text();
     },
     /** 一個 commit：files 的每一項是 { path, bytes }（文字放進 commit，二進位先走 LFS）、{ path, oid, size }（內容已經由別人傳到 LFS）或 { path, deleted: true } */
-    async commit(summary, files) {
+    async commit(summary, files, { parentCommit } = {}) {
       const bin = files.filter(f => f.bytes && !isText(f.path)).map(f => ({ ...f, oid: sha(f.bytes) }));
       if (bin.length) await lfsUpload(bin);
-      const lines = [{ key: 'header', value: { summary } }, ...files.map(f => (f.deleted ? { key: 'deletedFile', value: { path: f.path } }
+      const lines = [{ key: 'header', value: { summary, ...(parentCommit ? { parentCommit } : {}) } }, ...files.map(f => (f.deleted ? { key: 'deletedFile', value: { path: f.path } }
         : f.bytes && isText(f.path) ? { key: 'file', value: { path: f.path, encoding: 'base64', content: f.bytes.toString('base64') } }
         : { key: 'lfsFile', value: { path: f.path, algo: 'sha256', oid: f.oid || bin.find(b => b.path === f.path).oid, size: f.size || f.bytes.length } }))];
       const r = await get(`https://huggingface.co/api/datasets/${repo}/commit/main`, { method: 'POST', headers: { ...auth(), 'Content-Type': 'application/x-ndjson' }, body: lines.map(l => JSON.stringify(l)).join('\n') });
+      if (r.status === 409 || r.status === 412) throw Object.assign(fail(409, 'hub conflict'), { conflict: true });   // parentCommit 不是最新的：呼叫的人重讀重寫
       if (!r.ok) await bad('HF commit', r);
     },
   };
 }
 
 // refreshGyms(包 id)：發佈後重算用到這個包的岩館公開牆清單（gym-walls.js），清單才指到新的現行版
-function createHandler({ db, hf, now = Date.now, refreshGyms = null, isOwner = async () => false }) {
+function createHandler({ db, hf, now = Date.now, refreshGyms = null }) {
   const wall = id => db.collection('datasets').doc(id);
   // 不認人（docs/proposals/open-versions.md）：不登入、不記 owner；額度按網路來源；內容由 wall-check.js 驗證
   const keyOf = req => `ip${sha(clientIp(req)).slice(0, 16)}`;
   const ops = {
     async publishWall(body, req) {
-      // 公開牆只由 Climbio Studio 發佈；岩點貓 App 不上傳牆（舊版 App 沒帶標記，在這裡擋掉）。標記不是驗證（這裡不認人），只讓 App 不能意外把牆傳上來
-      if (body.source !== 'studio') throw fail(400, 'studio only');
+      // 公開牆只由 Climbio Studio 或牆發佈的內嵌頁（embed/wallpublish）發佈；岩點貓 App 不上傳牆（舊版 App 沒帶標記，在這裡擋掉）。標記不是驗證（這裡不認人），只讓 App 不能意外把牆傳上來
+      if (body.source !== 'studio' && body.source !== 'embed') throw fail(400, 'studio only');
       if (!ID.test(body.id || '')) throw fail(400, 'bad id');
       const name = String(body.name || '').trim();
       if (!name || name.length > 80) throw fail(400, 'bad name');
@@ -166,20 +180,13 @@ function createHandler({ db, hf, now = Date.now, refreshGyms = null, isOwner = a
       // 沒有檢查過的版本照樣存成新版本（用固定網址指到它），但新版本沒檢查過、現行版檢查過，或照片換了，現行版不換
       const reviewed = !!row.edits?.reviewed, photoSame = !old.get('photoSha') || old.get('photoSha') === row.photoSha256,   // 跟現行版的照片比（舊資料沒有指紋就不擋）
          becomes = photoSame && (reviewed || !old.get('reviewed'));
-      await hf.commit(`公開 ${body.id} v${version}`, [...files.map(f => ({ path: dir + f.path, bytes: f.bytes })), { path: INDEX, bytes: Buffer.from(upsertRow(idx, row)) }, ...(becomes ? [currentFile(body.id, version)] : [])]);
+      await hf.commit(`公開 ${body.id} v${version}`, [...files.map(f => ({ path: dir + f.path, bytes: f.bytes })), { path: INDEX, bytes: Buffer.from(upsertRow(idx, row)) }, ...(becomes ? currentCopies(body.id, files) : [])]);
       // 留名不留權：歷代署名（畫面的 attribution）沿版本保留，不重複
       const credits = [...new Set([...(old.get('credits') || []), String(JSON.parse(viewFile.bytes).attribution || '')])].filter(Boolean).slice(-20);
       await wall(body.id).set({ owner: '', type: 'walls', name, latest: version, credits, ...(becomes ? { version, at: t, files: files.map(f => f.path), sig, reviewed, photoSha: row.photoSha256 } : { version: old.get('version'), at: old.get('at'), files: old.get('files'), sig: old.get('sig'), reviewed: !!old.get('reviewed'), photoSha: old.get('photoSha') || '' }) });
       await qref.set({ n: (q.exists ? q.get('n') : 0) + 1, at: t });
       if (refreshGyms) try { await refreshGyms(body.id); } catch (e) { console.error('gym list refresh', body.id, e); }   // 發佈已成功；清單沒更新由日誌查，下次發佈或牆面變動會重算
       return { id: body.id, version, current: becomes ? version : old.get('version'), base: baseUrl(body.id, version) };
-    },
-    // 維護者：把所有公開牆的現行版指標檔補寫進資料集（一個 commit；現行版沒變的重寫也是同樣內容）
-    async syncCurrent(body, req) {
-      if (!(await isOwner(req))) throw fail(401, 'maintainer only');
-      const snap = await db.collection('datasets').where('type', '==', 'walls').get(), rows = snap.docs.filter(d => d.get('version'));
-      if (rows.length) await hf.commit('現行版指標檔', rows.map(d => currentFile(d.id, d.get('version'))));
-      return { n: rows.length };
     },
   };
   return async (req, res) => {

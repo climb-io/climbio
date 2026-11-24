@@ -52,7 +52,6 @@ export const messages = {
     "updatedTitle": "擴充已更新",
     "updatedMessage": "已換成新版，請再按一次「紅點貓收藏」。",
     "missingChoice": "找不到剛才的選擇，請再按一次「紅點貓收藏」。",
-    "invalidAlbumUrl": "不支援的相簿網址",
     "failure": "收藏失敗，請再試一次。",
     "unitArea": "區",
     "unitCrag": "岩場"
@@ -108,7 +107,6 @@ export const messages = {
     "updatedTitle": "Extension updated",
     "updatedMessage": "The new version has loaded. Click Redpoint Cat Collector again.",
     "missingChoice": "Your previous selection was not found. Click Redpoint Cat Collector again.",
-    "invalidAlbumUrl": "Unsupported photo album URL",
     "failure": "Collection failed. Please try again.",
     "unitArea": "areas",
     "unitCrag": "crags"
@@ -164,7 +162,6 @@ export const messages = {
     "updatedTitle": "扩展程序已更新",
     "updatedMessage": "已更新为新版本，请再次点击“红点猫收藏”。",
     "missingChoice": "找不到之前的选择，请再次点击“红点猫收藏”。",
-    "invalidAlbumUrl": "不支持的相册网址",
     "failure": "收藏失败，请重试。",
     "unitArea": "区域",
     "unitCrag": "岩场"
@@ -220,7 +217,6 @@ export const messages = {
     "updatedTitle": "拡張機能を更新しました",
     "updatedMessage": "新しいバージョンに切り替わりました。もう一度コレクターを押してください。",
     "missingChoice": "前回の選択が見つかりません。もう一度コレクターを押してください。",
-    "invalidAlbumUrl": "対応していないアルバム URL です",
     "failure": "保存に失敗しました。もう一度お試しください。",
     "unitArea": "エリア",
     "unitCrag": "岩場"
@@ -276,7 +272,6 @@ export const messages = {
     "updatedTitle": "확장 프로그램 업데이트됨",
     "updatedMessage": "새 버전이 로드되었습니다. 컬렉터를 다시 누르세요.",
     "missingChoice": "이전 선택을 찾을 수 없습니다. 컬렉터를 다시 누르세요.",
-    "invalidAlbumUrl": "지원하지 않는 앨범 URL",
     "failure": "저장하지 못했습니다. 다시 시도하세요.",
     "unitArea": "구역",
     "unitCrag": "암장"
@@ -332,7 +327,6 @@ export const messages = {
     "updatedTitle": "Extension mise à jour",
     "updatedMessage": "La nouvelle version est active. Relancez le collecteur.",
     "missingChoice": "Sélection précédente introuvable. Relancez le collecteur.",
-    "invalidAlbumUrl": "URL d’album photo non prise en charge",
     "failure": "Échec de la collecte. Veuillez réessayer.",
     "unitArea": "secteurs",
     "unitCrag": "falaises"
@@ -388,7 +382,6 @@ export const messages = {
     "updatedTitle": "Extensión actualizada",
     "updatedMessage": "Se ha cargado la nueva versión. Vuelve a pulsar el coleccionador.",
     "missingChoice": "No se encontró la selección anterior. Vuelve a pulsar el coleccionador.",
-    "invalidAlbumUrl": "URL de álbum no compatible",
     "failure": "No se pudo guardar. Vuelve a intentarlo.",
     "unitArea": "sectores",
     "unitCrag": "zonas de escalada"
@@ -444,7 +437,6 @@ export const messages = {
     "updatedTitle": "Erweiterung aktualisiert",
     "updatedMessage": "Die neue Version wurde geladen. Klicke erneut auf den Sammler.",
     "missingChoice": "Die vorherige Auswahl wurde nicht gefunden. Klicke erneut auf den Sammler.",
-    "invalidAlbumUrl": "Nicht unterstützte Fotoalbum-URL",
     "failure": "Speichern fehlgeschlagen. Bitte erneut versuchen.",
     "unitArea": "Bereiche",
     "unitCrag": "Klettergebiete"

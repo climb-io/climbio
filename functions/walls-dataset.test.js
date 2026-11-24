@@ -1,7 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { createHandler, createHf, checkFiles, baseUrl } = require('./walls-dataset');
-const { createFileHandler, HF_BASE } = require('./projects');
 
 const WID = 'abcdefgh12345678', PID = 'pid0000000000001';
 const JPG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]).toString('base64');
@@ -39,7 +38,7 @@ function setup(extra = {}) {
 
 test('不是 Studio 發佈的（岩點貓 App 或舊版沒帶 source）：拒絕，什麼都不寫', async () => {
   const s = setup();
-  for (const source of [undefined, 'hold', '']) {
+  for (const source of [undefined, 'hold', '', 'app']) {
     const r = await s.call(body({ source }));
     assert.equal(r.statusCode, 400); assert.equal(r.data.error, 'studio only');
   }
@@ -51,8 +50,8 @@ test('發佈：不登入，寫進 walls/<id>/v1/ 與根目錄的 walls.jsonl；F
   const r = await call(body({ gym: '測試館', files: files(view(), [{ path: `${PID}.thumb.jpg`, b64: JPG }, { path: `${PID}.edits.json`, b64: json({ holdlab: 1, reviewed: 1, deleted: ['a'], added: ['b', 'c'], flagged: { x: 1, y: 2 } }) }]) }));
   assert.equal(r.statusCode, 200);
   assert.deepEqual(r.data, { id: WID, version: 1, current: 1, base: baseUrl(WID, 1) });
-  assert.deepEqual(commits[0].paths, [`${PID}.jpg`, `${PID}.json`, `${PID}.thumb.jpg`, `${PID}.edits.json`, 'index.json'].map(p => `walls/${WID}/v1/${p}`).concat('walls.jsonl', `walls/${WID}/current.json`).filter(p => !p.endsWith('/index.json')));
-  assert.equal(store.files.get(`walls/${WID}/current.json`), '{"climbio":2,"kind":"current","version":1}');   // 現行版的指標檔跟著發佈寫
+  assert.deepEqual(commits[0].paths, [`${PID}.jpg`, `${PID}.json`, `${PID}.thumb.jpg`, `${PID}.edits.json`, 'index.json'].map(p => `walls/${WID}/v1/${p}`).concat('walls.jsonl', ...[`${PID}.jpg`, `${PID}.json`, `${PID}.thumb.jpg`, `${PID}.edits.json`].map(p => `walls/${WID}/current/${p}`)).filter(p => !p.endsWith('/index.json')));
+  assert.equal(store.files.get(`walls/${WID}/current/${PID}.json`), store.files.get(`walls/${WID}/v1/${PID}.json`));   // 現行版的固定網址 current/ 跟著發佈寫（同樣的內容）
   const idx = docs.get(`datasets/${WID}`);
   assert.deepEqual([idx.owner, idx.type, idx.name, idx.version, idx.latest, idx.at], ['', 'walls', '測試牆', 1, 1, 2e12]);
   const row = JSON.parse(store.text);
@@ -182,19 +181,6 @@ test('checkFiles：大小上限與路徑白名單跳脫', () => {
   assert.throws(() => checkFiles([files()[0], { path: `${PID}Xjson`, b64: Buffer.from('not json').toString('base64') }]), e => e.status === 400);
 });
 
-test('讀取：/p/<id>/<檔> 由 datasets 文件推出資料夾，導向資料集，不讀 Drive、不存副本', async () => {
-  const { call, db } = setup();
-  await call(body());
-  const kept = new Map();
-  const handler = createFileHandler({ db, readDrive: async () => { throw new Error('不該讀 Drive'); }, store: { get: async id => kept.get(id) || null, put: async (id, b) => { kept.set(id, b); } } });
-  const res = { statusCode: 200, headers: {}, set(k, v) { this.headers[k.toLowerCase()] = v; return this; }, type() { return this; }, status(c) { this.statusCode = c; return this; }, send() { return this; }, end() { return this; }, redirect(c, u) { this.statusCode = c; this.location = u; return this; } };
-  await handler({ method: 'GET', path: `/p/${WID}/${PID}.jpg`, headers: {}, get: () => '', query: {} }, res);
-  assert.deepEqual([res.statusCode, res.location], [302, `${HF_BASE}walls/${WID}/v1/${PID}.jpg`]);
-  assert.equal(kept.size, 0);
-  await handler({ method: 'GET', path: `/p/${WID}/other.jpg`, headers: {}, get: () => '', query: {} }, res);
-  assert.equal(res.statusCode, 404);
-});
-
 test('Studio 發佈的公開牆一定要有岩館名稱', async () => {
   const { call } = setup();
   assert.equal((await call(body({ gym: '' }))).statusCode, 400);
@@ -223,13 +209,9 @@ test('現行版自動判定：照片換了（指紋不同）的新版本照樣�
   assert.equal(same.data.version, 3); assert.equal(same.data.current, 3);
 });
 
-test('syncCurrent：只有維護者；把每面公開牆的現行版指標檔一次補寫', async () => {
-  const { call, docs, commits, store } = setup({ isOwner: async (req) => req.get('x-key') === 'k' });
-  await call(body());
-  store.files.clear(); commits.length = 0;
-  assert.equal((await call({ op: 'syncCurrent' })).statusCode, 401);
-  const res = { statusCode: 200, set() { return this; }, status(c) { this.statusCode = c; return this; }, json(d) { this.data = d; return this; } };
-  await createHandler({ db: { collection: (c) => ({ where: () => ({ get: async () => ({ docs: [{ id: WID, get: (k) => ({ version: 3 }[k]) }, { id: 'zzzzzzzzzzzzzzzz', get: () => 0 }] }) }) }) }, hf: { read: async () => null, commit: async (m, fs) => commits.push(fs.map((f) => f.path + ':' + f.bytes)) }, isOwner: async () => true })({ method: 'POST', body: { op: 'syncCurrent' }, get: () => '' }, res);
-  assert.deepEqual([res.data, commits.length], [{ n: 1 }, 1]);
-  assert.match(commits[0][0], new RegExp(`${WID}/current.json:.*"version":3`));
+
+test('牆發佈的內嵌頁（source: embed）跟 Studio 一樣能發佈', async () => {
+  const s = setup();
+  const r = await s.call(body({ source: 'embed' }));
+  assert.deepEqual([r.statusCode, r.data.version], [200, 1]);
 });

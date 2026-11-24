@@ -116,7 +116,7 @@
     handlers: {
       async init(m) {
         const seq = ++initSeq;
-        m = await ClimbioEmbed.expandInit(m);
+        m = ClimbioEmbed.expandInit(m);
         const data = await ClimbioEmbed.resolveInit(m);   // 只讀官方網址（viewUrl、layerUrls、photoUrl）
         if (seq !== initSeq) return;
         const layers = data.layers;

@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { updateGymWall, updateGymWallsOf, dropGymWall, rebuildGymIndex, registerWall3d } = require('./gym-walls');
+const { updateGymWall, updateGymWallsOf, dropGymWall, registerWall3d } = require('./gym-walls');
 
 // 以文件路徑模擬 Firestore（只做到 gym-walls.js 用到的部分）；gymIndex 的 merge 只做一層 gyms
 function database(extra = {}) {
@@ -80,13 +80,6 @@ test('岩館索引：拿掉最後一面牆，那間就從索引消失', async ()
   db.data.set('gymIndex/all', { gyms: { 原岩明德: { n: 1, t: 1 } } });
   await dropGymWall(db, PID);
   assert.deepEqual(db.data.get('gymIndex/all'), { gyms: {} });
-});
-
-test('岩館索引：整份重建只讀岩館和時間', async () => {
-  const db = database();
-  db.data.set('gymWalls/aaaaaaaa', { gym: '原岩明德', t: 3 }); db.data.set('gymWalls/bbbbbbbb', { gym: '原岩明德', t: 7 }); db.data.set('gymWalls/cccccccc', { gym: '角華山', t: 2 });
-  await rebuildGymIndex(db);
-  assert.deepEqual(db.data.get('gymIndex/all'), { gyms: { 原岩明德: { n: 2, t: 7 }, 角華山: { n: 1, t: 2 } } });
 });
 
 test('3D 牆登記：跟公開牆同一份清單（標 m3d、資料夾用資料集的 hf.dir），同一面牆的舊版本拿掉，清單只留最新那版', async () => {

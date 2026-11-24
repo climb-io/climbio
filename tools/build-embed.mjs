@@ -14,6 +14,11 @@ export const KITS = {
     ['embed/shared/embed.js', 'embed.js'],
     ['routekit/LICENSE', 'LICENSE'], ['routekit/NOTICE', 'NOTICE'],
   ],
+  // 牆發佈：收牆的 ZIP、驗格式、發佈（解 ZIP 用 appkit 的 files.js）
+  wallpublish: [
+    ['format/format.js', 'format.js'], ['appkit/files.js', 'files.js'], ['embed/shared/embed.js', 'embed.js'],
+    ['LICENSE', 'LICENSE'], ['NOTICE', 'NOTICE'],
+  ],
 };
 
 export function outputs() {

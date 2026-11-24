@@ -1,7 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createHandler, createFileHandler, parsePath, listPublic, writeWorld, WORLD_FILE, HF_CRAGS } = require('./projects');
-const { checkAlbumTarget, createAlbumHandler } = require('./album');
+const { createHandler, listPublic, writeWorld, WORLD_FILE, HF_CRAGS } = require('./projects');
 
 const GID = 'abcdefgh12345678', NOW = 2e12, HOSTS = ['climbio.web.app', 'climbio-dev.web.app'];
 
@@ -77,98 +76,6 @@ test('世界的清單：網址與預覽圖直接是資料集；不列私人與�
   assert.deepEqual([list[0].cc, list[1].cc], ['tw', undefined], '國家 cc：有就輸出，沒有就不寫');
 });
 
-test('路徑對應：/p/{16 碼 id}/{同一層的相對路徑}；子資料夾、..、怪字元都不收', () => {
-  assert.deepEqual(parsePath(`/p/${GID}/index.json`), [GID, 'index.json']);
-  for (const bad of [`/p/${GID}/a/b.json`, `/p/${GID}/../x`, `/p/${GID}/`, '/p/short/index.json', `/p/${GID}/.hidden`, `/p/${GID}/a b.jpg`, null]) assert.equal(parsePath(bad), null, String(bad));
-});
-
-/** 讀檔函式：Firestore 放索引，檔案在資料集 */
-function fileSetup(extra = {}) {
-  const { db, docs } = fakeDb();
-  docs.set(`datasets/${GID}`, project());
-  const handler = createFileHandler({ db, ...extra, now: () => NOW });
-  const get = async (path, method = 'GET', headers = {}) => {
-    const res = { statusCode: 200, headers: {}, set(k, v) { this.headers[k.toLowerCase()] = v; return this; }, type(t) { this.headers['content-type'] = t; return this; }, status(c) { this.statusCode = c; return this; }, send(b) { this.body = b; return this; }, end() { return this; }, redirect(c, u) { this.statusCode = c; this.location = u; return this; } };
-    const [pathname, q = ''] = path.split('?');
-    await handler({ method, path: pathname, headers, get: k => headers[k.toLowerCase()], query: Object.fromEntries(new URLSearchParams(q)) }, res);
-    return res;
-  };
-  return { get, docs };
-}
-
-test('/p/{id}/{檔}：索引裡有的導向資料集（302，CDN 5 分鐘），沒有這本、沒有這個檔、不是 GET 都不導向', async () => {
-  const { get } = fileSetup();
-  const r = await get(`/p/${GID}/preview.jpg`);
-  assert.deepEqual([r.statusCode, r.location, r.headers['cache-control'], r.headers['access-control-allow-origin']], [302, `${HF_CRAGS}crags/${GID}/preview.jpg`, 'public, max-age=300, s-maxage=300', '*']);
-  assert.equal((await get(`/p/${GID}/missing.jpg`)).statusCode, 404);
-  assert.equal((await get('/p/zzzzzzzzzzzzzzzz/index.json')).statusCode, 404);
-  assert.equal((await get(`/p/${GID}/index.json`, 'POST')).statusCode, 405);
-});
-
-test('公開牆（岩點貓）：資料夾由 datasets 文件的版本推出，/p/{id}/{檔} 導向 climbio/walls', async () => {
-  const { get, docs } = fileSetup();
-  const WID = 'wxyzwxyzwxyzwxyz';
-  docs.set(`datasets/${WID}`, { type: 'walls', version: 3, files: ['wall.json'] });
-  const r = await get(`/p/${WID}/wall.json`);
-  assert.deepEqual([r.statusCode, r.location], [302, `https://huggingface.co/datasets/climbio/walls/resolve/main/walls/${WID}/v3/wall.json`]);
-  assert.equal((await get(`/p/${WID}/other.json`)).statusCode, 404);
-});
-
-test('固定分享網址 /p/{id}：Guidebook 回連結預覽頁（書名、preview.jpg），轉到紅點貓收這本並帶 at', async () => {
-  const previewPage = (o) => JSON.stringify(o);
-  const base = `${HF_CRAGS}crags/${GID}/`;
-  const { get, docs } = fileSetup({ hosts: HOSTS, previewPage, readJson: async () => null });
-  for (const path of [`/p/${GID}`, `/p/${GID}/`]) {
-    const r = await get(path, 'GET', { 'x-forwarded-host': 'climbio-dev.web.app' });
-    assert.equal(r.statusCode, 200);
-    const o = JSON.parse(r.body);
-    assert.equal(o.url, `https://climbio-dev.web.app/p/${GID}`);
-    assert.equal(o.target, `https://climbio-dev.web.app/redpoint/?topo=${encodeURIComponent(base + 'index.json')}`);
-    assert.equal(o.image.url, base + 'preview.jpg');
-  }
-  const at = JSON.parse((await get(`/p/${GID}?at=photo0000000001`, 'GET', { host: 'evil.example' })).body);
-  assert.ok(at.target.startsWith('https://climbio.web.app/redpoint/?topo=') && at.target.endsWith('&at=photo0000000001'));   // 不認得的網域用主要網址
-});
-
-test('Google 相簿轉發端點（/album）：只允許 Google 相簿公開網址，保留 Content-Type 與 Content-Disposition，擋非白名單網域', async () => {
-  assert.ok(checkAlbumTarget('https://photos.app.goo.gl/LiGPpAJnJU4Jf7oD9'));
-  assert.ok(checkAlbumTarget('https://photos.google.com/share/AF1Qip_abc?key=123'));
-  assert.ok(checkAlbumTarget('https://lh3.googleusercontent.com/pw/AP1Gcz_abc=d'));
-  assert.equal(checkAlbumTarget('https://evil.example.com/pw/AP1Gcz_abc=d'), null);
-  assert.equal(checkAlbumTarget('http://photos.app.goo.gl/LiGPpAJnJU4Jf7oD9'), null);
-
-  const handler = createAlbumHandler({
-    fetchImpl: async (url) => ({
-      ok: true,
-      status: 200,
-      url,
-      headers: new Map([
-        ['content-type', 'image/jpeg'],
-        ['content-disposition', 'attachment;filename="IMG_1234.jpg"'],
-        ['content-length', '4'],
-      ]),
-      arrayBuffer: async () => new Uint8Array([0xff, 0xd8, 0xff, 0xd9]).buffer,
-    }),
-  });
-  const callAlbum = async (url, method = 'GET') => {
-    const res = {
-      statusCode: 200, headers: {},
-      set(k, v) { this.headers[k.toLowerCase()] = v; return this; },
-      status(c) { this.statusCode = c; return this; },
-      json(d) { this.data = d; return this; },
-      send(b) { this.body = b; return this; },
-    };
-    await handler({ method, query: { url } }, res);
-    return res;
-  };
-  const ok = await callAlbum('https://lh3.googleusercontent.com/pw/AP1Gcz_abc=d');
-  assert.equal(ok.statusCode, 200);
-  assert.equal(ok.headers['content-type'], 'image/jpeg');
-  assert.equal(ok.headers['content-disposition'], 'attachment;filename="IMG_1234.jpg"');
-  assert.equal((await callAlbum('https://evil.example.com/x')).statusCode, 400);
-  assert.equal((await callAlbum('https://photos.app.goo.gl/LiGPpAJnJU4Jf7oD9', 'POST')).statusCode, 405);
-});
-
 test('同一個集合裡公開牆的文件不是專案：files 不能碰', async () => {
   const { call, docs } = setup();
   docs.set(`datasets/${GID}`, { owner: '', type: 'walls', name: '牆', version: 1, files: ['a.json'] });
@@ -198,41 +105,6 @@ test('3D 牆與 Guidebook 的版本：每天不重複機器數最多的排第一
   assert.equal(rows[0].id, 'aaaaaaaaaaaaaaaa', '新版本最多追到第 3 位，不超過下載最多的');
   docs.set('datasets/eeeeeeeeeeeeeeee', wall('eeeeeeeeeeeeeeee', { name: '別面牆' }));
   assert.deepEqual((await listPublic({ db, now: () => NOW })).map(r => r.id).sort(), ['aaaaaaaaaaaaaaaa', 'eeeeeeeeeeeeeeee']);
-});
-
-test('下載計數：只數不認人類型的整份載入檔（3D 牆 wall.json、Guidebook pack.json），不經 CDN 快取；同一台機器一天同一個雜湊', async () => {
-  const { db, docs } = fakeDb(), counted = [];
-  docs.set(`datasets/${GID}`, { ...project(), type: 'wall3d', hf: { dir: `walls3d/${GID}/`, repo: 'walls3d' }, files: [entry('index.json'), entry('wall.json')] });
-  docs.set('datasets/ggggggggggggggg1', project({ hf: { dir: 'crags/ggggggggggggggg1/' }, files: [entry('index.json'), entry('pack.json'), entry('wall.json')] }));
-  docs.set('datasets/ggggggggggggggg2', project({ type: 'crag3d', hf: { dir: 'crags3d/ggggggggggggggg2/', repo: 'crags3d' }, files: [entry('index.json'), entry('pack.json'), entry('wall.json')] }));
-  const handler = createFileHandler({ db, now: () => NOW, count: async (id, day, hash) => { counted.push([id, hash]); } });
-  const get = async (path, ip = '1.1.1.1') => { const res = { headers: {}, set(k, v) { this.headers[k.toLowerCase()] = v; return this; }, status(c) { this.code = c; return this; }, redirect(c, u) { this.code = c; this.to = u; return this; }, type() { return this; }, send() { return this; } }; await handler({ method: 'GET', path, get: k => ({ 'x-forwarded-for': ip, 'user-agent': 'UA' }[k.toLowerCase()]) }, res); return res; };
-  assert.equal((await get(`/p/${GID}/index.json`)).code, 302);
-  const w = await get(`/p/${GID}/wall.json`);
-  assert.deepEqual([w.code, w.headers['cache-control']], [302, 'no-store']);
-  await get(`/p/${GID}/wall.json`, '2.2.2.2');
-  await get(`/p/${GID}/wall.json`);
-  await get('/p/ggggggggggggggg1/index.json');
-  await get('/p/ggggggggggggggg1/wall.json');
-  await get('/p/ggggggggggggggg1/pack.json');
-  await get('/p/ggggggggggggggg2/pack.json');
-  assert.deepEqual(counted.map(c => c[0]), [GID, GID, GID, 'ggggggggggggggg1']);
-  assert.equal(counted[0][1], counted[2][1], '同一台機器同一天的雜湊一樣');
-  assert.notEqual(counted[0][1], counted[1][1]);
-  assert.match(counted[0][1], /^[0-9a-f]{64}$/);
-});
-
-test('固定分享網址的預覽內容：岩場有路線數，分享 Topo 時標題是那張 Topo；讀不到索引也只退回名稱', async () => {
-  const set = { name: { 'zh-Hant': '龍洞' }, items: [{ href: 'topo.json', id: 'photo0000000001' }], nodes: [{ id: 'c', type: 'crag', name: '龍洞' }, { id: 'r1', type: 'route' }, { id: 'r2', type: 'route' }] };
-  const readJson = async (url) => (url.endsWith('/index.json') ? set : url.endsWith('/topo.json') ? { name: '騙人的牆' } : null);
-  const previewPage = (o) => JSON.stringify(o);
-  const { get } = fileSetup({ hosts: HOSTS, previewPage, readJson });
-  const crag = JSON.parse((await get(`/p/${GID}`)).body), topo = JSON.parse((await get(`/p/${GID}?at=photo0000000001`)).body);
-  assert.deepEqual([crag.description, topo.title, topo.description], ['龍洞・2 條路線・紅點貓 Topo', '騙人的牆', '熱海岩場・2 條路線・紅點貓 Topo']);
-  assert.deepEqual([crag.handoff.doc.name, crag.handoff.url.endsWith('/index.json')], [set.name, true], '預覽頁讀到的入口直接交給 App');
-  const bare = JSON.parse((await fileSetup({ hosts: HOSTS, previewPage, readJson: async () => null }).get(`/p/${GID}`)).body);
-  assert.equal(bare.description, '紅點貓 Topo');
-  assert.equal(bare.handoff, null, '讀不到入口就不交接');
 });
 
 test('世界的清單：同一本書最新的一版排第一（就算舊的下載比較多），舊的放 others', async () => {

@@ -31,12 +31,25 @@ Climbio 只放牆面與路線；岩館 App 裡的使用者怎麼對應到路線�
    - 換了照片（重拍）：當成新的一面牆，用新的牆 id；App 的 `init` 換成新牆的網址，舊牆的路線不會自動搬過去。
    - 想固定在某一版：`init` 的網址用那一版的網址（`…/walls/<包 id>/v<版本>/…`），要升級再改網址。
 
+## 牆發佈內嵌頁（放在岩館 App 的後台，讓工作人員發佈牆面）
+
+岩館的 AI Agent 在本機把牆面處理好（[gym-onboarding.md](gym-onboarding.md)）、打包成一個 ZIP，工作人員在**自己的後台**丟進這個 iframe，不必另外跑到 Studio：
+
+```html
+<iframe id="wp" src="https://embed.climbio.app/wallpublish/v1/?lang=zh-Hant" style="width:100%;height:520px;border:0" title="發佈牆面"></iframe>
+```
+
+- 流程：丟 ZIP（`node tools/wall-batch.mjs zip <工作資料夾> --gym "<岩館名稱>"` 產生，通過 `verify` 的牆才能打包）→ 預覽（牆名、岩館、是否通過 AI 檢查）→ 勾選同意（公開收不回、CC BY-SA 4.0、署名）→ 按發佈。同意是人按的，Agent 不能代按。
+- 訊息：外層先註冊 `message` 監聽，收到 `ready` 回 `init { lang }`；發佈成功收到 `published { walls: [{ id, name, version, current, base }] }`，失敗或 ZIP 不合格收到 `error { message, status? }`。型別以 [wallpublish/v1/messages.d.ts](../embed/wallpublish/v1/messages.d.ts) 為準。
+- **鎖定版本**：人人都能發新版本，岩館 App 只要把路線內嵌頁的 `init` 網址換成 `published` 回的那一版（`…/walls/<包 id>/v<版本>/…`）就鎖住了，別人再發新版本不影響它；要升級再換網址。不需要認領、來源綁定或金鑰。
+- 不認人：不記擁有者、不綁網站，檢查與額度跟 Studio 發佈相同（內容驗證、每個來源每天最多 30 次）。身分是 Climbio 的網頁（App Check），所以要在 `embed.climbio.app` 上用，自己託管的內嵌頁拿不到權杖。
+
 ## 資料來源（內嵌頁只收這幾種網址）
 
 | `init` 欄位 | 內容 | 網址 |
 |---|---|---|
-| `wallId`（最簡單） | `<包 id>/<牆 id>`：只給這個，下面的畫面、照片、整面牆路線圖層的網址由內嵌頁補（畫面和照片直接讀資料集：先讀 `walls/<包 id>/current.json`（發佈時寫的現行版指標檔）知道現行版，再讀那一版的檔案，所以換了現行版 App 不用改，也不呼叫 Climbio 的雲端函式（讀不到指標檔才退回 `climbio.app/p/`）；牆還沒有路線就沒有圖層）。下面三列是要自己指定時才用，明確給的優先 | `https://climbio.app/p/<包 id>/<牆 id>.json` 等 |
-| `viewUrl` | 牆的畫面（岩點外框，Climbio 公開格式 v2） | `https://climbio.app/p/<包 id>/<牆 id>.json`（導向現行版） |
+| `wallId`（最簡單） | `<包 id>/<牆 id>`：只給這個，下面的畫面、照片、整面牆路線圖層的網址由內嵌頁補（畫面和照片直接讀資料集：讀 `walls/<包 id>/current/<牆 id>.json` 與 `.jpg`（發佈時放的現行版），所以換了現行版 App 不用改，也不呼叫 Climbio 的雲端函式；牆還沒有路線就沒有圖層）。下面三列是要自己指定時才用，明確給的優先 | `https://climbio.app/p/<包 id>/<牆 id>.json` 等 |
+| `viewUrl` | 牆的畫面（岩點外框，Climbio 公開格式 v2） | `https://huggingface.co/datasets/climbio/walls/resolve/main/walls/<包 id>/current/<牆 id>.json`（現行版；`climbio.app/p/…` 不再導向公開牆） |
 | `photoUrl` | 畫面指的那張照片，尺寸要等於畫面的 `w × h`，最大 10 MB | `https://huggingface.co/datasets/climbio/walls/resolve/main/walls/<包 id>/v<版本>/<牆 id>.jpg` |
 | `layerUrls`（選給） | 路線圖層（疊在牆上，v2），最大 16 MB | 整面牆 `https://climbio.app/w/<牆 id>/routes.json`；單條 `https://climbio.app/r/<牆 id>/<路線 id>/route.json`（岩點貓的路線連結） |
 

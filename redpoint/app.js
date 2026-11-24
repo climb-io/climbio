@@ -1029,7 +1029,12 @@ function hydrateStored(file) {
 async function fetchWorldFile() {
   const backend = Backend();
   if (backend.loadWorld) {
-    try { const file = await backend.loadWorld(); if (hydrateWorld(file)) return file; } catch (e) { /* 改用手機自己合成 */ }
+    try {
+      const stored = AppKit.store.get(WORLD_STORE), have = stored && !Array.isArray(stored) ? stored.wv : '';
+      const file = await backend.loadWorld(have);
+      if (file === null) return stored;   // index 說世界沒變：用手機上存的（不用再抓整份）
+      if (hydrateWorld(file)) return file;
+    } catch (e) { /* 改用手機自己合成 */ }
   }
   const [res, books] = await Promise.all([
     fetch(`${OC_DATA}index.json`),

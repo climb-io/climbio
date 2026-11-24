@@ -6,7 +6,6 @@ import { createRequire } from 'node:module';
 import AppKit from '../appkit/index.mjs';
 import { pickWall, estimateWall, lineAspect, distance, local, viewWidth } from '../studio/crag/geo.js';
 import * as M from '../studio/crag/model.js';
-import { checkAlbumUrl, isAlbumUrl, parseAlbumPage, fileNameFromHeader, fetchAlbum } from '../studio/album.js';
 import { classifyImageData, groupPhotos, layoutGroupsMap } from '../studio/classify.js';
 import { shownColumns, cellText, cellPatch } from '../studio/crag/table.js';
 import { withExif } from '../tests/e2e/exif-jpeg.mjs';
@@ -213,48 +212,6 @@ test('Guidebook：沒有位置的照片自己一面岩壁、沒有牆線；改�
   assert.equal(mag.camera.heading, 5);
   assert.equal(M.walls(state).find(x => x.id === mag.props.node).props.aspect, 185);
   for (const { path, doc } of M.exportDocs(state)) assert.deepEqual(validate(doc), [], path);
-});
-
-test('Google 相簿分享連結：網址檢查、解析相簿標題與照片（去重、拍攝時間排序、=d 原圖網址、撞名編號）与下載', async () => {
-  assert.equal(checkAlbumUrl('  https://photos.app.goo.gl/LiGPpAJnJU4Jf7oD9 '), 'https://photos.app.goo.gl/LiGPpAJnJU4Jf7oD9');
-  assert.equal(checkAlbumUrl('看看這本 https://photos.google.com/share/AF1Qip_abc123?key=xyz 謝謝'), 'https://photos.google.com/share/AF1Qip_abc123?key=xyz');
-  assert.equal(isAlbumUrl('https://photos.app.goo.gl/LiGPpAJnJU4Jf7oD9'), true);
-  assert.equal(isAlbumUrl('https://example.com/photos'), false);
-  assert.throws(() => checkAlbumUrl('http://photos.app.goo.gl/LiGPpAJnJU4Jf7oD9'), /Google 相簿/);
-
-  const html = `
-    <meta property="og:title" content="龍洞音樂廳 &amp; 校門口 · 10月14日">
-    <script>
-      AF_initDataCallback({data:[
-        ["AF1Qip_late",["https://lh3.googleusercontent.com/pw/AP1Gcz_late",4032,3024],null,null,[[],[]],1791958960000,"tz",28800000],
-        ["AF1Qip_early1",["https://lh3.googleusercontent.com/pw/AP1Gcz_early1",3024,4032],null,null,[[],[]],1791958956000,"tz",28800000],
-        ["AF1Qip_early1",["https://lh3.googleusercontent.com/pw/AP1Gcz_early1",3024,4032],null,null,[[],[]],1791958956000,"tz",28800000],
-        ["AF1Qip_early2",["https://lh3.googleusercontent.com/pw/AP1Gcz_early2",3024,4032],null,null,[[],[]],1791958956000,"tz",28800000]
-      ]});
-    </script>`;
-  const parsed = parseAlbumPage(html);
-  assert.equal(parsed.title, '龍洞音樂廳 & 校門口');
-  assert.deepEqual(parsed.photos.map(p => [p.id, p.name, p.url]), [
-    ['AF1Qip_early1', '20261014_142236.jpg', 'https://lh3.googleusercontent.com/pw/AP1Gcz_early1=d'],
-    ['AF1Qip_early2', '20261014_142236_2.jpg', 'https://lh3.googleusercontent.com/pw/AP1Gcz_early2=d'],
-    ['AF1Qip_late', '20261014_142240.jpg', 'https://lh3.googleusercontent.com/pw/AP1Gcz_late=d'],
-  ]);
-  assert.equal(fileNameFromHeader('attachment;filename="IMG_20261014_142236.jpg"'), 'IMG_20261014_142236.jpg');
-  assert.equal(fileNameFromHeader("attachment; filename*=UTF-8''%E5%B2%A9%E5%A3%81.HEIC"), '岩壁.HEIC');
-
-  const steps = [];
-  const res = await fetchAlbum('https://photos.app.goo.gl/LiGPpAJnJU4Jf7oD9', {
-    getText: async () => html,
-    getBlob: async (u) => ({
-      blob: new Blob([withExif(JPEG, shot)], { type: 'image/jpeg' }),
-      name: u.includes('early1') ? 'IMG_0001.jpg' : u.includes('early2') ? 'IMG_0001.jpg' : '',
-    }),
-    onProgress: (k, n, title) => steps.push([k, n, title]),
-  });
-  assert.equal(res.title, '龍洞音樂廳 & 校門口');
-  assert.deepEqual(res.files.map(f => f.name), ['IMG_0001.jpg', 'IMG_0001_2.jpg', '20261014_142240.jpg']);
-  assert.equal(steps.at(-1)[0], 3);
-  assert.equal(steps.at(-1)[1], 3);
 });
 
 test('匯入照片預先分類與分組：挑出有人物、有繩索、非岩壁；依 GPS 與朝向、連拍時間分組', () => {

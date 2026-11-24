@@ -16,7 +16,7 @@
 
 說明與下載同時提供於 https://climbio.app/redpoint-collect/ 和 https://climbio-dev.web.app/redpoint-collect/（ZIP 由 `build-site.sh` 從各分支的 `extension/` 打包）。自己開發：
 
-1. Chrome 打開 `chrome://extensions`，開啟「開發人員模式」，「載入未封裝項目」選這個資料夾。擴充的 ID 由 `manifest.json` 的 `key` 固定（`clpjfehckclgenaackpklkceejlbcbnh`），紅點貓靠它連進擴充；自己換了 key 的話，在紅點貓頁面的 localStorage 設 `redpoint.extensionId`。Chrome 線上應用程式商店的版本沒有 `key`（商店不收），ID 由商店決定：拿到後填進 `redpoint/extension.js` 的 `STORE_EXTENSION_ID` 和 `studio/album.js` 的 `STORE_EXT_ID`，紅點貓與 Studio 依序試自行載入版、商店版。上傳商店的 ZIP 要拿掉 manifest 的 `key`。
+1. Chrome 打開 `chrome://extensions`，開啟「開發人員模式」，「載入未封裝項目」選這個資料夾。擴充的 ID 由 `manifest.json` 的 `key` 固定（`clpjfehckclgenaackpklkceejlbcbnh`），紅點貓靠它連進擴充；自己換了 key 的話，在紅點貓頁面的 localStorage 設 `redpoint.extensionId`。Chrome 線上應用程式商店的版本沒有 `key`（商店不收），ID 由商店決定：商店 ID `lhhmahbjfjfgbipmplplmebodfacppml` 已填進 `redpoint/extension.js` 的 `STORE_EXTENSION_ID`，紅點貓依序試自行載入版、商店版；收藏頁的下載按鈕直接連到商店（ZIP 只留給自己開發載入）。上傳商店的 ZIP 要拿掉 manifest 的 `key`。
 2. 打開 theCrag 的岩場頁，按工具列的「紅點貓收藏」。收好後擴充自動打開紅點貓分頁（網址 `#collect`），頁面連進擴充把岩場拿過去、全部匯入。
 3. 測試別的站（例如開發版）：在擴充的背景頁（`chrome://extensions` → 檢查 service worker）執行 `chrome.storage.local.set({ redpointUrl: 'https://climbio-dev.web.app/redpoint/' })`。
 4. 帶到手機：電腦和手機連同一個 Wi-Fi，兩邊都開紅點貓，在「首頁右上頭像 → 同步到其他裝置」配對一次，收藏的岩場就會自動同步到手機（世界頁的「附近交換」是傳給別人，不會傳個人收藏）。

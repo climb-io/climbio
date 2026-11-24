@@ -103,6 +103,22 @@ test('找牆面：站、岩館的組合；總目錄同一間岩館的站合在�
   assert.deepEqual(plain(await S.directoryGyms(SITE_URL)), [{ gym: '原岩明德', n: 3, t: 12, sites: [{ url: SITE_URL, name: 'Climbio' }, { url: other, name: '岩館A' }] }]);
 });
 
+test('找牆面（Climbio 官方站）：只讀一個 index，岩館、各岩館的牆都從它分；3D 牆帶 m3d 和資料夾，別的站照開放格式讀', async () => {
+  const HF = 'https://huggingface.co/datasets/climbio/walls/resolve/main/', P2 = 'pack000000000001', PM = 'pack3d0000000001';
+  const index = { climbio: 2, kind: 'index', t: 1, walls: [
+    { id: `${P2}/${PID}`, name: '大牆', gym: '原岩明德', v: 3, rt: 8, n: 3, t: 9 },
+    { id: `${PM}/${PM}`, name: '3D 牆', gym: '原岩明德', v: 0, rt: 0, n: 0, t: 12, m3d: 1, base: `https://huggingface.co/datasets/climbio/walls3d/resolve/main/walls3d/${PM}/` },
+    { id: 'pack000000000002/ccccccccc003', name: '別間', gym: '別間館', v: 1, rt: 0, n: 0, t: 2 }] };
+  const { S, asked } = make({ [`${HF}index/world.json`]: index });
+  assert.deepEqual(plain(await S.siteGyms('https://climbio.app')), [{ gym: '原岩明德', n: 2, t: 12 }, { gym: '別間館', n: 1, t: 2 }]);
+  const walls = plain(await S.gymWalls('https://climbio.app', '原岩明德'));
+  assert.deepEqual(walls, [
+    { pid: PM, name: '3D 牆', thumb: `https://huggingface.co/datasets/climbio/walls3d/resolve/main/walls3d/${PM}/thumb.jpg`, routes: 0, t: 12, href: `https://huggingface.co/datasets/climbio/walls3d/resolve/main/walls3d/${PM}/index.json`, m3d: 1 },
+    { pid: PID, name: '大牆', thumb: `${HF}walls/${P2}/current/${PID}.thumb.jpg`, routes: 3, t: 9, href: `${HF}walls/${P2}/routes.json` }]);   // 有路線：從路線圖層收；最新的在前
+  assert.equal(asked.filter(u => u.endsWith('index/world.json')).length, 1);   // 岩館清單和牆面清單共用同一份 index
+  assert.deepEqual(asked.filter(u => !u.endsWith('index/world.json')), []);
+});
+
 test('收整面牆：從路線圖層收（牆和公開路線）；從 Studio 發佈的包裡的牆收（/p/，沒有路線）', async () => {
   const layer = routesLayer({ id: 'layer0000000002', pid: PID, href: 'wall.json', base, routes: [{ route, gym: '' }] });
   let got = await make({ [`${SITE_URL}/w/${PID}/routes.json`]: layer, [`${SITE_URL}/w/${PID}/wall.json`]: view, [`${SITE_URL}/w/${PID}/photo.jpg`]: { blob: photo } }).S.fetchWall(`${SITE_URL}/w/${PID}/routes.json`, PID);

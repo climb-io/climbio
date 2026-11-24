@@ -2,7 +2,6 @@
 // 匯入的程式還在、只是人看不到入口：代理的工具在背景用隱藏的 #addInput（tools/guidebook.mjs 收原生的包）與 #import=<網址>（岩場站、Google 相簿）；
 // 內容依種類交給岩館、岩場、路線書、3D 牆，照片先快速掃描、猜工作區。專案建在工作區頁面：這裡把資料夾、檔案和選項放進收件匣（store.js），轉到工作區接手。
 // 專案存在這台電腦（或自己選的資料夾），要換電腦用匯出 ZIP。要人判斷的題目由代理在 AI 對話裡問，首頁不列。
-import { fetchAlbum, isAlbumUrl } from './album.js';
 import { classifyImageData, groupPhotos, STATUS_LABEL } from './classify.js';
 import { WS, OPEN, suggestWs } from './intake/workspaces.js';
 import { located } from './crag/geo.js';
@@ -122,20 +121,7 @@ $('#create').onclick = async () => {
   } catch (e) { toast(e.message); $('#create').disabled = false; }
 };
 
-// ---- 拖放、選檔、Google 相簿 ----
-async function takeAlbum(url) {
-  flow(true); $('#flowStage').hidden = false; $('#scan').hidden = false; $('#result').hidden = true;
-  $('#scanMsg').textContent = T('stAlbumReading');
-  try {
-    const { title, files } = await fetchAlbum(url, {
-      onProgress: (k, n) => { $('#scanMsg').textContent = n ? T('stAlbumProgress', k, n) : T('stAlbumReading'); },
-    });
-    await takeIn(files.map(file => ({ dir: '', file })), null, title);
-  } catch (e) {
-    $('#flowStage').hidden = true; $('#scan').hidden = true; flow(false);
-    toast(e.message || String(e));
-  }
-}
+// ---- 拖放、選檔 ----
 // ---- 匯入（代理的工具在背景用）：先辨識來源再交給對的工作區，不要求先挑「岩館／岩場／路線書／3D」 ----
 // ZIP 是容器，不能只看副檔名。原生匯出含 index.json（set/guidebook）與其他文件。
 const CRAG_DOC = /\.(docx|pdf|html?|md|txt|geojson|csv|tsv)$/i;
@@ -240,7 +226,6 @@ function importUrl(url) {
   try {
     const u = new URL(url);
     if (u.protocol !== 'https:' && u.origin !== location.origin) throw new Error(T('stNeedHttps'));
-    if (isAlbumUrl(url)) { takeAlbum(url); return; }
     addStatus(T('stReading'));
     location.href = `crag/#site=${encodeURIComponent(url)}`;
   } catch (err) { addStatus(err.message); toast(err.message); }

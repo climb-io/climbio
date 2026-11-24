@@ -6,6 +6,8 @@
 
 ## 網址
 
+> **Climbio 官方站（climbio.app）不再提供下面的 `/w/…`、`/climbio.json`、`/dir/…`**：公開牆面都在資料集固定網址（`index/world.json`、`walls/<包>/routes.json`，見 [app.md](app.md)），只有 `/r/…` 預覽頁與 `route.json` 還由函式回。這份格式是給自己架站的人，App 讀別的站仍照它。
+
 | 網址 | 內容 | 會不會變 |
 |---|---|---|
 | `/r/{照片編號}/{路線 id}/` | 路線連結（給人和連結預覽的 HTML 頁）；頁面轉進 App 前先用 keepalive 的 `fetch` 下載下面的 `route.json`（換頁後照樣下載），App 在它下載完之前讀同一個網址就併用同一個請求 | |

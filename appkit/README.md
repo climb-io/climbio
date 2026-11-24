@@ -39,7 +39,6 @@ Climbio 各 App（岩點貓、紅點貓、Climbio Studio）共用的一層：語
 | `backstack.js` | `AppKit.backstack`：`open(id, onBack, state)`／`close(id)`／`handle()`；對話框、彈窗各佔一層 history，返回只關最上面那個；`AppKit.ui.configure({ backStack: { open, close } })` 接上 |
 | `idb.js` | `AppKit.idb`：`opener({ name, version, upgrade, ready })`（連線被關掉自動重開）、`done`、`packBlob`／`unpackBlob`（iPhone 大 Blob 存成 ArrayBuffer） |
 | `nearby.js` | `AppKit.nearby`：`open({ app, endpoint, label, mode, list, pack, take, sharePair, takePair })`（附近交換：`mode: 'send'` 傳給別人，勾選附近的人、對方手動收下；`mode: 'devices'` 我的裝置，配對後自動雙向同步；用 WebRTC 直接傳，找人靠雲端函式 `nearby`，文字在共用語言包的 `nearby*`，規格見 docs/sharing.md）、`supported()`（有 WebRTC 才有）；沒有 endpoint 時只能掃 QR code 連線 |
-| `errors.js` | 測試版的錯誤回報：只在測試版網站（`climbio-dev`、`climbio-eric` 和它們的預覽頻道）開，沒接住的錯誤和 `console.error` 帶的 Error 送到雲端函式 `clientError`，在 Google Cloud 的 Error Reporting 看；正式版、本機、自架的站不送。每個產品頁面在 `<head>` 的 CSP 後面第一個載入 |
 | `recover.js` | 載入失敗時自動修復（在 `<head>` 同步載入，所有網站都開）：有網路時解除 Service Worker、清 App 快取再重新整理一次，十分鐘內最多一次。頁面加上 `data-boot`（毫秒）與可選的 `data-cache`（快取名稱前綴）時另開開機看門狗：開機完成前攔截自家腳本錯誤，主程式須呼叫 `akBooted()`；失敗則讓等待中的新版接手，或清前綴快取後重載。只清快取，不動 IndexedDB。不在 `index.js` 匯出 |
 | `landing.js` | `AppKit.landing`：電腦版工具（Climbio Studio 的 Wall）在手機只顯示介紹頁；手機也能用的工具（Studio 首頁、Crag、Wall）改加 `ak-handset`（`isPhone`、`boot`，見下面） |
 | `sw.js` | `AppKit.sw(options)`：Service Worker 核心（岩點貓、紅點貓、Studio Crag 共用）；在 Service Worker 裡 `importScripts` 載入，不在頁面載入 |
@@ -198,8 +197,6 @@ Node 只用得到 `readExif`、`toCamera`、`view`（其餘需要 `createImageBi
 
 導覽請求網路優先；帶 `?v=` 的資源快取優先；其他資源網路優先、拿到就存、離線用存的；`?check`、`/__/`、跨網域不經過。
 
-**錯誤回報**（`errors.js`）：沒有匯出；載入就在測試版站台註冊 `error`、`unhandledrejection` 與 `console.error`；同一個錯誤一頁只送一次，一頁最多 10 筆；只送錯誤訊息、出錯位置、App、頁面路徑（不含 `#`、`?`）、版本、瀏覽器。
-
 ## 5. 資料格式與不變條件
 
 - **語言包**：`AppKit.i18n.add('hold', 'zh', { app: '岩點貓', routesN: (n) => `${n} 條路線` })`；值是字串、字串陣列或函式。同一個 key 只放一處。
@@ -280,7 +277,7 @@ console.log(photo.toCamera({ lat: 25.03, lng: 121.56 })?.position, files.hash53(
 
 ## 7. 限制與已知取捨
 
-- **載入順序**：`i18n.js` 要在語言包之前；`i18n.boot` 用 `document.write`，只能在頁面解析中（`<head>` 或頁面最後、主程式之前）同步呼叫，不能 `async`／`defer`；`landing.js` 放 `<head>`；`errors.js` 放 `<head>` 的 CSP 之後第一個；`update.js` 會讀全域 `AppKit.i18n`（沒載入時用中文預設）；`sw.js` 只在 Service Worker 裡 `importScripts`。
+- **載入順序**：`i18n.js` 要在語言包之前；`i18n.boot` 用 `document.write`，只能在頁面解析中（`<head>` 或頁面最後、主程式之前）同步呼叫，不能 `async`／`defer`；`landing.js` 放 `<head>`；`update.js` 會讀全域 `AppKit.i18n`（沒載入時用中文預設）；`sw.js` 只在 Service Worker 裡 `importScripts`。
 - **只有瀏覽器**：`ui`、`update`、`landing`、`account`、`backstack`、`nearby` 需要 DOM；`photo` 的編碼需要 `createImageBitmap`、畫布；`files.sha`、`files.rid` 需要 `crypto`；`files.unzip` 的 deflate 需要 `DecompressionStream`；Node 可用 `readExif`、`toCamera`、`view`、`hash53`、`safeName`、`i18n`（查詢）、`store`。
 - **在 `index.js`／`index.mjs` 的匯出之外**：`nearby`、`sw`、`errors`、`recover`、`share-tools.js`（`ShareTools`）、`qr/` 只能用 `<script>` 載入。
 - `nearby` 與 `share-tools.js` 依賴 Climbio repo 內的語言包、雲端函式，不是獨立可用的部分。

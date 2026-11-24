@@ -17,7 +17,7 @@
 | `/hold/` | 岩點貓（室內手機）：`hold/index.html`、`hold/sw.js`、`hold/manifest*.webmanifest`；程式、樣式和其他共用的檔案在網站根目錄 |
 | `/studio/` | Climbio Studio（電腦、平板；手機只匯入岩場站、接著編 Crag）：一個 PWA（`studio/manifest.webmanifest`、`studio/sw.js`，範圍 `/studio/`）。首頁 `studio/index.html`（新專案、手動輸入、最近的專案）；正式工作區 `/studio/crag/`（戶外岩場，ES module，見 [studio-crag.md](studio-crag.md)）；專案資料夾 `studio/store.js`、共用外殼 `studio/shell.js`、`shell.css`（見 [studio-design.md](studio-design.md)）；Wall 與 3D 牆現由 `/lab/` 對外介紹為研究工具，相關舊技術入口仍可開啟；Wall 手機也能用（`ak-handset` 換手機版面：底部面板，見 [studio-wall.md](studio-wall.md)）；首頁和 Crag 在手機照常打開，`html` 加 `ak-handset` 換手機版面 |
 | `/redpoint/` | 紅點貓（戶外手機，見 [redpoint.md](redpoint.md)）：`redpoint/` 裡是自己的頁面、程式（ES module）、`sw.js`、manifest |
-| `/r/…`、`/w/…`、`/dir/…`、`/climbio.json` | 公開資料與分享連結，由岩點貓、紅點貓與 Climbio Studio 共用（見 [route-format.md](route-format.md)） |
+| `/r/…`、`/p/<id>` | 分享連結預覽頁（`routePage`，只讀資料集）；`/p/<id>/<檔>` 由 Hosting 直接導向資料集。公開資料本身都在資料集的固定網址（見 [route-format.md](route-format.md)） |
 | 其他找不到的網址 | Firebase Hosting 回根目錄的 `404.html`（母品牌淺底、連回首頁；`firebase.json` 只把公開資料的路徑交給雲端函式，沒有整站導到一頁的規則） |
 
 根目錄的 `sw.js` 只負責註銷岩點貓搬到 `/hold/` 前裝在根目錄的 Service Worker。
@@ -72,7 +72,7 @@
 | `fonts/` | 難度、數字字型 Barlow Condensed；段級用的 M PLUS 1 Black（只留用到的字）；都是 SIL OFL，授權在 `fonts/` |
 | `hold/sw.js`、`hold/manifest.webmanifest`、`version.js`、`appkit/sw.js` | 岩點貓的 PWA（範圍 `/hold/`）；版本號部署時自動寫入；`appkit/sw.js` 是三個 App 共用的 Service Worker 核心 |
 | `icons/brand/`、`icons/cats/`、`css/brand-tokens.css` | 母品牌 Logo、兩款手機 App 角色及 PWA 圖示（`tools/brand-icons.mjs` 從 `design/brand/` 產生）；品牌色（見 [brand.md](brand.md)） |
-| `studio/` | Climbio Studio：首頁（`index.html`、`home.js`）、Google 相簿分享連結匯入（`album.js`）、專案資料夾與收件匣（`store.js`、`opfs-worker.js`）、共用外殼（`shell.js`、`shell.css`）、`manifest.webmanifest`、`sw.js`（先問網路，慢或沒網路用存的）；`crag/`、`holdlab/` 是工作區的頁面與程式 |
+| `studio/` | Climbio Studio：首頁（`index.html`、`home.js`）、專案資料夾與收件匣（`store.js`、`opfs-worker.js`）、共用外殼（`shell.js`、`shell.css`）、`manifest.webmanifest`、`sw.js`（先問網路，慢或沒網路用存的）；`crag/`、`holdlab/` 是工作區的頁面與程式 |
 | `redpoint/` | 紅點貓（見 [redpoint.md](redpoint.md)）：自己的 `index.html`、`manifest.webmanifest`、`sw.js`；資料是 v2 檔案存在 IndexedDB，看 Topo 用 `topokit/` |
 | `about.html`、`privacy.html`、`terms.html` | 關於 Climbio、隱私權政策、服務條款 |
 | `google*.html` | 網站搜尋服務的網域驗證檔；公開版本是否包含由交付規則決定 |

@@ -63,6 +63,9 @@ rm -f dist/version.js.bak dist/hold/index.html.bak
 grep -q "hk${hk#v}'" dist/version.js && grep -q "hk${hk#v}\"" dist/hold/index.html || { echo "版本號沒寫進 holdkit 版本" >&2; exit 1; }
 # 頁面引用的本站程式、樣式表加版本後綴（?v=版本）：頁面永遠是最新的，資源依版本分開快取，Service Worker 才不會混到別版（見 appkit/sw.js）
 node tools/stamp-assets.mjs dist
+# App 殼的內容雜湊：下次部署拿它跟這次比，沒變就沿用版本號（tools/app-version.mjs）
+node tools/app-version.mjs --hash > dist/shell.hash
+[ -s dist/shell.hash ] || { echo "shell.hash 產生失敗" >&2; exit 1; }
 grep -q 'src="app.js?v=' dist/3d/index.html || { echo "3D 資源網址沒加版本後綴"; exit 1; }
 grep -q 'src="../js/main.js?v=' dist/hold/index.html || { echo "資源網址沒加版本後綴" >&2; exit 1; }
 for x in data datasets runs weights tools functions node_modules extension web/models holdkit/functions holdscan/functions; do

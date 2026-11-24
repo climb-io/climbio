@@ -173,7 +173,6 @@
     if ('serviceWorker' in navigator && location.protocol === 'https:') { if (self.requestIdleCallback) requestIdleCallback(registerSW, { timeout: 3000 }); else setTimeout(registerSW, 1000); }
     // 岩館目錄（兩個小檔，冷請求要 2、3 秒）閒下來先讀（只有接後端的主網；其他站按了才連外）：第一次按「找牆面」不用等，同時存成下次的快取；失敗不吭聲，按「找牆面」時會重讀並說原因
     if (can('gyms')) { const go = () => { if (!findPre) preloadFind().p.catch(() => {}); }; setTimeout(() => { if (self.requestIdleCallback) requestIdleCallback(go, { timeout: 5000 }); else go(); }, 4000); }   // 等首屏、Service Worker 和模型下載先跑
-    if (SITE.listed && SITE.directory && SITE.directory !== SITE.url && !PCLAND) ShareTools.registerSite(SITE.directory);   // 登記進總目錄，別的站找得到這裡的牆（總目錄自己的站不送：總目錄每天的複查列進自己）   // 岩點偵測在手機上做：開場畫面出來後在背景準備好模型
     // 點了路線連結（?p=照片編號&r=路線 id）：直接開始接收
 
     const href = startHref, pcLink = PCLAND && /[?&](p|wall|person|shares|gym)=/.test(new URL(href).search) && ShareTools.linkFrom(href);

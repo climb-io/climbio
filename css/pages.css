@@ -169,3 +169,11 @@ html:lang(en) .docs-en { display: inline; }
 .pg-prompt { position: relative; margin: 16px 0 20px; max-width: 760px; }
 .pg-prompt pre { margin: 0; padding: 16px 16px 64px; border: 1px solid var(--pg-line); border-radius: 12px; background: var(--pg-surface-2); color: var(--pg-text); font: 14px/1.75 system-ui, -apple-system, 'Noto Sans TC', sans-serif; white-space: pre-wrap; overflow-wrap: anywhere; }
 .pg-prompt .pg-btn { position: absolute; right: 12px; bottom: 12px; }
+
+/* 給岩館的頁面（/project/）：點了才載入的內嵌範例、路線切換、岩點貓截圖 */
+.pg-demo-box { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 480px; border: 1px dashed var(--pg-line-strong); border-radius: var(--pg-radius-sm); background: var(--pg-surface); text-align: center; padding: 16px; }
+.pg-demo-hint { color: var(--pg-muted); font-size: 14px; }
+.pg-demo.full { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 1000; border: 0; border-radius: 0; }
+.pg-reg { align-items: center; margin-top: 28px; }
+.pg-reg .pg-shot { margin: 0; border: 1px solid var(--pg-line); }
+@media (max-width: 640px) { .pg-demo-box { height: 380px; } .pg-grid.two.pg-reg { grid-template-columns: 1fr; } }

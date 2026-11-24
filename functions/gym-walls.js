@@ -14,14 +14,6 @@ async function refreshGymIndex(db, gyms) {
   }
   if (Object.keys(out).length) await db.collection('gymIndex').doc('all').set({ gyms: out }, { merge: true });
 }
-async function rebuildGymIndex(db) {
-  const gyms = {};
-  for (const d of (await db.collection('gymWalls').select('gym', 't').get()).docs) {
-    const g = d.get('gym'), t = d.get('t'), x = gyms[g] || (gyms[g] = { n: 0, t: 0 });
-    x.n++; x.t = Math.max(x.t, t);
-  }
-  await db.collection('gymIndex').doc('all').set({ gyms });
-}
 async function dropGymWall(db, pid) {
   const ref = db.collection('gymWalls').doc(pid), old = await ref.get();
   await ref.delete();
@@ -58,4 +50,4 @@ async function registerWall3d({ db, id, name, gym, root, now = Date.now }) {
   for (const pid of [...olds.map(d => d.id), id]) await updateGymWall({ db, pid });
 }
 
-module.exports = { updateGymWall, updateGymWallsOf, dropGymWall, rebuildGymIndex, registerWall3d };
+module.exports = { updateGymWall, updateGymWallsOf, dropGymWall, registerWall3d };

@@ -15,7 +15,7 @@ const V_SLOPE = 1, V_REACH = 12;   // 高度範圍沿牆的坡度限制：每走
 const HOLD_R = 0.08;   // 岩點「完整出現在畫面」：中心離可用畫面的左右邊至少這麼遠（公尺，約一般岩點的半徑；拉得很近時最多留可用畫面的 1/8）
 const EYE = 1.5;   // 人眼離牆腳的高度（公尺）：cave 裡鏡頭最高到這裡（上下拖是整個鏡頭升降，不抬頭）
 const YAW_LEAD = Math.PI / 6, YAW_RAMP = 0.6, HEAD_END = Math.PI / 2;   // 人的模式左右走時邊走邊轉向要走的那邊多少（每拖 YAW_RAMP 個畫面寬轉掉剩下的 63%）；走到盡頭原地轉頭最多多少（看內角的側面）
-const CAVE_WALK = 1.2, CAVE_HEAD = 0.35, CAVE_COVER = 0.8, CAVE_DIST = 1.3;   // 人的模式進 cave 要拖幾個畫面寬；cave 裡鏡頭離頭頂的岩點（屋頂）至少多遠（公尺）；cave 裡轉身時畫面至少多少是牆；cave 的站位離四周的牆大約多遠（公尺）
+const CAVE_WALK = 1.2, CAVE_HEAD = 0.35, CAVE_COVER = 0.8, CAVE_DIST = 1.3, CAVE_ZOOM = 4;   // 人的模式進 cave 要拖幾個畫面寬；cave 裡鏡頭離頭頂的岩點（屋頂）至少多遠（公尺）；cave 裡轉身時畫面至少多少是牆；cave 的站位離四周的牆大約多遠（公尺）；cave 裡捏合最多放大幾倍
 const CORNER = Math.PI * 50 / 180;   // 人的模式左右走到牆線轉彎超過這個角度的地方為止（內角、側牆）
 const PERSON_FAR = 1.8;   // 人的模式最遠站多遠（公尺）：人在牆下看大約這樣；橫的畫面（電腦）照畫面下緣算會推到很遠，像在看整個模型
 const PERSON_FOV_RAD = 67 * Math.PI / 180;   // 直拿手機的上下視角（跟 Stage 的 PERSON_FOV 一樣）：電腦版最遠距離照它換算
@@ -288,7 +288,7 @@ export class WalkCam {
   }
 
   // 人的模式左右拖（像 2D 平移，dx>0 鏡頭往左）：一邊走一邊慢慢轉向要走的那邊（yaw，繞著看的那一點轉），拖約一個半畫面寬轉到 YAW_LEAD；
-  // 走到左右盡頭鏡頭停住，再拖就原地轉頭（head，鏡頭不動），最多 HEAD_END（看內角的側面），畫面中間、左右一半和左右邊緣都要還打得到牆（不轉到看見牆外），轉不動就停。
+  // 走到左右盡頭鏡頭停住，再拖就原地轉頭（head，鏡頭不動），最多 HEAD_END（看內角的側面），畫面中間、左右一半和左右八成的地方要還打得到牆，轉不動就停。
   // 往回拖：先把頭轉回來，再邊走邊轉回去
   walk(dx) {
     if (!dx) return;
@@ -500,6 +500,13 @@ export class WalkCam {
     if (dx) this.turnPass();
   }
   // 捏合：以 (px, py) 為中心縮放 k 倍（k>1 放大＝靠近）。P：縮放前 (px, py) 底下那一點（世界座標，沒給用估的），縮放後還在 (px, py)
+  // cave 裡的捏合、滾輪：跟 2D 一樣把畫面以手指為中心放大（取景框縮小、重新算圖），手指底下那一點留在手指底下；不換站位。
+  // cz：可見範圍是整個畫面的 [ox, ox + 1/z] × [oy, oy + 1/z]（比例座標）；Stage 照它設 setViewOffset。q 是捏合前手指在畫面上的位置，q1 是現在的
+  caveZoom(k, q, q1) {
+    const c = this.cz || { z: 1, ox: 0, oy: 0 }, z = Math.max(1, Math.min(CAVE_ZOOM, c.z * k));
+    const bx = c.ox + q[0] / this.W / c.z, by = c.oy + q[1] / this.H / c.z, lim = (o) => Math.max(0, Math.min(1 - 1 / z, o));
+    this.cz = z <= 1 + 1e-6 ? null : { z, ox: lim(bx - q1[0] / this.W / z), oy: lim(by - q1[1] / this.H / z) };
+  }
   zoomAt(k, px, py, P = null) {
     const A = P || this.pointAt(px, py), d0 = this.d;
     this.d /= k; this.clamp(); this.want = this.d;
@@ -721,7 +728,7 @@ export class WalkCam {
     return this.keepCam(() => {
       const h0 = this.head; this.head = head; this.place(this.s, this.d); this.head = h0;
       const c = this.cam, f = new Vector3(), r = new Vector3(), hw = this.tan * this.W / this.H; c.getWorldDirection(f); r.setFromMatrixColumn(c.matrixWorld, 0);
-      return [0, -0.5, 0.5, -0.95, 0.95].every(x => this.sees(c.position.clone(), f.clone().addScaledVector(r, x * hw).normalize()));   // 左右邊緣也要是牆：轉頭不轉到看見牆外（圖案牆這類窄的轉角）
+      return [0, -0.5, 0.5, -0.8, 0.8].every(x => this.sees(c.position.clone(), f.clone().addScaledVector(r, x * hw).normalize()));   // 畫面八成寬都要是牆：轉頭最多露出一成牆外（全寬都要是牆會轉不到 cave 的側面就直接進 cave）
     });
   }
   // 人的模式左右走到哪裡：從中間往兩邊，牆線（左右平滑 0.3 m）跟正面左右軸的夾角超過 CORNER 的地方（內角、側牆），
@@ -954,12 +961,13 @@ export class WalkCam {
     this.cave = c; const d0 = new Vector3(); this.apply(); this.cam.getWorldDirection(d0);
     const t = c.un(Math.atan2(d0.dot(this.p.f), d0.dot(this.p.right))), [a, b] = c.th;
     this.cth = t <= b ? t : (t - b < a + 2 * Math.PI - t ? b : a);   // 進去時面向原本看的方向（在範圍外就用最近的一端）
-    this.cpitch = Math.max(c.el[0], Math.min(c.el[1], 0)); this.ct = 0;
+    this.cpitch = Math.max(c.el[0], Math.min(c.el[1], 0)); this.ct = 0; this.cz = null;
     return 'cave';
   }
   // cave 裡的拖動：往 cave 那邊拖先走完進場（ct 0→1）；進去以後左右拖就是左右轉身（往左拖往左轉），在範圍盡頭停住；
   // 往外的那一端（左邊的 cave 是右端）轉到底再拖就退出來（ct 1→0）。上下拖是抬頭低頭
   caveMove(dx, dy) {
+    if (this.cz) { dx /= this.cz.z; dy /= this.cz.z; }   // 放大時拖同樣的距離轉得少（手指拖著畫面走，跟 2D 一樣）
     const c = this.cave, dir = dx > 0 ? -1 : 1, rate = YAW_LEAD / (this.W / 2), [a, b] = c.th, exitEnd = c.side < 0 ? b : a;
     let px = Math.abs(dx);
     const step = (k) => { const m = Math.min(k > 0 ? 1 - this.ct : this.ct, px / (CAVE_WALK * this.W)); this.ct += k * m; px -= m * CAVE_WALK * this.W; };
@@ -969,7 +977,7 @@ export class WalkCam {
         const t = this.cth + dir * px * rate, nt = Math.max(a, Math.min(b, t)); px -= Math.abs(nt - this.cth) / rate; this.cth = nt;
         if (px > 1e-6 && dir === -c.side && Math.abs(this.cth - exitEnd) < 1e-6) step(-1);
       }
-      if (this.ct <= 1e-6) { this.ct = 0; this.cave = null; }
+      if (this.ct <= 1e-6) { this.ct = 0; this.cave = null; this.cz = null; }
     }
     if (dy && this.ct >= 1) this.cpitch = Math.max(c.el[0], Math.min(c.el[1], this.cpitch + dy * Math.atan(this.tan) * 2 / this.H));
   }

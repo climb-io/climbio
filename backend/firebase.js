@@ -144,7 +144,7 @@
   // 讀 3D 牆上大家的某一條線的原始片段（連結 ?m3d=牆&rid=線）；沒有就回 null
   async function routeFragment(pid, rid) {
     needNet();
-    const got = await wallRoutesPost({ pid }), e = (got.routes || []).find(x => x.rid === rid);
+    const got = await wallRoutes({ pid }), e = (got.fragments || []).find(x => x.rid === rid);
     try { return e ? JSON.parse(e.r) : null; } catch (x) { return null; }
   }
   // 自己刪了、伺服器上還在的公開線：拿掉
@@ -158,37 +158,65 @@
   // 回 [{ rid, mine, r: 路線 JSON（外框只帶跟牆上不一樣的）, t }]；mine＝這把裝置金鑰分享的（只有它能改、能刪）。
   // 陣列的 published 是 false＝這面牆沒有公開了（擁有者收回、過期、包不見了）
   const primed = new Map();
-  const wallRoutesPost = async (body) => fnPost('walls', { op: 'routes', ...body, ...(knownKid() ? { kid: knownKid() } : {}) });
-  // 讀公開牆的線：走 Hosting 的 CDN 快取 GET（/w/<牆 id>/shared.json，一分鐘，全部人共用，不呼叫雲端函式）；讀不到（沒有這個路由的站、離線快取外）才退回 POST。
-  // mine：作者金鑰的雜湊跟自己金鑰算的一樣
+  // 公開牆的線不經過函式：進 App 只讀一個 index（index/world.json，每面牆一行：v 畫面現行版、rt 路線更新時間、n 路線數），
+  // 這面牆有路線才再讀 walls/<包>/routes.json（v2 圖層，route 節點的 props.u 是作者雜湊前 16 碼，跟自己金鑰算的一樣就是自己的）；
+  // 都是資料集（Hugging Face）的固定網址，沒有自動同步：要看最新的就再讀（index 一分鐘內只讀一次）
+  const HF_WALLS = 'https://huggingface.co/datasets/climbio/walls/resolve/main/';
+  let indexMemo = null;
+  const loadIndex = (force = false) => {
+    if (!force && indexMemo && Date.now() - indexMemo.t < 60000) return indexMemo.p;
+    const p = fetch(`${HF_WALLS}index/world.json`, { signal: AbortSignal.timeout(10000) }).then(async (r) => {
+      if (!r.ok) throw new Error(`index ${r.status}`);
+      const d = await r.json();
+      if (!d || !Array.isArray(d.walls)) throw new Error('index format');
+      return d;
+    });
+    indexMemo = { t: Date.now(), p };
+    p.catch(() => { if (indexMemo && indexMemo.p === p) indexMemo = null; });
+    return p;
+  };
+  // 回 { published, src: { project, path }, ver, layer, mine: { 路線 id: true } }；index 沒有這面牆＝沒有公開（收回、過期、包不見了）
   async function wallRoutes(body) {
     if (Array.isArray(body.pids)) { const walls = {}; await Promise.all(body.pids.map(async (pid) => { walls[pid] = await wallRoutes({ pid }); })); return { walls }; }
-    try {
-      const r = await fetch(`/w/${body.pid}/shared.json`, { signal: AbortSignal.timeout(10000) });
-      if (!r.ok) throw new Error(`shared.json ${r.status}`);
-      const j = await r.json(), me = knownKid() ? await AppKit.files.sha(`k:${knownKid()}`, 8) : '';
-      return { ...j, routes: (j.routes || []).map(({ u, ...x }) => ({ ...x, mine: !!me && u === me })) };
-    } catch (e) { return wallRoutesPost(body); }
+    const row = (await loadIndex()).walls.find(w => w.id.endsWith(`/${body.pid}`));
+    if (!row) return { published: false };
+    const pack = row.id.slice(0, row.id.indexOf('/')), out = { published: true, src: { project: pack, path: row.m3d ? 'index.json' : `${body.pid}.json` }, ver: row.v || 0, rt: row.rt || 0 };
+    if (!row.n) return out;
+    const r = await fetch(`${HF_WALLS}walls/${pack}/routes.json`, { signal: AbortSignal.timeout(10000) });
+    if (!r.ok) throw new Error(`routes.json ${r.status}`);
+    const layer = await r.json(), me = knownKid() ? await AppKit.files.sha(`k:${knownKid()}`, 8) : '';
+    // 3D 牆：{ kind: 'routes', routes: [{ id, t, u, r: 片段字串（帶修點 e） }] }，不併成圖層
+    if (row.m3d) {
+      if (!layer || !Array.isArray(layer.routes)) throw new Error('routes.json format');
+      return { ...out, fragments: layer.routes.filter(x => x && typeof x.id === 'string' && typeof x.r === 'string').map(x => ({ rid: x.id, t: x.t || 0, r: x.r, mine: !!me && x.u === me })) };
+    }
+    if (!layer || !Array.isArray(layer.nodes) || !Array.isArray(layer.marks) || ClimbioFormat.validate(layer).length) throw new Error('routes.json format');
+    return { ...out, layer, mine: Object.fromEntries(layer.nodes.filter(n => n.type === 'route' && me && n.props && n.props.u === me).map(n => [n.id, true])) };
   }
   async function primeShared(pids) {
     needNet();
+    await loadIndex(true);   // 進 App、手動重新整理才重讀 index；好幾面牆的路線同一次用同一份
     for (let i = 0; i < pids.length; i += 50) {
       const part = pids.slice(i, i + 50), got = (await wallRoutes({ pids: part })).walls || {};
-      for (const pid of part) primed.set(pid, got[pid] || { published: false, routes: [] });
+      for (const pid of part) primed.set(pid, got[pid] || { published: false });
     }
   }
-  // 一條線的片段 → 只有這條線的圖層（牆的畫面不在這裡，讀的人用自己的原始岩點檔補外框）
-  const layerOfFragment = (pid, f) => ({ climbio: 2, kind: 'layer', id: `${pid}routes`, on: pid, href: `${pid}.json`, t: 0, license: 'CC-BY-SA-4.0', nodes: f.nodes, marks: f.marks });
+  // 公開牆上所有人的線：回 [{ rid, mine, r: 路線 JSON（外框只帶跟牆上不一樣的）, t }]；mine＝這把裝置金鑰分享的（只有它能改、能刪）。
+  // 陣列的 published 是 false＝這面牆沒有公開了
   async function listShared(pid) {
     needNet();
     const got = primed.get(pid) || await wallRoutes({ pid });
     primed.delete(pid);
     const out = [];
-    for (const e of got.routes || []) {
-      let layer; try { layer = layerOfFragment(pid, JSON.parse(e.r)); } catch (x) { continue; }
+    // 一條線的片段 → 只有這條線的圖層（牆的畫面不在這裡，讀的人用自己的原始岩點檔補外框）
+    const layerOfFragment = (f) => ({ climbio: 2, kind: 'layer', id: `${pid}routes`, on: pid, href: `${pid}.json`, t: 0, license: 'CC-BY-SA-4.0', nodes: f.nodes, marks: f.marks });
+    for (const e of got.fragments || []) {
+      let layer; try { layer = layerOfFragment(JSON.parse(e.r)); } catch (x) { continue; }
       if (!Array.isArray(layer.nodes) || !Array.isArray(layer.marks) || ClimbioFormat.validate(layer).length) continue;
       for (const r of RouteKit.fromFormat({}, [layer]).routes) if (r.id === e.rid) out.push({ rid: e.rid, mine: !!e.mine, r: JSON.stringify(r), t: r.t || e.t || 0 });
     }
+    if (got.layer) for (const r of RouteKit.fromFormat({}, [got.layer]).routes) out.push({ rid: r.id, mine: !!(got.mine && got.mine[r.id]), r: JSON.stringify(r), t: r.t || 0 });
+    out.sort((x, y) => y.t - x.t);   // 新的在前
     out.published = got.published !== false;
     out.src = got.src || null; out.ver = got.ver || 0;   // 牆的畫面在哪、現在第幾版：版本變了 App 重讀岩點（js/sync.js 的 refreshHolds）
     return out;
@@ -205,27 +233,44 @@
   async function reportWall(pid) {
     await fnPost('walls', { op: 'report', pid }, true);
   }
-  // Climbio Studio 發佈的所有 Guidebook 與 3D 牆（公開專案）：Storage 上的靜態清單 public/projects.json（雲端函式 datasets 在發佈、下架後和每天重寫，見 functions/projects.js 的 writeWorld），
-  // 不用登入、不經過雲端函式（沒有冷啟動），CDN 留 5 分鐘。紅點貓的「世界」只要 guidebook：讀的人自己挑 type（3D 牆的清單不在這裡，跟 2D 公開牆一起走岩館的牆面清單）
-  async function listProjects(type, { fresh = false } = {}) {   // fresh：不用瀏覽器快取（發佈後確認世界清單重建了）
+  // 紅點貓進 App 只讀一個 index（資料集 climbio/crags 的 index/redpoint.json，固定網址、不經過函式）：
+  // projects＝Climbio Studio 發佈的所有 Guidebook 與 3D 牆（公開專案，每項有版本時間 t 和資料集的網址 url；讀的人自己挑 type，
+  // 3D 牆的清單不在這裡，跟 2D 公開牆一起走岩館的牆面清單）；world.v＝世界的三層樹的版本（內容雜湊），世界檔 index/world.<v>.json 變了才重讀。
+  // 本機收下的岩場比自己存的 t，新的才另外讀它的資料；沒有自動同步，要最新的就再讀（一分鐘內只讀一次，fresh 不用快取）
+  const HF_CRAGS = 'https://huggingface.co/datasets/climbio/crags/resolve/main/';
+  let cragsMemo = null;
+  const loadCragsIndex = ({ fresh = false } = {}) => {
     needNet();
-    const response = await fetch(`https://firebasestorage.googleapis.com/v0/b/${FIREBASE.storageBucket}/o/public%2Fprojects.json?alt=media`, { signal: AbortSignal.timeout(15000), ...(fresh ? { cache: 'no-store' } : {}) });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw Object.assign(new Error(data.error?.message || `projects: ${response.status}`), { status: response.status });
-    return (data.projects || []).filter(p => p.type === type);
+    if (!fresh && cragsMemo && Date.now() - cragsMemo.t < 60000) return cragsMemo.p;
+    const p = fetch(`${HF_CRAGS}index/redpoint.json`, { signal: AbortSignal.timeout(15000), ...(fresh ? { cache: 'no-store' } : {}) }).then(async (response) => {
+      if (!response.ok) throw Object.assign(new Error(`index: ${response.status}`), { status: response.status });
+      const d = await response.json();
+      if (!d || !Array.isArray(d.projects)) throw new Error('index format');
+      return d;
+    });
+    cragsMemo = { t: Date.now(), p };
+    p.catch(() => { if (cragsMemo && cragsMemo.p === p) cragsMemo = null; });
+    return p;
+  };
+  async function listProjects(type, opt = {}) {   // fresh：不用快取（發佈後確認世界清單重建了）
+    return (await loadCragsIndex(opt)).projects.filter(p => p.type === type);
   }
   const listGuidebooks = (opt) => listProjects('guidebook', opt);
-  // 同一本書所有的版本，含不列入世界的（世界清單沒有它們）：雲端函式 datasets 的 versions，公開的唯讀查詢；回跟 listGuidebooks 同樣的列（找不到就是 []）
+  // 同一本書所有的版本，含不列入世界的（世界清單沒有它們）：每一版的資料夾都有發佈時寫的 versions.json（functions/projects.js）；回跟 listGuidebooks 同樣的列（找不到就是 []）
   async function guidebookVersions(id) {
     needNet();
-    return (await fnPost('datasets', { op: 'versions', id })).rows || [];
+    const r = await fetch(`${HF_CRAGS}crags/${id}/versions.json`, { signal: AbortSignal.timeout(10000) });
+    return r.ok ? ((await r.json()).rows || []) : [];
   }
-  // 紅點貓「世界」預先合成好的三層樹（Storage 的 public/world.json，雲端函式在發佈、下架後和每天重寫，見 functions/world.js）：一次抓完，手機不用再合成
-  async function loadWorld() {
-    needNet();
-    const response = await fetch(`https://firebasestorage.googleapis.com/v0/b/${FIREBASE.storageBucket}/o/public%2Fworld.json?alt=media`, { signal: AbortSignal.timeout(15000) });
+  // 紅點貓「世界」預先合成好的三層樹（資料集的 index/world.<v>.json，網址帶版本、永遠不變；合成程式在 functions/world.js）：
+  // have＝手機上存的那一份的版本（wv）；index 的 world.v 一樣就回 null（不用再抓 140 KB），不一樣才抓新的並記上 wv
+  async function loadWorld(have = '') {
+    const { world } = await loadCragsIndex();
+    if (!world || !world.v) throw Object.assign(new Error('world: no index'), { status: 404 });
+    if (have && have === world.v) return null;
+    const response = await fetch(`${HF_CRAGS}index/world.${world.v}.json`, { signal: AbortSignal.timeout(15000) });
     if (!response.ok) throw Object.assign(new Error(`world: ${response.status}`), { status: response.status });
-    return response.json();
+    return { ...(await response.json()), wv: world.v };
   }
 
   window.Backend = {

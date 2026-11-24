@@ -93,12 +93,6 @@ AppKit.i18n.add('studio', 'en', {
   stNorthUp: "↑ N",
   stAreaCount: (n) => `${n} areas`,
   // Albums
-  stAlbumReading: "Reading album…",
-  stAlbumProgress: (k, n) => `Downloading album ${k} / ${n}`,
-  stAlbumLink: "Paste the shared album link from Google Photos (create an album, turn on link sharing; the URL starts with photos.app.goo.gl or photos.google.com/share)",
-  stAlbumConnect: "Can't reach Google Photos",
-  stAlbumDownloadFailed: "Couldn't download the album photos",
-  stAlbumEmpty: "No photos found at this link (create an album in Google Photos, turn on link sharing, and make sure it has photos)",
   // Crag import
   stReading: "Reading…",
   stOpening: "Opening…",

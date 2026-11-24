@@ -19,7 +19,7 @@ const fail = (status, error) => Object.assign(new Error(error), { status });
 const dayKey = ms => new Date(ms + 8 * 3600e3).toISOString().slice(0, 10);
 const validGym = g => typeof g === 'string' && g.length >= 1 && g.length <= 30 && !/[\u0000-\u001f]/.test(g) && g.split('#').every(x => x.trim() === x && x.length);
 
-function createHandler({ db, refreshGym, appChecked = async () => true, isOwner = async () => false, now = Date.now, verify = verifyRequest }) {   // verify：驗裝置金鑰簽章（測試可換）
+function createHandler({ db, refreshGym, publishRoutes = async () => {}, appChecked = async () => true, isOwner = async () => false, now = Date.now, verify = verifyRequest }) {   // verify：驗裝置金鑰簽章（測試可換）
   // 沒有帳號、沒有擁有者（公開＝人人可編輯、可發佈，docs/proposals/open-versions.md）：發佈、通報靠 App Check 與網路來源的每日上限；
   // 寫自己的線（put、withdraw）靠裝置金鑰簽章（要 App Check，deviceKeys/{kid}.blocked 的金鑰拒絕）。回 { uid }
   const keyOf = req => `ip${createHash('sha256').update(clientIp(req)).digest('hex').slice(0, 16)}`;
@@ -41,10 +41,12 @@ function createHandler({ db, refreshGym, appChecked = async () => true, isOwner 
     if (k.exists && k.get('blocked')) throw fail(403, 'blocked');   // 黑名單：在 Firestore deviceKeys/{kid} 設 blocked: true 就擋掉
     return { uid: `k:${kid}` };
   };
+  // 公開資料（Hugging Face 的 routes.json 和 index，hf-public.js）跟著寫：失敗不影響這次提交（Firestore 已經寫了），之後任何一次變動或維護者的 syncPublic 會補上
+  const pub = async (pid) => { try { await publishRoutes(pid); } catch (e) { console.warn('公開資料沒寫進資料集', pid, e && e.message); } };
   const shared = pid => db.collection('shared').doc(pid);
   const wallRoutes = pid => db.collection('wallRoutes').doc(pid);
   // 把索引拿掉，連同這面牆所有人的線（讀的人看到「沒有公開」，收了這面牆的人就把它移除）
-  const retire = async (pid, doc) => { await shared(pid).set({ name: doc.get('name') || '' }); await wallRoutes(pid).delete(); await refreshGym(pid); };
+  const retire = async (pid, doc) => { await shared(pid).set({ name: doc.get('name') || '' }); await wallRoutes(pid).delete(); await refreshGym(pid); await pub(pid); };
   // 在交易裡改這面牆的線：fn(routes) 直接改傳進去的 map；回 { changed: 條數變了 }。沒有任何線了就刪掉文件
   const change = (pid, fn) => db.runTransaction(async (tx) => {
     const ref = wallRoutes(pid), snap = await tx.get(ref), routes = { ...((snap.exists && snap.get('routes')) || {}) }, before = Object.keys(routes).length;
@@ -75,13 +77,14 @@ function createHandler({ db, refreshGym, appChecked = async () => true, isOwner 
       await qref.set({ n: (q.exists ? q.get('n') : 0) + 1, at: now() });
       await shared(body.pid).set({ name, gym: body.gym, src, publishedAt: now(), activeAt: now() });
       await refreshGym(body.pid);   // 找牆面的索引跟著更新
+      await pub(body.pid);
       return { pid: body.pid };
     },
     // 拿掉自己在這面牆的線（岩點貓把牆改成私人、或刪掉公開的牆）。可重複呼叫
     async withdraw(body, req) {
       const u = await writer('withdraw', body, req);
       if (!PID.test(body.pid || '')) throw fail(400, 'bad pid');
-      if ((await change(body.pid, (routes) => { for (const [k, x] of Object.entries(routes)) if (x.uid === u.uid) delete routes[k]; })).changed) await refreshGym(body.pid);   // 只拿掉自己的線；整面牆公開了就收不回
+      if ((await change(body.pid, (routes) => { for (const [k, x] of Object.entries(routes)) if (x.uid === u.uid) delete routes[k]; })).changed) { await refreshGym(body.pid); await pub(body.pid); }   // 只拿掉自己的線；整面牆公開了就收不回
       return { ok: true };
     },
     // 傳自己在這面牆的線：routes: [{ id, r: 路線 JSON 字串 }] 新增或更新，del: [路線 id] 刪除；只能動自己的線（別人的回 taken）。牆要先有人發佈
@@ -122,10 +125,18 @@ function createHandler({ db, refreshGym, appChecked = async () => true, isOwner 
         if (all.length > MAX_WALL_ROUTES || all.reduce((s, x) => s + x.r.length, 0) > MAX_WALL_CHARS) throw fail(413, 'wall full');
       });
       if (out.changed) await refreshGym(body.pid);   // 條數變了才重算找牆面（只改線不用）
+      await pub(body.pid);   // 路線新增、更新、刪除都馬上寫進資料集（旁邊的人重新整理就看得到）
       return { ok: true, results };
     },
     // 手動下架：只有維護者（X-Studio-Key）；岩館想收回就聯絡維護者。跟過期一樣拿掉找牆面的入口和所有人的線，
     // 開放資料集裡已經公開的檔案留著（授權已經給出去）。重新用 Studio 發佈同一個牆 id 就回來。可重複呼叫
+    // 維護者：把所有公開牆的現況補寫進資料集（routes.json 和 index），一面牆一個 commit；回寫了幾面
+    async syncPublic(body, req) {
+      if (!(await isOwner(req))) throw fail(401, 'maintainer only');
+      let n = 0;
+      for (const d of (await db.collection('shared').get()).docs) if (d.get('src')) { await publishRoutes(d.id); n++; }
+      return { n };
+    },
     async unpublish(body, req) {
       if (!PID.test(body.pid || '')) throw fail(400, 'bad pid');
       if (!(await isOwner(req))) throw fail(401, 'maintainer only');
@@ -178,9 +189,9 @@ function createHandler({ db, refreshGym, appChecked = async () => true, isOwner 
 
 // 每天把 90 天沒有任何更新（activeAt：發佈、改線都會更新）的公開牆從找牆面拿掉：岩館換線之後，舊的牆對使用者沒意義；上傳者只要更新就延後。
 // 只拿掉入口與線（跟手動下架一樣），資料集（照片、岩點、路線的匯出）留著給研究
-async function expire({ db, refreshGym, now = Date.now }) {
+async function expire({ db, refreshGym, publishRoutes = async () => {}, now = Date.now }) {
   const snap = await db.collection('shared').where('activeAt', '<', now() - EXPIRE_MS).limit(200).get();
-  for (const d of snap.docs) if (d.get('src')) { await db.collection('shared').doc(d.id).set({ name: d.get('name') || '' }); await db.collection('wallRoutes').doc(d.id).delete(); await refreshGym(d.id); }
+  for (const d of snap.docs) if (d.get('src')) { await db.collection('shared').doc(d.id).set({ name: d.get('name') || '' }); await db.collection('wallRoutes').doc(d.id).delete(); await refreshGym(d.id); await publishRoutes(d.id).catch((e) => console.warn('公開資料沒寫進資料集', d.id, e && e.message)); }
   return snap.docs.length;
 }
 

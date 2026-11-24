@@ -48,8 +48,6 @@ WebKit 的非持久 context 在 macOS 寫入 Blob 會出現 `UnknownError: Error
 
 內部 e2e 案例 在 Chromium／WebKit 手機設定驗證一比一拖曳、相鄰路線預覽、完整就位、短拖回彈、快速短撥、首尾阻力、同手勢反向、取消、吸附途中再抓住、雙指縮放、邊緣與直向手勢、減少動態效果、最後反向撥回，以及 720 顆岩點／每條 120 點的大牆拖曳不反覆重畫；並保存拖曳中與就位後截圖。實機流暢度與 iPhone Safari 手感仍需手機確認。
 
-**測試版的錯誤回報**：開發版、Eric 的站（和它們的預覽頻道）自動把沒接住的錯誤、`console.error` 帶的 Error 送到雲端函式 `clientError`（`appkit/errors.js`、`functions/client-errors.js`），在 Google Cloud 主控台的 Error Reporting 看（服務名稱 `web-<App>`，例如 `web-studio`、`web-hold`，版本是 `vNNNN`）。測試版都是內部在用，所以預設開；正式版、本機、自架的站不送。只送錯誤訊息、出錯的位置、App、頁面路徑（不含 `#`、`?`）、版本、瀏覽器。
-
 ## 測試只留功能
 
 測試只回答「功能壞了沒有」：流程走得通、資料存得進去、返回退得回、錯誤有處理。不斷言版面數值（欄數、尺寸、位置）、排序、文案、像素基準圖：這些改一次畫面就要跟著改期望值，不新增，遇到就刪。測試資料不進 repo：能用開放資料集（climbio/walls、crags、walls3d、crags3d）的就下載使用，其餘由測試程式合成。

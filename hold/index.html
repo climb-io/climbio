@@ -6,7 +6,6 @@
      收線、總目錄要讀任何站的資料（connect-src https:），別的站的縮圖照片也是（img-src https:）。接自己的後端見 docs/deploy.md -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.google.com; connect-src 'self' https: data: blob:; img-src 'self' https: data: blob:; media-src 'self' blob:; font-src 'self' data: https://fonts.gstatic.com; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; frame-src 'self' https://*.web.app https://*.firebaseapp.com https://accounts.google.com https://apis.google.com https://www.google.com https://recaptcha.google.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <script src="../appkit/recover.js"></script>
-<script src="../appkit/errors.js"></script>   <!-- 測試版的錯誤回報（正式版不送），越早載入越好 -->
 <!-- 這個頁面的版本：部署時跟 version.js 一起寫入。頁面用這個判斷自己是哪一版（version.js 可能被 HTTP 快取拿到舊的） -->
 <meta name="app-version" content="climbio-v151">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">

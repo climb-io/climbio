@@ -758,11 +758,11 @@ class Stage {
       const px = q ? T(q)[0] - q[0] : 0, py = q ? T(q)[1] - q[1] : 0;
       if (q) {
         this.raycaster.setFromCamera(new Vector2(q[0] / W * 2 - 1, -q[1] / H * 2 + 1), cam); const h = this.firstHit(), P = h && h.point.clone(), q1 = T(q);
-        if (Math.abs(k - 1) > 1e-6) wc.zoomAt(k, q1[0], q1[1], P); else if (!this.endTurn(px)) wc.pan(px, py, P);
+        if (Math.abs(k - 1) > 1e-6) { if (wc.cave && wc.ct >= 1) wc.caveZoom(k, q, q1); else wc.zoomAt(k, q1[0], q1[1], P); } else if (!this.endTurn(px)) wc.pan(px, py, P);   // cave 裡捏合是 2D 的放大（WalkCam.caveZoom）
       }
       g.fingers = (g.fingers || 0) + Math.hypot(px, py);
     }
-    cam.setViewOffset(this.snapW, this.snapH, -home.tx / K, -home.ty / K, W / K, H / K);
+    this.viewOffset(home.tx, home.ty, K, W, H);
     wc.apply(); cam.near = 0.005; cam.far = 100; cam.updateProjectionMatrix();
     let pos = cam.position.clone(), quat = cam.quaternion.clone(), next = { ...view, ...home };
     // 剛站上去：從快照的相機、畫面慢慢換成沿牆的（ALONG_BLEND_MS 毫秒內、或先走 RAIL_BLEND 公尺、距離變 1.35 倍、手指拖了 150 點就換完），不會一下子跳
@@ -1081,7 +1081,7 @@ class Stage {
   // 視角 v（2D 的裁切、位移）下，從鏡頭打向畫面上 (sx, sy) 那一點的線放進 raycaster
   aimRay(v, sx, sy) {
     const cam = this.camera, K = v.bw * v.s / this.snapW;
-    cam.setViewOffset(this.snapW, this.snapH, -v.tx / K, -v.ty / K, this.stage.clientWidth / K, this.stage.clientHeight / K); cam.updateProjectionMatrix(); cam.updateMatrixWorld(true);
+    this.viewOffset(v.tx, v.ty, K, this.stage.clientWidth, this.stage.clientHeight); cam.updateProjectionMatrix(); cam.updateMatrixWorld(true);
     const W = this.stage.clientWidth, H = this.stage.clientHeight;
     this.raycaster.setFromCamera(new Vector2(sx / W * 2 - 1, -sy / H * 2 + 1), cam);
   }
@@ -1357,8 +1357,13 @@ class Stage {
     const v = this.view, st = this.stage;
     if (!v || !st || !v.bw) return;
     const K = v.bw * v.s / this.snapW, W = st.clientWidth, H = st.clientHeight;
-    this.camera.setViewOffset(this.snapW, this.snapH, -v.tx / K, -v.ty / K, W / K, H / K);
+    this.viewOffset(v.tx, v.ty, K, W, H);
     this.camera.updateProjectionMatrix();
+  }
+  // 相機取景框（跟 2D 一樣裁一塊）；沿牆鏡頭在 cave 裡放大時再照 WalkCam.cz 縮小（以手指為中心的 2D 放大）
+  viewOffset(tx, ty, K, W, H) {
+    const wc = this.wc, cz = wc && wc.cave && wc.ct >= 1 && wc.cz, vw = W / K, vh = H / K;
+    this.camera.setViewOffset(this.snapW, this.snapH, -tx / K + (cz ? cz.ox * vw : 0), -ty / K + (cz ? cz.oy * vh : 0), cz ? vw / cz.z : vw, cz ? vh / cz.z : vh);
   }
   invalidate() {
     if (this.dirty) return;

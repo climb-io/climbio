@@ -1,0 +1,33 @@
+Climbio
+Copyright (c) 2026 Climbio 貢獻者（Climbio contributors）
+
+整個 repo 以 GNU AGPL-3.0 授權（見 LICENSE）。以下部分另有授權：
+
+- 各 Kit（holdkit/、routekit/、topokit/、mapkit/、appkit/、sourcekit/、wall3dkit/、crag3dkit/）：AGPL-3.0（各自的 LICENSE、NOTICE）。holdkit 含 MobileSAM 權重（Chaoning Zhang 等，Apache-2.0）
+  與 ONNX 匯出（Acly/MobileSAM，MIT），見 holdkit/NOTICE、holdkit/models/LICENSE-MobileSAM。
+- wall3dkit/vendor/three.js：Three.js r180（Three.js 作者群，MIT）與 three-mesh-bvh 0.9.18（Garrett Johnson，MIT），見 wall3dkit/NOTICE、wall3dkit/vendor/three-LICENSE.txt。
+- crag3dkit/vendor/three-splat.js：Three.js r180（MIT）與 Spark 2.4.0（World Labs，MIT），見 crag3dkit/NOTICE、crag3dkit/vendor/three-splat-LICENSE.txt。
+- 3d/app.js 內嵌 Three.js（MIT），見 3d/THREE-LICENSE.txt。
+- appkit/qr/：qrcode-generator 1.4.4（Kazuhiko Arase，MIT）與 jsQR 1.4.0（Cosmo Wolfe，Apache-2.0），見 appkit/qr/SOURCE.txt、appkit/NOTICE。
+- format/（格式規格、JSON Schema、驗證器）、docs/route-format.md（路線格式規格）：Apache-2.0，任何 App 都可以照著實作。
+- 品牌美術：母品牌 Logo、四隻貓與岩點貓家族（design/brand/ 與它派生的圖示、動畫）：CC BY 4.0，見 design/brand/LICENSE。
+  字標的字母依 Comfortaa（SIL OFL 1.1）的字形轉成向量輪廓，不附字型檔。
+- holdscan/models/freeclimbs.onnx：由 jwlarocque/yolov8n-freeclimbs-detect-2 的權重匯出（John LaRocque，AGPL-3.0）。
+  權重從 Ultralytics YOLOv8（AGPL-3.0）微調而來，所以只能是 AGPL-3.0；訓練資料集 freeclimbs v2 作者尚未公開。
+  見 holdscan/NOTICE、holdscan/models/README.md。
+- fonts/：SIL Open Font License 1.1。Barlow Condensed（fonts/OFL.txt）、M PLUS 1（fonts/OFL-MPLUS1.txt）；都是只留用到的字的子集。
+- gyms/、tools/gyms/（岩館清單）：不適用 AGPL-3.0，以 ODbL 1.0 提供，見 gyms/LICENSE。© OpenStreetMap 貢獻者（ODbL）；
+  台灣岩館座標來自各縣市政府門牌開放資料（政府資料開放授權條款第 1 版），見 docs/gyms.md。
+- redpoint/vendor/opencv-4.10.0.js：OpenCV.js 4.10.0（OpenCV 團隊，Apache-2.0；@techstark/opencv-js 4.10.0-release.1 的建置），
+  紅點貓在手機上辨識岩壁用，見 redpoint/vendor/LICENSE-opencv.txt。
+- studio/vendor/sortable-1.15.6.min.js：SortableJS 1.15.6（SortableJS 貢獻者，MIT，npm sortablejs 的原檔），見 studio/vendor/LICENSE-sortablejs.txt，
+  Climbio Studio 路線清單拖曳換位置用。
+
+由 CDN 載入、依各自授權：onnxruntime-web（Microsoft，MIT）、Firebase JavaScript SDK（Apache-2.0）。
+
+「Climbio」這個名稱的使用請求見 TRADEMARKS.md。
+
+- 開放資料集 climbio/crags 的 openclimbing/（OpenClimbing 岩場的索引、Topo、預覽圖；由 tools/openclimbing-pack.mjs、openclimbing-previews.py 產生，不在這個 repo 裡）：路線與岩場來自 OpenClimbing（https://openclimbing.org）匯出的 OpenStreetMap 資料，© OpenStreetMap contributors，ODbL 1.0；照片在 Wikimedia Commons，只收 CC 與公眾領域，作者與授權逐張記在各岩場的 credits.json。
+- demo/reel/daqiutian-black-rock.webp：岩壁照片來自楊礎豪的內湖大邱田路線書轉換版，採 CC BY-SA 4.0（https://creativecommons.org/licenses/by-sa/4.0/）。照片轉為 WebP 並依版面裁切。
+- demo/reel/nangang-wall.webp：從提供的岩點貓截圖擷取原岩南港 Spraywall 公開牆照片。牆面是岩點貓的公開牆（https://climbio.app/w/nbh6yueynqa0/routes.json），授權 CC BY-SA 4.0。
+- demo/wanhua-wall.jpg：原岩萬華 2F 牆面照片，資料集見 https://huggingface.co/datasets/climbio/walls。

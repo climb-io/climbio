@@ -93,12 +93,6 @@ AppKit.i18n.add('studio', 'zh', {
   stNorthUp: "↑ 北",
   stAreaCount: (n) => `${n} 區`,
   // 相簿
-  stAlbumReading: "讀取相簿…",
-  stAlbumProgress: (k, n) => `下載相簿 ${k} / ${n}`,
-  stAlbumLink: "請貼 Google 相簿的「相簿分享連結」（先建立相簿並開啟連結分享，網址為 photos.app.goo.gl 或 photos.google.com/share）",
-  stAlbumConnect: "無法連線到 Google 相簿",
-  stAlbumDownloadFailed: "下載相簿照片失敗",
-  stAlbumEmpty: "這個連結裡找不到照片（請先在 Google 相簿建立相簿、開啟「分享連結」，並確認相簿裡有照片）",
   // 天然岩場匯入
   stReading: "讀取中…",
   stOpening: "打開中…",

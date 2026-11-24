@@ -400,22 +400,21 @@ function countryOf(dir, given) {
   const line = existsSync(md) && readFileSync(md, 'utf8').split(/\r?\n/).find(l => /^\s*(國家|國別|country|cc)\s*[：:]/i.test(l));
   return line ? parseCountry(line.split(/[：:]/).slice(1).join(':')) : '';
 }
-const VERSIONS_URL = 'https://asia-east1-firebase-climbio.cloudfunctions.net/datasets';
-/** 同一本書所有的版本（含不列入世界的）：雲端函式 datasets 的 versions（公開唯讀）；回跟公開清單同樣的列，讀不到是 [] */
+const CRAGS_URL = 'https://huggingface.co/datasets/climbio/crags/resolve/main/';
+/** 同一本書所有的版本（含不列入世界的）：發佈時寫在每一版資料夾的 versions.json；回跟公開清單同樣的列，讀不到是 [] */
 async function versionsOf(id) {
-  const r = await fetch(VERSIONS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'versions', id }), signal: AbortSignal.timeout(30_000) }).catch(() => null);
+  const r = await fetch(`${CRAGS_URL}crags/${id}/versions.json`, { cache: 'no-store', signal: AbortSignal.timeout(30_000) }).catch(() => null);
   return (r?.ok && (await r.json().catch(() => ({}))).rows) || [];
 }
-const PROJECTS_URL = 'https://firebasestorage.googleapis.com/v0/b/firebase-climbio.appspot.com/o/public%2Fprojects.json?alt=media';
-const WORLD_URL = 'https://firebasestorage.googleapis.com/v0/b/firebase-climbio.appspot.com/o/public%2Fworld.json?alt=media';
-/** 發佈後確認紅點貓的世界：公開清單（projects.json）有這一版、國家對，世界的樹（world.json）把它放在那個國家底下；伺服器發佈時就重寫，等最多 3 分鐘 */
+const PROJECTS_URL = `${CRAGS_URL}index/redpoint.json`;   // 公開清單（projects）與世界檔的版本（world.v）
+/** 發佈後確認紅點貓的世界：公開清單（projects.json）有這一版、國家對，世界的樹（index/world.<v>.json）把它放在那個國家底下；伺服器發佈時就重寫，等最多 3 分鐘 */
 async function checkWorld(id, cc) {
   for (let i = 0; i < 36; i++) {
-    const rows = (await fetch(PROJECTS_URL, { cache: 'no-store' }).then(r => r.json()).catch(() => ({}))).projects || [];
+    const idx = await fetch(PROJECTS_URL, { cache: 'no-store' }).then(r => r.json()).catch(() => ({})), rows = idx.projects || [];
     const row = rows.find(p => p.id === id || (p.others || []).some(o => o.id === id));
     if (row) {
       if (row.cc !== cc) return `公開清單的國家是「${row.cc || '沒有'}」，不是 ${cc}`;
-      const w = await fetch(WORLD_URL, { cache: 'no-store' }).then(r => r.json()).catch(() => null);
+      const w = await fetch(`${CRAGS_URL}index/world.${idx.world?.v}.json`, { cache: 'no-store' }).then(r => r.json()).catch(() => null);
       const node = w?.tree?.find(n => n.cc === cc), idx = w?.books?.findIndex(b => b.id === row.id);
       const items = node ? [...(node.items || []), ...(node.regions || []).flatMap(r => r.items || [])] : [];
       if (node && items.includes(idx)) return '';

@@ -39,7 +39,6 @@ In the browser, load the files you need in order; they attach to the global `App
 | `backstack.js` | `AppKit.backstack`: `open(id, onBack, state)` / `close(id)` / `handle()`; each dialog or popup takes one history entry so Back closes only the top one; hook it up with `AppKit.ui.configure({ backStack: { open, close } })` |
 | `idb.js` | `AppKit.idb`: `opener({ name, version, upgrade, ready })` (reopens a closed connection), `done`, `packBlob` / `unpackBlob` (store large Blobs as ArrayBuffer on iPhone) |
 | `nearby.js` | `AppKit.nearby`: `open({ app, endpoint, label, list, pack, take })` (nearby exchange: phones on the same network find each other and, after mutual confirmation, trade over WebRTC; discovery uses the cloud function `nearby`, texts are the `nearby*` keys in the shared language pack, spec in docs/sharing.md), `supported()` (only with WebRTC); without an endpoint it can only connect by scanning QR codes |
-| `errors.js` | Error reporting for test builds: enabled only on test sites (`climbio-dev`, `climbio-eric` and their preview channels); uncaught errors and Errors passed to `console.error` go to the cloud function `clientError`, viewable in Google Cloud Error Reporting; production, localhost and self-hosted sites do not send. Each product page loads it first in `<head>`, right after the CSP |
 | `recover.js` | Auto-repair on a failed load (synchronous in `<head>`, on every site): when online, unregisters the Service Worker, clears the app caches and reloads once, at most once in ten minutes. With `data-boot` (milliseconds) and optional `data-cache` (cache-name prefix) it also runs a boot watchdog: any same-origin script error before boot completes, or a missing `akBooted()` call, is a boot failure; it then activates a waiting worker or clears prefixed caches and reloads. Caches only; IndexedDB is left alone. Not exported from `index.js` |
 | `landing.js` | `AppKit.landing`: desktop-only tools (the Wall workspace of Climbio Studio) show only an intro page on phones; tools that also work on phones (Studio home, Crag, Wall) use `ak-handset` instead (`isPhone`, `boot`; below) |
 | `sw.js` | `AppKit.sw(options)`: Service Worker core (shared by Hold Cat, Redpoint Cat and Studio Crag); loaded with `importScripts` inside the Service Worker, not in the page |
@@ -200,8 +199,6 @@ Button texts default to the shared pack keys `btnOk` and `cancel` (the bare key 
 
 Navigation is network first; resources with `?v=` are cache first; other resources are network first, stored when fetched and read from the store offline; `?check`, `/__/` and cross-origin requests bypass it.
 
-**Error reporting** (`errors.js`): exports nothing; on load it registers `error`, `unhandledrejection` and `console.error` handlers on test sites; the same error is sent once per page and at most 10 per page; it sends only the message, error location, app, page path (without `#` and `?`), version and browser.
-
 ## 5. Data format and invariants
 
 - **Language pack**: `AppKit.i18n.add('hold', 'zh', { app: '岩點貓', routesN: (n) => `${n} 條路線` })`; values are strings, string arrays or functions. A key lives in one place only.
@@ -282,7 +279,7 @@ console.log(photo.toCamera({ lat: 25.03, lng: 121.56 })?.position, files.hash53(
 
 ## 7. Limits and known trade-offs
 
-- **Load order**: `i18n.js` before the language packs; `i18n.boot` uses `document.write`, so it can only be called synchronously while the page is parsing (in `<head>` or at the end of the page, before the main program), never with `async` / `defer`; `landing.js` goes in `<head>`; `errors.js` goes first in `<head>` right after the CSP; `update.js` reads the global `AppKit.i18n` (Chinese defaults when it is not loaded); `sw.js` is loaded only with `importScripts` inside a Service Worker.
+- **Load order**: `i18n.js` before the language packs; `i18n.boot` uses `document.write`, so it can only be called synchronously while the page is parsing (in `<head>` or at the end of the page, before the main program), never with `async` / `defer`; `landing.js` goes in `<head>`; `update.js` reads the global `AppKit.i18n` (Chinese defaults when it is not loaded); `sw.js` is loaded only with `importScripts` inside a Service Worker.
 - **Browser only**: `ui`, `update`, `landing`, `account`, `backstack` and `nearby` need the DOM; `photo` encoding needs `createImageBitmap` and canvas; `files.sha` and `files.rid` need `crypto`; deflate in `files.unzip` needs `DecompressionStream`; Node can use `readExif`, `toCamera`, `view`, `hash53`, `safeName`, `i18n` (lookups) and `store`.
 - **Outside the exports of `index.js` / `index.mjs`**: `nearby`, `sw`, `errors`, `recover`, `share-tools.js` (`ShareTools`) and `qr/` can only be loaded with `<script>`.
 - `nearby` and `share-tools.js` depend on language packs and cloud functions inside the Climbio repo; they are not part of the standalone surface.

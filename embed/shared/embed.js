@@ -102,23 +102,16 @@
     try { return JSON.parse(new TextDecoder().decode(buf)); } catch (e) { throw new Error(`${what} 不是 JSON`); }
   }
   // init 可以只給 wallId（"<包 id>/<牆 id>"）：畫面、照片、整面牆的路線圖層（牆還沒有路線就沒有）的網址由這裡補；明確給的 viewUrl、photoUrl、layerUrls 優先。
-  // 畫面和照片直接讀資料集：先讀 walls/<包 id>/current.json 知道現行版，再讀那一版的檔案；讀不到指標檔（還沒補寫）才走 climbio.app/p/（雲端函式查現行版再導向）
-  async function expandInit(m, f = typeof fetch === 'function' ? fetch : null) {
+  // 都是資料集（Hugging Face）的固定網址：畫面和照片在 walls/<包>/current/（發佈時放的現行版），路線在 walls/<包>/routes.json（路線一有變動就更新）
+  function expandInit(m) {
     if (m.wallId === undefined) return m;
     if (typeof m.wallId !== 'string' || !/^[0-9a-f]{16}\/[0-9a-z]{8,40}$/.test(m.wallId)) throw new Error('wallId 要是 "包 id/牆 id"');
-    const [pack, wall] = m.wallId.split('/'), viaP = { viewUrl: `https://climbio.app/p/${m.wallId}.json`, photoUrl: `https://climbio.app/p/${m.wallId}.jpg` };
-    let urls = viaP;
-    if (m.viewUrl === undefined || m.photoUrl === undefined) {
-      try {
-        const v = (await fetchJson(`https://huggingface.co/datasets/climbio/walls/resolve/main/walls/${pack}/current.json`, 'current.json', f)).version;
-        if (Number.isInteger(v) && v > 0) { const dir = `https://huggingface.co/datasets/climbio/walls/resolve/main/walls/${pack}/v${v}/${wall}`; urls = { viewUrl: `${dir}.json`, photoUrl: `${dir}.jpg` }; }
-      } catch (e) { /* 沒有指標檔：走 /p/ */ }
-    }
-    return { ...urls, viewHref: viaP.viewUrl, ...(m.layerUrls === undefined ? { layerUrls: [`https://climbio.app/w/${wall}/routes.json`], layerOptional: true } : {}), ...m };
+    const [pack, wall] = m.wallId.split('/'), dir = `https://huggingface.co/datasets/climbio/walls/resolve/main/walls/${pack}/`;
+    return { viewUrl: `${dir}current/${wall}.json`, photoUrl: `${dir}current/${wall}.jpg`, ...(m.layerUrls === undefined ? { layerUrls: [`${dir}routes.json`], layerOptional: true } : {}), ...m };
   }
   // init 的資料：viewUrl、photoUrl（或 wallId）必給，layerUrls（路線圖層的網址陣列）選給。回傳 { view, layers, photo }（photo 是 Blob，還要用 decodePhoto 解碼）
   async function resolveInit(m, f) {
-    m = await expandInit(m, f);
+    m = expandInit(m);
     if (m.viewUrl === undefined) throw new Error('init 要給 wallId，或 viewUrl 和 photoUrl');
     if (m.photoUrl === undefined) throw new Error('init 要給 photoUrl');
     if (m.layerUrls !== undefined && !Array.isArray(m.layerUrls)) throw new Error('layerUrls 要是網址的陣列');

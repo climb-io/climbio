@@ -877,7 +877,7 @@
     return !same([w.holds, w.base], JSON.parse(before));
   }
   async function refreshHolds(w, docs) {
-    const got = await ShareTools.fetchHolds(new URL(`/p/${docs.src.project}/${docs.src.path}`, SITE.url).href, w.pid);
+    const got = await ShareTools.fetchHolds(`https://huggingface.co/datasets/climbio/walls/resolve/main/walls/${docs.src.project}/current/${docs.src.path}`, w.pid);   // 現行版的固定網址（資料集，不經過函式）
     if (got.base.w === w.w && got.base.h === w.h) applyPublicHolds(w, got.base);
     w.viewVer = docs.ver;
   }

@@ -87,12 +87,12 @@ async function writeBack(name, text) {
   else throw new Error(T('w3TrialReadOnly'));   // 手機試用連結只能回報，不能改牆
   if (!r.ok) throw new Error(`${name}：HTTP ${r.status}`);
 }
-const RESTORE_BASE = /^http:\/\/(127\.0\.0\.1|localhost)/.test(location.origin) ? 'https://climbio.app' : location.origin;
+const RESTORE_BASE = 'https://huggingface.co/datasets/climbio/walls3d/resolve/main/walls3d';   // 公開資料集 climbio/walls3d 的固定網址
 async function restore(pid, given) {
   const dir = given || await showDirectoryPicker({ mode: 'readwrite', id: 'climbio-wall3d' });
   const b = StudioShell.busy(T('w3Restoring'));
   try {
-    const get = async (name, json) => { const r = await fetch(`${RESTORE_BASE}/p/${pid}/${name}`); if (!r.ok) throw Object.assign(new Error(r.status === 404 ? 'no patch' : `HTTP ${r.status}`), { status: r.status }); return json ? r.json() : new Uint8Array(await r.arrayBuffer()); };
+    const get = async (name, json) => { const r = await fetch(`${RESTORE_BASE}/${pid}/${name}`); if (!r.ok) throw Object.assign(new Error(r.status === 404 ? 'no patch' : `HTTP ${r.status}`), { status: r.status }); return json ? r.json() : new Uint8Array(await r.arrayBuffer()); };
     const patch = await get('patch.json', true), baseBytes = await get('base-wall.json'), doc = JSON.parse(new TextDecoder().decode(baseBytes));
     const files = [['base-wall.json', baseBytes], [doc.model, await get(`base-${doc.model}`)], [doc.faces, await get(`base-${doc.faces}`)]];
     // 工作檔 = 基底加最終決定：隱藏的面、裁切平面、不是岩點、修點（都是完整的最終狀態，不是差異）
@@ -134,7 +134,8 @@ async function syncGetter() {
     const f = files[name];
     if (!f) { if (need) throw new Error(`${name}：沒有`); return null; }
     const one = async (q, ok404) => {   // 照內容（sha）下載的內容不會變，讓瀏覽器快取；照路徑的不快取
-      const x = await fetch(`${syncUrl}?pid=${syncPid}&${q}`, { headers: head, cache: q.startsWith('sha=') ? 'default' : 'no-store' });
+      const url = `${syncUrl}?pid=${syncPid}&${q}`, sha = q.startsWith('sha=');
+      const x = await fetch(url, { headers: head, cache: sha ? 'default' : 'no-store' }).catch((e) => { if (!sha) throw e; return fetch(url, { headers: head, cache: 'reload' }); });   // 快取裡是別的網域存的（CORS 不過）：略過快取重抓一次
       if (x.status === 404 && ok404) return null;
       if (!x.ok) throw new Error(`${name}：HTTP ${x.status}`); return new Uint8Array(await x.arrayBuffer());
     };

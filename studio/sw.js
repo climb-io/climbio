@@ -11,7 +11,7 @@ const ROOT = new URL('../', self.location).pathname, HERE = new URL('./', self.l
 const CACHE = 'climbio-studio-' + self.CLIMBIO_VERSION;
 const PAGES = ['', 'wall/', 'crag/', 'scene/', 'wall3d/'].map(p => HERE + p);
 const STAMPED = !/^(localhost|127.0.0.1|[::1])$/.test(self.location.hostname);
-const bypass = (url) => url.pathname.endsWith('.onnx') || ['r/', 'w/', 'g/', 'dir/', 'climbio.json', 'album', 'studio/webgpu/'].some(p => url.pathname.startsWith(ROOT + p));
+const bypass = (url) => url.pathname.endsWith('.onnx') || ['r/', 'w/', 'g/', 'dir/', 'climbio.json', 'studio/webgpu/'].some(p => url.pathname.startsWith(ROOT + p));
 const inApp = (req) => { try { return !!req.referrer && req.referrer.startsWith(HERE); } catch { return false; } };
 const page = (url) => url.origin + url.pathname.replace(/index.html$/, '');
 

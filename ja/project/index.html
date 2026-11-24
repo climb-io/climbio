@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#F7F9FB">
 <title>Climbio をジムのアプリに組み込む | Climbio</title>
-<meta name="description" content="使い慣れた AI Agent で、既存のジムアプリに課題の閲覧と作成画面を追加できます。別途の開発は不要です。ここでは考え方を説明し、技術仕様と組み込み手順は GitHub にあります。">
+<script src="../../doc-language.js"></script>
+<meta name="description" content="ジム運営者向け：自分で開発しなくても、アプリにルート表示とルートセットを追加できます。実例を見て、AI Agent に渡す指示をコピーしてください。">
 <link rel="canonical" href="https://climbio.app/ja/project/">
 <link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/project/">
 <link rel="alternate" hreflang="en" href="https://climbio.app/en/project/">
@@ -26,16 +27,30 @@
 <nav class="site-nav"><a href="../../ja/guides/">使い方</a></nav>
 </header>
 <main class="pg">
-<div class="pg-hero"><img class="pg-engine-mark" src="../../icons/brand/ai-engine.svg" width="72" height="72" alt=""><h1>Climbio をジムのアプリに組み込む</h1><p class="pg-lead">使い慣れた AI Agent で、既存のジムアプリに課題の閲覧と作成画面を追加できます。別途の開発は不要です。ここでは考え方を説明し、技術仕様と組み込み手順は GitHub にあります。</p></div>
-<section class="pg-section"><h2>AI Agent でアプリに組み込む</h2><p>ジムのスタッフは 3 ステップだけです：1. 下の文章をコピー。2. いつも使っている AI Agent（Claude、ChatGPT、Codex など）に貼り付け。3. 聞かれたことに答える（壁の写真の場所 など）。Agent は先に壁を整え、次にアプリへ組み込み、あとで壁を更新するときも同じ手順で進めます。あなたの判断が必要なことは先に質問します。</p><div class="pg-prompt"><pre id="agent-prompt" lang="ja">まず https://github.com/climb-io/climbio/blob/main/docs/embed.md と https://github.com/climb-io/climbio/blob/main/docs/gym-agent.md を読み、私たちのジムを次の 3 段階で Climbio に組み込んでください：
-1. 壁の準備：Climbio Studio（https://climbio.app/studio/wall/）で壁の写真をホールドのデータに整えて公開し、壁 ID を取得します。コマンドラインで作業するなら node tools/studio.mjs start gym &lt;フォルダ&gt; &lt;写真…&gt; を実行し、表示される次の手順に従ってください。ホールドは画像を見て確定するまで自分で確認し、迷ったら拡大して見直します。
-2. アプリへの組み込み：既存のジムアプリに埋め込みページ（iframe または WebView）を置き、データは公式 URL のみ使います。ユーザーが課題を作り終えたら submit で送り、返ってきた routeId を自社のユーザーに対応づけて保存します。
-3. その後の壁の更新：壁やホールドを調整したら Studio で同じ壁を再公開します（新しいバージョンになり、既存の課題はそのまま）。写真を差し替えた場合は新しい壁として新しい壁 ID にし、アプリの切り替え方を教えてください。
-私が決める・用意するもの（壁の写真、ユーザーと課題の対応、バージョンを固定するか）は先に質問し、勝手に作らないでください。各段階が終わるたびに確認方法を教えてください。</pre><button type="button" class="pg-btn primary" data-copy="#agent-prompt" data-done="コピーしました">コピー</button></div><p>まず AI Agent に組み込みガイドを読ませてください。手順は 3 つ：Studio で壁を整えて公開し、閲覧・作成画面をアプリに入れ、固定の壁 ID でルートを更新します。ルートをクライマーと共有したいジムに向いています。ユーザーとルートの対応はアプリ側で決め、Climbio は関与しません。</p><div class="pg-actions"><a class="pg-btn primary" href="https://github.com/climb-io/climbio/blob/main/docs/embed.md">組み込みガイド（AI Agent 向け）</a><a class="pg-btn" href="https://github.com/climb-io/climbio/blob/main/docs/gym-agent.md">ジム Agent ガイド</a></div></section>
-<section class="pg-section"><h2>今できること</h2><p>Hold Cat では課題の作成と共有、Redpoint Cat では岩場データのオフライン閲覧ができます。友達との共有、コレクター、Studio もデータの整理に役立ちます。機能は引き続き改善中です。</p></section>
-<section class="pg-section"><h2>最新の進捗</h2><p>公開版の変更は GitHub で確認できます。予定や未完成の作業はプロジェクトの記録を参照してください。予定を完成済みとして表示しません。</p><div class="pg-actions"><a class="pg-btn" href="https://github.com/climb-io/climbio/commits/main/">公開開発の履歴</a></div></section>
+<div class="pg-hero"><span class="pg-eyebrow">ジム運営者の方へ</span><h1>自分で開発せずに、ジムのアプリにルート表示とルートセットを</h1><p class="pg-lead">壁の写真を Climbio に渡すと、ホールドをタップできる壁になります。それを今のアプリに組み込めば、クライマーはアプリの中でルートを見たり作ったりできます。アカウントや記録、データベースはそのままです。</p><div class="pg-actions"><a class="pg-btn primary" href="#demo">実例を見る</a><a class="pg-btn" href="#prompts">AI Agent に渡す指示をコピー</a></div></div>
+<section class="pg-section"><h2>組み込むと、ジムに何が得られるか</h2><div class="pg-grid"><div class="pg-card"><h3>開発は不要</h3><p>ルート表示とルートセットの画面は用意済みです。アプリに埋め込みページ（Web なら iframe、ネイティブなら WebView）を 1 つ置き、壁の id を渡すだけです。</p></div><div class="pg-card"><h3>壁の整備は AI に任せる</h3><p>壁の写真を 1 枚撮ると、Studio がホールドを検出し、AI が確認して公開します。スマホでもできます。壁を直したら同じ壁を再公開すれば、古いルートもそのまま使えます。</p></div><div class="pg-card"><h3>他の場所でも見つけてもらえる</h3><p>あなたの壁はホールドキャットの「壁を探す」にも載り、ルートはアプリとホールドキャットの両方で見られます。二重に管理する必要はありません。</p></div><div class="pg-card"><h3>ユーザーと記録はそのまま</h3><p>Climbio が預かるのは壁とルートだけです。ユーザーとルートの対応、完登の記録、コメントはすべてアプリ側で決めます。投稿はあなたのサイトが身元になり、鍵の申請も不要です。</p></div></div></section>
+<section class="pg-section" id="demo"><h2>実際に見る</h2><p>ジムのアプリに組み込んだルートセットの画面です。壁のホールドをタップするとルートを作れます（デモなので保存されません）。ルート表示も同じ埋め込みページで、モードが違うだけです。</p>
+<div class="pg-demo-box" id="demo-box" data-wall="0fe38b21d07b3771/nbh6yueynqa0" data-loading="読み込み中…"><button type="button" class="pg-btn primary" id="demo-load">例を読み込む</button><span class="pg-demo-hint">タップすると読み込みます（写真は約 2 MB）</span></div>
+<div class="pg-grid two pg-reg"><img class="pg-shot" src="../../demo/home/hold-community-view-en.webp" alt="ホールドキャットで公開壁のルートを見る" loading="lazy"><div><h3>一般のユーザーにも同じ壁が見える</h3><p>公開した壁はホールドキャットにも載ります。クライマーはあなたのアプリを入れなくてもルートを見たり作ったりでき、ルートは両方に表示されます。</p><a class="pg-btn" href="../../hold/">ホールドキャットを開く</a></div></div></section>
+<section class="pg-section"><h2>進め方</h2><ol class="pg-steps"><li>AI Agent が壁を整える：手元でホールドファイルにし、画像を見て自分で確認し、1 つの ZIP にまとめます。</li><li>アプリに組み込む：ルートページに埋め込みページを置き、管理画面に「壁の公開」埋め込みページを置きます。スタッフが ZIP を入れて同意し公開すると、アプリは公開されたバージョンに固定します。</li><li>ユーザーがルートを作る：作り終えたら送信すると、その壁に公開されます。アプリは返ってきたルート id を自分のユーザーと対応づけて保存します。</li></ol></section>
+<section class="pg-section" id="prompts"><h2>AI Agent に渡す</h2><p>普段使っている AI Agent（Claude、ChatGPT、Codex など）に貼り付けてください。手順をすべて読んだあと、必要な写真や情報を 1 つのリストにまとめて質問するので、答えるだけです。公開する前には必ず同意を確認します。</p><div class="pg-prompt"><pre id="agent-prompt" lang="ja">まず https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md を読み、その手順でうちのジムに Climbio を組み込んでください。最初に、私に用意してほしい写真と情報を 1 つのリストにまとめて聞いてください（何度にも分けないでください）。私が答えられないことは、作り話をせず選択肢とおすすめを示してください。</pre><button type="button" class="pg-btn primary" data-copy="#agent-prompt" data-done="コピーしました">コピー</button></div><p>技術的な詳細は GitHub にあり、AI Agent が自分で読みます：</p><div class="pg-actions"><a class="pg-btn" href="https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md">組み込みガイド</a></div></section>
 <footer class="pg-foot docs-footer"><span>© 2026 Climbio</span><nav><a href="../../ja/">ホーム</a> · <a href="../../privacy.html">プライバシー</a> · <a href="../../terms.html">利用規約</a></nav></footer>
 </main>
-<script>document.addEventListener('click',function(e){var b=e.target.closest('[data-copy]');if(!b)return;var el=document.querySelector(b.dataset.copy),t=el.textContent,done=function(){var o=b.textContent;b.textContent=b.dataset.done;setTimeout(function(){b.textContent=o;},1800);},fb=function(){var r=document.createRange();r.selectNodeContents(el);var g=getSelection();g.removeAllRanges();g.addRange(r);try{document.execCommand('copy');done();}catch(x){}};if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,fb);else fb();});</script>
+<script>
+document.addEventListener('click',function(e){var b=e.target.closest('[data-copy]');if(!b)return;var el=document.querySelector(b.dataset.copy),t=el.textContent,done=function(){var o=b.textContent;b.textContent=b.dataset.done;setTimeout(function(){b.textContent=o;},1800);},fb=function(){var r=document.createRange();r.selectNodeContents(el);var g=getSelection();g.removeAllRanges();g.addRange(r);try{document.execCommand('copy');done();}catch(x){}};if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,fb);else fb();});
+(function(){
+var box=document.getElementById('demo-box'),btn=document.getElementById('demo-load');if(!box||!btn)return;
+var frame=null;
+function send(m){if(frame&&frame.contentWindow)frame.contentWindow.postMessage(Object.assign({climbio:'routekit',v:1},m),'*');}
+btn.addEventListener('click',function(){
+  btn.disabled=true;btn.textContent=box.dataset.loading;
+  addEventListener('message',function(e){if(!frame||e.source!==frame.contentWindow||!e.data||e.data.climbio!=='routekit')return;
+    if(e.data.type==='ready')send({type:'init',wallId:box.dataset.wall,layerUrls:[]});
+    if(e.data.type==='fullscreen'){frame.classList.toggle('full',!!e.data.on);send({type:'setFullscreen',on:!!e.data.on});}});
+  frame=document.createElement('iframe');frame.className='pg-demo';frame.allow='fullscreen';frame.title=document.querySelector('#demo h2').textContent;frame.src='https://embed.climbio.app/routekit/v1/?mode=edit&maxStart=2';
+  box.replaceWith(frame);
+});
+})();
+</script>
 </body>
 </html>

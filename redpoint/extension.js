@@ -1,7 +1,7 @@
 // 紅點貓收藏（瀏覽器擴充 extension/）：擴充把收好的岩場放在它自己的暫存，開一個紅點貓分頁（網址 #collect）；
 // 這裡連進擴充（externally_connectable）把檔案一塊一塊拿過來，匯入成功才通知擴充刪掉。協定見 extension/handoff.js。
 export const EXTENSION_ID = 'clpjfehckclgenaackpklkceejlbcbnh';   // 自行載入的版本：由 extension/manifest.json 的 key 算出來，固定不變
-export const STORE_EXTENSION_ID = '';   // Chrome 線上應用程式商店的版本（商店上傳的 manifest 不帶 key，ID 由商店決定）：拿到 ID 後填在這裡
+export const STORE_EXTENSION_ID = 'lhhmahbjfjfgbipmplplmebodfacppml';   // Chrome 線上應用程式商店的版本（商店 manifest 不帶 key，ID 由商店決定）
 /** 要試的擴充 ID（依序）：自己開發擴充（載入未封裝項目、ID 不同）時 localStorage 設 redpoint.extensionId 蓋掉 */
 export function extensionIds() {
   let own = '';

@@ -1,5 +1,7 @@
 # 給岩館 AI Agent：和 Climbio 共享牆與路線
 
+**從零整合（拿照片、處理牆面、放進 App）請先讀 [gym-onboarding.md](gym-onboarding.md)**，這份是進階與維護者做法。
+
 岩館有 Agent 和後端時，照下面做。沒有的，直接用 Studio 發佈公開。要把岩點貓的看線、定線畫面放進自己的 App，固定先用 Studio 精修並發布牆面，再照 [embed.md](embed.md) 的三步做：路線和岩點貓一樣寫進同一面公開牆，用固定的牆 id 與代發金鑰更新（下面第三節），App 用 `<iframe>` 或 WebView 載入內嵌頁、`init` 給網址；App 的使用者如何對應到路線，由 App 自己決定。適合願意和岩友一起分享路線的岩館（牆面與路線公開，CC BY-SA 4.0）。格式與端點的完整規格在 [route-format.md](route-format.md)；資料是 Climbio 公開格式 v2（[format/README.md](../format/README.md)）。
 
 ## 一、讓岩點貓、紅點貓看到你的牆
@@ -9,13 +11,13 @@
 做法二（牆在自己的站）：
 
 1. 在 `https://<你的站>/climbio.json` 放一個 `type: site` 的組合，`props.url` 是站的網址、`props.listed: true`，每間有公開牆面的岩館一項（`href` 指到岩館清單，清單裡一項是一面牆）。檔案要過 `ClimbioFormat.validate`，https，回 `Access-Control-Allow-Origin: *`。
-2. 登記一次：`POST https://climbio.app/dir/register`，內容 `{ "url": "https://<你的站>" }`。總目錄自動驗證，不用帳號、不用審核；每天自動複查，連續 7 天讀不到或改成 `listed: false` 才移除。
+2. Climbio 官方站不再提供總目錄登記（`/dir/register` 已停用）；自己架的站讓 App 的使用者貼網址加入，或直接聯絡維護者。
 
 ## 二、拿到岩友在你的牆上定的路線
 
 分享就是全部公開：牆公開了，岩友在這面牆定好的路線存線後就自動公開（可以刪自己的路線）（CC BY-SA 4.0，署名暱稱），沒有別的選項、不逐條同意。
 
-- 整面牆：`GET https://climbio.app/w/<牆 id>/routes.json`（每天更新一次，快取十分鐘）。
+- 整面牆：資料集 `climbio/walls` 的 `https://huggingface.co/datasets/climbio/walls/resolve/main/walls/<包 id>/routes.json`（路線有變動就更新）；牆在哪個包，看 `index/world.json` 裡這面牆那一行的 `id`（`<包 id>/<牆 id>`）。
 - 單條：`GET https://climbio.app/r/<牆 id>/<路線 id>/route.json`。
 
 兩者都是公開格式 v2 的路線圖層，用 `ClimbioFormat.validate` 檢查。牆 id 就是牆畫面的 `id`，各處同一個。顯示時依 CC BY-SA 4.0 署名。

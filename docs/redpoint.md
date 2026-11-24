@@ -66,7 +66,7 @@ Climbio 家族首頁的「紅點貓」卡片直接進入 `/redpoint/`，手機�
 
 **iPhone 的本地資料注意事項：** Safari／內建瀏覽器和主畫面 Web App 的 IndexedDB 可能分離，瀏覽器中已收的岩場不保證自動出現在新安裝的主畫面 App；安裝步驟旁告知可能要重收，不要宣稱會自動搬移資料。使用者可以持續在原本的瀏覽器觀看已下載內容，安裝不是離線閱讀的必要條件。分享的 `?topo=` 仍應直接保留並開箱，不導向首頁或強迫從「世界」重新尋找。
 
-讀法（`redpoint/io.js` 的 `fromUrl`）：公開 `/p/<id>/<檔>` 網址由 `projectFiles` 導向開放資料集；分批並行下載 JSON、圖片與模型，優先顯示預覽；接收整份存在 IndexedDB 供離線閱讀。收件來源存在 meta `sources`，之後分享沿用該來源網址；下載中斷時在岩場頁提示補下載，並請求瀏覽器持久化儲存。
+讀法（`redpoint/io.js` 的 `fromUrl`）：公開 `/p/<id>/<檔>` 網址由 Hosting 的 `redirects`（`firebase.json`）直接 302 到資料集 `climbio/crags` 的 `crags/<id>/<檔>`，`/p/<id>` 的預覽頁是 `routePage`（只讀資料集）；同一本書的所有版本在每一版資料夾的 `versions.json`（發佈時一次寫完）；分批並行下載 JSON、圖片與模型，優先顯示預覽；接收整份存在 IndexedDB 供離線閱讀。收件來源存在 meta `sources`，之後分享沿用該來源網址；下載中斷時在岩場頁提示補下載，並請求瀏覽器持久化儲存。
 
 ## 個人收藏（外站匯入）
 

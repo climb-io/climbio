@@ -2,13 +2,12 @@
 //   projects（HTTP 函式，POST）：prepare（取照片的 Hub 上傳網址）、publish（hf: true，一次 commit 改過的 JSON、照片指標、拿掉的檔案和目錄）、
 //     files（專案目前這一版的檔案清單，公開的；沒改的不重傳）；GET 回 { ok } 讓網頁知道服務開了沒。
 //     沒有私人發佈：發佈就是公開。不列入世界（listed: false）：檔案照樣在資料集、/p/{id} 照樣打得開，只是世界清單和資料集目錄（crags.jsonl）不列；上一版不列入的，下一版預設也不列入。
-//     versions（公開的唯讀查詢）：同一本書所有的版本（含不列入世界的），拿到連結的人靠它找最新的一版。
 //     索引 datasets/{專案 id}（跟公開牆 walls-dataset.js 同一個集合）：{ owner（空字串，不記擁有者）, type, name, version, t, files: [{ path, id, mime, sha256, size, hf }], locations, listed, attribution, hf: { dir, repo }, gym?, cc?, origin? }；
 //     origin：上一版的專案 id；root、lineage、credits（歷代署名，留名不留權）。不認人：誰都能接著發下一版，同一本書大家預設看到最新的一版；
 //     一次刪很多、改名的大改由 Studio 發成新的一本（沒有 origin，自己一個 root），原本那本不受影響。沒有擁有者，已發佈的 id 不能改，更新是新的專案 id；沒有下架（不當內容由管理者 hidden）。
 //     世界的清單是靜態檔（writeWorld，Storage 的 public/projects.json）：發佈、下架後重寫，每天排程再補一次；同一個 origin 的版本排在一起，原創在前、別人的改編在後。
-//   projectFiles（HTTP 函式，GET，Hosting 的 /p/** 接過來）：/p/{id}（或 /p/{id}/）是固定分享網址，回連結預覽頁（書名、preview.jpg），人打開就轉到紅點貓收這本（?at={照片 id} 一起帶過去）；
-//     /p/{id}/{相對路徑} 導向資料集（302），沒有這個專案或這個檔回 404。
+//   /p/{id}：Hosting 的 /p/{id}/{檔} 直接導向資料集（firebase.json 的 redirects），/p/{id}（固定分享網址）的預覽頁是 routePage（route-page.js，只讀資料集）。
+//   versions.json：每次發佈，同一本書（同一個 root）每一版的資料夾都重寫一份 { climbio: 2, kind: 'versions', t, rows: [世界清單的一列] }，拿到舊連結的人讀自己那一版的檔就找得到最新的一版（不列入世界的也有）。
 const validPosition = p => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite) && Math.abs(p[0]) <= 180 && Math.abs(p[1]) <= 90;
 const { createHash } = require('node:crypto');
 const CRAGS = require('./crags-dataset');
@@ -17,15 +16,10 @@ const ID = /^[0-9a-z]{16}$/, PATH = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/, SHA = /
 const ENTRY = 'index.json', PREVIEW = 'preview.jpg', THUMB = 'thumb.jpg', LIST_MAX = 300;
 const MIME = { json: 'application/json', jpg: 'image/jpeg', jpeg: 'image/jpeg', glb: 'model/gltf-binary', spz: 'model/x-spz', png: 'image/png', webp: 'image/webp', bin: 'application/octet-stream' };
 const OPEN_TYPES = ['wall3d', 'guidebook', 'crag3d'];   // 不認人的類型（發佈不登入、不記 owner）
-const COUNT_FILE = { wall3d: 'wall.json', guidebook: 'pack.json', crag3d: 'wall.json' };   // 下載數的檔案：整份載入才會讀的那一個（guidebook 的 index.json 每次檢查更新都會讀，不算）
 const HLL = require('./hll');
-const { cragPreview, model3dPreview } = require('./share-preview');
 const { clientIp } = require('./client-ip');
 const OTHERS_MAX = 5, LINEAGE_MAX = 50, CREDITS_MAX = 20;   // credits：這面牆歷代版本的署名（留名不留權）
-const MAX_FILES = 5000, DAILY_PUBLISH = 50, INDEX_MS = 30e3;
-const CACHE_CONTROL = 'public, max-age=60, s-maxage=60';
-// 預覽頁 CDN 留 1 分鐘：作者重發時同一個網址會換內容
-const REVALIDATE = 'public, no-cache, s-maxage=60';
+const MAX_FILES = 5000, DAILY_PUBLISH = 50, VERSIONS = 'versions.json';
 /** 岩場在地圖上的位置：照片拍照位置（[經度, 緯度]）的平均，小數 5 位（約 1 公尺）；沒有就是 undefined */
 const center = (ps) => (ps.length ? [0, 1].map((i) => Math.round((ps.reduce((a, p) => a + p[i], 0) / ps.length) * 1e5) / 1e5) : undefined);
 const fail = (status, error) => Object.assign(new Error(error), { status });
@@ -33,7 +27,7 @@ const dayKey = ms => new Date(ms + 8 * 3600e3).toISOString().slice(0, 10);
 const mimeOf = path => MIME[(path.match(/\.([a-z0-9]+)$/i) || [])[1]?.toLowerCase()];
 
 
-/** 最近 30 天每天約略不重複的機器數：stat 是 { hll: { 'YYYY-MM-DD': base64 草圖 } }（projectFiles 記的），草圖取聯集（不同天的雜湊不同，等於各天相加） */
+/** 最近 30 天每天約略不重複的機器數：stat 是 { hll: { 'YYYY-MM-DD': base64 草圖 } }（早期 projectFiles 記的，現在不再記），草圖取聯集（不同天的雜湊不同，等於各天相加） */
 const DL_DAYS = 30, NEW_MS = 7 * 864e5;
 const downloads = (stat, nowMs) => {
   const from = dayKey(nowMs - DL_DAYS * 864e5);
@@ -74,6 +68,20 @@ function openRow(g, stats, nowMs) {
   const r = rankVersions(g, stats, nowMs);
   return rowOut({ d: r[0].d, extra: { versions: g.length, dl: r[0].dl, root: r[0].d.get('root') || r[0].d.id, lineage: r[0].d.get('lineage') || [], credits: r[0].d.get('credits') || [], ...(r.length > 1 ? { others: r.slice(1, 1 + OTHERS_MAX).map(brief) } : {}) } });
 }
+/** 同一本書（同一個 root）所有的版本（含剛發佈的 doc、不含管理者藏起來的）→ 每一版資料夾裡的 versions.json（最多 LINEAGE_MAX 版，其餘舊的不更新） */
+async function versionFiles({ db, doc, root, hf, now }) {
+  const [first, rest] = root === doc.id ? [null, { docs: [] }] : await Promise.all([db.collection('datasets').doc(root).get(), db.collection('datasets').where('root', '==', root).limit(LIST_MAX).get()]);
+  const group = [first, ...rest.docs].filter(x => x && x.exists && x.id !== doc.id && x.get('hf') && x.get('hidden') !== true && x.get('type') === doc.get('type')).concat(doc);
+  return groupFiles({ db, group, hf, now });
+}
+/** 一組版本（同一本書）→ 每一版資料夾的 versions.json（內容都一樣：這本書世界清單的那一列） */
+async function groupFiles({ db, group, hf, now }) {
+  const stats = new Map();
+  await Promise.all(group.map(async g => { const s = await db.collection('projectStats').doc(g.id).get(); if (s.exists) stats.set(g.id, { hll: s.get('hll') || {} }); }));
+  const bytes = Buffer.from(JSON.stringify({ climbio: 2, kind: 'versions', t: now, rows: [openRow(group, stats, now)] }));
+  return group.filter(g => (g.get('hf').repo || 'crags') === hf).sort((a, b) => (b.get('t') || 0) - (a.get('t') || 0)).slice(0, LINEAGE_MAX)
+    .map(g => ({ path: `${g.get('hf').dir}${VERSIONS}`, bytes }));
+}
 function rowOut({ d, extra }) {
   const base = hfBase(d.get('hf')) + d.get('hf').dir, files = d.get('files') || [], at = center(d.get('locations') || []);
   const img = p => files.some(f => f.path === p) && base + p;
@@ -87,11 +95,14 @@ function rowOut({ d, extra }) {
  */
 const { WORLD_BUILT_FILE } = require('./world');
 const WORLD_FILE = 'public/projects.json', WORLD_CACHE = 'public, max-age=300';
-async function writeWorld({ db, save, now, buildWorld }) {
+async function writeWorld({ db, save, now, buildWorld, publishIndex }) {
   const projects = await listPublic({ db, now });
   await save(WORLD_FILE, JSON.stringify({ projects }), WORLD_CACHE);
   // 紅點貓的世界：預先合成的三層樹（壓縮存放）。合成失敗（例如抓不到 OpenClimbing 索引）就留著上一份，不影響上面的清單
-  if (buildWorld) await buildWorld(projects).then(data => save(WORLD_BUILT_FILE, data, WORLD_CACHE, { gzip: true })).catch(e => console.error('world.json', e));
+  const world = buildWorld ? await buildWorld(projects).catch(e => { console.error('world.json', e); return null; }) : null;
+  if (world) await save(WORLD_BUILT_FILE, world, WORLD_CACHE, { gzip: true });
+  // 客戶端讀的是資料集的 index/redpoint.json（hf-world.js）；上面兩個 Storage 檔是舊版 App 還在讀的，之後拿掉
+  if (publishIndex) await publishIndex({ projects, world }).catch(e => console.error('index/redpoint.json', e));
 }
 
 /** 上一版在資料集的檔案（路徑 → sha256）；不是資料集的專案（Drive）沒有 */
@@ -156,7 +167,9 @@ function createHandler({ db, now = Date.now, saveWorld, datasets = {}, registerW
       const qref = db.collection('publishQuota').doc(`${key}_project_${dayKey(now())}`), q = await qref.get();
       if ((q.exists ? q.get('n') : 0) >= DAILY_PUBLISH) throw fail(429, 'daily limit');
       // 照片已經由瀏覽器直接傳到 Hub，這裡一次 commit 改過的 JSON、照片指標、拿掉的檔案和目錄
-      const fresh = checkHfFiles(body.files, { ...HF_CHECK, kind }), prev = oldShas(old), { fresh: changed, gone } = planChanges(fresh, prev);
+      const fresh = checkHfFiles(body.files, { ...HF_CHECK, kind });
+      if (fresh.some(f => f.path === VERSIONS)) throw fail(400, 'reserved name');   // versions.json 是伺服器寫的
+      const prev = oldShas(old), { fresh: changed, gone } = planChanges(fresh, prev);
       const version = (old.exists ? old.get('version') || 0 : 0) + 1, t = now();
       const attribution = String(body.attribution || '');
       if (!credits && attribution) credits = [attribution];
@@ -166,29 +179,21 @@ function createHandler({ db, now = Date.now, saveWorld, datasets = {}, registerW
       if (old.exists && !changed.length && !gone.length && old.get('name') === name && JSON.stringify(old.get('locations') || []) === JSON.stringify(locations) && old.get('attribution') === attribution && (old.get('cc') || '') === cc) return { id, version: old.get('version'), url, files: sent, same: true };
       const text = listed ? await hf.read(kind.index) : '';   // 不列入世界的不寫進資料集目錄
       if (changed.some(f => f.text && !f.bytes)) throw fail(400, 'missing content');
+      const data = { owner: '', type: body.type, name, version, t, files: fresh.map(f => entryOf(id, f, kind)), locations, listed, attribution, hf: { dir: `${kind.dir}${id}/`, repo: kind.name }, ...(old.exists && old.get('hidden') ? { hidden: true } : {}), ...(gym ? { gym } : {}), ...(cc ? { cc } : {}), ...(credits ? { credits } : {}), ...(body.origin ? { origin: body.origin, root, ...(lineage ? { lineage } : {}), ...(lineageCut ? { lineageCut: true } : {}) } : {}) };
+      // 一個 commit 全部寫完：改過的檔案、資料集目錄，以及這本書每一版資料夾裡的 versions.json（最新的一版從任何一版的舊連結都找得到）
+      const versions = await versionFiles({ db, doc: { id, exists: true, get: k => data[k] }, root: root || id, hf: kind.name, now: t });
       await hf.commit(`發佈 ${id} v${version}`, [
         ...changed.map(f => (f.bytes ? { path: `${kind.dir}${id}/${f.path}`, bytes: f.bytes } : { path: `${kind.dir}${id}/${f.path}`, oid: f.sha256, size: f.size })),
         ...gone.map(p => ({ path: `${kind.dir}${id}/${p}`, deleted: true })),
         ...(listed ? [{ path: kind.index, bytes: Buffer.from(upsertRow(text, row)) }] : []),
+        ...versions,
       ]);
-      await project(id).set({ owner: '', type: body.type, name, version, t, files: fresh.map(f => entryOf(id, f, kind)), locations, listed, attribution, hf: { dir: `${kind.dir}${id}/`, repo: kind.name }, ...(old.exists && old.get('hidden') ? { hidden: true } : {}), ...(gym ? { gym } : {}), ...(cc ? { cc } : {}), ...(credits ? { credits } : {}), ...(body.origin ? { origin: body.origin, root, ...(lineage ? { lineage } : {}), ...(lineageCut ? { lineageCut: true } : {}) } : {}) });
+      await project(id).set(data);
       await qref.set({ n: (q.exists ? q.get('n') : 0) + 1, at: t });
       // 3D 牆跟公開牆同一套清單（gymWalls／gymIndex，gym-walls.js）：登記進去，找牆面才看得到、路線數才算得出來
       if (body.type === 'wall3d' && gym && listed && registerWall) await registerWall({ id, name, gym, root: root || id }).catch(e => console.error('registerWall3d', id, e));
       await refreshWorld();
       return { id, version, url, files: sent, ...(listed ? {} : { listed: false }) };
-    },
-    // 同一本書（同一個 root）所有的版本，含不列入世界的：拿到連結的人找最新的一版、紅點貓自動更新、Studio 的版本紀錄。公開的唯讀查詢；回 { rows: [跟世界清單同樣的一列] }，沒有就是 []
-    async versions(body) {
-      if (!ID.test(body.id || '')) throw fail(400, 'bad id');
-      const d = await read(body.id);
-      if (!d.exists || !d.get('hf') || d.get('hidden') === true || !OPEN_TYPES.includes(d.get('type'))) return { rows: [] };
-      const root = d.get('root') || d.get('origin') || d.id;
-      const [first, rest] = await Promise.all([project(root).get(), db.collection('datasets').where('root', '==', root).limit(LIST_MAX).get()]);
-      const group = [first, ...rest.docs].filter(x => x.exists && x.get('hf') && x.get('hidden') !== true && x.get('type') === d.get('type'));
-      const stats = new Map();
-      await Promise.all(group.map(async g => { const s = await db.collection('projectStats').doc(g.id).get(); if (s.exists) stats.set(g.id, { hll: s.get('hll') || {} }); }));
-      return { rows: group.length ? [openRow(group, stats, now())] : [] };
     },
     // 專案目前這一版的檔案（{ version, files }，公開的，誰都能讀）；還沒發佈過是第 0 版、沒有檔案
     async files(body, req) {
@@ -214,12 +219,6 @@ function createHandler({ db, now = Date.now, saveWorld, datasets = {}, registerW
   };
 }
 
-/** /p/{id}/{路徑} → [id, 路徑]；不合格回 null */
-function parsePath(p) {
-  const m = /^\/p\/([0-9a-z]{16})\/([^/]+)$/.exec(p || '');
-  return m && PATH.test(m[2]) && !m[2].includes('..') ? [m[1], m[2]] : null;
-}
-
 /** 開放資料集（Hugging Face climbio/walls，datasets 函式寫的）：這裡不收、不存，/p/{id}/{檔} 導向資料集（路徑帶版本，發佈後不再改） */
 const HF_BASE = 'https://huggingface.co/datasets/climbio/walls/resolve/main/';
 /** 天然岩場（guidebook）的開放資料集 climbio/crags：每個岩場一個資料夾 crags/{id}/（不分版本，網址固定，歷史在 git），datasets 文件的 hf.dir 指到它；網址直接給 Hugging Face */
@@ -227,79 +226,4 @@ const HF_CRAGS = 'https://huggingface.co/datasets/climbio/crags/resolve/main/';
 /** datasets 文件的 hf：{ dir, repo? }，repo 是倉庫簡稱（crags｜walls3d｜crags3d），沒有就是 crags；回那個倉庫的檔案網址前綴 */
 const hfBase = hf => `https://huggingface.co/datasets/climbio/${(hf && hf.repo) || 'crags'}/resolve/main/`;
 
-/** 文件在 Firestore 讀一次、記在記憶體 INDEX_MS：/p/{id}/{檔} 導向資料集、/p/{id} 回連結預覽頁 */
-// 預覽用的資料集檔案：逾時、失敗回 null（預覽退回只有名稱）；同一個網址記 1 分鐘
-const jsonCache = new Map();
-async function readJson(url) {
-  const hit = jsonCache.get(url);
-  if (hit && Date.now() - hit.at < 60e3) return hit.data;
-  let data = null;
-  try { const r = await fetch(url, { signal: AbortSignal.timeout(3000) }); if (r.ok) data = await r.json(); } catch (e) { /* 預覽不因此失敗 */ }
-  jsonCache.set(url, { at: Date.now(), data });
-  return data;
-}
-
-function createFileHandler({ db, hosts = [], previewPage = null, readJson: read = readJson, now = Date.now, indexMs = INDEX_MS, count = null }) {   // count(id, 日期, 機器雜湊)：下載計數（index.js 接 Firestore projectStats）
-  const index = new Map();   // 專案 id → { at, doc（{ name, type, hf, files: Set(路徑) } | null）}
-  async function docOf(id) {
-    const hit = index.get(id);
-    if (hit && now() - hit.at < indexMs) return hit.doc;
-    const d = await db.collection('datasets').doc(id).get();
-    const doc = d.exists && d.get('hf') ? { name: d.get('name') || '', type: d.get('type'), hf: d.get('hf'), files: new Set((d.get('files') || []).map(f => f.path)) }
-      : walls(d, id);
-    index.set(id, { at: now(), doc });
-    return doc;
-  }
-  // 公開牆（岩點貓）在 climbio/walls：資料夾由文件的版本推出
-  const walls = (d, id) => (d.exists && d.get('type') === 'walls' ? { type: 'walls', base: `${HF_BASE}walls/${id}/v${d.get('version')}/`, files: new Set(d.get('files') || []) } : null);
-  const baseOf = doc => doc.base || hfBase(doc.hf) + doc.hf.dir;
-  // 固定分享網址的預覽頁：公開的 Guidebook（`at` 是其中一張 Topo）和 3D 牆；其他種類、不存在的回 404。標題與說明見 share-preview.js
-  async function sendHome(res, id, req) {
-    const host = String(req.get('x-forwarded-host') || req.get('host') || '').split(',')[0].trim();
-    const origin = `https://${hosts.includes(host) ? host : hosts[0]}`;
-    const doc = await docOf(id);
-    if (!doc || !['guidebook', 'wall3d'].includes(doc.type)) return res.set('Cache-Control', CACHE_CONTROL).status(404).type('text/plain').send('not found');
-    const at = String(req.query?.at ?? ''), base = baseOf(doc), icon = { url: `${origin}/icons/cats/${doc.type === 'guidebook' ? 'redpoint' : 'hold'}-cat-512.png` };
-    let target, meta, set = null;
-    if (doc.type === 'guidebook') {
-      set = await read(base + ENTRY);
-      const item = /^[0-9a-z]{1,40}$/.test(at) && set && (set.items || []).find(i => i.id === at);
-      const view = item && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(item.href || '') ? await read(base + item.href) : null;
-      target = `${origin}/redpoint/?topo=${encodeURIComponent(base + ENTRY)}${/^[0-9a-z]{1,40}$/.test(at) ? `&at=${at}` : ''}`;
-      meta = cragPreview({ name: doc.name, set, view });
-    } else {
-      const listed = await db.collection('gymWalls').doc(id).get();
-      target = `${origin}/hold/?m3d=${id}`;
-      meta = model3dPreview({ type: doc.type, name: doc.name, gym: listed.exists ? listed.get('gym') : '' });
-    }
-    const image = { url: doc.files.has(PREVIEW) ? base + PREVIEW : doc.files.has(THUMB) ? base + THUMB : icon.url };
-    return res.set('Cache-Control', REVALIDATE).status(200).type('html')
-      .send(previewPage({ url: `${origin}/p/${id}${at ? `?at=${encodeURIComponent(at)}` : ''}`, target, ...meta, image, line: true, handoff: doc.type === 'guidebook' && set && JSON.stringify(set).length < 300e3 ? { url: base + ENTRY, doc: set } : null, files: doc.type === 'guidebook' ? [base + ENTRY] : [] }));   // 岩場：預覽頁讀到的入口直接交給 App（太大或讀不到就轉進前先開始下載）
-  }
-  return async (req, res) => {
-    res.set('Access-Control-Allow-Origin', '*');
-    if (req.method === 'OPTIONS') return res.set('Access-Control-Allow-Methods', 'GET, HEAD').set('Access-Control-Max-Age', '86400').status(204).send('');
-    if (req.method !== 'GET' && req.method !== 'HEAD') return res.set('Cache-Control', 'no-store').status(405).send('GET only');
-    const notFound = () => res.set('Cache-Control', CACHE_CONTROL).status(404).type('text/plain').send('not found');
-    try {
-      const home = /^\/p\/([0-9a-z]{16})\/?$/.exec(req.path || '');
-      if (home && previewPage) return await sendHome(res, home[1], req);
-      const at = parsePath(req.path);
-      if (!at) return notFound();
-      const doc = await docOf(at[0]);
-      if (!doc || !doc.files.has(at[1])) return notFound();
-      // 不認人的類型數下載：每天約略不重複的機器數（HyperLogLog：只存暫存器，不存 IP、裝置或雜湊）；只算整份載入才會讀的檔案（COUNT_FILE），這個檔不經 CDN 快取，每次都數
-      if (count && OPEN_TYPES.includes(doc.type) && at[1] === COUNT_FILE[doc.type]) {
-        const day = dayKey(now()), ip = clientIp(req), ua = String(req.get?.('user-agent') || '');
-        await Promise.resolve(count(at[0], day, createHash('sha256').update(`${day}|${ip}|${ua}`).digest('hex'))).catch(e => console.error('count', e));
-        return res.set('Cache-Control', 'no-store').redirect(302, baseOf(doc) + at[1]);
-      }
-      return res.set('Cache-Control', 'public, max-age=300, s-maxage=300').redirect(302, baseOf(doc) + at[1]);   // 檔案由 Hugging Face 的 CDN 送
-    } catch (e) {
-      if (!e.status) console.error('projectFiles', e);
-      return res.set('Cache-Control', 'no-store').status(e.status || 500).type('text/plain').send(e.status ? e.message : 'server error');
-    }
-  };
-}
-
-module.exports = { HF_BASE, HF_CRAGS, hfBase, writeWorld, WORLD_FILE, listPublic, createHandler, createFileHandler, parsePath, ENTRY };
+module.exports = { HF_BASE, HF_CRAGS, hfBase, writeWorld, WORLD_FILE, listPublic, createHandler, ENTRY };

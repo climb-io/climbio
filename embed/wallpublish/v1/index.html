@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Climbio wall publish</title>
+<style>
+  :root { --bg: #fff; --fg: #0c1c2b; --muted: #47687b; --line: #c9d5de; --accent: #0b4a6b; --on: #fff; --bad: #b3261e; color-scheme: light; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.6 system-ui, -apple-system, 'Noto Sans TC', 'Noto Sans JP', 'Noto Sans KR', sans-serif; }
+  main { padding: 16px; max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 18px; margin: 0 0 12px; }
+  #drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 180px; padding: 16px; border: 2px dashed var(--line); border-radius: 16px; text-align: center; cursor: pointer; }
+  #drop[data-over="1"], #drop:focus-visible { border-color: var(--accent); outline: none; }
+  #drop-hint { color: var(--muted); font-size: 13px; }
+  #list { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 10px; }
+  #list li { display: flex; gap: 12px; align-items: center; padding: 10px; border: 1px solid var(--line); border-radius: 12px; }
+  #list img { width: 72px; height: 54px; object-fit: cover; border-radius: 8px; background: #e9eff4; flex: none; }
+  #list span { display: block; color: var(--muted); font-size: 13px; }
+  #count { color: var(--muted); font-size: 14px; margin: 0 0 8px; }
+  label.check { display: flex; gap: 10px; align-items: flex-start; margin: 12px 0; }
+  label.check input { margin-top: 5px; width: 18px; height: 18px; flex: none; }
+  button { min-height: 44px; padding: 0 22px; border: 0; border-radius: 999px; background: var(--accent); color: var(--on); font: inherit; font-weight: 700; cursor: pointer; }
+  button:disabled { opacity: .45; cursor: default; }
+  button.ghost { background: #e9eff4; color: var(--fg); }
+  button:active:not(:disabled) { scale: .95; }
+  #msg { margin: 10px 0 0; min-height: 1.6em; color: var(--muted); font-size: 14px; }
+  #msg[data-bad="1"] { color: var(--bad); }
+  #done-pin { color: var(--muted); font-size: 14px; }
+  #src { display: block; margin-top: 18px; font-size: 11px; color: var(--muted); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title"></h1>
+  <div id="drop" role="button" tabindex="0"><strong id="drop-text"></strong><span id="drop-hint"></span></div>
+  <input id="file" type="file" accept=".zip,application/zip" hidden>
+  <section id="review" hidden>
+    <p id="count"></p>
+    <ul id="list"></ul>
+    <label class="check"><input id="consent" type="checkbox"><span id="consent-text"></span></label>
+    <button id="go" type="button" disabled></button>
+  </section>
+  <section id="done" hidden>
+    <ul id="done-list"></ul>
+    <p id="done-pin"></p>
+    <button id="again" type="button" class="ghost"></button>
+  </section>
+  <p id="msg" role="status"></p>
+  <a id="src" href="https://github.com/climb-io/climbio/tree/main/embed/wallpublish" target="_blank" rel="noopener">AGPL-3.0 · Source</a>
+</main>
+<script src="kit/format.js"></script>
+<script src="kit/files.js"></script>
+<script src="kit/embed.js"></script>
+<script src="publish.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

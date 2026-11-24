@@ -9,7 +9,7 @@ const THUMB_LEFTOVER = 'data:image/jpeg;base64,AAAA', PROJECT = 'wallproject0000
 const PACKAGE = { owner: '', version: 1, files: ['index.json', `${PID}.json`, 'layer0000001.json'] };   // datasets/{包 id}：公開牆在開放資料集
 const body = (o = {}) => ({ op: 'publish', source: 'studio', pid: PID, name: '牆', gym: '原岩萬華#B區', src: SRC, ...o });
 
-function setup() {
+function setup(extra = {}) {
   const docs = new Map([[`datasets/${PROJECT}`, PACKAGE]]), files = new Map(), calls = [];
   const snap = (id, v) => ({ id, exists: v !== undefined, get: k => (v || {})[k] });
   // 這個集合自己的文件（不含子集合的）
@@ -23,7 +23,7 @@ function setup() {
   let now = NOW, checked = true, owner = false;
   const refreshGym = async pid => { calls.push(['refresh', pid]); };
   // 簽章驗證換成假的：auth.kid 就是這把金鑰（真的驗證在 device-key.test.js）
-  const handler = createHandler({ db, now: () => now, refreshGym, appChecked: async () => checked, isOwner: async () => owner, verify: (op, b) => b.auth.kid });
+  const handler = createHandler({ db, now: () => now, refreshGym, appChecked: async () => checked, isOwner: async () => owner, verify: (op, b) => b.auth.kid, ...extra });
   // who：裝置金鑰（寫線、收回自己的線要簽）；同時當網路來源
   const call = async (b, who = K1) => {
     const res = { statusCode: 200, set() {}, status(c) { this.statusCode = c; return this; }, json(d) { this.data = d; return this; } };
@@ -232,4 +232,27 @@ test('網站來源身分（內嵌頁 iframe 提交）：同一個網站所有人
   docs.set(`deviceKeys/site${sha}`, { blocked: true });
   assert.equal((await call(site(A))).statusCode, 403);
   assert.equal((await call(site(B, { routes: [{ id: 's9', r: route('s9') }] }))).statusCode, 200);   // 只擋被封鎖的來源
+});
+
+test('公開資料（資料集的 routes.json、index）：每次提交、刪除、收回都馬上寫，條數沒變也寫；寫失敗不影響這次提交；syncPublic 只有維護者', async () => {
+  const pubs = [];
+  let boom = false;
+  const s = setup({ publishRoutes: async (pid) => { pubs.push(pid); if (boom) throw new Error('hub down'); } });
+  await s.call(body());
+  assert.deepEqual(pubs, [PID]);   // 登記
+  assert.equal((await s.call(put(['r1']))).data.results.r1, 'ok');
+  assert.equal((await s.call(put(['r1']))).data.results.r1, 'ok');   // 條數沒變（只改內容）
+  assert.deepEqual(pubs, [PID, PID, PID]);
+  boom = true;
+  const failed = await s.call(put(['r2']));
+  assert.equal(failed.statusCode, 200);   // Firestore 已經寫了：資料集寫失敗不丟錯
+  assert.equal(failed.data.results.r2, 'ok');
+  boom = false;
+  await s.call({ op: 'withdraw', pid: PID });
+  assert.equal(pubs.length, 5);   // 登記、提交 r1 兩次、r2（寫失敗）、收回
+  assert.equal((await s.call({ op: 'syncPublic' })).statusCode, 401);
+  s.asOwner(true);
+  const sync = await s.call({ op: 'syncPublic' });
+  assert.deepEqual([sync.statusCode, sync.data.n], [200, 1]);
+  assert.equal(pubs.at(-1), PID);
 });

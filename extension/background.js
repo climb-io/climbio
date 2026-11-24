@@ -313,33 +313,3 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
     })
     .then((r) => finish(ui, r), (e) => { console.error(e); return ui.fail(`${t('failure')} ${e.message || ''}`.trim()); });
 });
-
-// 給 Climbio Studio 直接抓 Google 相簿分享連結與原始照片（=d），繞過瀏覽器對 Google 相簿的 CORS 限制。
-const ALBUM_HOSTS = new Set(['photos.app.goo.gl', 'photos.google.com', 'lh3.googleusercontent.com']);
-function checkAlbumTarget(raw) {
-  const u = new URL(String(raw || ''));
-  if (u.protocol !== 'https:' || !ALBUM_HOSTS.has(u.hostname)) throw new Error(t('invalidAlbumUrl'));
-  return u.href;
-}
-function bytesToB64(bytes) {
-  let bin = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return btoa(bin);
-}
-chrome.runtime.onMessageExternal?.addListener((msg, _sender, sendResponse) => {
-  if (!msg || (msg.op !== 'album-text' && msg.op !== 'album-blob')) return false;
-  (async () => {
-    const url = checkAlbumTarget(msg.url);
-    const r = await fetch(url, { credentials: 'omit' });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    if (msg.op === 'album-text') return { ok: true, text: await r.text() };
-    const buf = new Uint8Array(await r.arrayBuffer());
-    return {
-      ok: true,
-      b64: bytesToB64(buf),
-      type: r.headers.get('content-type') || 'image/jpeg',
-      disposition: r.headers.get('content-disposition') || '',
-    };
-  })().then(sendResponse, (e) => sendResponse({ ok: false, error: e.message || String(e) }));
-  return true;
-});

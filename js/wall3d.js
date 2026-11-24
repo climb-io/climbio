@@ -9,7 +9,7 @@ const W3D = (() => {
   const stages = new Map();   // 牆 id → Promise<Stage>（這次打開 App 只載一次）
   const ready = new Map();    // 牆 id → 載好的 Stage（進定線時同步知道 3D 好了沒）
   const front = new Map();    // 牆 id → 正面的岩點外框（轉過角度時 w.holds 換成新角度的，存檔用這份）
-  const base = (pid) => new URL(`/p/${pid}/`, location.origin).href;   // Studio 發佈的資料包：檔案在公開資料集，索引（雲端函式 projectFiles）代讀、CDN 快取
+  const base = (pid) => `https://huggingface.co/datasets/climbio/walls3d/resolve/main/walls3d/${pid}/`;   // Studio 發佈的資料包：檔案在公開資料集 climbio/walls3d，固定網址直接讀（不經過函式）
   // 版本號放進網址：Service Worker 照版本快取（js/、hold/sw.js），換版本就換新的程式
   const stageModule = () => import(new URL(`../wall3dkit/stage.js?v=${encodeURIComponent(self.CLIMBIO_VERSION)}`, location.href.split(/[?#]/)[0]).href);
   function stageOf(pid, pack = null) {
@@ -175,16 +175,16 @@ const W3D = (() => {
     const get = async (u) => { const r = await fetch(u, { cache: 'no-store' }); if (!r.ok) throw new Error(r.status); return r.json(); };
     const gym = (await get(new URL('index.json', base(w.pid)).href)).gym;
     if (!gym) return false;
-    const list = await get(`${location.origin}/w/gym/${encodeURIComponent(gym)}.json`), mine = new Set([w.pid, ...(w.was || [])]);
-    const items = (list.items || []).filter(x => x.props && x.props.model === '3d' && PID.test(x.id || '') && !mine.has(x.id)).sort((a, b) => (b.t || 0) - (a.t || 0));
+    const mine = new Set([w.pid, ...(w.was || [])]);
+    const items = (await ShareTools.gymWalls('https://climbio.app', gym)).filter(x => x.m3d && PID.test(x.pid || '') && !mine.has(x.pid)).sort((a, b) => (b.t || 0) - (a.t || 0));   // 找牆面的同一份 index
     for (const x of items) {
-      let id = x.id;
+      let id = x.pid;
       for (let hop = 0; hop < 30 && id; hop++) {
         const parent = await get(new URL('patch.json', base(id)).href).then(p => p.parent, () => null);
         if (!parent) break;
         if (mine.has(parent)) {
           const old = w.pid;
-          w.was = [...(w.was || []), old].slice(-20); w.pid = x.id; touch(w);
+          w.was = [...(w.was || []), old].slice(-20); w.pid = x.pid; touch(w);
           await putWall(w);
           listMetas().then(ms => { if (!ms.some(m => m.id !== w.id && m.pid === old)) return dropPack(old); }).catch(() => {});   // 舊版的舞台與模型快取沒有別的牆用就清掉（由 dropPack 一併 dispose）
           return true;

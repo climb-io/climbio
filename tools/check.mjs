@@ -80,7 +80,7 @@ for (const app of Object.keys(packs).filter(a => a !== 'common' && packs[a].zh &
 const PACK_SOURCES = { hold: ['hold/index.html', ...PAGE_JS.filter(f => !/(^|\/)routekit\/ui\.js$/.test(f))],   // kit 的操作介面（routekit/ui.js）有自己內建的文字，不是岩點貓的語言包
   redpoint: ['redpoint/index.html', ...['app.js', 'io.js', 'openclimbing.js', 'auto-merge.mjs'].map(f => `redpoint/${f}`)],
   // Studio：共用包加各工作區的包（頁面用 studio/i18n-boot.js 載入）；Crag 分成「介面」與「資料」兩個包
-  studio: ['studio/index.html', ...['home', 'shell', 'backend', 'album', 'classify', 'store', 'publisher', 'service', 'devices'].map(f => `studio/${f}.js`), 'studio/intake/workspaces.js'],
+  studio: ['studio/index.html', ...['home', 'shell', 'backend', 'classify', 'store', 'publisher', 'service', 'devices'].map(f => `studio/${f}.js`), 'studio/intake/workspaces.js'],
   'studio-crag': ['studio/crag/index.html', ...['app', 'table', 'grid', 'topo', 'site', 'map', 'geo', 'dom', 'intake', 'match', 'match-worker', 'pair', 'trace'].map(f => `studio/crag/${f}.js`)],
   'studio-crag-data': ['model', 'outline', 'docread', 'ai-prompt', 'publish', 'store'].map(f => `studio/crag/${f}.js`),
   'studio-wall': ['studio/wall/index.html', ...['app', 'editor', 'geometry', 'sam', 'store', 'report-view'].map(f => `studio/wall/${f}.js`)],

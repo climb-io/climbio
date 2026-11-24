@@ -15,14 +15,14 @@ const body = (o = {}) => ({ op: 'publish', hf: true, id: GID, type: 'guidebook',
 const day = () => new Date(2e12 + 8 * 3600e3).toISOString().slice(0, 10);
 
 function setup() {
-  const docs = new Map(), commits = [], store = { text: '' };
+  const docs = new Map(), commits = [], store = { text: '' }, versions = new Map();   // versions：每個 versions.json 最近一次寫的內容
   const snap = (id, v) => ({ id, exists: v !== undefined, get: k => (v || {})[k] });
   const ref = path => ({ path, get: async () => snap(path.split('/').pop(), docs.get(path)), set: async (v, o) => { docs.set(path, structuredClone(o && o.merge ? { ...(docs.get(path) || {}), ...v } : v)); } });
-  const db = { recursiveDelete: async r => { for (const k of [...docs.keys()]) if (k === r.path || k.startsWith(r.path + '/')) docs.delete(k); }, collection: c => ({ doc: id => ref(`${c}/${id}`), where: (f, op, v) => ({ limit: () => ({ get: async () => ({ docs: [...docs].filter(([p, d]) => p.startsWith(c + '/') && d[f] === v).map(([p, d]) => snap(p.split('/')[1], d)) }) }) }) }) };
+  const db = { recursiveDelete: async r => { for (const k of [...docs.keys()]) if (k === r.path || k.startsWith(r.path + '/')) docs.delete(k); }, collection: c => ({ get: async () => ({ docs: [...docs].filter(([p]) => p.startsWith(c + '/')).map(([p, d]) => snap(p.split('/')[1], d)) }), doc: id => ref(`${c}/${id}`), where: (f, op, v) => ({ limit: () => ({ get: async () => ({ docs: [...docs].filter(([p, d]) => p.startsWith(c + '/') && d[f] === v).map(([p, d]) => snap(p.split('/')[1], d)) }) }) }) }) };
   const hf = {
     lfsBatch: async objs => objs.map(o => ({ oid: o.oid, size: o.size, upload: { href: `https://lfs.example/${o.oid}`, header: { x: '1' } } })),
     read: async () => store.text || null,
-    commit: async (summary, fs) => { commits.push(fs.map(f => (f.deleted ? 'del:' : f.oid ? 'lfs:' : 'file:') + f.path)); const i = fs.find(f => f.path.endsWith('.jsonl')); if (i) store.text = i.bytes.toString(); },
+    commit: async (summary, fs) => { commits.push(fs.map(f => (f.deleted ? 'del:' : f.oid ? 'lfs:' : 'file:') + f.path)); for (const f of fs) if (f.path.endsWith('/versions.json')) versions.set(f.path, JSON.parse(f.bytes.toString())); const i = fs.find(f => f.path.endsWith('.jsonl')); if (i) store.text = i.bytes.toString(); },
   };
   const handler = createHandler({ db, hosts: ['climbio.app'], now: () => 2e12, datasets: { guidebook: hf, wall3d: hf, crag3d: hf } });
   const call = async (b, _ = '') => {
@@ -30,7 +30,7 @@ function setup() {
     await handler({ method: 'POST', body: b, get: k => ({ origin: 'https://climbio.app' }[k.toLowerCase()]) }, res);
     return res;
   };
-  return { call, docs, commits, store };
+  return { call, docs, commits, store, versions };
 }
 const prep = (s, o = {}, token) => s.call({ op: 'prepare', id: GID, type: 'guidebook', files: files(), ...o }, token);
 
@@ -52,7 +52,7 @@ test('發佈到資料集：一個 commit（JSON、照片指標、目錄），專
   const r = await s.call(body());
   assert.equal(r.statusCode, 200);
   assert.deepEqual([r.data.id, r.data.version, r.data.url], [GID, 1, `${HF_CRAGS}crags/${GID}/index.json`]);
-  assert.deepEqual(s.commits[0].sort(), [`file:crags/${GID}/index.json`, `file:crags/${GID}/pack.json`, `lfs:crags/${GID}/p1.jpg`, `lfs:crags/${GID}/p1.thumb.jpg`, 'file:crags.jsonl'].sort());
+  assert.deepEqual(s.commits[0].sort(), [`file:crags/${GID}/index.json`, `file:crags/${GID}/pack.json`, `lfs:crags/${GID}/p1.jpg`, `lfs:crags/${GID}/p1.thumb.jpg`, `file:crags/${GID}/versions.json`, 'file:crags.jsonl'].sort());
   const doc = s.docs.get(`datasets/${GID}`);
   assert.deepEqual([doc.owner, doc.type, doc.listed, doc.hf, doc.files.length, doc.files.every(f => f.hf && f.sha256 && f.size)], ['', 'guidebook', true, { dir: `crags/${GID}/`, repo: 'crags' }, 4, true]);
   const row = JSON.parse(s.store.text);
@@ -83,17 +83,19 @@ test('不列入世界：檔案照樣進資料集，資料集目錄不列；下�
   const A = GID, B = 'bbbbbbbb12345678', C = 'cccccccc12345678';
   const r = await s.call(body({ listed: false }));
   assert.deepEqual([r.statusCode, r.data.listed], [200, false]);
-  assert.deepEqual(s.commits[0].sort(), [`file:crags/${A}/index.json`, `file:crags/${A}/pack.json`, `lfs:crags/${A}/p1.jpg`, `lfs:crags/${A}/p1.thumb.jpg`].sort(), '不寫 crags.jsonl');
+  assert.deepEqual(s.commits[0].sort(), [`file:crags/${A}/index.json`, `file:crags/${A}/pack.json`, `lfs:crags/${A}/p1.jpg`, `lfs:crags/${A}/p1.thumb.jpg`, `file:crags/${A}/versions.json`].sort(), '不寫 crags.jsonl');
   assert.equal(s.docs.get(`datasets/${A}`).listed, false);
   await s.call(body({ id: B, origin: A }));
   assert.equal(s.docs.get(`datasets/${B}`).listed, false, '上一版不列入，下一版預設也不列入');
   await s.call(body({ id: C, origin: B, listed: true }));
   assert.equal(s.docs.get(`datasets/${C}`).listed, true, '明確給 listed: true 才改回列入');
   assert.equal(s.store.text.split('\n').filter(Boolean).length, 1);
-  const v = (await s.call({ op: 'versions', id: A })).data.rows;
-  assert.deepEqual([v.length, v[0].versions, v[0].root, [v[0].id, ...v[0].others.map(o => o.id)].sort()], [1, 3, A, [A, B, C]], '不列入的版本也在（測試的發佈時間都一樣，不比先後）');
-  assert.deepEqual((await s.call({ op: 'versions', id: 'zzzzzzzz12345678' })).data.rows, []);
-  assert.equal((await s.call({ op: 'versions', id: 'x' })).statusCode, 400);
+  // 版本清單：每一版資料夾都有 versions.json，一個 commit 全部更新（最新的一版寫完，舊的也看得到它）
+  for (const x of [A, B, C]) {
+    const v = s.versions.get(`crags/${x}/versions.json`).rows;
+    assert.deepEqual([v.length, v[0].versions, v[0].root, [v[0].id, ...v[0].others.map(o => o.id)].sort()], [1, 3, A, [A, B, C]], `${x}：不列入的版本也在（測試的發佈時間都一樣，不比先後）`);
+  }
+  assert.equal((await s.call({ op: 'versions', id: A })).statusCode, 400, 'versions 不再是函式的操作');
 });
 
 test('發佈到資料集的檢查：只收資料集的 Guidebook、路徑與種類、內容雜湊要對、JSON 要帶內容', async () => {
@@ -179,7 +181,7 @@ test('3D 牆、3D 岩場放進自己的資料集：資料夾、目錄檔、專�
   const r = await s.call(body({ type: 'wall3d', files: pack, gym: '原岩明德' }));
   assert.equal(r.statusCode, 200);
   assert.equal(r.data.url, `https://huggingface.co/datasets/climbio/walls3d/resolve/main/walls3d/${GID}/index.json`);
-  assert.deepEqual(s.commits[0].sort(), [`file:walls3d/${GID}/index.json`, `file:walls3d/${GID}/wall.json`, `lfs:walls3d/${GID}/wall-1.glb`, 'file:walls3d.jsonl'].sort());
+  assert.deepEqual(s.commits[0].sort(), [`file:walls3d/${GID}/index.json`, `file:walls3d/${GID}/wall.json`, `lfs:walls3d/${GID}/wall-1.glb`, `file:walls3d/${GID}/versions.json`, 'file:walls3d.jsonl'].sort());
   assert.deepEqual([s.docs.get(`datasets/${GID}`).type, s.docs.get(`datasets/${GID}`).hf], ['wall3d', { dir: `walls3d/${GID}/`, repo: 'walls3d' }]);
   assert.equal(JSON.parse(s.store.text).gym, '原岩明德');
   // 一般岩場的單檔上限還是 25 MB
@@ -212,3 +214,4 @@ test('.bin 只有 3D 的成品收；岩場（guidebook）還是不收', async ()
   const s = setup();
   assert.equal((await s.call(body({ files: [F('index.json', INDEX, true), F('x.bin', JPG)] }))).statusCode, 400);
 });
+

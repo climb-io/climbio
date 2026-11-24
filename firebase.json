@@ -35,7 +35,7 @@
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "no-cache"
+            "value": "public, max-age=0, must-revalidate"
           }
         ]
       },
@@ -44,7 +44,7 @@
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "no-cache"
+            "value": "public, max-age=0, must-revalidate"
           }
         ]
       },
@@ -53,7 +53,7 @@
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "no-cache"
+            "value": "public, max-age=0, must-revalidate"
           }
         ]
       },
@@ -62,7 +62,7 @@
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "no-cache"
+            "value": "public, max-age=0, must-revalidate"
           }
         ]
       },
@@ -71,7 +71,7 @@
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "no-cache"
+            "value": "public, max-age=0, must-revalidate"
           }
         ]
       },
@@ -81,60 +81,6 @@
           {
             "key": "Cache-Control",
             "value": "public, max-age=86400"
-          }
-        ]
-      },
-      {
-        "source": "/climbio.json",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "public, max-age=600"
-          }
-        ]
-      },
-      {
-        "source": "/w/gym/*.json",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "public, max-age=600"
-          }
-        ]
-      },
-      {
-        "source": "/w/*/routes.json",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "public, max-age=60, s-maxage=60"
-          }
-        ]
-      },
-      {
-        "source": "/w/*/shared.json",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "public, max-age=60, s-maxage=60"
-          }
-        ]
-      },
-      {
-        "source": "/w/*/@(wall.json|photo.jpg|thumb.jpg)",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "public, max-age=86400"
-          }
-        ]
-      },
-      {
-        "source": "/dir/gyms.json",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "public, max-age=3600"
           }
         ]
       },
@@ -221,39 +167,25 @@
         }
       },
       {
-        "source": "/climbio.json",
+        "source": "/p/*",
         "function": {
           "functionId": "routePage",
           "region": "asia-east1"
         }
       },
       {
-        "source": "/w/**",
+        "source": "/p/*/",
         "function": {
           "functionId": "routePage",
           "region": "asia-east1"
         }
-      },
+      }
+    ],
+    "redirects": [
       {
-        "source": "/dir/**",
-        "function": {
-          "functionId": "siteDirectory",
-          "region": "asia-east1"
-        }
-      },
-      {
-        "source": "/p/**",
-        "function": {
-          "functionId": "projectFiles",
-          "region": "asia-east1"
-        }
-      },
-      {
-        "source": "/album",
-        "function": {
-          "functionId": "album",
-          "region": "asia-east1"
-        }
+        "source": "/p/:id/:file",
+        "destination": "https://huggingface.co/datasets/climbio/crags/resolve/main/crags/:id/:file",
+        "type": 302
       }
     ]
   },
@@ -269,19 +201,6 @@
       ],
       "predeploy": [
         "node tools/functions-predeploy.mjs vendor format/format.js redpoint/world-data.mjs redpoint/openclimbing-group.mjs redpoint/world-stacks.mjs redpoint/thecrag-links.mjs"
-      ]
-    },
-    {
-      "source": "holdkit/functions",
-      "codebase": "holdkit",
-      "runtime": "nodejs22",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "*.local"
-      ],
-      "predeploy": [
-        "node tools/functions-predeploy.mjs models holdkit/models/mobilesam-encoder.onnx holdkit/models/mobilesam-decoder.onnx"
       ]
     }
   ]

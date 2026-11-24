@@ -29,7 +29,7 @@ function gate(text, run) {
 }
 // 固定連結 #p=<公開牆的包 id>：不選資料夾，從開放資料集把這面公開牆（照片、岩點）收進瀏覽器的專案接著精修，發佈就是同一個包的新版本。
 // 同一個包只收一次（專案 id 記在 localStorage），再開直接回到上次改到的地方
-const PUB_BASE = /^http:\/\/(127\.0\.0\.1|localhost)/.test(location.origin) ? 'https://climbio.app' : location.origin;
+const HF_WALLS = 'https://huggingface.co/datasets/climbio/walls/resolve/main/';   // 公開資料集 climbio/walls 的固定網址
 async function openPublic(id) {
   show('gate'); $('gateBtn').hidden = true; $('gateMsg').textContent = T('hlPubLoading');
   const key = `climbio.wallpub.${id}`;
@@ -38,7 +38,10 @@ async function openPublic(id) {
     const r = known && await SS.entry(known).catch(() => null);
     if (r && r.ws === 'gym' && await SS.granted(r)) { await openProject(await S.reopen(r)); const w = P.walls.find(x => x.pack && x.pack.project === id); if (w) await openWall(w); return; }
     await shareLibs();
-    const base = `${PUB_BASE}/p/${id}/`, set = await (await fetch(`${base}index.json`)).json();
+    // 包的現行版從公開 index 查（index/world.json 每面牆一行，v＝畫面現行版），再讀那一版資料夾的入口
+    const row = ((await (await fetch(`${HF_WALLS}index/world.json`)).json()).walls || []).find(w => w.id.startsWith(`${id}/`));
+    if (!row) throw new Error(T('hlPubNotWall'));
+    const base = `${HF_WALLS}walls/${id}/v${row.v}/`, set = await (await fetch(`${base}index.json`)).json();
     const item = (set.items || [])[0];
     if (!item || set.type !== 'walls') throw new Error(T('hlPubNotWall'));
     const got = await ShareTools.fetchWall(new URL(item.href, base).href, item.id);

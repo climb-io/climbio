@@ -25,7 +25,7 @@
 - **雲端函式**（`firebase.json` 分兩個 codebase，地區 asia-east1，可以改）：
   - `climbio`（`functions/`）：每日清理、路線連結的預覽頁 `routePage`（`/r/**`、`/climbio.json`、`/w/**` 轉址要它先上線）、附近交換 `nearby`（`site.js` 的 `SITE.cloud.nearby`；不部署就留空，附近交換只剩掃 QR code 連線）、預算開關、總目錄。`cd functions && npm install && cd .. && npx firebase-tools deploy --only functions:climbio --project web`。
   - `climbio` 裡的 Studio 同步服務 `studioSync` 和發佈的 `datasets`（擁有者的代理用同步金鑰代替 App Check；選用的 `STUDIO_GITHUB_REPO` 讓某個 repo 的協作者用自己的 GitHub 權杖代替金鑰，見 studio-work.md）要 Secret `STUDIO_KEY`（`functions:secrets:set STUDIO_KEY`；沒設定時整個 `functions:climbio` 部署會失敗）。只要同步服務的人只部署它：`--only functions:climbio:studioSync`，見 [studio-work.md](studio-work.md) 的「同步」。
-  - `holdkit`（`holdkit/functions`，重描 `retrace`）：`npm install --prefix holdkit/functions && npx firebase-tools deploy --only functions:holdkit --project web`。部署後對函式網址送 POST 要回 401。
+  - `holdkit/functions`（重描 `retrace` 的雲端版）：Climbio 自己沒有部署（重描全在手機上算，已刪除雲端函式）；自架要用的人照 `holdkit/README.md`，不在 `firebase.json` 裡。
 - 網站、規則、雲端函式各自部署；同一個專案的開發站和正式站共用規則與函式。
 
 ## 防濫用
@@ -58,4 +58,13 @@ curl -X PATCH -H "Authorization: Bearer $(gcloud auth print-access-token)" -H "x
 1. Google Cloud 控制台 → Security → reCAPTCHA 建立網頁金鑰（計分型），網域填自己的網域、`localhost`、`127.0.0.1`；Firebase 控制台 → App Check 選 reCAPTCHA Enterprise，填這把金鑰。
 2. 金鑰填進 `backend/firebase.js` 的 `APP_CHECK_KEY`，確認分享、收線、同步都正常。
 3. App Check 的「指標」裡已驗證的請求接近 100% 後，Cloud Firestore、Cloud Storage 各按「強制執行」。還沒更新的舊版 App 會被擋，要等大家換到新版。
-4. 花錢的雲端函式（重描 `retrace`）一律檢查 App Check 權杖（標頭 `X-Firebase-AppCheck`），沒有就回 401；再按網路來源限流：每個來源每天 30 次（一間岩館一天），超額回 429。沒設 App Check 的後端用不了這個函式。先部署能取得權杖的 App 版本，再開啟函式強制驗證。
+4. 花錢的雲端函式（自架的重描 `retrace`）一律檢查 App Check 權杖（標頭 `X-Firebase-AppCheck`），沒有就回 401；再按網路來源限流：每個來源每天 30 次（一間岩館一天），超額回 429。沒設 App Check 的後端用不了這個函式。先部署能取得權杖的 App 版本，再開啟函式強制驗證。
+
+## Hosting 的快取標頭（踩過的坑）
+
+- 要「每次都問伺服器有沒有新的」的檔案（HTML、JS、CSS、語言包）用 `Cache-Control: public, max-age=0, must-revalidate`，**不要用 `no-cache`**：Firebase Hosting 的 CDN 對標 `no-cache` 的檔案不回 304，每次重新驗證都整份重下載（Service Worker 預載整份檔案、每次部署都要重載一遍）。2026-11-24 用預覽頻道實測：`max-age=0`、`public, max-age=0, must-revalidate` 回 304，`no-cache`、`public, no-cache` 回 200。
+- 版本號只在 App 殼（`tools/app-version.mjs`）有變動時才換：改首頁、文件、各語言網頁的部署，`version.js` 不變，使用者不會更新。
+
+## 排程
+
+只有一個排程函式 `daily`（每天 04:30 台北時間，`functions/index.js`）：依序清附近交換的過期資料、下架 90 天沒動靜的公開牆、補寫紅點貓 index、更新資料集的目錄路線數與 `stats.json`；一步失敗不擋後面的，最後有失敗就標失敗。預算通知 `budgetGuard` 是 Pub/Sub 事件，不是排程。
