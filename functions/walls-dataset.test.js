@@ -1,6 +1,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { createHandler, createHf, checkFiles, baseUrl } = require('./walls-dataset');
+const crypto = require('node:crypto');
+const { kidOf } = require('./device-key');
 
 const WID = 'abcdefgh12345678', PID = 'pid0000000000001';
 const JPG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]).toString('base64');
@@ -214,4 +216,50 @@ test('牆發佈的內嵌頁（source: embed）跟 Studio 一樣能發佈', async
   const s = setup();
   const r = await s.call(body({ source: 'embed' }));
   assert.deepEqual([r.statusCode, r.data.version], [200, 1]);
+});
+
+// ---- agent 發佈：岩館金鑰簽章（不要 App Check）----
+const b64u = buf => Buffer.from(buf).toString('base64url');
+function agentKey() {
+  const { privateKey, publicKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' }), jwk = publicKey.export({ format: 'jwk' });
+  return { privateKey, pub: { kty: 'EC', crv: 'P-256', x: jwk.x, y: jwk.y }, kid: kidOf(jwk) };
+}
+/** 簽這次發佈（簽的訊息跟 device-key.js 一樣：[op, 牆 id, ts, nonce, [檔案雜湊], []]） */
+function signed(key, b, { ts = 2e12, nonce = 'nonce' + Math.random().toString(36).slice(2, 10) } = {}) {
+  const sha = x => crypto.createHash('sha256').update(x).digest('hex');
+  const sig = sha(b.files.map(f => `${f.path}:${sha(Buffer.from(f.b64, 'base64'))}`).sort().join('\n'));
+  const msg = JSON.stringify(['publishWall', b.id, ts, nonce, [sig], []]);
+  return { ...b, source: 'agent', auth: { kid: key.kid, pub: key.pub, ts, nonce, sig: b64u(crypto.sign('sha256', Buffer.from(msg), { key: key.privateKey, dsaEncoding: 'ieee-p1363' })) } };
+}
+
+test('agent 發佈：金鑰簽章對了就發佈，版本記下金鑰（commit 與文件），同一面牆再發是新版本', async () => {
+  const s = setup(), key = agentKey();
+  const r = await s.call(signed(key, body()));
+  assert.deepEqual([r.statusCode, r.data.version], [200, 1]);
+  assert.match(s.commits[0].summary, new RegExp(`金鑰 ${key.kid.slice(0, 8)}`));
+  assert.equal(s.docs.get(`datasets/${WID}`).kid, key.kid);
+  const r2 = await s.call(signed(key, body({ files: files(view(3)) })));
+  assert.deepEqual([r2.statusCode, r2.data.version], [200, 2]);
+});
+
+test('agent 發佈：簽章錯、內容被改、重放、時間差太多、沒簽章都拒絕', async () => {
+  const s = setup(), key = agentKey(), other = agentKey();
+  const ok = signed(key, body());
+  assert.equal((await s.call({ ...ok, auth: { ...ok.auth, sig: signed(other, body()).auth.sig } })).statusCode, 401);   // 別把金鑰的簽章
+  assert.equal((await s.call({ ...ok, files: files(view(5)) })).statusCode, 401);   // 簽完改了內容
+  assert.equal((await s.call({ ...body(), source: 'agent' })).statusCode, 401);   // 沒簽章
+  assert.equal((await s.call(signed(key, body(), { ts: 2e12 - 3600e3 }))).data.error, 'stale');
+  assert.equal((await s.call(ok)).statusCode, 200);
+  assert.equal((await s.call(ok)).statusCode, 401);   // 同一個簽章不能再用
+  assert.equal(s.commits.length, 1);
+});
+
+test('agent 發佈：被封鎖的金鑰 403；每把金鑰每天也有上限（換 IP 也一樣）', async () => {
+  const s = setup(), blocked = agentKey(), key = agentKey();
+  s.docs.set(`deviceKeys/${blocked.kid}`, { blocked: true });
+  assert.equal((await s.call(signed(blocked, body()))).statusCode, 403);
+  const wall = i => body({ id: `aaaaaaaaaaaaaa${String(i).padStart(2, '0')}` });   // 每次一面新牆
+  for (let i = 0; i < 30; i++) assert.equal((await s.call(signed(key, wall(i)), `9.9.${i}.1`)).statusCode, 200, `第 ${i + 1} 次`);
+  const r = await s.call(signed(key, wall(30)), '8.8.8.8');
+  assert.deepEqual([r.statusCode, r.data.error], [429, 'daily limit']);
 });

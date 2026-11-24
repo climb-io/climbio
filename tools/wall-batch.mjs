@@ -20,6 +20,7 @@
 //   node tools/wall-batch.mjs resolve <工作資料夾> <牆>:<題 id 或 sam:<岩點 id>> <ok|rm1|rm2|merge|keep|sam> --by human:<名稱> --said "<人的原話>"
 //                                                             記下人的判斷（會先照判斷改岩點）；<牆>:publish 是「要不要公開發佈」，答 ok 才記，這個指令不發佈
 //   node tools/wall-batch.mjs zip <工作資料夾> --gym "<岩館名稱>"   通過 verify 的牆打成一個 <工作資料夾>/walls.zip（每面牆一個資料夾，畫面帶岩館名稱），交給岩館 App 後台的「牆發佈」內嵌頁
+//   node tools/wall-batch.mjs publish <工作資料夾> --gym "<岩館名稱>" --key <岩館金鑰檔>   用岩館金鑰簽章，直接把通過 verify 的牆發佈到開放資料集（不經 ZIP）；同一面牆再發是新版本
 //   node tools/wall-batch.mjs status <工作資料夾>             每面牆做到哪
 //
 // 檢查分級（POLICY）：程式自己處理的（SAM2 沒旗標、重複岩點 IoU ≥ 0.70）→ 隨機抽查 → AI 看圖的（SAM2 候選對不上／分數低、其餘重複岩點）→ 只剩 AI 看不準的給人。
@@ -35,7 +36,7 @@ import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
 import AppKit from '../appkit/index.mjs';   // zip（牆發佈的 ZIP）用它的 ZIP 打包
 import { spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, createPrivateKey, randomBytes, sign as cryptoSign } from 'node:crypto';
 import { DELETE_REASONS, HOLD_RULES } from './hold-rubric.mjs';
 import { createRequire } from 'node:module';
 
@@ -829,30 +830,50 @@ function resolveOne() {
   console.log(`${n}：${decideOne(pack, view, q, choice, { by, said })}`);
 }
 
-// ---------- zip（交給牆發佈的內嵌頁）----------
-/** 通過 verify 的每面牆（<牆>/pack）打成一個 walls.zip：<牆>/<檔案>；岩館名稱寫進畫面的 props.gym（公開牆一定要有，由館主提供、不推測） */
-async function zipCmd() {
-  const work = rest[0], gym = (flag('--gym') || '').trim();
-  if (!work) fail('用法：node tools/wall-batch.mjs zip <工作資料夾> --gym "<岩館名稱>"');
+// ---------- zip、publish（交給牆發佈的內嵌頁，或岩館金鑰直接發佈）----------
+/** 通過 verify 的每面牆（<牆>/pack）的檔案；岩館名稱寫進畫面的 props.gym（公開牆一定要有，由館主提供、不推測）。回 [{ n, id, name, view, files: [{ path, bytes }] }] */
+function verifiedPacks(work, gym) {
+  if (!work) fail('用法：node tools/wall-batch.mjs zip|publish <工作資料夾> --gym "<岩館名稱>"');
   if (!gym || gym.length > 60) fail('要 --gym "<岩館名稱>"（最多 60 字）：岩館名稱由館主提供，不推測');
-  const walls = wallsOf(work), entries = [];
+  const walls = wallsOf(work);
   if (!walls.length) fail(`${work} 裡沒有牆（要先 run）`);
-  for (const n of walls) {
+  return walls.map((n) => {
     if (!existsSync(join(work, n, 'result.json'))) fail(`${n} 還沒通過 verify（沒有 result.json）：先 node tools/wall-batch.mjs next ${work}`);
-    const pack = packOf(work, n), view = viewOf(pack);
-    if (!view) fail(`${n}/pack 沒有牆的畫面`);
-    for (const f of readdirSync(pack).sort()) {
-      let bytes = readFileSync(join(pack, f));
-      if (f === `${view.id}.json`) bytes = Buffer.from(JSON.stringify({ ...view, props: { ...(view.props || {}), gym } }));
-      entries.push({ name: `${n}/${f}`, blob: new Blob([bytes]) });
-    }
-  }
+    const pack = packOf(work, n), view = viewOf(pack), index = readJson(join(pack, 'index.json'));
+    if (!view || !index) fail(`${n}/pack 沒有牆的畫面或 index.json`);
+    const files = readdirSync(pack).sort().map((path) => ({ path, bytes: path === `${view.id}.json` ? Buffer.from(JSON.stringify({ ...view, props: { ...(view.props || {}), gym } })) : readFileSync(join(pack, path)) }));
+    return { n, id: index.id, name: typeof index.name === 'string' ? index.name : Object.values(index.name || {})[0] || n, view, files };
+  });
+}
+/** zip：打成一個 walls.zip（每面牆一個資料夾），交給岩館 App 後台的「牆發佈」內嵌頁（照片或 ZIP 都收） */
+async function zipCmd() {
+  const work = rest[0], packs = verifiedPacks(work, (flag('--gym') || '').trim());
   const out = join(work, 'walls.zip');
-  writeFileSync(out, Buffer.from(await (await AppKit.files.zip(entries)).arrayBuffer()));
-  console.log(`已打包 ${walls.length} 面牆（岩館「${gym}」）：${resolve(out)}
-下一步：把這個檔案交給岩館 App 後台的「牆發佈」內嵌頁（館主同意公開後按發佈，見 docs/gym-onboarding.md）。公開收不回，發佈前要有館主明確同意。`);
+  writeFileSync(out, Buffer.from(await (await AppKit.files.zip(packs.flatMap((p) => p.files.map((f) => ({ name: `${p.n}/${f.path}`, blob: new Blob([f.bytes]) }))))).arrayBuffer()));
+  console.log(`已打包 ${packs.length} 面牆：${resolve(out)}\n下一步：把這個檔案交給岩館 App 後台的「牆發佈」內嵌頁，工作人員丟進去按發佈（見 docs/gym-onboarding.md）。`);
+}
+/** publish：用岩館金鑰（node tools/wall-routes.mjs keygen <檔>）簽章，直接把通過 verify 的牆發佈到開放資料集（不經過 ZIP 和內嵌頁）；同一面牆再發佈是新版本 */
+async function publishCmd() {
+  const work = rest[0], keyFile = flag('--key'), gym = (flag('--gym') || '').trim();
+  if (!keyFile) fail('用法：node tools/wall-batch.mjs publish <工作資料夾> --gym "<岩館名稱>" --key <岩館金鑰檔>（金鑰用 node tools/wall-routes.mjs keygen <檔> 產生，存在版控外、備份）');
+  const k = readJson(keyFile) || fail(`讀不到金鑰檔 ${keyFile}`), packs = verifiedPacks(work, gym);
+  const { message } = require('../functions/device-key.js'), url = process.env.CLIMBIO_PUBLISH_URL || 'https://asia-east1-firebase-climbio.cloudfunctions.net/datasets';
+  const sha = (b) => createHash('sha256').update(b).digest('hex');
+  for (const p of packs) {
+    const content = sha(p.files.map((f) => `${f.path}:${sha(f.bytes)}`).sort().join('\n'));   // 簽的是這次發佈的內容（伺服器用同一個算法驗）
+    const post = async (skew = 0) => {
+      const auth = { kid: k.kid, pub: k.pub, ts: Date.now() + skew, nonce: randomBytes(12).toString('base64url') };
+      auth.sig = cryptoSign('sha256', Buffer.from(message('publishWall', { pid: p.id, auth, routes: [content] })), { key: createPrivateKey({ key: k.priv, format: 'jwk' }), dsaEncoding: 'ieee-p1363' }).toString('base64url');
+      return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(120_000),
+        body: JSON.stringify({ op: 'publishWall', source: 'agent', id: p.id, name: p.name, gym, licenseAccepted: true, files: p.files.map((f) => ({ path: f.path, b64: f.bytes.toString('base64') })), auth }) });
+    };
+    let r = await post(), j = await r.json().catch(() => ({}));
+    if (!r.ok && j.error === 'stale' && Number.isFinite(j.now)) { r = await post(j.now - Date.now()); j = await r.json().catch(() => ({})); }   // 電腦時鐘差太多：照伺服器的時間重簽一次
+    if (!r.ok) fail(`${p.n}：發佈失敗（HTTP ${r.status}）${j.error || ''}`);
+    console.log(`${p.n}：已公開「${p.name}」第 ${j.version} 版　wallId ${p.id}/${p.view.id}　${j.base || ''}${j.same ? '（跟現行版一樣，沒有新版本）' : ''}`);
+  }
 }
 
-const table = { run, check, recheck, shapes: shapesCmd, shapecheck: shapecheckCmd, onvolume: onvolumeCmd, apply, verify, reviewed: reviewedCmd, review, zip: zipCmd, status, next, resolve: resolveOne };
-if (!table[cmd]) fail('用法：node tools/wall-batch.mjs next|run|check|recheck|shapes|shapecheck|apply|verify|review|zip|resolve|status …（不知道做什麼先跑 next；說明在檔案開頭）');
+const table = { run, check, recheck, shapes: shapesCmd, shapecheck: shapecheckCmd, onvolume: onvolumeCmd, apply, verify, reviewed: reviewedCmd, review, zip: zipCmd, publish: publishCmd, status, next, resolve: resolveOne };
+if (!table[cmd]) fail('用法：node tools/wall-batch.mjs next|run|check|recheck|shapes|shapecheck|apply|verify|review|zip|publish|resolve|status …（不知道做什麼先跑 next；說明在檔案開頭）');
 await table[cmd]();

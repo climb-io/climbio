@@ -11,6 +11,7 @@
 const { createHash } = require('node:crypto');
 const { checkVersion } = require('./wall-check');
 const { clientIp } = require('./client-ip');
+const { verifyRequest } = require('./device-key');
 
 const REPO = 'climbio/walls', ID = /^[0-9a-z]{16}$/, NAME = '[0-9a-z]{8,40}', DAILY = 30;
 const MAX = { photo: 8e6, thumb: 1e6, json: 4e6, edits: 4e6, total: 20e6 }, MAX_FILES = 20;
@@ -143,14 +144,16 @@ function createHf({ token, repo = REPO, get = fetch }) {
 }
 
 // refreshGyms(包 id)：發佈後重算用到這個包的岩館公開牆清單（gym-walls.js），清單才指到新的現行版
-function createHandler({ db, hf, now = Date.now, refreshGyms = null }) {
+function createHandler({ db, hf, now = Date.now, refreshGyms = null, verify = verifyRequest }) {   // verify：驗岩館金鑰的簽章（測試可換）
   const wall = id => db.collection('datasets').doc(id);
   // 不認人（docs/proposals/open-versions.md）：不登入、不記 owner；額度按網路來源；內容由 wall-check.js 驗證
   const keyOf = req => `ip${sha(clientIp(req)).slice(0, 16)}`;
   const ops = {
     async publishWall(body, req) {
-      // 公開牆只由 Climbio Studio 或牆發佈的內嵌頁（embed/wallpublish）發佈；岩點貓 App 不上傳牆（舊版 App 沒帶標記，在這裡擋掉）。標記不是驗證（這裡不認人），只讓 App 不能意外把牆傳上來
-      if (body.source !== 'studio' && body.source !== 'embed') throw fail(400, 'studio only');
+      // 公開牆只由 Climbio Studio、牆發佈的內嵌頁（embed/wallpublish）或岩館的 Agent（source: agent，岩館金鑰簽章）發佈；岩點貓 App 不上傳牆（舊版 App 沒帶標記，在這裡擋掉）。
+      // 標記不是驗證（這裡不認人），只讓 App 不能意外把牆傳上來。studio、embed 的寫入權杖（App Check）在 datasets 入口驗；agent 沒有網頁拿不到權杖，改在下面驗簽章
+      const agent = body.source === 'agent';
+      if (body.source !== 'studio' && body.source !== 'embed' && !agent) throw fail(400, 'studio only');
       if (!ID.test(body.id || '')) throw fail(400, 'bad id');
       const name = String(body.name || '').trim();
       if (!name || name.length > 80) throw fail(400, 'bad name');
@@ -159,6 +162,14 @@ function createHandler({ db, hf, now = Date.now, refreshGyms = null }) {
       if (!gym || gym.length > 60) throw fail(400, 'bad gym');   // Studio 發佈的公開牆一定有岩館名稱
       const files = checkFiles(body.files), old = await wall(body.id).get();
       const sig = sha(files.map(f => `${f.path}:${sha(f.bytes)}`).sort().join('\n'));
+      // agent：簽章綁這次發佈的內容（牆 id、檔案雜湊、時間、亂數），金鑰是岩館自己產生的（wall-routes.mjs keygen），不是註冊過的身分：
+      // 只讓版本留下 kid（出事時追得到、可封鎖 deviceKeys/{kid}.blocked）並按金鑰限額；擋濫用靠額度和內容驗證，跟其他來源一樣
+      let kid = '';
+      if (agent) {
+        kid = verify('publishWall', { pid: body.id, auth: body.auth, routes: [sig] }, now());
+        const k = await db.collection('deviceKeys').doc(kid).get();
+        if (k.exists && k.get('blocked')) throw fail(403, 'blocked');
+      }
       if (old.exists && old.get('sig') === sig) { const v = old.get('version'); return { id: body.id, version: v, base: baseUrl(body.id, v), same: true }; }   // 跟現行版一樣：不寫新版本
       // 內容驗證：外框合理、不少掉前一版的岩點、尺寸不變、變動不超過 30%；前一版的畫面從資料集讀
       const viewFile = files.find(f => f.kind === 'json' && f.path !== 'index.json' && (() => { try { return JSON.parse(f.bytes).kind === 'view'; } catch (e) { return false; } })());
@@ -173,6 +184,8 @@ function createHandler({ db, hf, now = Date.now, refreshGyms = null }) {
       checkVersion(JSON.parse(viewFile.bytes), prev);
       const qref = db.collection('publishQuota').doc(`${keyOf(req)}_dataset_${dayKey(now())}`), q = await qref.get();
       if ((q.exists ? q.get('n') : 0) >= DAILY) throw fail(429, 'daily limit');
+      const kref = kid && db.collection('publishQuota').doc(`${kid}_dataset_${dayKey(now())}`), kq = kid ? await kref.get() : null;
+      if (kq && (kq.exists ? kq.get('n') : 0) >= DAILY) throw fail(429, 'daily limit');   // 每把金鑰每天也有上限
       const version = latest + 1, t = now(), dir = `walls/${body.id}/v${version}/`;
       const row = rowOf({ id: body.id, name, gym, version, t, files }), idx = await hf.read(INDEX), keep = idx && idx.split('\n').filter(Boolean).map(l => JSON.parse(l)).find(r => r.id === body.id);
       if (keep) row.routes = keep.routes || 0;
@@ -180,11 +193,12 @@ function createHandler({ db, hf, now = Date.now, refreshGyms = null }) {
       // 沒有檢查過的版本照樣存成新版本（用固定網址指到它），但新版本沒檢查過、現行版檢查過，或照片換了，現行版不換
       const reviewed = !!row.edits?.reviewed, photoSame = !old.get('photoSha') || old.get('photoSha') === row.photoSha256,   // 跟現行版的照片比（舊資料沒有指紋就不擋）
          becomes = photoSame && (reviewed || !old.get('reviewed'));
-      await hf.commit(`公開 ${body.id} v${version}`, [...files.map(f => ({ path: dir + f.path, bytes: f.bytes })), { path: INDEX, bytes: Buffer.from(upsertRow(idx, row)) }, ...(becomes ? currentCopies(body.id, files) : [])]);
+      await hf.commit(`公開 ${body.id} v${version}${kid ? `（金鑰 ${kid.slice(0, 8)}）` : ''}`, [...files.map(f => ({ path: dir + f.path, bytes: f.bytes })), { path: INDEX, bytes: Buffer.from(upsertRow(idx, row)) }, ...(becomes ? currentCopies(body.id, files) : [])]);
       // 留名不留權：歷代署名（畫面的 attribution）沿版本保留，不重複
       const credits = [...new Set([...(old.get('credits') || []), String(JSON.parse(viewFile.bytes).attribution || '')])].filter(Boolean).slice(-20);
-      await wall(body.id).set({ owner: '', type: 'walls', name, latest: version, credits, ...(becomes ? { version, at: t, files: files.map(f => f.path), sig, reviewed, photoSha: row.photoSha256 } : { version: old.get('version'), at: old.get('at'), files: old.get('files'), sig: old.get('sig'), reviewed: !!old.get('reviewed'), photoSha: old.get('photoSha') || '' }) });
+      await wall(body.id).set({ owner: '', type: 'walls', name, latest: version, credits, ...(kid ? { kid } : {}), ...(becomes ? { version, at: t, files: files.map(f => f.path), sig, reviewed, photoSha: row.photoSha256 } : { version: old.get('version'), at: old.get('at'), files: old.get('files'), sig: old.get('sig'), reviewed: !!old.get('reviewed'), photoSha: old.get('photoSha') || '' }) });
       await qref.set({ n: (q.exists ? q.get('n') : 0) + 1, at: t });
+      if (kref) await kref.set({ n: (kq.exists ? kq.get('n') : 0) + 1, at: t });
       if (refreshGyms) try { await refreshGyms(body.id); } catch (e) { console.error('gym list refresh', body.id, e); }   // 發佈已成功；清單沒更新由日誌查，下次發佈或牆面變動會重算
       return { id: body.id, version, current: becomes ? version : old.get('version'), base: baseUrl(body.id, version) };
     },

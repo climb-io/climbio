@@ -63,9 +63,11 @@ const wallsDataHandler = wallsDatasetHandler({ db: wallsDb, hf: createHf({ token
   } });
 exports.datasets = onRequest({ region: 'asia-east1', invoker: 'public', cors: ORIGINS, memory: '512MiB', maxInstances: 3, timeoutSeconds: 120, secrets: [HF_TOKEN, STUDIO_KEY] },
   whenUploadsOn(wallsDb, async (req, res) => {
-    // 會寫入的 op（準備上傳、發佈）要 App Check 權杖，或擁有者的同步金鑰（代理用）；files 是公開的唯讀查詢
+    // 會寫入的 op（準備上傳、發佈）要 App Check 權杖，或擁有者的同步金鑰（代理用），或（公開牆的 agent 發佈）岩館金鑰的簽章；files 是公開的唯讀查詢
     const op = req.body && req.body.op;
-    if (req.method === 'POST' && op !== 'files' && !(await ownerKey(req)) && !(await appChecked(req))) return res.status(401).json({ error: 'app check' });
+    // 公開牆的 agent 發佈（source: agent）沒有網頁、拿不到權杖：改驗岩館金鑰的簽章（walls-dataset.js 的 publishWall，驗不過就拒絕）
+    const signed = op === 'publishWall' && !!req.body && req.body.source === 'agent' && !!req.body.auth;
+    if (req.method === 'POST' && op !== 'files' && !signed && !(await ownerKey(req)) && !(await appChecked(req))) return res.status(401).json({ error: 'app check' });
     return (op === 'publishWall' ? wallsDataHandler : cragsHandler)(req, res);
   }));
 // 分享連結的預覽頁：/r/{照片編號}/{路線 id}/、/r/{照片編號}/、/p/{專案 id}（firebase.json 的 Hosting rewrites 轉過來，見 route-page.js）；只讀資料集，不查資料庫

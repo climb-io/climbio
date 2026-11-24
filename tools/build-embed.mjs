@@ -14,9 +14,12 @@ export const KITS = {
     ['embed/shared/embed.js', 'embed.js'],
     ['routekit/LICENSE', 'LICENSE'], ['routekit/NOTICE', 'NOTICE'],
   ],
-  // 牆發佈：收牆的 ZIP、驗格式、發佈（解 ZIP 用 appkit 的 files.js）
+  // 牆發佈：照片 → 在瀏覽器偵測岩點（holdscan 的 Worker 用相對路徑載入 ../../holdkit/ort.js、../core/detect-core.js，所以保留資料夾結構）→ 打包成牆 → 發佈；
+  // 也收精修後的 walls.zip（解 ZIP 用 appkit 的 files.js）
   wallpublish: [
-    ['format/format.js', 'format.js'], ['appkit/files.js', 'files.js'], ['embed/shared/embed.js', 'embed.js'],
+    ['format/format.js', 'format.js'], ['appkit/files.js', 'files.js'], ['appkit/photo.js', 'photo.js'], ['routekit/format.js', 'routekit-format.js'], ['embed/shared/embed.js', 'embed.js'],
+    ['holdkit/holdkit.js', 'holdkit/holdkit.js'], ['holdkit/ort.js', 'holdkit/ort.js'],
+    ['holdscan/browser/holdscan.js', 'holdscan/browser/holdscan.js'], ['holdscan/browser/worker.js', 'holdscan/browser/worker.js'], ['holdscan/core/detect-core.js', 'holdscan/core/detect-core.js'],
     ['LICENSE', 'LICENSE'], ['NOTICE', 'NOTICE'],
   ],
 };

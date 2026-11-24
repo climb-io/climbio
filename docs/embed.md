@@ -31,17 +31,19 @@ Climbio 只放牆面與路線；岩館 App 裡的使用者怎麼對應到路線�
    - 換了照片（重拍）：當成新的一面牆，用新的牆 id；App 的 `init` 換成新牆的網址，舊牆的路線不會自動搬過去。
    - 想固定在某一版：`init` 的網址用那一版的網址（`…/walls/<包 id>/v<版本>/…`），要升級再改網址。
 
-## 牆發佈內嵌頁（放在岩館 App 的後台，讓工作人員發佈牆面）
+## 牆發佈內嵌頁（放在岩館 App 的後台：上傳一張牆面照片就得到一面牆）
 
-岩館的 AI Agent 在本機把牆面處理好（[gym-onboarding.md](gym-onboarding.md)）、打包成一個 ZIP，工作人員在**自己的後台**丟進這個 iframe，不必另外跑到 Studio：
+工作人員像更新原本的照片一樣，在**自己的後台**上傳牆面照片，不必跑到 Studio：
 
 ```html
-<iframe id="wp" src="https://embed.climbio.app/wallpublish/v1/?lang=zh-Hant" style="width:100%;height:520px;border:0" title="發佈牆面"></iframe>
+<iframe id="wp" src="https://embed.climbio.app/wallpublish/v1/?lang=zh-Hant" style="width:100%;height:560px;border:0" title="牆面照片"></iframe>
 ```
 
-- 流程：丟 ZIP（`node tools/wall-batch.mjs zip <工作資料夾> --gym "<岩館名稱>"` 產生，通過 `verify` 的牆才能打包）→ 預覽（牆名、岩館、是否通過 AI 檢查）→ 勾選同意（公開收不回、CC BY-SA 4.0、署名）→ 按發佈。同意是人按的，Agent 不能代按。
-- 訊息：外層先註冊 `message` 監聽，收到 `ready` 回 `init { lang }`；發佈成功收到 `published { walls: [{ id, name, version, current, base }] }`，失敗或 ZIP 不合格收到 `error { message, status? }`。型別以 [wallpublish/v1/messages.d.ts](../embed/wallpublish/v1/messages.d.ts) 為準。
-- **鎖定版本**：人人都能發新版本，岩館 App 只要把路線內嵌頁的 `init` 網址換成 `published` 回的那一版（`…/walls/<包 id>/v<版本>/…`）就鎖住了，別人再發新版本不影響它；要升級再換網址。不需要認領、來源綁定或金鑰。
+- 流程：選一張照片（正對牆面、整面入鏡、光線均勻）→ 在這個瀏覽器裡偵測岩點（跟岩點貓新增牆面同一套，第一次要下載約 12 MB 的偵測模型，之後快取）→ 看預覽 → 填牆名稱 → 按發佈。沒有額外的同意步驟；授權就是本文件開頭說的：牆面與路線公開在開放資料集，CC BY-SA 4.0，署名。
+- 訊息：外層先註冊 `message` 監聽，收到 `ready` 回 `init { lang?, gym?, name? }`（`gym` 有給就不顯示岩館欄位）；發佈成功收到 `published { walls: [{ id, wallId, name, version, current, base }] }`，失敗或檔案不合格收到 `error { message, status? }`。型別以 [wallpublish/v1/messages.d.ts](../embed/wallpublish/v1/messages.d.ts) 為準。
+- **`wallId` 就是路線內嵌頁 `init` 的 `wallId`**：App 把它存在原本放牆面照片的地方。換新照片 = 新的一面牆，換新的 `wallId`，舊牆和它的路線不動。
+- **鎖定版本**：人人都能發新版本，要固定在某一版，路線內嵌頁的 `init` 改給那一版的網址（`…/walls/<包 id>/v<版本>/…`，`published` 的 `base` 就是這個資料夾的網址）；別人再發新版本不影響。不需要認領、來源綁定或金鑰。
+- **精修（選用）**：想要逐顆更準，岩館的 AI Agent 照 Studio 的流程精修（[gym-onboarding.md](gym-onboarding.md)），用岩館金鑰簽章直接發佈（`node tools/wall-batch.mjs publish <工作資料夾> --gym "<岩館>" --key <金鑰檔>`），不經過這個內嵌頁；也可以 `zip` 打包成 `walls.zip` 丟進這個框（照片或 ZIP 都收）。
 - 不認人：不記擁有者、不綁網站，檢查與額度跟 Studio 發佈相同（內容驗證、每個來源每天最多 30 次）。身分是 Climbio 的網頁（App Check），所以要在 `embed.climbio.app` 上用，自己託管的內嵌頁拿不到權杖。
 
 ## 資料來源（內嵌頁只收這幾種網址）
