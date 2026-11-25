@@ -11,14 +11,17 @@
 <link rel="icon" href="../../icons/brand/favicon-64.png">
 <link rel="stylesheet" href="../../css/brand-tokens.css">
 <link rel="stylesheet" href="../../appkit/ui.css">
+<link rel="stylesheet" href="../../arkit/view.css">
 <link rel="stylesheet" href="./style.css">
-<script src="./geometry.js"></script>
 <link rel="modulepreload" href="./app.js">
-<link rel="modulepreload" href="./tracking-log.js">
-<link rel="modulepreload" href="../../3d/source/holds-3d-camera-view.js">
+<link rel="modulepreload" href="../../arkit/view.js">
+<link rel="modulepreload" href="../../arkit/geometry.js">
+<link rel="modulepreload" href="../../arkit/tracking-log.js">
+<link rel="modulepreload" href="../../arkit/overlay.js">
+<link rel="modulepreload" href="../../arkit/camera.js">
 <script type="module" src="./app.js"></script>
 </head>
-<body data-tools="closed" data-running="false" data-located="false">
+<body data-arkit data-tools="closed" data-running="false" data-located="false">
 <button id="tools-toggle" type="button" aria-expanded="false" aria-controls="controls-header controls-footer">工具</button>
 <header id="controls-header">
   <strong>2D 相機追蹤</strong>
@@ -31,6 +34,7 @@
   <video id="live-video" muted playsinline autoplay></video>
   <canvas id="live-preview"></canvas>
   <canvas id="overlay-canvas"></canvas>
+  <div id="ar-reticle" aria-hidden="true"><i></i><i></i><i></i><i></i><b></b></div>
   <div id="hud">
     <span id="status" role="status" aria-live="polite">載入牆面資料…</span>
     <span><b id="fps">—</b> <b id="hz">—</b> <b id="latency">—</b> <b id="inliers">—</b></span>

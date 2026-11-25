@@ -1,16 +1,15 @@
 // 產生 2D 牆相機追蹤比對資料（climbio-2d-tracking-camera/1）與 manifest.json（climbio-2d-tracking/1）。
-// 使用與瀏覽器端完全相同的 OpenCV 4.10.0 WASM 與 wall2d-worker.js 萃取 AKAZE 特徵（不含影像）。
+// 使用與瀏覽器端完全相同的 OpenCV 4.10.0 WASM 與 arkit/tracker-worker.js 萃取 AKAZE 特徵（不含影像）。
 // 用法：node tools/build-wall2d-camera.mjs
 import { createHash } from 'node:crypto';
 import { createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import { extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createRequire } from 'node:module';
 import { chromium } from 'playwright';
 
-const require = createRequire(import.meta.url);
-const G = require('../lab/wall2d-cam/geometry.js');
+await import('../arkit/geometry.js');   // ArKit 的幾何（ES module，掛在全域 ArKitGeometry）
+const G = globalThis.ArKitGeometry;
 
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const OUT_DIR = join(ROOT, 'lab/wall2d-cam');
@@ -64,7 +63,7 @@ window.buildCameraFromUrl = async (photoUrl, wallId, name, longSide, wallW, wall
   for (let i = 0, j = 0; i < gray.length; i++, j += 4) {
     gray[i] = Math.round(0.299 * rgba[j] + 0.587 * rgba[j + 1] + 0.114 * rgba[j + 2]);
   }
-  const worker = new Worker('/lab/wall2d-cam/wall2d-worker.js');
+  const worker = new Worker('/arkit/tracker-worker.js');
   return new Promise((resolve, reject) => {
     worker.onerror = (e) => reject(new Error(e.message || 'Worker 錯誤'));
     worker.onmessage = ({ data }) => {

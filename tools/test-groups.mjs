@@ -21,13 +21,13 @@ export const PRODUCTS = {
   },
   studio: {
     label: 'Climbio Studio（/studio/）：Crag、轉換路線書、發佈',
-    unit: [u('author.*|studio-modes|studio-work|studio-scene|studio-wall-cli|studio-wall-report|studio-lab-reports|studio-handoff|dataset-publish|studio-start')],
+    unit: [u('author.*|studio-modes|studio-work|studio-scene|studio-wall-cli|studio-wall-report|wall-report|wall-republish|studio-lab-reports|studio-handoff|dataset-publish|studio-start|wall-publish|wall-zip')],
     e2e: [e('author|author-(publish|routes|topo)|studio-scene|wall-phone|phone-landing')],
   },
   kits: {
     label: '開源元件（format、routekit、topokit、mapkit 的資料格式、Viewer、Editor）',
     unit: [u('kit-packages|kit-pages|embed|format|format-placement|route-.+|foot-label|sequence-label|topokit-render|wall-files')],
-    e2e: [e('routekit|embed|topokit|mapkit|topokit-demo|mapkit-demo|kit-external|holdscan-external')],
+    e2e: [e('routekit|embed|wall-publish|topokit|mapkit|topokit-demo|mapkit-demo|kit-external|holdscan-external')],
   },
   shared: {
     label: '共用層（appkit、站台設定、登入、品牌）與跨產品的入口、同步',
@@ -41,7 +41,7 @@ export const PRODUCTS = {
   },
   tooling: {
     label: '開發工具：交付、部署、測試執行器、改名、版本',
-    unit: [u('delivery|deploy-current|deploy-verified|e2e-runner|iphone|issue|stamp-assets|rebrand|test-groups|public-boundary')],
+    unit: [u('delivery|deploy-current|deploy-verified|e2e-runner|iphone|issue|stamp-assets|rebrand|test-groups|public-boundary|app-version')],
     e2e: [e('boot-smoke')],
   },
   wall3d: {

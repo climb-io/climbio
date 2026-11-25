@@ -289,7 +289,7 @@
     let x0, y0, x1, y1, cx, cy, g;
     if (point) {
       [cx, cy] = point; x0 = x1 = cx; y0 = y1 = cy;
-      g = Math.max(w, h) * 0.15;   // 一個點：岩點多大不知道，找附近長邊 15% 的範圍（大顆的量體也夠）
+      g = Math.max(w, h) * 0.15;   // 一個點：岩點多大不知道，找附近長邊 15% 的範圍（大顆的 Volume 也夠）
     } else {
       x0 = Infinity; y0 = Infinity; x1 = -Infinity; y1 = -Infinity; cx = 0; cy = 0;
       for (const [x, y] of poly) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); cx += x; cy += y; }

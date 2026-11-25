@@ -27,54 +27,71 @@
     box.append(steps, stage, cmpBox, legend, defn);
     const ctx = cv.getContext('2d');
 
-    let data = null, img = null, cur = 0, problems = false, reveal = 1, anim = 0, cursor = {}, view = { k: 1, x: 0, y: 0 }, token = 0;
-    const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let data = null, img = null, cur = 0, problems = false, cursor = {}, view = { k: 1, x: 0, y: 0 }, token = 0;
+    const prepared = new WeakMap();
     const bbox = ClimbioReport.bbox;
 
-    function message(t) { msg.hidden = !t; msg.textContent = t || ''; steps.hidden = cmpBox.hidden = legend.hidden = defn.hidden = tools.hidden = !!t; if (t) { data = null; ctx.clearRect(0, 0, cv.width, cv.height); } }
+    function message(t) { msg.hidden = !t; msg.textContent = t || ''; steps.hidden = cmpBox.hidden = legend.hidden = defn.hidden = tools.hidden = !!t; if (t) { ++token; data = null; img = null; ctx.clearRect(0, 0, cv.width, cv.height); } }
     async function show({ photo, w, h, stages }) {
-      const my = ++token;
       if (!stages || !stages.length) { message(T('rpNone')); return; }
       message(T('rpLoading'));
-      const url = typeof photo === 'string' ? photo : URL.createObjectURL(photo);
-      let im;
-      try { im = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = url; }); } catch (e) { if (my === token) message(T('rpFail')); return; }
-      finally { if (typeof photo !== 'string') setTimeout(() => URL.revokeObjectURL(url), 0); }
+      const my = ++token;
+      let cached = prepared.get(stages);
+      if (!cached || cached.photo !== photo || cached.w !== w || cached.h !== h) {
+        const url = typeof photo === 'string' ? photo : URL.createObjectURL(photo);
+        let im;
+        try { im = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = url; }); }
+        catch (e) { if (my === token) message(T('rpFail')); return; }
+        finally { if (typeof photo !== 'string') setTimeout(() => URL.revokeObjectURL(url), 0); }
+        if (my !== token) return;
+        await new Promise(r => setTimeout(r, 0));
+        if (my !== token) return;
+        cached = { photo, w, h, im, analyzed: ClimbioReport.analyze(stages, w, h) };
+        prepared.set(stages, cached);
+      }
       if (my !== token) return;
-      await new Promise(r => setTimeout(r, 0));   // 先讓「載入中」畫出來，比對要算一下
-      const analyzed = ClimbioReport.analyze(stages, w, h);
-      if (my !== token) return;
-      data = { w, h, stages: analyzed }; img = im;
+      data = { w, h, stages: cached.analyzed }; img = cached.im;
       message('');
       cv.height = Math.round(cv.width * h / w);
       problems = false; probB.setAttribute('aria-pressed', 'false'); view = { k: 1, x: 0, y: 0 };
-      fillSteps(); select(analyzed.length - 1, true);
+      fillSteps(); select(cached.analyzed.length - 1);
     }
 
     // ---- 步驟卡：每一步的數字；按了照片換成那一步 ----
-    // 步驟卡交給共用的報告框架（studio/report-frame.js）：自動的步驟寫每 100 顆的找到、外框貼、多認，最後一步寫人改了幾顆
+    // 步驟卡交給共用的報告框架（studio/report-frame.js）：自動的步驟寫找到率和實際顆數，最後一步寫參考總數與修改顆數
     function fillSteps() {
-      ClimbioReportFrame.steps(steps, data.stages.map(s => {
+      const last = data.stages[data.stages.length - 1], total = last.polys.length;
+      const deltaText = n => n ? ' (' + (n > 0 ? '+' : '') + n + ')' : '';
+      ClimbioReportFrame.steps(steps, data.stages.map((s, i) => {
         const name = T(NAME[s.id] || s.id);
         if (s.answer) {
           const c = s.counts, lines = [];
+          if (s.id === 'holdscan') lines.push({ text: T('rpUncorrected'), tone: 'warn' });
+          else if (s.reviewed === true && s.id === 'human') lines.push({ text: T('rpHumanDone') });
+          else if (s.reviewed === true && s.id === 'ai') lines.push({ text: T('rpAiDone') });
+          else if (s.reviewed === false) lines.push({ text: T('rpNotReviewed'), tone: 'warn' });
+          else lines.push({ text: T('rpReviewUnknown'), tone: 'warn' });
           if (c) lines.push({ text: T('rpChanged', c.edited, c.deleted, c.manual) });
-          if (s.reviewed === false) lines.push({ text: T('rpNotReviewed'), tone: 'warn' });
           return { name, value: s.polys.length, unit: T('rpHolds'), lines };
         }
-        const p = s.per100;
-        return { name, value: p.found, unit: T('rpFound'), lines: [{ text: T('rpSnug', p.ok) }, { text: T('rpFalse', p.extra), tone: p.extra ? 'bad' : '' }] };
+        const m = ClimbioReport.metrics(s, data.stages[i - 1], total);
+        if (!m) return { name, value: s.polys.length, unit: T('rpHolds'), lines: [{ text: T('rpNoReference'), tone: 'warn' }] };
+        return { name, where: T('rpFound'), value: m.found + '/' + total, unit: T('rpHolds') + ' (' + m.rate + '%)' + deltaText(m.delta.found), lines: [
+          { text: T('rpFalse', m.extra + ' ' + T('rpHolds')) + deltaText(m.delta.extra), tone: m.extra ? 'bad' : '' },
+          { text: T('rpSnug', m.ok + ' ' + T('rpHolds')) + deltaText(m.delta.ok) }
+        ] };
       }), { current: cur, onPick: i => select(i) });
-      defn.textContent = T('rpDefn', T(NAME[data.stages[data.stages.length - 1].id] || ''));
+      defn.textContent = data.stages.length === 1 || !total ? T('rpNoReference') :
+        T('rpDefn', T(NAME[last.id] || last.id)) + (data.stages.some(s => s.estimated) ? ' ' + T('rpEstimated') : '');
     }
-    function select(i, first) {
+    function select(i) {
       cur = i; cursor = {};
       const s = data.stages[i];
       ClimbioReportFrame.select(steps, i);
       cmpBox.hidden = i === 0 || problems;
       if (i > 0) { cmpL.textContent = T('rpLeft', T(NAME[data.stages[i - 1].id] || '')); cmpR.textContent = T('rpRight', T(NAME[s.id] || '')); cmp.value = 50; }
       exB.hidden = !examples().length; exB.textContent = T('rpExample');
-      paintLegend(); startReveal(first);
+      paintLegend(); draw();
     }
     function paintLegend() {
       const s = data.stages[cur];
@@ -122,7 +139,7 @@
       ctx.drawImage(img, view.x * img.width / data.w, view.y * img.height / data.h, img.width / view.k, img.height / view.k, 0, 0, cv.width, cv.height);
       ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.fillRect(0, 0, cv.width, cv.height);
       ctx.lineJoin = 'round';
-      const now = items(s, problems).sort((a, b) => a.y - b.y), shown = reveal * (now.length + 8);
+      const now = items(s, problems).sort((a, b) => a.y - b.y), shown = now.length + 8;
       if (problems) { strokeAll(now, sc, 'problems', shown); return; }
       if (cur > 0) {
         const x = cv.width * cmp.value / 100, prev = items(data.stages[cur - 1], false).sort((a, b) => a.y - b.y);
@@ -131,27 +148,23 @@
         ctx.fillStyle = '#fff'; ctx.fillRect(x - 1.5, 0, 3, cv.height);
       } else strokeAll(now, sc, 'plain', shown);
     }
-    // 岩點由上往下依序浮出來；減少動態效果時直接畫好
-    function startReveal(first) {
-      cancelAnimationFrame(anim);
-      if (reduced()) { reveal = 1; draw(); return; }
-      const t0 = performance.now(), dur = first ? 1200 : 800;
-      reveal = 0;
-      const tick = t => { reveal = Math.min(1, (t - t0) / dur); draw(); if (reveal < 1) anim = requestAnimationFrame(tick); };
-      anim = requestAnimationFrame(tick);
-    }
+    // 切換階段直接畫出全部外框，不加入固定延遲。
     function clamp() { view.x = Math.max(0, Math.min(data.w - data.w / view.k, view.x)); view.y = Math.max(0, Math.min(data.h - data.h / view.k, view.y)); }
     function zoomTo(b) {
       const w = Math.max(b[2] - b[0], 60) * 3.2, h = Math.max(b[3] - b[1], 60) * 3.2;
       const k = Math.min(8, Math.max(1, Math.min(data.w / w, data.h / h))), cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2;
-      view = { k, x: cx - data.w / k / 2, y: cy - data.h / k / 2 }; clamp(); reveal = 1; cancelAnimationFrame(anim); draw();
+      view = { k, x: cx - data.w / k / 2, y: cy - data.h / k / 2 }; clamp(); draw();
     }
     // 例子：這一步變好的岩點（前一步切掉、太大、多認，這一步可用），最後一步是人改過的
     function examples() {
       const s = data.stages[cur], prev = data.stages[cur - 1], list = [];
       if (s.answer) s.polys.forEach((p, i) => { if (s.kinds[i] === 'edited' || s.kinds[i] === 'manual') list.push(p); });
-      // 同一批岩點換外框（自動偵測 → 重描 → SAM2）才逐顆對得上
-      else if (prev && prev.polys.length === s.polys.length) s.polys.forEach((p, i) => { if (s.kinds[i] === 'ok' && prev.kinds[i] && prev.kinds[i] !== 'ok') list.push(p); });
+      // 用實際的 ID／參考配對追蹤變好的岩點，不假定相同陣列長度就代表同一顆。
+      else if (prev && prev.pairs && s.pairs) {
+        const before = new Map();
+        prev.pairs.forEach((m, i) => { if (m) before.set(m.j, prev.kinds[i]); });
+        s.polys.forEach((p, i) => { const m = s.pairs[i]; if (m && s.kinds[i] === 'ok' && before.has(m.j) && before.get(m.j) !== 'ok') list.push(p); });
+      }
       const ar = p => { const b = bbox(p); return (b[2] - b[0]) * (b[3] - b[1]); };
       return list.sort((a, b) => ar(b) - ar(a)).slice(0, 14);
     }

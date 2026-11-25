@@ -1,8 +1,8 @@
-// 相機看線（auto=1）：一開始就藏起開啟相機鈕與載入狀態，並於模組載入前先行請求相機串流，縮短黑畫面時間。
+// AR 看線（auto=1）：一開始就藏起開啟相機鈕與載入狀態，並於模組載入前先行請求相機串流，縮短黑畫面時間。
 const wall2dParams = new URLSearchParams(location.search);
 if (wall2dParams.get('auto') === '1') {
   document.documentElement.dataset.auto = '1';
-  document.documentElement.dataset.embed = '1';   // 岩點貓的相機看線：不顯示開發工具（出錯時 auto 會拿掉，這個不拿）
+  document.documentElement.dataset.embed = '1';   // 岩點貓的 AR 看線：不顯示開發工具（出錯時 auto 會拿掉，這個不拿）
   const absNow = () => performance.timeOrigin + performance.now();
   window.__wall2dBootAt = absNow();
   const vw = window.innerWidth;

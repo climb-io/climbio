@@ -41,46 +41,15 @@
 </head>
 <body class="reel-page">
 <main class="reel" tabindex="-1" aria-label="Climbio 攀岩故事">
-  <a class="reel-shortcut" href="#apps" aria-label="查看应用列表" title="查看应用列表"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></a>
-  <div class="reel-stage">
-    <article class="reel-frame hold-intro" id="hold-private" aria-labelledby="hold-private-title" data-title="岩点猫" data-active>
-      <img class="reel-photo" src="../demo/reel/nangang-wall.webp" alt="" fetchpriority="high" decoding="async">
-      <div class="reel-copy">
-        <h1 id="hold-private-title"><span class="reel-phrase">下次换你试</span><span class="reel-phrase">这两条</span></h1>
-        <p class="reel-desc"><span class="reel-sentence">爬完后想把刚定好的路线留下来</span><span class="reel-sentence"><span class="reel-phrase">拍下岩墙标记路线和岩点</span><span class="reel-phrase">下次来还能找到今天的线</span></span></p>
-        <a class="reel-app" href="../hold/"><img src="../icons/cats/hold-cat.svg" alt="" width="48" height="48">岩点猫</a>
-      </div>
-    </article>
-    <article class="reel-frame friend-intro" id="friend-exchange" aria-labelledby="friend-exchange-title" data-title="朋友互传" inert aria-hidden="true">
-      <img class="reel-photo" src="../demo/reel/wanhua-friends.webp" alt="" loading="lazy" decoding="async">
-      <div class="reel-copy">
-        <h2 id="friend-exchange-title"><span class="reel-phrase">我的路线</span><span class="reel-phrase">你也收一份</span></h2>
-        <p class="reel-desc"><span class="reel-sentence">刚定好的路线想让朋友也试试</span><span class="reel-sentence"><span class="reel-phrase">简单按一下就传给你</span><span class="reel-phrase">朋友收下就能在自己的设备上看</span></span></p>
-        <a class="reel-app" href="guides/friends.html"><img src="../icons/brand/friends-exchange.svg" alt="" width="48" height="48">朋友互传</a>
-      </div>
-    </article>
-    <article class="reel-frame collector-intro" id="redpoint-collect" aria-labelledby="redpoint-collect-title" data-title="红点猫收藏" inert aria-hidden="true">
-      <img class="reel-photo" src="../demo/reel/before-departure.webp" alt="" loading="lazy" decoding="async">
-      <div class="reel-copy">
-        <h2 id="redpoint-collect-title"><span class="reel-phrase">想爬的线</span><span class="reel-phrase">出门前先收藏</span></h2>
-        <p class="reel-desc"><span class="reel-sentence">下一趟攀岩旅行先做点功课</span><span class="reel-sentence"><span class="reel-phrase">在网上找到想爬的岩场和路线</span><span class="reel-phrase">出发前把岩壁照片和 Topo 存好</span></span></p>
-        <a class="reel-app" href="redpoint-collect/"><img src="../icons/cats/redpoint-cat-collector.svg" width="48" height="48" alt="">红点猫收藏</a>
-      </div>
-    </article>
-    <article class="reel-frame crag-intro" id="redpoint-climb" aria-labelledby="redpoint-climb-title" data-title="红点猫" inert aria-hidden="true">
-      <img class="reel-photo" src="../demo/reel/crag-guidebook.webp" alt="" loading="lazy" decoding="async">
-      <div class="reel-copy">
-        <h2 id="redpoint-climb-title"><span class="reel-phrase">走到岩壁下</span><span class="reel-phrase">就找到那条线</span></h2>
-        <p class="reel-desc"><span class="reel-sentence">到了岩壁下打开出发前存好的 Topo</span><span class="reel-sentence"><span class="reel-phrase">和朋友一起对照眼前的岩壁</span><span class="reel-phrase">不再翻找散落各处的路线图</span></span></p>
-        <a class="reel-app" href="../redpoint/"><img src="../icons/cats/redpoint-cat.svg" alt="" width="48" height="48">红点猫</a>
-      </div>
-    </article>
-    <article class="reel-frame climbio-intro" id="climbio" aria-labelledby="climbio-title" data-title="Climbio" inert aria-hidden="true">
-      <img class="reel-photo" src="../demo/story-after-climbing.webp" alt="" loading="lazy" decoding="async">
-      <div class="reel-copy">
-        <h2 id="climbio-title"><span class="reel-phrase">这些事 AI 做得更好</span><span class="reel-phrase">你好好享受攀岩</span></h2>
-      </div>
-      <div class="directory-content" id="apps" inert aria-hidden="true">
+  <header class="reel-nav">
+    <div class="reel-primary-links">
+      <a class="reel-primary" href="../hold/"><img src="../icons/cats/hold-cat.svg" width="38" height="38" alt=""><span>岩点猫</span></a>
+      <a class="reel-primary" href="../redpoint/"><img src="../icons/cats/redpoint-cat.svg" width="38" height="38" alt=""><span>红点猫</span></a>
+      <a class="reel-primary" href="../studio/"><img src="../icons/brand/climbio-mark.svg" width="38" height="38" alt=""><span>Studio</span></a>
+    </div>
+    <details class="reel-menu">
+      <summary class="reel-shortcut" aria-label="查看应用列表" title="查看应用列表"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></summary>
+      <div class="directory-content" id="apps">
         <nav class="finale-apps" aria-label="Climbio apps">
           <a href="../hold/"><img src="../icons/cats/hold-cat.svg" width="38" height="38" alt=""><span><strong>岩点猫</strong><small>把定好的线留给朋友</small></span></a>
           <a href="guides/friends.html"><img src="../icons/brand/friends-exchange.svg" width="38" height="38" alt=""><span><strong>朋友互传</strong><small>照片与路线互传</small></span></a>
@@ -95,10 +64,54 @@
           <a href="../lab/wall3d/"><img src="../icons/brand/3d-lab.svg" width="38" height="38" alt=""><span><strong>3D Lab</strong><small>让红点猫认识岩壁</small></span></a>
         </nav>
         <a class="finale-source" href="https://github.com/climb-io/climbio" aria-label="GitHub"><svg viewBox="0 0 16 16" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38l-.01-1.49c-2.23.48-2.7-.95-2.7-.95-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.22.82 1.22.82.71 1.22 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.65-.89-3.65-3.96 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.13 0 0 .67-.21 2.2.82a7.7 7.7 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.11.16 1.93.08 2.13.51.56.82 1.28.82 2.15 0 3.08-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.22c0 .21.14.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a>
-        <footer class="finale-legal" aria-label="Site policies"><a href="../terms.html">使用条款</a><a href="../privacy.html">隐私权</a></footer>
+        
+      </div>
+    </details>
+  </header>
+  <div class="reel-stage">
+    <article class="reel-frame hold-intro" id="hold-private" aria-labelledby="hold-private-title" data-title="岩点猫" data-active>
+      <img class="reel-photo" src="../demo/reel/nangang-wall.webp" alt="" fetchpriority="high" decoding="async">
+      <div class="reel-copy">
+        <a class="reel-app" href="../hold/"><img src="../icons/cats/hold-cat.svg" alt="" width="48" height="48">岩点猫</a>
+        <h1 id="hold-private-title">下次换你试这两条</h1>
+        <p class="reel-desc">爬完后想把刚定好的路线留下来。拍下岩墙，标记路线和岩点，下次来还能找到今天的线。</p>
       </div>
     </article>
+    <article class="reel-frame friend-intro" id="friend-exchange" aria-labelledby="friend-exchange-title" data-title="朋友互传" inert aria-hidden="true">
+      <img class="reel-photo" src="../demo/reel/wanhua-friends.webp" alt="" loading="lazy" decoding="async">
+      <div class="reel-copy">
+        <a class="reel-app" href="guides/friends.html"><img src="../icons/brand/friends-exchange.svg" alt="" width="48" height="48">朋友互传</a>
+        <h2 id="friend-exchange-title">我的路线，你也收一份</h2>
+        <p class="reel-desc">刚定好的路线想让朋友也试试。简单按一下就传给你，朋友收下就能在自己的设备上看。</p>
+      </div>
+    </article>
+    <article class="reel-frame collector-intro" id="redpoint-collect" aria-labelledby="redpoint-collect-title" data-title="红点猫收藏" inert aria-hidden="true">
+      <img class="reel-photo" src="../demo/reel/before-departure.webp" alt="" loading="lazy" decoding="async">
+      <div class="reel-copy">
+        <a class="reel-app" href="redpoint-collect/"><img src="../icons/cats/redpoint-cat-collector.svg" width="48" height="48" alt="">红点猫收藏</a>
+        <h2 id="redpoint-collect-title">想爬的线，出门前先收藏</h2>
+        <p class="reel-desc">下一趟攀岩旅行先做点功课。在网上找到想爬的岩场和路线，出发前把岩壁照片和 Topo 存好。</p>
+      </div>
+    </article>
+    <article class="reel-frame crag-intro" id="redpoint-climb" aria-labelledby="redpoint-climb-title" data-title="红点猫" inert aria-hidden="true">
+      <img class="reel-photo" src="../demo/reel/crag-guidebook.webp" alt="" loading="lazy" decoding="async">
+      <div class="reel-copy">
+        <a class="reel-app" href="../redpoint/"><img src="../icons/cats/redpoint-cat.svg" alt="" width="48" height="48">红点猫</a>
+        <h2 id="redpoint-climb-title">走到岩壁下，就找到那条线</h2>
+        <p class="reel-desc">到了岩壁下打开出发前存好的 Topo，和朋友一起对照眼前的岩壁，不再翻找散落各处的路线图。</p>
+      </div>
+    </article>
+    <article class="reel-frame climbio-intro" id="climbio" aria-labelledby="climbio-title" data-title="Studio" inert aria-hidden="true">
+      <img class="reel-photo" src="../demo/story-after-climbing.webp" alt="" loading="lazy" decoding="async">
+      <div class="reel-copy">
+        <a class="reel-app" href="../studio/"><img src="../icons/brand/climbio-mark.svg" alt="" width="48" height="48">Studio</a>
+        <h2 id="climbio-title">这些事 AI 做得更好，你好好享受攀岩</h2>
+        <p class="reel-desc">缺什么攀岩工具，就让 AI 来做。我们专心攀岩。</p>
+      </div>
+      
+    </article>
   </div>
+  <footer class="finale-legal" aria-label="Site policies"><a class="finale-source" href="https://github.com/climb-io/climbio" aria-label="GitHub"><svg viewBox="0 0 16 16" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38l-.01-1.49c-2.23.48-2.7-.95-2.7-.95-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.22.82 1.22.82.71 1.22 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.65-.89-3.65-3.96 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.13 0 0 .67-.21 2.2.82a7.7 7.7 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.11.16 1.93.08 2.13.51.56.82 1.28.82 2.15 0 3.08-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.22c0 .21.14.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a><a href="../terms.html">使用条款</a><a href="../privacy.html">隐私权</a></footer>
   <p class="reel-status" role="status"></p>
 </main>
 </body>

@@ -1,4 +1,4 @@
-// 2D 牆相機追蹤 Worker：載入 OpenCV 4.10.0 WASM 與共用幾何檢查，執行多牆 AKAZE 粗篩＋精對、USAC_MAGSAC 單應矩陣與雙向 LK 光流維持。
+// ArKit 的追蹤 Worker（2D 牆）：載入 OpenCV 4.10.0 WASM 與共用幾何檢查，執行多牆 AKAZE 粗篩＋精對、USAC_MAGSAC 單應矩陣與雙向 LK 光流維持。
 'use strict';
 
 importScripts('./geometry.js');
@@ -635,7 +635,7 @@ async function waitOpenCv(runtimeUrl) {
 self.onmessage = async ({ data }) => {
   try {
     if (data.type === 'init') {
-      await waitOpenCv(data.runtimeUrl || '../../redpoint/vendor/opencv-4.10.0.js');
+      await waitOpenCv(data.runtimeUrl || '../redpoint/vendor/opencv-4.10.0.js');
       clearWalls();
       for (const w of data.walls || []) registerWall(w);
       if (data.targetWall) targetWall = data.targetWall;

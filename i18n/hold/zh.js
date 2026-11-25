@@ -11,7 +11,7 @@ AppKit.i18n.add('hold', 'zh', {
   takePhoto: '拍照', fromLibrary: '相簿', rotate: '旋轉 90°',
   back: '返回牆面列表', wallName: '牆面名稱', more: '更多',
   addPhoto: '增加照片', addPhotoLeft: '加在左邊', addPhotoRight: '加在右邊', addPhotoUp: '加在上方', addPhotoDown: '加在下方',
-  deleteWall: '刪除這面牆', showHolds: '顯示所有岩點', liveCamera: '相機看線', zoomOut: '縮小', zoomIn: '放大',
+  deleteWall: '刪除這面牆', showHolds: '顯示所有岩點', liveCamera: 'AR 看線', arAim: '對準牆面', zoomOut: '縮小', zoomIn: '放大',
   routes: '路線', sortRoutes: '路線排序', sortAdded: '新到舊', sortGradeAsc: '難度：低到高', sortGradeDesc: '難度：高到低', sortPos: '位置：左到右', rfSent: '完攀', rfUnsent: '未完攀', xferPhoto: '接到相鄰照片',
   holds: '岩點', routeName: '路線名稱', grade: '難度', deleteRoute: '刪除路線',
   start: '起攀', hand: '手點', foot: '腳點', top: '完攀',

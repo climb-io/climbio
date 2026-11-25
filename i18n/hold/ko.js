@@ -11,7 +11,7 @@ AppKit.i18n.add('hold', 'ko', {
   takePhoto: '사진 촬영', fromLibrary: '사진 보관함', rotate: '90° 회전',
   back: '벽 목록으로', wallName: '벽 이름', more: '더 보기',
   addPhoto: '사진 추가', addPhotoLeft: '왼쪽에 추가', addPhotoRight: '오른쪽에 추가', addPhotoUp: '위에 추가', addPhotoDown: '아래에 추가',
-  deleteWall: '벽 삭제', showHolds: '모든 홀드 표시', liveCamera: '카메라로 보기', zoomOut: '축소', zoomIn: '확대',
+  deleteWall: '벽 삭제', showHolds: '모든 홀드 표시', liveCamera: 'AR로 보기', arAim: '벽을 비춰 주세요', zoomOut: '축소', zoomIn: '확대',
   routes: '루트', sortRoutes: '루트 정렬', sortAdded: '최신순', sortGradeAsc: '난이도 낮은 순', sortGradeDesc: '난이도 높은 순', sortPos: '위치: 왼쪽에서 오른쪽', rfSent: '완등', rfUnsent: '미완등', xferPhoto: '옆 사진으로 이어가기',
   holds: '홀드', routeName: '루트 이름', grade: '난이도', deleteRoute: '루트 삭제',
   start: '스타트', hand: '손', foot: '발', top: '탑',

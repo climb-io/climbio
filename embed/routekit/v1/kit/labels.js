@@ -204,7 +204,7 @@
     strokeOutside(c, poly, L((sel ? 3 : 2 + 1.5 * k) * big * f));
   }
   // 重疊岩點的選擇：候選以外調暗，候選換回照片原本的顏色，每顆一個顏色畫框，各自會選到的地方放一個同色圓點；
-  // 原先點到的候選加外圈，同一個量體的其他岩點畫細框。vis＝畫面看得到的照片範圍 { x0, y0, x1, y1 }；L(螢幕像素)→照片單位
+  // 原先點到的候選加外圈，同一個 Volume 的其他岩點畫細框。vis＝畫面看得到的照片範圍 { x0, y0, x1, y1 }；L(螢幕像素)→照片單位
   const PICK_COLORS = ['#fff', '#c6ff3d', '#5ee0ff', '#ff9be6'];
   function drawOverlapPick(c, { img, holds, spots, preferred, neighbors = [], vis, L, routeHolds = [], route = null, theme }) {
     c.save();

@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { plan, TYPES } from './studio-start.mjs';
 
-const ex = (...files) => (p) => files.some(f => p.endsWith(f));
+// Windows 上 path.join 會用反斜線，比對前統一成斜線
+const ex = (...files) => (p) => files.some(f => p.replaceAll('\\', '/').endsWith(f));
 
 test('不認得的類型', () => assert.match(plan({ type: 'x', dir: '/d', exists: ex() }).lines[0], /不認得/));
 test('gym 還沒有牆：給 run 指令', () => {

@@ -1,0 +1,18 @@
+{
+  "name": "@climbio/arkit",
+  "version": "0.1.0",
+  "description": "AR route view for climbing walls: recognise a 2D wall photo through the phone camera in the browser (OpenCV AKAZE + homography + optical flow in a Worker), then draw the route holds back onto the live camera image with a neon AR look, lock-on and route-switch animations. No framework, no build step.",
+  "license": "AGPL-3.0-or-later",
+  "repository": { "type": "git", "url": "git+https://github.com/climb-io/climbio.git", "directory": "arkit" },
+  "keywords": ["climbing", "ar", "augmented-reality", "camera", "tracking", "homography", "opencv"],
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": { "types": "./index.d.ts", "default": "./index.js" },
+    "./*.js": "./*.js",
+    "./view.css": "./view.css",
+    "./package.json": "./package.json"
+  },
+  "files": ["*.js", "*.d.ts", "view.css", "README.md", "README.en.md", "LICENSE", "NOTICE"]
+}

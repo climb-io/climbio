@@ -42,7 +42,7 @@ Agent 共用入口：`AGENTS.md`（`CLAUDE.md` 引用）、`tools/studio.mjs` CL
 
 | 線 | 範圍（檔案） | 對齊點 |
 |---|---|---|
-| **明德 3D 牆**（室內 3D 牆） | `studio/wall3d/`、`wall3dkit/`、岩點貓的 3D 牆 | 已有代理不用資料夾選擇器的檔案輸入與發佈；`studio/wall3d/index.html` 已換成 Studio 深色主題（`data-climbio-theme="studio"`、深色 Logo），3D 工作畫面（`#work`）維持室內深色；目前在改 `wall3dkit/stage.js`（量體光暈補洞 `enclosed`、修點 `applyEdit`）與 `js/wall3d.js`（進場、刪牆清快取）；3D 牆的檢查與重描（光暈區域、修點）現在在作者端研究用的程式，之後的「不是岩點／要重描／看不清楚」會變成題目 |
+| **明德 3D 牆**（室內 3D 牆） | `studio/wall3d/`、`wall3dkit/`、岩點貓的 3D 牆 | 已有代理不用資料夾選擇器的檔案輸入與發佈；`studio/wall3d/index.html` 已換成 Studio 深色主題（`data-climbio-theme="studio"`、深色 Logo），3D 工作畫面（`#work`）維持室內深色；目前在改 `wall3dkit/stage.js`（Volume 光暈補洞 `enclosed`、修點 `applyEdit`）與 `js/wall3d.js`（進場、刪牆清快取）；3D 牆的檢查與重描（光暈區域、修點）現在在作者端研究用的程式，之後的「不是岩點／要重描／看不清楚」會變成題目 |
 | **大砲岩 3D 岩場**（天然 3D 岩場；Studio 的 `studio/scene/` 只讀它打包的 `crag3dkit/vendor/three-splat.js`，不改那個 Kit） | `crag3dkit/`、紅點貓的 3D 岩場、3D 岩場的發佈、說明頁 `studio/crag3d/`（與 `en/studio/crag3d/`，靜態說明頁，用 `css/pages.css` 跟轉換路線書的說明頁同一種外觀，不是 Studio 的工作畫面）、`guides/shoot-3d.html` 的「岩場 3D 模型：退後拍一套」 | Studio 的天然路線線（`studio/crag/`）之後會讀它的模型畫照片視錐（階段 B）；3D 岩場的檢查（路線位置低分、模型蒙霧破洞）之後照「加一條線出題」變成題目，現在還在作者端的工具裡 |
 
 - Studio 共用層（`studio/shell.*`、`chrome.css`、`studio/work/`、`tools/studio.mjs`、本文件）的改動不碰上面兩條線的檔案；兩條線也不改共用層，要改先在這份寫清楚再改。

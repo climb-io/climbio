@@ -1,0 +1,7 @@
+ArKit（攀岩牆的 AR 看線：相機即時認牆、追蹤，把路線岩點疊回相機畫面）
+Copyright (c) 2026 Climbio 貢獻者（Climbio contributors）
+
+本資料夾以 GNU AGPL-3.0 授權（見 LICENSE）。
+它是 Climbio（AGPL-3.0）的一部分，可以單獨拿去用，使用時須遵守 AGPL-3.0。
+
+執行時載入 OpenCV 4.10.0 的 WebAssembly 版本（Apache-2.0，不隨本資料夾散布；Climbio 放在 redpoint/vendor/）。

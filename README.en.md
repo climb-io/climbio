@@ -52,6 +52,7 @@ Opened from any host other than the official one, the app runs without a backend
 | `holdkit/` | Hold outlines, MobileSAM re-tracing, hold data format | AGPL-3.0 |
 | `routekit/`, `topokit/`, `mapkit/` | Route viewer/editor, photo topo, crag map | AGPL-3.0 |
 | `wall3dkit/`, `crag3dkit/` | Indoor 3D wall and outdoor 3D crag viewers | AGPL-3.0 |
+| `arkit/` | AR route view: recognise a 2D wall through the phone camera in the browser and draw route holds onto the live image | AGPL-3.0 |
 | `sourcekit/`, `appkit/`, `embed/` | Third-party source import, shared app helpers, and iframe embeds | AGPL-3.0 |
 | `format/` | Open Format v2 schema and validator | Apache-2.0 |
 | `redpoint/`, `studio/`, `lab/` | Outdoor app, Guidebook authoring, and research tools | AGPL-3.0 |

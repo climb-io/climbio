@@ -8,15 +8,15 @@
   const $ = id => document.getElementById(id);
   // 報告畫面跟 Studio Wall 的「報告」共用（studio/wall/report-view.js），數字由 studio/wall/report.js 從開放資料集的資料算
   const RP = {
-    zh: { rpDetect: '自動偵測', rpRetrace: '重描外框', rpSam2: 'SAM2 精修', rpAi: 'AI 檢查', rpHuman: '人工檢查', rpFound: '找到', rpSnug: n => `外框貼 ${n}`, rpFalse: n => `多認 ${n}`, rpHolds: '顆',
+    zh: { rpUncorrected: "尚未校正", rpHumanDone: "人工檢查完成", rpAiDone: "AI 檢查完成", rpReviewUnknown: "完整檢查狀態未記錄", rpNoReference: "沒有可比較的參考結果", rpEstimated: "部分階段沒有可追溯的岩點 ID，找到與誤判為外框配對估算。", rpDetect: '自動偵測', rpRetrace: '重描外框', rpSam2: 'SAM2 精修', rpAi: 'AI 檢查', rpHuman: '人工檢查', rpFound: '找到', rpSnug: n => `外框可用 ${n}`, rpFalse: n => `誤判 ${n}`, rpHolds: '顆',
       rpChanged: (a, b, c) => `改 ${a}、刪 ${b}、補 ${c}`, rpNotReviewed: '還沒逐顆檢查完', rpFit: '整面', rpProblems: '標出問題', rpExample: '看改的地方', rpCompare: '前後對照', rpLeft: n => `左：${n}`, rpRight: n => `右：${n}`,
       rpLoading: '載入中…', rpFail: '資料載入失敗，請重新整理。', rpNone: '還沒有階段比對資料。', rpCanvasAria: '牆面照片與岩點外框',
-      rpDefn: n => `每 100 顆真實岩點，以「${n}」為準：找到＝有框到；外框貼＝輪廓可直接用；多認＝不是岩點卻被框。`,
+      rpDefn: n => `以「${n}」的岩點為比較基準。找到率＝配對顆數／基準顆數；其餘為實際顆數。未完成逐顆檢查時，僅代表與目前結果的一致程度。`,
       rpOk: '外框可用', rpCut: '切掉一角', rpOver: '外框太大', rpExtra: '多認', rpMissed: '漏掉', rpKept: '沒動或微調', rpEdited: '重畫', rpManual: '手畫新增', rpDeleted: '刪掉' },
-    en: { rpDetect: 'Auto detect', rpRetrace: 'Retrace outlines', rpSam2: 'SAM2 refine', rpAi: 'AI check', rpHuman: 'Human check', rpFound: 'found', rpSnug: n => `snug ${n}`, rpFalse: n => `false ${n}`, rpHolds: 'holds',
+    en: { rpUncorrected: "Not corrected", rpHumanDone: "Human review complete", rpAiDone: "AI review complete", rpReviewUnknown: "Full review status not recorded", rpNoReference: "No reference result to compare", rpEstimated: "Some stages lack traceable hold IDs; matched and false counts are estimated by outline overlap.", rpDetect: 'Auto detect', rpRetrace: 'Retrace outlines', rpSam2: 'SAM2 refine', rpAi: 'AI check', rpHuman: 'Human check', rpFound: 'found', rpSnug: n => `Usable outlines ${n}`, rpFalse: n => `False detections ${n}`, rpHolds: 'holds',
       rpChanged: (a, b, c) => `edited ${a}, deleted ${b}, added ${c}`, rpNotReviewed: 'Not fully checked', rpFit: 'Whole wall', rpProblems: 'Show problems', rpExample: 'See changes', rpCompare: 'Compare', rpLeft: n => `Left: ${n}`, rpRight: n => `Right: ${n}`,
       rpLoading: 'Loading…', rpFail: 'Could not load the data. Please reload.', rpNone: 'No stage comparison yet.', rpCanvasAria: 'Wall photo with hold outlines',
-      rpDefn: n => `Per 100 real holds, judged against "${n}". Found: outlined. Snug: outline usable as is. False: outlined but not a hold.`,
+      rpDefn: n => `Compared with "${n}". Found rate = matched holds / reference holds. Other figures are actual counts. If review is incomplete, this measures agreement with the current result, not verified accuracy.`,
       rpOk: 'Good outline', rpCut: 'Cut off', rpOver: 'Too big', rpExtra: 'Extra', rpMissed: 'Missed', rpKept: 'Untouched or tweaked', rpEdited: 'Redrawn', rpManual: 'Hand-drawn', rpDeleted: 'Deleted' },
   }[EN ? 'en' : 'zh'];
   const T = (k, ...a) => { const v = RP[k]; return typeof v === 'function' ? v(...a) : v ?? k; };
@@ -34,8 +34,23 @@
   const report = ClimbioReportView.mount($('report'), T);
 
   // ---- 牆的切換：有各步比對資料或精修記錄的公開牆（#牆 id 直接打開那面；#src=/… 讀同來源預覽資料夾）----
-  let rows = [], cur = null, localSrc = null;
-  const wallRows = () => ClimbioReport.walls();
+  let rows = [], localSrc = null, request = 0, listPromise, researchPromise;
+  const wallRows = () => listPromise ||= ClimbioReport.walls().catch(e => { listPromise = null; throw e; });
+  const sharedResearch = () => researchPromise ||= researchSet();
+  // 保留最近三面牆，同時進來的請求共用同一個 Promise。
+  const loaded = new Map();
+  function cachedReport(key, loader) {
+    if (loaded.has(key)) {
+      const pending = loaded.get(key);
+      loaded.delete(key); loaded.set(key, pending);
+      return pending;
+    }
+    const pending = Promise.resolve().then(loader);
+    loaded.set(key, pending);
+    if (loaded.size > 3) loaded.delete(loaded.keys().next().value);
+    pending.catch(() => { if (loaded.get(key) === pending) loaded.delete(key); });
+    return pending;
+  }
   const srcMatch = h => { const m = /^src=(\/[^?#]+)$/.exec(h || ''); return m ? m[1].replace(/\/?$/, '/') : null; };
   async function loadLocalSrc(dir) {
     const [lab, photo] = await Promise.all([
@@ -47,7 +62,7 @@
   async function init() {
     const want = location.hash.slice(1), src = srcMatch(want);
     if (src) { localSrc = src; $('pick').hidden = true; show('local'); return; }
-    const [list, sets] = await Promise.all([wallRows(), researchSet()]);
+    const [list, sets] = await Promise.all([wallRows(), sharedResearch()]);
     rows = list.filter(r => (sets.get(r.id) || { stages: [] }).stages.length || r.edits);
     if (!rows.length) { report.message(T('rpNone')); return; }
     $('pick').hidden = rows.length < 2;
@@ -61,14 +76,16 @@
     show(rows.some(r => r.id === want) ? want : rows[0].id);
   }
   async function show(id) {
-    cur = id;
+    const seq = ++request, dir = localSrc;
     [...$('pick').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.id === id));
     report.message(T('rpLoading'));
     try {
-      const r = id === 'local' ? await loadLocalSrc(localSrc) : await ClimbioReport.loadPublished(rows.find(x => x.id === id));
-      if (cur === id) await report.show(r);
+      const row = rows.find(x => x.id === id);
+      const r = id === 'local' ? await loadLocalSrc(dir)
+        : await cachedReport(id + ':' + row.dir, () => ClimbioReport.loadPublished(row));
+      if (seq === request) await report.show(r);
     }
-    catch (e) { console.error(e); if (cur === id) report.message(T('rpFail')); }
+    catch (e) { console.error(e); if (seq === request) report.message(T('rpFail')); }
   }
   addEventListener('hashchange', () => {
     const want = location.hash.slice(1), src = srcMatch(want);
@@ -112,7 +129,7 @@
   async function loadWalls() {
     const box = $('walls');
     try {
-      const [list, sets] = await Promise.all([wallRows(), researchSet()]);
+      const [list, sets] = await Promise.all([wallRows(), sharedResearch()]);
       if (!list.length) { box.textContent = S.noWalls; return; }
       box.innerHTML = '';
       for (const w of list) {

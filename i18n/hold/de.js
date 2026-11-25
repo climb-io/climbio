@@ -11,7 +11,7 @@ AppKit.i18n.add('hold', 'de', {
   takePhoto: 'Foto aufnehmen', fromLibrary: 'Fotos', rotate: 'Um 90° drehen',
   back: 'Zurück zu den Wänden', wallName: 'Wandname', more: 'Mehr',
   addPhoto: 'Foto hinzufügen', addPhotoLeft: 'Links anfügen', addPhotoRight: 'Rechts anfügen', addPhotoUp: 'Oben anfügen', addPhotoDown: 'Unten anfügen',
-  deleteWall: 'Wand löschen', showHolds: 'Alle Griffe anzeigen', liveCamera: 'Live-Kamera', zoomOut: 'Verkleinern', zoomIn: 'Vergrößern',
+  deleteWall: 'Wand löschen', showHolds: 'Alle Griffe anzeigen', liveCamera: 'AR-Ansicht', arAim: 'Auf die Wand richten', zoomOut: 'Verkleinern', zoomIn: 'Vergrößern',
   routes: 'Boulder', sortRoutes: 'Boulder sortieren', sortAdded: 'Neueste zuerst', sortGradeAsc: 'Grad: aufsteigend', sortGradeDesc: 'Grad: absteigend', sortPos: 'Position: von links nach rechts', rfSent: 'Getoppt', rfUnsent: 'Nicht getoppt', xferPhoto: 'Auf dem Nachbarfoto fortsetzen',
   holds: 'Griffe', routeName: 'Boulder-Name', grade: 'Grad', deleteRoute: 'Boulder löschen',
   start: 'Start', hand: 'Hand', foot: 'Fuß', top: 'Top',

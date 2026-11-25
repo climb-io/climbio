@@ -13,6 +13,7 @@ Climbio 是無建置步驟的 PWA。**只讀任務需要的文件**：照下面�
 - **分享網址能短就不要長**：給人貼、傳的連結只放必要的識別字（id），不把另一條網址整段編碼塞進參數；解析端負責補齊網域與路徑。
 - 優先離線及無後端可用；Firebase 專屬邏輯留在後端適配層，能力由 `Backend.caps` 控制。外部輸入須驗證，不寫入秘密。
 - 私人照片、路線、備份與同步資料不得用於訓練。匯入資料缺欄位時不自行捏造。
+- **攀岩用詞照台灣岩友的說法**：牆上的大型造型塊寫「Volume」，不寫「量體」（使用者要求過）；中文字與 Volume 之間空半形空白。
 - 程式識別字用英文，內部註解與規格以繁體中文為主；對外 README／網站／Studio 說明維持繁中、英文，App 可見文字同步所有語言包。
 - 變更行為同步更新對應文件。提交前跑 `node tools/check.mjs` 和受影響測試；正式發布前跑 `npm run test:quick`。不修改使用者測試資料。
 - 網站供人閱讀產品、操作、進度與 AI 參與方式，技術文件及 Agent 專用規格以 GitHub 為唯一來源；修改網站先看 [docs/site-content.md](docs/site-content.md)。
@@ -31,6 +32,7 @@ Climbio 是無建置步驟的 PWA。**只讀任務需要的文件**：照下面�
 | Studio 岩館牆（含岩點報告、`#p=` 精修公開牆） | [docs/studio-wall.md](docs/studio-wall.md) | `studio` |
 | **Studio「交給 AI」的新任務**（岩館牆面、岩場照片、路線書、3D 牆） | **先跑 `node tools/studio.mjs start <gym\|crag\|book\|3d> <資料夾> [輸入…]`**，照它印的做；它印出下一步、完成標準與「卡在」（做不到的不要編造） | `studio` |
 | 產生／精修牆面岩點檔（偵測、SAM2、AI 檢查、給人在手機看） | **先跑 `node tools/wall-batch.mjs next <資料夾>`**，照它印的判斷準則和下一步做，**`verify` 通過才算做完**；規則在 [docs/studio-wall.md](docs/studio-wall.md)「代理做牆面」，岩點判斷準則（3D 牆共用）在 `tools/hold-rubric.mjs` | `studio` |
+| **已公開的牆再精修、再發佈**（可重複多次） | [docs/studio-wall.md](docs/studio-wall.md)「已公開的牆再精修、再發佈」；一律用 `node tools/wall-republish.mjs plan\|publish\|stages\|check`，發佈後 `check` 要全過 | `studio` |
 | Studio 岩場（Crag） | [docs/studio-crag.md](docs/studio-crag.md) | `studio` |
 | **岩館整合 Climbio**（照片 → 牆面 → 放進岩館 App） | [docs/gym-onboarding.md](docs/gym-onboarding.md)：先一次向館主要齊資料 | `studio` |
 | 轉換路線書（資料或程式） | [docs/guidebook-convert-format.md](docs/guidebook-convert-format.md) | `studio` |

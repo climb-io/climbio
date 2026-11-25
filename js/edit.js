@@ -114,7 +114,7 @@
     renderLines(true);
     flyTo(p.back.s, p.back.tx, p.back.ty, render, undefined, true);
   }
-  // 相機看線（正式版、測試版都有）：3D 牆載入 /3d/?ui=2&auto=1&wall=…&route=…；
+  // AR 看線（正式版、測試版都有）：3D 牆載入 /3d/?ui=2&auto=1&wall=…&route=…；
   // 2D 牆載入 /lab/wall2d-cam/?ui=2&auto=1&wall=…&route=… 並透過同源 postMessage 傳入本機牆面與照片
   // 3D 牆要有相機比對資料（/3d/manifest.json 的 wall）才能看線：沒有的不放入口，不給一定打不開的按鈕
   let cam3dWalls = null, cam3dPromise = null;
@@ -133,7 +133,7 @@
     let camSession = 0, camPayload = null;
     let wall2dStaticPreloaded = false, wall2dHeavyPreloaded = false, wall2dManifestPromise = null;
     const preloadedWallIds = new Set();
-    // 先放進 HTTP 快取，按下相機看線時不用等下載：看路線圖時只抓小的頁面程式；
+    // 先放進 HTTP 快取，按下 AR 看線時不用等下載：看路線圖時只抓小的頁面程式；
     // 打開「⋯」（要用的機會大）才抓 OpenCV（約 10 MB）和這面牆的比對資料，省流量模式不先抓
     preloadWall2dCam = (w, heavy = false) => {
       if (!w || w.m3d) return;
@@ -143,11 +143,14 @@
           '/lab/wall2d-cam/',
           '/lab/wall2d-cam/style.css',
           '/lab/wall2d-cam/boot.js',
-          '/lab/wall2d-cam/geometry.js',
           '/lab/wall2d-cam/app.js',
-          '/lab/wall2d-cam/tracking-log.js',
-          '/lab/wall2d-cam/wall2d-worker.js',
-          '/3d/source/holds-3d-camera-view.js',
+          '/arkit/view.css',
+          '/arkit/view.js',
+          '/arkit/geometry.js',
+          '/arkit/tracking-log.js',
+          '/arkit/overlay.js',
+          '/arkit/camera.js',
+          '/arkit/tracker-worker.js',
         ];
         for (const u of urls) fetch(u, { credentials: 'omit' }).catch(() => {});
       }
@@ -174,7 +177,137 @@
     $('vwMore')?.addEventListener('click', () => {
       if (state.wall && !state.wall.m3d) preloadWall2dCam(state.wall, true);
     });
-    const hideCam = () => { camSession++; camPayload = null; $('camView').hidden = true; $('camFrame').src = 'about:blank'; };
+    // AR 看線的換線：下面一張路線卡（難度、名稱、第幾條），左右滑跟看路線圖一樣跟手；
+    // 2D 牆把整面牆的路線交給追蹤頁（climbio-ar-routes），拖曳進度、換到第幾條用訊息送，追蹤頁自己做淡出、照出手順序進場
+    let ar = null;   // { list, idx, w, start, located, x, ...gesture }
+    const arPeriod = () => $('arDeck').clientWidth + 12;   // 卡片的頁距 12 px（跟看路線圖一樣）
+    const arPost = (msg) => { const win = $('camFrame').contentWindow; if (win && ar && !ar.w.m3d) win.postMessage(msg, location.origin); };
+    const arRoutesMsg = () => ({
+      type: 'climbio-ar-routes',
+      index: ar.idx,
+      labels: { s: t('start'), t: t('top') },
+      routes: ar.list.map((r) => {
+        const step = new Map();
+        RouteKit.revealSteps(r, holdsOf(r, ar.w)).forEach((hs, i) => { for (const h of hs) step.set(h.id, i); });
+        return { id: r.id, holds: Object.entries(r.holds).map(([id, k]) => [id, k, step.get(id) ?? 0]), seq: r.seq && r.seq.length > 1 ? r.seq : undefined };
+      }),
+    });
+    const arCard = (r, i) => {
+      const el = document.createElement('div');
+      el.className = 'ar-card';
+      el.dataset.i = i;
+      const g = setGrade(document.createElement('b'), r.grade);
+      g.className = 'ar-grade' + (g.classList.contains('dan') ? ' dan' : '');
+      const meta = document.createElement('div'); meta.className = 'ar-meta';
+      const name = document.createElement('span'); name.className = 'ar-name'; name.textContent = r.name || '';
+      const sub = document.createElement('span'); sub.className = 'ar-sub';
+      const n = ar.list.length, pad = (x) => String(x).padStart(String(n).length < 2 ? 2 : String(n).length, '0');
+      sub.textContent = n > 1 ? `${pad(i + 1)} / ${pad(n)}` : '';
+      if (isSent(r)) { const m = document.createElement('i'); m.className = 'ar-sent'; m.innerHTML = '<svg><use href="#i-paw"/></svg>'; name.prepend(m); }
+      meta.append(name, sub);
+      el.append(g, meta);
+      return el;
+    };
+    function arRender() {
+      const tr = $('arTrack');
+      tr.textContent = '';
+      for (let i = ar.idx - 1; i <= ar.idx + 1; i++) if (ar.list[i]) tr.append(arCard(ar.list[i], i));
+      $('arDeck').classList.toggle('one', ar.list.length < 2);
+      arPlace();
+    }
+    function arPlace() {
+      const P = arPeriod();
+      for (const el of $('arTrack').children) el.style.transform = `translate3d(${(el.dataset.i - ar.idx) * P + ar.x}px,0,0)`;
+      $('arDeck').dataset.prev = ar.idx > 0 ? '1' : '';
+      $('arDeck').dataset.next = ar.idx < ar.list.length - 1 ? '1' : '';
+    }
+    // 拖到相鄰路線的比例（正＝往下一條），送給追蹤頁：這條變淡、下一條淡淡浮現
+    let arDragRaf = 0;
+    const arSendDrag = () => {
+      if (arDragRaf) return;
+      arDragRaf = requestAnimationFrame(() => {
+        arDragRaf = 0;
+        if (!ar) return;
+        const p = -ar.x / arPeriod(), d = Math.sign(p);
+        arPost({ type: 'climbio-ar-drag', p: d && ar.list[ar.idx + d] ? Math.max(-1, Math.min(1, p)) : 0 });
+      });
+    };
+    // 換到相鄰路線：卡片照放開時的速度用彈簧吸附，追蹤頁同時換線
+    function arCommit(d) {
+      const j = ar.idx + d;
+      if (!ar.list[j]) return false;
+      ar.idx = j;
+      ar.x += d * arPeriod();   // 位置換成相對新的這張，畫面不跳
+      state.routeId = ar.list[j].id;
+      if (ar.w.m3d) {   // 3D 追蹤頁沒有換線訊息：換網址重新載入
+        $('camFrame').src = `${location.origin}/3d/?ui=2&auto=1&wall=${encodeURIComponent(ar.w.pid)}&route=${encodeURIComponent(Object.entries(ar.list[j].holds).map(([id, k]) => `${id}:${k}`).join(','))}`;
+      }
+      arPost({ type: 'climbio-ar-index', index: j, dir: d });
+      arRender();
+      return true;
+    }
+    let arSpringRaf = 0;
+    function arSpring(v0) {
+      cancelAnimationFrame(arSpringRaf);
+      if (calm()) { ar.x = 0; arPlace(); arPost({ type: 'climbio-ar-drag', p: 0 }); return; }
+      let x = ar.x, v = v0 * 1000, last = performance.now();   // px、px/s
+      const stepF = (now) => {
+        if (!ar) return;
+        const dt = Math.min(0.032, (now - last) / 1000); last = now;
+        const a = -260 * x - 30 * v;   // 彈簧（臨界阻尼附近，約 0.35 秒到位）
+        v += a * dt; x += v * dt;
+        if (Math.abs(x) < 0.4 && Math.abs(v) < 8) { ar.x = 0; arPlace(); arSendDrag(); arSpringRaf = 0; return; }
+        ar.x = x; arPlace(); arSendDrag();
+        arSpringRaf = requestAnimationFrame(stepF);
+      };
+      arSpringRaf = requestAnimationFrame(stepF);
+    }
+    // 手勢：跟看路線圖一樣——橫向滿 10 px、且不小於直向才跟手；拖過寬度的四分之一（最多 110 px），
+    // 或快速同方向撥至少 30 px（0.5 px/ms）就換線；最後明顯反向撥回則回原路線；首尾漸進阻力；左右邊緣 24 px 留給系統返回手勢
+    {
+      const sw = $('arSwipe');
+      sw.addEventListener('pointerdown', (e) => {
+        if (!ar || ar.list.length < 2 || e.clientX < 24 || e.clientX > innerWidth - 24 || ar.g) return;
+        cancelAnimationFrame(arSpringRaf);
+        ar.g = { id: e.pointerId, x0: e.clientX, y0: e.clientY, base: ar.x, on: false, pts: [[e.timeStamp, e.clientX]] };
+        sw.setPointerCapture(e.pointerId);
+      });
+      sw.addEventListener('pointermove', (e) => {
+        const g = ar?.g;
+        if (!g || e.pointerId !== g.id) return;
+        const dx = e.clientX - g.x0, dy = e.clientY - g.y0;
+        if (!g.on) { if (Math.abs(dx) >= 10 && Math.abs(dx) >= Math.abs(dy)) g.on = true; else return; }
+        g.pts.push([e.timeStamp, e.clientX]); if (g.pts.length > 6) g.pts.shift();
+        let x = g.base + dx;
+        const P = arPeriod();
+        if ((x > 0 && ar.idx === 0) || (x < 0 && ar.idx === ar.list.length - 1)) x = Math.sign(x) * P * 0.35 * (1 - Math.exp(-Math.abs(x) / (P * 0.35)));   // 首尾的阻力
+        ar.x = Math.max(-P, Math.min(P, x));
+        arPlace(); arSendDrag();
+      });
+      const end = (e) => {
+        const g = ar?.g;
+        if (!g || e.pointerId !== g.id) return;
+        ar.g = null;
+        if (!g.on) { if (g.base) arSpring(0); return; }
+        const [t0, x0] = g.pts[0], [t1, x1] = g.pts[g.pts.length - 1];
+        const v = t1 > t0 ? (x1 - x0) / (t1 - t0) : 0;   // px/ms，最近幾個點
+        const dx = ar.x, far = Math.abs(dx) > Math.min(arPeriod() / 4, 110);
+        const flick = Math.abs(dx) >= 30 && Math.abs(v) >= 0.5 && Math.sign(v) === Math.sign(dx);
+        const back = Math.abs(v) >= 0.5 && Math.sign(v) === -Math.sign(dx);   // 最後明顯反向撥回
+        if ((far || flick) && !back && arCommit(dx < 0 ? 1 : -1)) arSpring(v);
+        else arSpring(v);
+      };
+      sw.addEventListener('pointerup', end);
+      sw.addEventListener('pointercancel', end);
+    }
+    const hideCam = () => {
+      camSession++; camPayload = null; $('camView').hidden = true; $('camFrame').src = 'about:blank';
+      cancelAnimationFrame(arSpringRaf);
+      // 在 AR 看線換過線：回到路線圖就是最後看的那一條
+      if (ar && ar.list[ar.idx] && ar.list[ar.idx].id !== ar.start && state.wall === ar.w) { HoldCat.stop(); W3D.untilt(); setMode('route'); showRouteFit(); refreshXfer(); }
+      if (ar) clearTimeout(ar.lostTimer);
+      ar = null;
+    };
     const closeCam = () => { hideCam(); return closeOverlay('camView'); };
     const sendWall2dData = async (session) => {
       const p = camPayload;
@@ -203,6 +336,14 @@
     window.addEventListener('message', (ev) => {
       if (ev.origin !== location.origin || ev.source !== $('camFrame').contentWindow) return;
       if (ev.data?.type === 'climbio-wall2d-request' && camPayload) sendWall2dData(camSession);
+      if (ev.data?.type === 'climbio-ar-hello' && ar) arPost(arRoutesMsg());
+      if (ev.data?.type === 'climbio-ar-state' && ar) {
+        // 掉追蹤超過 0.7 秒才再出「對準牆面」，短暫掉一下不閃
+        clearTimeout(ar.lostTimer);
+        if (ev.data.located) $('camView').dataset.located = '1';
+        else ar.lostTimer = setTimeout(() => { if (ar) $('camView').dataset.located = ''; }, 700);
+        $('camView').dataset.error = ev.data.error ? '1' : '';   // 出錯：收起手勢層，追蹤頁的重試鈕才點得到
+      }
     });
     $('camTrackBtn').onclick = $('vwCam').onclick = () => {
       const w = state.wall, r = w && w.routes.find(x => x.id === state.routeId);
@@ -216,7 +357,7 @@
         const wallId = w.pid || w.id;
         const byId = new Map();
         for (const h of (w.holds || [])) byId.set(h.id, { id: h.id, poly: h.poly });
-        for (const h of holdsOf(r, w)) if (!byId.has(h.id)) byId.set(h.id, { id: h.id, poly: h.poly });
+        for (const x of sortedRoutes(w)) for (const h of holdsOf(x, w)) if (!byId.has(h.id)) byId.set(h.id, { id: h.id, poly: h.poly });   // 整面牆的路線都要（AR 看線可以換線）
         camPayload = {
           id: w.id,
           wallId,
@@ -230,7 +371,11 @@
         };
         $('camFrame').src = `${location.origin}/lab/wall2d-cam/?ui=2&auto=1&wall=${encodeURIComponent(wallId)}&route=${routeParam}`;
       }
+      const list = sortedRoutes(w);
+      ar = { list, idx: Math.max(0, list.indexOf(r)), w, start: r.id, x: 0, g: null };
+      $('camView').dataset.located = ''; $('camView').dataset.error = '';
       $('camView').hidden = false;
+      arRender();
       openOverlay('camView', hideCam);
     };
     $('camClose').onclick = () => closeCam();

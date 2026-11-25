@@ -601,8 +601,8 @@ export class WalkCam {
     }
     return { cam: c, look: [o.S[2 * i] + (o.S[2 * i + 2] - o.S[2 * i]) * u, o.S[2 * i + 1] + (o.S[2 * i + 3] - o.S[2 * i + 1]) * u] };
   }
-  // 人的模式停點外直走時：前面往外凸的量體（cave 正面比眼睛矮，牆線量不到）也要離 d，不夠就往後退（離鏡頭左右越遠的岩點退越少，
-  // STEP_BACK_W 內漸變，走過去不會跳）；不然鏡頭會沿主牆的距離直直走進量體裡、看到牆的背面
+  // 人的模式停點外直走時：前面往外凸的 Volume（cave 正面比眼睛矮，牆線量不到）也要離 d，不夠就往後退（離鏡頭左右越遠的岩點退越少，
+  // STEP_BACK_W 內漸變，走過去不會跳）；不然鏡頭會沿主牆的距離直直走進 Volume 裡、看到牆的背面
   stepBack(c, d) {
     const H = this.holds; if (!H || !H.length) return c;
     const p = this.p, q = this.h2 && this.h2.H === H ? this.h2.q : (this.h2 = { H, q: H.map(P => [P.dot(p.right), P.dot(p.f)]) }).q;
@@ -732,7 +732,7 @@ export class WalkCam {
     });
   }
   // 人的模式左右走到哪裡：從中間往兩邊，牆線（左右平滑 0.3 m）跟正面左右軸的夾角超過 CORNER 的地方（內角、側牆），
-  // 再往外牆線就轉進側面、凸出來的量體裡，鏡頭跟著走會繞到牆的背面
+  // 再往外牆線就轉進側面、凸出來的 Volume 裡，鏡頭跟著走會繞到牆的背面
   corners() {
     if (this.cn) return this.cn;
     const p = this.p, n = p.n, k = Math.max(1, Math.round(0.15 / STEP)), mid = (n - 1) >> 1;

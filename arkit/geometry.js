@@ -1,9 +1,9 @@
-// 2D 牆相機追蹤共用幾何與資料解析工具（支援瀏覽器全域、Worker importScripts 與 Node require）
+// ArKit 的幾何與資料解析（單應矩陣、驗證、外推、牆面與路線解析）：瀏覽器全域 ArKitGeometry（舊名 Wall2dGeometry）、Worker importScripts、Node require 都能用
 // English: Shared 2D homography geometry, sanity verification, and wall/route parsing utilities.
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.Wall2dGeometry = factory();
-})(typeof self !== 'undefined' ? self : this, function () {
+  else root.ArKitGeometry = root.Wall2dGeometry = factory();
+})(typeof self !== 'undefined' ? self : typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
   const ROLE_COLORS = {
@@ -273,8 +273,8 @@
   }
 
   /**
-   * 依岩點貓相同定義標記大型量體（面積 ≥ 牆面所有岩點面積中位數的 8 倍）：
-   * 回傳 Set<holdId>，讓疊圖優先以整個量體的光暈為主。
+   * 依岩點貓相同定義標記大型 Volume（面積 ≥ 牆面所有岩點面積中位數的 8 倍）：
+   * 回傳 Set<holdId>，讓疊圖優先以整個 Volume 的光暈為主。
    */
   function markVolumeHolds(holds) {
     const out = new Set();

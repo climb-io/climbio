@@ -41,46 +41,15 @@
 </head>
 <body class="reel-page">
 <main class="reel" tabindex="-1" aria-label="Climbio クライミングストーリー">
-  <a class="reel-shortcut" href="#apps" aria-label="アプリ一覧を表示" title="アプリ一覧を表示"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></a>
-  <div class="reel-stage">
-    <article class="reel-frame hold-intro" id="hold-private" aria-labelledby="hold-private-title" data-title="Hold Cat" data-active>
-      <img class="reel-photo" src="../demo/reel/nangang-wall.webp" alt="" fetchpriority="high" decoding="async">
-      <div class="reel-copy">
-        <h1 id="hold-private-title"><span class="reel-phrase">次はこの２本</span><span class="reel-phrase">登ってみて</span></h1>
-        <p class="reel-desc"><span class="reel-sentence">今日作った課題を残しておきたい</span><span class="reel-sentence"><span class="reel-phrase">壁を撮影してホールドとルートを記録</span><span class="reel-phrase">次に来た時もすぐ見つかる</span></span></p>
-        <a class="reel-app" href="../hold/"><img src="../icons/cats/hold-cat.svg" alt="" width="48" height="48">Hold Cat</a>
-      </div>
-    </article>
-    <article class="reel-frame friend-intro" id="friend-exchange" aria-labelledby="friend-exchange-title" data-title="仲間と共有" inert aria-hidden="true">
-      <img class="reel-photo" src="../demo/reel/wanhua-friends.webp" alt="" loading="lazy" decoding="async">
-      <div class="reel-copy">
-        <h2 id="friend-exchange-title"><span class="reel-phrase">このルートを</span><span class="reel-phrase">仲間にも</span></h2>
-        <p class="reel-desc"><span class="reel-sentence">作った課題を友達にも試してほしい</span><span class="reel-sentence"><span class="reel-phrase">写真とルートを直接送信</span><span class="reel-phrase">相手の端末に保存していつでも見られる</span></span></p>
-        <a class="reel-app" href="guides/friends.html"><img src="../icons/brand/friends-exchange.svg" alt="" width="48" height="48">仲間と共有</a>
-      </div>
-    </article>
-    <article class="reel-frame collector-intro" id="redpoint-collect" aria-labelledby="redpoint-collect-title" data-title="Redpoint Collector" inert aria-hidden="true">
-      <img class="reel-photo" src="../demo/reel/before-departure.webp" alt="" loading="lazy" decoding="async">
-      <div class="reel-copy">
-        <h2 id="redpoint-collect-title"><span class="reel-phrase">次の岩場へ</span><span class="reel-phrase">出発前に保存</span></h2>
-        <p class="reel-desc"><span class="reel-sentence">クライミング旅行の前に情報を集める</span><span class="reel-sentence"><span class="reel-phrase">行きたい岩場とルートを探す</span><span class="reel-phrase">壁の写真とトポを保存しておく</span></span></p>
-        <a class="reel-app" href="redpoint-collect/"><img src="../icons/cats/redpoint-cat-collector.svg" width="48" height="48" alt="">レッドポイントキャット コレクター</a>
-      </div>
-    </article>
-    <article class="reel-frame crag-intro" id="redpoint-climb" aria-labelledby="redpoint-climb-title" data-title="Redpoint Cat" inert aria-hidden="true">
-      <img class="reel-photo" src="../demo/reel/crag-guidebook.webp" alt="" loading="lazy" decoding="async">
-      <div class="reel-copy">
-        <h2 id="redpoint-climb-title"><span class="reel-phrase">岩場に着いたら</span><span class="reel-phrase">すぐルート確認</span></h2>
-        <p class="reel-desc"><span class="reel-sentence">出発前に保存したトポを開く</span><span class="reel-sentence"><span class="reel-phrase">仲間と目の前の岩壁を見比べる</span><span class="reel-phrase">スタート位置を一緒に探せる</span></span></p>
-        <a class="reel-app" href="../redpoint/"><img src="../icons/cats/redpoint-cat.svg" alt="" width="48" height="48">Redpoint Cat</a>
-      </div>
-    </article>
-    <article class="reel-frame climbio-intro" id="climbio" aria-labelledby="climbio-title" data-title="Climbio" inert aria-hidden="true">
-      <img class="reel-photo" src="../demo/story-after-climbing.webp" alt="" loading="lazy" decoding="async">
-      <div class="reel-copy">
-        <h2 id="climbio-title"><span class="reel-phrase">作業は AI に</span><span class="reel-phrase">登る時間はあなたに</span></h2>
-      </div>
-      <div class="directory-content" id="apps" inert aria-hidden="true">
+  <header class="reel-nav">
+    <div class="reel-primary-links">
+      <a class="reel-primary" href="../hold/"><img src="../icons/cats/hold-cat.svg" width="38" height="38" alt=""><span>Hold Cat</span></a>
+      <a class="reel-primary" href="../redpoint/"><img src="../icons/cats/redpoint-cat.svg" width="38" height="38" alt=""><span>Redpoint Cat</span></a>
+      <a class="reel-primary" href="../studio/"><img src="../icons/brand/climbio-mark.svg" width="38" height="38" alt=""><span>Studio</span></a>
+    </div>
+    <details class="reel-menu">
+      <summary class="reel-shortcut" aria-label="アプリ一覧を表示" title="アプリ一覧を表示"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></summary>
+      <div class="directory-content" id="apps">
         <nav class="finale-apps" aria-label="Climbio apps">
           <a href="../hold/"><img src="../icons/cats/hold-cat.svg" width="38" height="38" alt=""><span><strong>Hold Cat</strong><small>課題を記録して残す</small></span></a>
           <a href="guides/friends.html"><img src="../icons/brand/friends-exchange.svg" width="38" height="38" alt=""><span><strong>仲間と共有</strong><small>写真とルートを送る</small></span></a>
@@ -95,10 +64,54 @@
           <a href="../lab/wall3d/en/"><img src="../icons/brand/3d-lab.svg" width="38" height="38" alt=""><span><strong>3D Lab</strong><small>岩壁の認識を研究</small></span></a>
         </nav>
         <a class="finale-source" href="https://github.com/climb-io/climbio" aria-label="GitHub"><svg viewBox="0 0 16 16" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38l-.01-1.49c-2.23.48-2.7-.95-2.7-.95-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.22.82 1.22.82.71 1.22 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.65-.89-3.65-3.96 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.13 0 0 .67-.21 2.2.82a7.7 7.7 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.11.16 1.93.08 2.13.51.56.82 1.28.82 2.15 0 3.08-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.22c0 .21.14.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a>
-        <footer class="finale-legal" aria-label="Site policies"><a href="../terms.html#en">利用規約</a><a href="../privacy.html#en">プライバシー</a></footer>
+        
+      </div>
+    </details>
+  </header>
+  <div class="reel-stage">
+    <article class="reel-frame hold-intro" id="hold-private" aria-labelledby="hold-private-title" data-title="Hold Cat" data-active>
+      <img class="reel-photo" src="../demo/reel/nangang-wall.webp" alt="" fetchpriority="high" decoding="async">
+      <div class="reel-copy">
+        <a class="reel-app" href="../hold/"><img src="../icons/cats/hold-cat.svg" alt="" width="48" height="48">Hold Cat</a>
+        <h1 id="hold-private-title">次はこの２本、登ってみて</h1>
+        <p class="reel-desc">今日作った課題を残しておきたい。壁を撮影してホールドとルートを記録。次に来た時もすぐ見つかる。</p>
       </div>
     </article>
+    <article class="reel-frame friend-intro" id="friend-exchange" aria-labelledby="friend-exchange-title" data-title="仲間と共有" inert aria-hidden="true">
+      <img class="reel-photo" src="../demo/reel/wanhua-friends.webp" alt="" loading="lazy" decoding="async">
+      <div class="reel-copy">
+        <a class="reel-app" href="guides/friends.html"><img src="../icons/brand/friends-exchange.svg" alt="" width="48" height="48">仲間と共有</a>
+        <h2 id="friend-exchange-title">このルートを仲間にも</h2>
+        <p class="reel-desc">作った課題を友達にも試してほしい。写真とルートを直接送信。相手の端末に保存していつでも見られる。</p>
+      </div>
+    </article>
+    <article class="reel-frame collector-intro" id="redpoint-collect" aria-labelledby="redpoint-collect-title" data-title="Redpoint Collector" inert aria-hidden="true">
+      <img class="reel-photo" src="../demo/reel/before-departure.webp" alt="" loading="lazy" decoding="async">
+      <div class="reel-copy">
+        <a class="reel-app" href="redpoint-collect/"><img src="../icons/cats/redpoint-cat-collector.svg" width="48" height="48" alt="">レッドポイントキャット コレクター</a>
+        <h2 id="redpoint-collect-title">次の岩場へ、出発前に保存</h2>
+        <p class="reel-desc">クライミング旅行の前に情報を集める。行きたい岩場とルートを探す。壁の写真とトポを保存しておく。</p>
+      </div>
+    </article>
+    <article class="reel-frame crag-intro" id="redpoint-climb" aria-labelledby="redpoint-climb-title" data-title="Redpoint Cat" inert aria-hidden="true">
+      <img class="reel-photo" src="../demo/reel/crag-guidebook.webp" alt="" loading="lazy" decoding="async">
+      <div class="reel-copy">
+        <a class="reel-app" href="../redpoint/"><img src="../icons/cats/redpoint-cat.svg" alt="" width="48" height="48">Redpoint Cat</a>
+        <h2 id="redpoint-climb-title">岩場に着いたらすぐルート確認</h2>
+        <p class="reel-desc">出発前に保存したトポを開く。仲間と目の前の岩壁を見比べる。スタート位置を一緒に探せる。</p>
+      </div>
+    </article>
+    <article class="reel-frame climbio-intro" id="climbio" aria-labelledby="climbio-title" data-title="Studio" inert aria-hidden="true">
+      <img class="reel-photo" src="../demo/story-after-climbing.webp" alt="" loading="lazy" decoding="async">
+      <div class="reel-copy">
+        <a class="reel-app" href="../studio/"><img src="../icons/brand/climbio-mark.svg" alt="" width="48" height="48">Studio</a>
+        <h2 id="climbio-title">作業は AI に、登る時間はあなたに</h2>
+        <p class="reel-desc">欲しいクライミングツールは AI で作る。登る時間をもっと楽しもう。</p>
+      </div>
+      
+    </article>
   </div>
+  <footer class="finale-legal" aria-label="Site policies"><a class="finale-source" href="https://github.com/climb-io/climbio" aria-label="GitHub"><svg viewBox="0 0 16 16" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38l-.01-1.49c-2.23.48-2.7-.95-2.7-.95-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.22.82 1.22.82.71 1.22 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.65-.89-3.65-3.96 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.13 0 0 .67-.21 2.2.82a7.7 7.7 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.11.16 1.93.08 2.13.51.56.82 1.28.82 2.15 0 3.08-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.22c0 .21.14.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a><a href="../terms.html#en">利用規約</a><a href="../privacy.html#en">プライバシー</a></footer>
   <p class="reel-status" role="status"></p>
 </main>
 </body>

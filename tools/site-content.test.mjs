@@ -13,9 +13,7 @@ test('八語文件首頁只提供人類使用與專案入口', () => {
     assert.match(doc, /href="\.\.\/project\/"/, prefix + ' missing project entry');
     assert.doesNotMatch(doc, /href="[^"]*\/kits\//, prefix + ' developer kit in docs');
     assert.doesNotMatch(doc, /href="[^"]*redpoint-sites\//, prefix + ' integration in docs');
-    assert.match(project, /github\.com\/climb-io\/climbio\/blob\/main\/docs\/embed\.md/);
-    assert.match(project, /github\.com\/climb-io\/climbio\/blob\/main\/docs\/gym-agent\.md/);
-    assert.match(project, /commits\/main/);
+    assert.match(project, /github\.com\/climb-io\/climbio\/blob\/main\/docs\/gym-onboarding\.md/, prefix + ' missing onboarding guide');
   }
 });
 

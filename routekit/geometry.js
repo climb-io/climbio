@@ -101,7 +101,7 @@
     return holds.filter(h => inPoly(x, y, h.poly)).map(h => [area(h.poly), h]).sort((a, b) => a[0] - b[0]).map(e => e[1]);
   }
   // 重疊岩點（面積小的在前）各自的圓點：會選到它（不在更小的候選裡）的範圍中，離所有候選邊界最遠的一點；
-  // 完全重合或被較小候選覆蓋、沒有獨占區的，改在右側放帶引線的選點。量體圓點也避開其他小岩點。
+  // 完全重合或被較小候選覆蓋、沒有獨占區的，改在右側放帶引線的選點。Volume 圓點也避開其他小岩點。
   function overlapSpots(cands, W, H, neighbors = []) {
     const b = bbox(cands.flatMap(h => h.poly)), step = Math.max(b.x1 - b.x0, b.y1 - b.y0) / 40, spots = new Map();
     const targets = new Set(cands);

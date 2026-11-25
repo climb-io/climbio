@@ -122,7 +122,7 @@ test('重疊岩點：點在裡面的岩點面積小的在前；圓點各自在�
   assert.equal(RouteKit.pickOverlap([small, big], spots, 20, 20, 5), null);             // 候選以外：取消
 });
 
-test('量體的候選保留原本兩顆，上面的其他岩點照樣可以直接點', () => {
+test('Volume 的候選保留原本兩顆，上面的其他岩點照樣可以直接點', () => {
   const volume = { id: 'volume', poly: box(0, 0, 180, 120) }, first = { id: 'first', poly: box(20, 30, 20, 20) };
   const other = { id: 'other', poly: box(65, 30, 20, 20) }, outside = { id: 'outside', poly: box(176, 70, 20, 20) };
   const wall = [volume, first, other, outside], candidates = RouteKit.holdsUnder(wall, 30, 40);

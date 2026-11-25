@@ -542,7 +542,7 @@ function reapply() {
     cam.aspect = m3.a; cam.position.fromArray(m3.c, 0); cam.quaternion.fromArray(m3.c, 3); cam.updateMatrixWorld(true); cam.updateProjectionMatrix();
     const poly = m3.p; let x0 = 1, y0 = 1, x1 = 0, y1 = 0;
     for (const [x, y] of poly) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
-    // 裝在上面的小岩點（量體上的 chip）留給它自己，規則跟 wall3dkit 的 applyEdit 一樣：別顆的面六成以上在多邊形裡、不到多邊形裡的一半
+    // 裝在上面的小岩點（Volume 上的 chip）留給它自己，規則跟 wall3dkit 的 applyEdit 一樣：別顆的面六成以上在多邊形裡、不到多邊形裡的一半
     const cand = [], tot = new Map(), ins = new Map();
     let insAll = 0;
     for (let f = 0; f < S.tris; f++) {
@@ -775,7 +775,7 @@ function tryPick(at) {
   tryAt = at;
   $('tryBar').hidden = !at;
   if (at) {
-    // 只有兩種：點不到想點的那顆（量體上的小點、漏掉的岩點）、外框不對（光暈溢出、缺一塊、兩顆連在一起、不是岩點）；一點就回報
+    // 只有兩種：點不到想點的那顆（Volume 上的小點、漏掉的岩點）、外框不對（光暈溢出、缺一塊、兩顆連在一起、不是岩點）；一點就回報
     $('tryChips').replaceChildren(...['cantPick', 'outline'].map((k) => {
       const b = Object.assign(document.createElement('button'), { type: 'button', textContent: T('w3Try_' + k) });
       b.onclick = () => sendTry(T('w3Try_' + k), k);
@@ -1045,7 +1045,7 @@ function openPublish() {
 addEventListener('beforeunload', (e) => { if (dirty) e.preventDefault(); });
 
 
-// 鏡頭對著一顆岩點（faces：這顆的面）：從它的正面（偏回牆的正面一點）看；轉角、側牆、量體下的岩點那個方向會被別的牆面擋住，
+// 鏡頭對著一顆岩點（faces：這顆的面）：從它的正面（偏回牆的正面一點）看；轉角、側牆、Volume 下的岩點那個方向會被別的牆面擋住，
 // 依序改試它自己的法線、牆的正面、再靠近一點，取第一個看得到這顆的；都看不到照第一個。動的是 Studio 的 camera
 function aimHold(faces) {
   const P = S.surface.geometry.attributes.position, mw = S.surface.matrixWorld, v = new Vector3(), a = new Vector3(), b = new Vector3(), n = new Vector3(), box = new Box3();
@@ -1056,7 +1056,7 @@ function aimHold(faces) {
   }
   const center = box.getCenter(new Vector3()), r = Math.max(box.getSize(new Vector3()).length() / 2, 0.04), dist = (r * 1.7) / Math.tan(Math.PI * 25 / 180);
   camera.aspect = 1; camera.updateProjectionMatrix();
-  // 從這顆的正面（偏回牆的正面一點）看；轉角、側牆、量體下的岩點那個方向會被別的牆面擋住，
+  // 從這顆的正面（偏回牆的正面一點）看；轉角、側牆、Volume 下的岩點那個方向會被別的牆面擋住，
   // 依序改試它自己的法線、牆的正面、再靠近一點，取第一個看得到這顆的
   const own = n.lengthSq() ? n.clone().normalize() : facing.clone();
   if (own.dot(facing) < 0) own.negate();   // 模型的三角面繞向不一定朝外：轉到朝鏡頭那一側
@@ -1138,7 +1138,7 @@ async function trialShots(items, size = 512) {
 }
 // AI 看光暈（tools/studio.mjs look3d --glow）：跟岩點貓點選後看到的一樣——烘好的成品、沿牆鏡頭走到框住這顆的位置（看線同一個 frameTo），
 // 左邊原樣、右邊點選後（底圖灰階、這顆原色加光暈）。鏡頭記下來：AI 在右半張重描的多邊形照這個鏡頭變成修點
-// wide：量體看全形——鏡頭退遠一點（1.2 倍）、裁大一點（亮的範圍三倍、至少畫面的四分之一），只亮到一部分的量體也看得到整個外形，照直線邊描完整
+// wide：Volume 看全形——鏡頭退遠一點（1.2 倍）、裁大一點（亮的範圍三倍、至少畫面的四分之一），只亮到一部分的 Volume 也看得到整個外形，照直線邊描完整
 async function glowShots(ids, size = 320, wide = false) {
   const t = await bakeTrial(false), st = t.stage, out = [], R = 960;   // 用 960 渲染，再裁出這顆附近放大（沿牆鏡頭框住一顆時還是退得比較遠）
   const host = document.createElement('div');
@@ -1173,7 +1173,7 @@ async function glowShots(ids, size = 320, wide = false) {
         for (let p = 0; p < R * R; p++) if (Math.abs(a[p * 4] - b[p * 4]) + Math.abs(a[p * 4 + 1] - b[p * 4 + 1]) + Math.abs(a[p * 4 + 2] - b[p * 4 + 2]) > 30) { const x = p % R, y = (p / R) | 0; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
         return x1 < 0 ? null : { lit, box: [x0, y0, x1, y1] };
       };
-      // 側牆、量體後面的岩點：沿牆鏡頭正面看不到，使用者會調角度（±30°）看——照樣轉過去拍
+      // 側牆、Volume 後面的岩點：沿牆鏡頭正面看不到，使用者會調角度（±30°）看——照樣轉過去拍
       let got = lighted();
       for (const k of [1, -1, 0.5, -0.5]) { if (got || !st.wc) break; st.wc.yaw = k * YAW_MAX; st.wc.clamp(); st.wc.apply(); got = lighted(); }
       let photo = shoot({}, 'photo'), via = 'walk';

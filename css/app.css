@@ -425,12 +425,43 @@ html:has(.sheet-backdrop:not([hidden])), html:has(.sheet-backdrop:not([hidden]))
 :is(.vw-base, .st-base)[aria-pressed="true"] { color: var(--accent); }
 
 @keyframes pill-in { from { opacity: 0; transform: translate(-50%, 16px) scale(.9); } }
-/* 相機看線：整個畫面蓋一層追蹤頁（iframe），左上返回 */
+/* AR 看線：整個畫面蓋一層追蹤頁（iframe），左上返回、下面路線卡 */
 .cam-view { position: fixed; inset: 0; z-index: 40; background: #000; }
 .cam-view[hidden] { display: none; }
 .cam-view iframe { width: 100%; height: 100%; border: 0; display: block; }
-.cam-close { position: absolute; left: 12px; top: calc(12px + var(--safe-t)); width: var(--tb); height: var(--tb); background: rgba(14,14,15,.55); }
-/* 看路線圖右上：灰階／暗彩圓鈕，旁邊是「⋯」：相機看線（3D 牆）、編輯路線、分享收在選單裡 */
+.cam-close { position: absolute; z-index: 2; left: 12px; top: calc(12px + var(--safe-t)); width: var(--tb); height: var(--tb); background: rgba(14,14,15,.55); }
+/* AR 看線：手勢層蓋在追蹤頁上（追蹤頁出錯時收起，重試鈕才點得到）；上面一顆「對準牆面」，認到牆就淡掉 */
+.ar-swipe { position: absolute; inset: 0; z-index: 1; touch-action: none; }
+.cam-view[data-error="1"] .ar-swipe, .cam-view[data-error="1"] .ar-aim, .cam-view[data-error="1"] .ar-deck { display: none; }
+.ar-aim { position: absolute; z-index: 2; left: 50%; top: calc(12px + var(--safe-t)); height: var(--tb); transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 999px;
+  background: rgba(6,10,14,.62); border: 1px solid rgba(212,255,79,.32); color: #d4ff4f; font: 700 12px/1 ui-monospace, "SF Mono", "Roboto Mono", monospace; letter-spacing: .14em; white-space: nowrap; pointer-events: none; transition: opacity .35s ease, transform .35s ease; }
+.ar-aim::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #d4ff4f; box-shadow: 0 0 8px #d4ff4f; animation: arDot 1.2s ease-in-out infinite; }
+.cam-view[data-located="1"] .ar-aim { opacity: 0; transform: translate(-50%, -6px); }
+@keyframes arDot { 50% { opacity: .25; } }
+/* 路線卡：深色半透明玻璃、左邊一道螢光綠的光條、很淡的掃描線紋理；難度大字、名稱、第幾條（等寬字） */
+.ar-deck { position: absolute; z-index: 2; left: 12px; right: 12px; bottom: calc(14px + var(--safe-b)); height: 80px; pointer-events: none; overflow: visible; }
+.ar-track { position: absolute; inset: 0; }
+.ar-card { position: absolute; inset: 0; display: flex; align-items: center; gap: 14px; padding: 0 44px 0 22px; border-radius: 20px; color: #fff; overflow: hidden; will-change: transform;
+  background: linear-gradient(135deg, rgba(16,20,26,.8), rgba(6,8,12,.64)); border: 1px solid rgba(212,255,79,.24);
+  box-shadow: 0 12px 32px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.07), 0 0 24px rgba(212,255,79,.06); }
+.ar-card::before { content: ""; position: absolute; left: 0; top: 18px; bottom: 18px; width: 3px; border-radius: 0 3px 3px 0; background: #d4ff4f; box-shadow: 0 0 12px #d4ff4f, 0 0 2px #d4ff4f; }
+.ar-card::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .5;
+  background: repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 4px), linear-gradient(100deg, transparent 30%, rgba(212,255,79,.07) 50%, transparent 70%); }
+.ar-grade { flex: none; min-width: 1.6ch; font: italic 700 42px/1 var(--display); letter-spacing: .01em; text-shadow: 0 0 18px rgba(212,255,79,.3); }
+.ar-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.ar-name { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ar-name:empty { display: none; }
+.ar-sent { flex: none; width: 16px; height: 16px; color: #d4ff4f; }
+.ar-sent svg { width: 100%; height: 100%; display: block; }
+.ar-sub { font: 700 11px/1 ui-monospace, "SF Mono", "Roboto Mono", monospace; letter-spacing: .16em; color: rgba(255,255,255,.55); }
+.ar-sub:empty { display: none; }
+/* 有上一條／下一條：卡片兩側一個小箭頭提示可以滑 */
+.ar-deck::before, .ar-deck::after { content: ""; position: absolute; z-index: 1; top: 50%; width: 8px; height: 8px; margin-top: -4px; border: solid rgba(212,255,79,.7); border-width: 0 2px 2px 0; opacity: 0; transition: opacity .3s; }
+.ar-deck::before { left: 10px; transform: rotate(135deg); }
+.ar-deck::after { right: 14px; transform: rotate(-45deg); }
+.ar-deck[data-prev="1"]::before, .ar-deck[data-next="1"]::after { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .ar-aim::before { animation: none; } }
+/* 看路線圖右上：灰階／暗彩圓鈕，旁邊是「⋯」：AR 看線、編輯路線、分享收在選單裡 */
 .vw-more { position: absolute; right: 12px; top: calc(12px + var(--safe-t)); }
 .vw .vw-more, .vw .vw-base { width: var(--tb); height: var(--tb); background: rgba(14,14,15,.35); }
 .vw-base { position: absolute; right: calc(12px + var(--tb) + var(--tg)); top: calc(12px + var(--safe-t)); }
@@ -506,7 +537,7 @@ html:has(.sheet-backdrop:not([hidden])), html:has(.sheet-backdrop:not([hidden]))
 #holdActions #holdLasso[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
 #holdActions #holdLasso[aria-pressed="true"] svg { transform: rotate(45deg); }   /* 圈的時候是「取消」：加號轉 45° 成 × */
 #holdActions #holdLasso[hidden] { display: none; }
-/* 圈起來時膠囊只留「圈」一顆（當離開鈕），放在畫面右下角，其他按鈕收起來，不擋要圈的量體 */
+/* 圈起來時膠囊只留「圈」一顆（當離開鈕），放在畫面右下角，其他按鈕收起來，不擋要圈的 Volume */
 #holdActions.lassoing > :not(#holdLasso) { display: none; }
 #holdActions :is(#holdUndo, #holdRetrace):disabled { opacity: .35; }
 #holdActions #holdRetrace[hidden] { display: none; }

@@ -388,8 +388,8 @@ class Stage {
     const s = this.labelSize, L = this.labels, ray = this.raycaster, A = new Vector3(), B = new Vector3(), C = new Vector3(), dir = new Vector3();
     const cover = this.uvCover();
     const near = [], inPoly = [], own = new Set(this.baseFaces[i] || []);   // 這顆原本的面：離多邊形再遠也要看（原本的範圍拖了尾巴，落在外面的要清掉）
-    // 裝在上面的小岩點（量體上的 chip）：別顆的面大多落在多邊形裡、面數不到多邊形裡的一半，那些面和像素留給它自己（量體的光暈照樣填過去，見 fillOf），
-    // 不然修量體的外框會把 chip 整顆收走，chip 就點不到、沒有光暈
+    // 裝在上面的小岩點（Volume 上的 chip）：別顆的面大多落在多邊形裡、面數不到多邊形裡的一半，那些面和像素留給它自己（Volume 的光暈照樣填過去，見 fillOf），
+    // 不然修 Volume 的外框會把 chip 整顆收走，chip 就點不到、沒有光暈
     const tot = new Map(), ins = new Map(), F0 = this.faceLabels, others = [];
     let insAll = 0;
     for (let f = 0; f < tris; f++) {
@@ -403,10 +403,10 @@ class Stage {
       tot.set(l, (tot.get(l) || 0) + 1); if (inP) { ins.set(l, (ins.get(l) || 0) + 1); others.push(f); }
     }
     // m3.k（只改跟牆的交界）：AI 照顏色邊界貼的外框，別顆岩點的面和像素一律不動（不搶鄰居）
-    // m3.k 的別顆岩點的面和像素都不動，但裝在上面的 chip 照樣讓量體的光暈填過去（不挖洞）
+    // m3.k 的別顆岩點的面和像素都不動，但裝在上面的 chip 照樣讓 Volume 的光暈填過去（不挖洞）
     const chips = new Set([...ins].filter(([l, n]) => n >= 0.6 * tot.get(l) && n < 0.5 * insAll).map(([l]) => l));
     const guest = m3.k ? { has: (l) => !!l && l !== idx } : chips;
-    const guestFaces = others.filter(f => chips.has(F0[f]));   // 量體的填色要蓋過 chip（從修點的角度看不到的那側也算），光暈才不挖洞
+    const guestFaces = others.filter(f => chips.has(F0[f]));   // Volume 的填色要蓋過 chip（從修點的角度看不到的那側也算），光暈才不挖洞
     let count = 0;
     ray.firstHitOnly = true;
     for (let f = 0; f < tris; f++) {
@@ -1245,7 +1245,7 @@ class Stage {
     });
     this.invalidate();
   }
-  // 量體上裝了別的岩點（被它圍住的面）：光暈當成量體的一部分，不繞著每個洞發光。只畫在光暈的遮罩裡
+  // Volume 上裝了別的岩點（被它圍住的面）：光暈當成 Volume 的一部分，不繞著每個洞發光。只畫在光暈的遮罩裡
   fillOf(i) {
     const fills = this.fills || (this.fills = new Map());
     if (!fills.has(i)) {
@@ -1253,10 +1253,10 @@ class Stage {
         side: DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
         vertexShader: 'void main(){gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}', fragmentShader: 'uniform vec3 roleColor;uniform vec2 holdId;uniform float maskMode;void main(){gl_FragColor=maskMode>1.5?vec4(holdId,0.,1.):vec4(roleColor,1.);}' });
       if (this.bigHold === undefined) { const c = this.holds.map(h => h.faceCount).sort((a, b) => a - b); this.bigHold = 5 * c[c.length >> 1]; }
-      // 只有量體（面數是中位數 5 倍以上）上面會裝別的岩點：被它圍住的面也填上，光暈不挖洞。修過外框的照修的範圍（成品記 edited），不填：填色會從縫溢出、拖出觸手
-      // 修過外框的量體：只填修的外框裡面的面（成品記在 holds[].fill，工作檔照 applyEdit 記的），量體上裝的小岩點不會變成洞、也不會溢出外框
+      // 只有 Volume（面數是中位數 5 倍以上）上面會裝別的岩點：被它圍住的面也填上，光暈不挖洞。修過外框的照修的範圍（成品記 edited），不填：填色會從縫溢出、拖出觸手
+      // 修過外框的 Volume：只填修的外框裡面的面（成品記在 holds[].fill，工作檔照 applyEdit 記的），Volume 上裝的小岩點不會變成洞、也不會溢出外框
       const h = this.holds[i], ov = this.overlays[i], edited = h.edited || (ov && ov.userData.edited);
-      // 修的外框裡留了 chip 的（不到量體的大小也算）：填修的外框裡面，chip 那塊才不會挖洞
+      // 修的外框裡留了 chip 的（不到 Volume 的大小也算）：填修的外框裡面，chip 那塊才不會挖洞
       const guests = h.fill || (ov && ov.userData.guests);
       const fillFaces = h.faceCount < this.bigHold && !(edited && guests) ? [] : !edited ? this.enclosed(i + 1) : h.fill || (ov && ov.userData.inPoly) || [];
       const m = new Mesh(this.faceGeometry(fillFaces), mat);
@@ -1265,9 +1265,9 @@ class Stage {
     }
     return fills.get(i);
   }
-  // 量體（大岩點）光暈裡不挖洞：光暈整塊亮，上面的小點（chip）可不可以用由它們自己的光暈表示。要補進光暈的面：
-  // ① 別的岩點的面：一塊連通的別顆岩點，大半個邊（貼量體的邊至少是碰到外面的 3 倍，貼邊的 chip 也算，只是鄰居不算）貼著這顆量體、面數不超過它的一半，不管有沒有被完全圍住（貼著邊的 chip 也算）；
-  // ② 沒有標籤的面圍成的小洞：四周只碰到這顆量體（或補進來的 chip）才算；碰到別顆岩點的是岩點之間的牆，往外走太遠的是外面的牆，都不補
+  // Volume（大岩點）光暈裡不挖洞：光暈整塊亮，上面的小點（chip）可不可以用由它們自己的光暈表示。要補進光暈的面：
+  // ① 別的岩點的面：一塊連通的別顆岩點，大半個邊（貼 Volume 的邊至少是碰到外面的 3 倍，貼邊的 chip 也算，只是鄰居不算）貼著這顆 Volume、面數不超過它的一半，不管有沒有被完全圍住（貼著邊的 chip 也算）；
+  // ② 沒有標籤的面圍成的小洞：四周只碰到這顆 Volume（或補進來的 chip）才算；碰到別顆岩點的是岩點之間的牆，往外走太遠的是外面的牆，都不補
   enclosed(idx) {
     const I = this.surface.geometry.index, F = this.faceLabels, tris = F.length;
     if (!this.adjacent) {   // 共用一條邊的面（第一次要用才建）
@@ -1282,7 +1282,7 @@ class Stage {
     const limit = Math.max(20, own.length >> 1), state = new Uint8Array(tris), out = [];   // 1：走過、2：補進來、3：這顆自己的面
     for (const f of own) state[f] = 3;
     const A = this.adjacent;
-    // ① 先補 chip：同一顆岩點連通的面，貼量體的邊至少是碰到外面（牆面、別顆岩點）的 3 倍；只是相鄰的鄰居、長在別顆岩點上的都不算
+    // ① 先補 chip：同一顆岩點連通的面，貼 Volume 的邊至少是碰到外面（牆面、別顆岩點）的 3 倍；只是相鄰的鄰居、長在別顆岩點上的都不算
     for (const f of own) for (const g of A[f]) {
       if (state[g] || !F[g]) continue;
       const lab = F[g], seen = [g], stack = [g]; let toOwn = 0, toOut = 0; state[g] = 1;   // 只走同一顆（chip 自己）的面
@@ -1294,7 +1294,7 @@ class Stage {
       }
       if (!stack.length && seen.length <= limit && toOwn >= toOut * 3) for (const h of seen) { state[h] = 2; out.push(h); }
     }
-    // ② 再補沒標籤的小洞：四周只碰到這顆量體（或剛補進來的 chip）的面才算洞；碰到別顆岩點的是岩點之間的牆，不補
+    // ② 再補沒標籤的小洞：四周只碰到這顆 Volume（或剛補進來的 chip）的面才算洞；碰到別顆岩點的是岩點之間的牆，不補
     const small = Math.max(20, own.length >> 3);
     for (const f of own) for (const g of A[f]) {
       if (state[g] || F[g]) continue;
@@ -1310,7 +1310,7 @@ class Stage {
     }
     return out;
   }
-  // 烘焙時整理量體（大岩點）的標籤，光暈才會整塊、不挖洞（bakepack.js 套完修點後呼叫）：
+  // 烘焙時整理 Volume（大岩點）的標籤，光暈才會整塊、不挖洞（bakepack.js 套完修點後呼叫）：
   // 這顆自己的面裡，離主體很遠的小碎塊（連通塊不到它的 5%）清掉；沒標籤的小洞（enclosed 的 ②）補成這顆；
   // 這顆的面上，貼圖還空著（標籤 0）的像素也補成這顆，面上不留小洞。上面的 chip（別顆岩點）的標籤不動
   cleanVolumes() {
@@ -1395,7 +1395,7 @@ class Stage {
     clearTimeout(this.settleT);
     this.settleT = setTimeout(() => { this.settleT = 0; if (this.renderer && this.renderer.getPixelRatio() !== this.dprRest) { this.renderer.setPixelRatio(this.dprRest); this.invalidate(); } }, DPR_SETTLE_MS);
   }
-  // 光暈（畫面上的後製，放大縮小一樣寬）：路線岩點畫成角色色的遮罩（被牆面擋住的不畫；量體上裝的岩點填滿），縮成一半、高斯模糊兩次（橫、直），
+  // 光暈（畫面上的後製，放大縮小一樣寬）：路線岩點畫成角色色的遮罩（被牆面擋住的不畫；Volume 上裝的岩點填滿），縮成一半、高斯模糊兩次（橫、直），
   // 從修圓滑的岩點形狀往外漸淡，內外圈都平整，靠在一起的岩點光暈疊在一起；越靠近岩點越亮、帶一點白
   glowSetup() {
     const quadVS = 'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}';
@@ -1577,7 +1577,7 @@ class Stage {
     wc.coarse = true;   // 調角度途中範圍用粗刻度（walkcam.js 的 YAW_COARSE），放手由 W3D.endZoom 換回精確值
     wc.yaw = MathUtils.clamp(wc.yaw - dx / (st.clientWidth / 2) * YAW_MAX, -YAW_MAX, YAW_MAX); wc.clamp();
   }
-  // 回程角度（WalkCam.auto）：正常角度一路滑過去被別的量體擋住、看不到的岩點，回程換個角度看得到。沿牆每 10 公分在 ±30°（每 10° 一個）裡挑，
+  // 回程角度（WalkCam.auto）：正常角度一路滑過去被別的 Volume 擋住、看不到的岩點，回程換個角度看得到。沿牆每 10 公分在 ±30°（每 10° 一個）裡挑，
   // 看得到最多那些岩點的角度，相鄰位置的角度差也算代價（每差 10° 少算一顆），整條一起挑（動態規劃），再平滑 30 公分、夾住沿牆變化的上限：回程一路平順地轉
   planAngles() {
     const wc = this.wc, p = wc.p, d = wc.d, cam = this.camera, keep = [cam.position.clone(), cam.quaternion.clone(), cam.near, cam.far];

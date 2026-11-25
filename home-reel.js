@@ -7,50 +7,58 @@ if (/[?&]still\b/.test(location.search)) document.documentElement.classList.add(
 
   const status = reel.querySelector('.reel-status');
   const stage = reel.querySelector('.reel-stage');
-  const finale = frames.at(-1);
-  const apps = finale.querySelector('#apps');
-  const shortcut = reel.querySelector('.reel-shortcut');
+  const menu = reel.querySelector('.reel-menu');
+  const shortcut = menu.querySelector('summary');
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
-  const folio = reel.querySelector('.reel-folio');
   const aliases = {
     hold: 'hold-private', 'hold-climb': 'hold-private', 'hold-share': 'friend-exchange',
     'hold-community-set': 'hold-public', 'hold-community-view': 'hold-public',
     redpoint: 'redpoint-climb', 'redpoint-guidebook': 'redpoint-climb', 'redpoint-climb': 'redpoint-climb', 'redpoint-share': 'friend-exchange', 'hold-public': 'climbio',
   };
   let current = 0;
-  let playing = !motion.matches && !location.hash;
+  let playing = !motion.matches && !location.hash && !document.documentElement.classList.contains('still');
   let timer;
   let touchStart;
 
-  function showApps(visible) {
-    finale.toggleAttribute('data-apps-visible', visible);
-    apps.inert = !visible;
-    if (shortcut) shortcut.hidden = visible;
-    if (visible) apps.removeAttribute('aria-hidden');
-    else apps.setAttribute('aria-hidden', 'true');
+  // Story controls stay independent from the persistent product navigation.
+  const labels = {
+    zh: ['暫停播放', '播放故事'], 'zh-cn': ['暂停播放', '播放故事'],
+    en: ['Pause story', 'Play story'], ja: ['一時停止', '再生'],
+    fr: ['Mettre en pause', 'Lire'], ko: ['일시 정지', '재생'],
+    es: ['Pausar historia', 'Reproducir historia'], de: ['Pausieren', 'Abspielen'],
+  }[document.documentElement.dataset.homeLocale?.toLowerCase()] || ['Pause story', 'Play story'];
+  const playback = document.createElement('button');
+  playback.type = 'button';
+  playback.className = 'reel-playback';
+  menu.querySelector('#apps').append(playback);
+
+  function syncPlayback() {
+    playback.textContent = playing ? labels[0] : labels[1];
+    playback.setAttribute('aria-label', playing ? labels[0] : labels[1]);
+    playback.title = playing ? labels[0] : labels[1];
   }
 
   function stop() {
     playing = false;
     clearTimeout(timer);
+    syncPlayback();
   }
 
   function schedule() {
     clearTimeout(timer);
-    if (document.hidden) return;
-    if (frames[current] === finale) {
-      if (finale.hasAttribute('data-apps-visible')) return;
-      if (motion.matches) advance();
-      else timer = setTimeout(advance, 2400);
-    } else if (playing) {
-      timer = setTimeout(advance, 6500);
-    }
+    if (!playing || document.hidden || menu.open) return;
+    timer = setTimeout(advance, 6500);
   }
+
+  playback.addEventListener('click', () => {
+    playing = !playing;
+    syncPlayback();
+    schedule();
+  });
 
   function show(index, manual = false) {
     if (index !== current && frames[current].contains(document.activeElement)) reel.focus();
     current = index;
-    showApps(false);
     for (const [i, frame] of frames.entries()) {
       const active = i === current;
       frame.toggleAttribute('data-active', active);
@@ -58,8 +66,7 @@ if (/[?&]still\b/.test(location.search)) document.documentElement.classList.add(
       if (active) frame.removeAttribute('aria-hidden');
       else frame.setAttribute('aria-hidden', 'true');
     }
-    if (folio) folio.textContent = `${current + 1}／${frames.length}`;
-    frames.slice(current, current + 2).forEach(frame => {
+    [frames[current], frames[(current + 1) % frames.length]].forEach(frame => {
       frame.querySelector('.reel-photo').loading = 'eager';
     });
     if (manual) {
@@ -79,11 +86,11 @@ if (/[?&]still\b/.test(location.search)) document.documentElement.classList.add(
       return;
     }
     if (id === 'apps') {
-      if (frames[current] !== finale) show(frames.length - 1);
-      showApps(true);
-      stop();
+      menu.open = true;
+      schedule();
       return;
     }
+    menu.open = false;
     const target = Object.hasOwn(aliases, id) ? aliases[id] : id;
     const index = frames.findIndex(frame => frame.id === target);
     if (index >= 0) {
@@ -93,30 +100,32 @@ if (/[?&]still\b/.test(location.search)) document.documentElement.classList.add(
   }
 
   function advance(manual = false) {
-    if (frames[current] !== finale) {
-      show(current + 1, manual);
-      return;
-    }
-    if (finale.hasAttribute('data-apps-visible')) return;
-    if (manual) history.replaceState(null, '', '#apps');
-    showApps(true);
-    stop();
+    show((current + 1) % frames.length, manual);
   }
 
   function previous() {
-    if (current > 0) show(current - 1, true);
+    show((current - 1 + frames.length) % frames.length, true);
   }
 
+  menu.addEventListener('toggle', () => {
+    if (!menu.open && location.hash === '#apps') {
+      history.replaceState(null, '', '#' + frames[current].id);
+    }
+    schedule();
+  });
+  document.addEventListener('click', event => {
+    if (menu.open && !menu.contains(event.target)) menu.open = false;
+  });
   stage.addEventListener('focusin', stop);
   stage.addEventListener('click', event => {
-    if (event.target.closest('a, button') || getSelection()?.isCollapsed === false) return;
+    if (menu.open || event.target.closest('a, button') || getSelection()?.isCollapsed === false) return;
     advance(true);
   });
   stage.addEventListener('touchstart', event => {
     touchStart = event.touches.length === 1 ? event.touches[0] : null;
   }, { passive: true });
   stage.addEventListener('touchend', event => {
-    if (!touchStart || event.touches.length) return;
+    if (menu.open || !touchStart || event.touches.length) return;
     const touch = event.changedTouches[0];
     const x = touch.clientX - touchStart.clientX;
     const y = touch.clientY - touchStart.clientY;
@@ -128,7 +137,12 @@ if (/[?&]still\b/.test(location.search)) document.documentElement.classList.add(
   });
   stage.addEventListener('touchcancel', () => { touchStart = null; });
   document.addEventListener('keydown', event => {
-    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.key === 'Escape' && menu.open) {
+      menu.open = false;
+      shortcut.focus();
+      return;
+    }
+    if (menu.open || event.altKey || event.ctrlKey || event.metaKey || event.target.closest('a, button, summary, input, textarea, select')) return;
     if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
     event.preventDefault();
     if (event.key === 'ArrowRight') advance(true);
@@ -143,6 +157,7 @@ if (/[?&]still\b/.test(location.search)) document.documentElement.classList.add(
   });
   window.addEventListener('hashchange', showHash);
 
+  syncPlayback();
   show(0);
   showHash();
 })();

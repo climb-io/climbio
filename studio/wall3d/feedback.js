@@ -1,7 +1,7 @@
 // 3D 牆發佈前的人工試用：人在 Studio 的「試用」步驟看過這一版，有問題點那裡寫一句回報；代理修完記下怎麼處理，人再試用，沒問題才問要不要發佈。
 // 紀錄在工作資料夾的 feedback3d.json：
 //   { format: 'climbio-3d-feedback/1', items: [{ id, at, hold?, kind?, point, camera, aspect, text, done? }], tried?: { sig, at } }
-//   kind：cantPick 有點沒辦法點（量體上的小點、漏掉的岩點）、outline 外框不對（光暈溢出、缺一塊、兩顆連在一起、不是岩點）；舊紀錄可能是別的值或沒有，照 text 看
+//   kind：cantPick 有點沒辦法點（Volume 上的小點、漏掉的岩點）、outline 外框不對（光暈溢出、缺一塊、兩顆連在一起、不是岩點）；舊紀錄可能是別的值或沒有，照 text 看
 //   hold：回報的岩點 id（點在牆上沒有岩點的地方就沒有，例如漏掉的岩點）；point：點到的位置（模型座標）；camera：當時的鏡頭 [位置 xyz, 四元數 xyzw]
 //   done：代理處理完 { at, by, note }；tried：人按「試用完」時這一版的指紋（內容又改了就要再試用）
 // 指紋只看最終決定（不是岩點、修點、隱藏的面、裁切平面），跟發佈的 patch 同一組內容；瀏覽器和命令列算出來一樣

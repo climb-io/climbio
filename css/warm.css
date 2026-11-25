@@ -30,8 +30,6 @@
   .collector-intro { --focal: 64% 50%; }
   .collector-intro .reel-photo { height: 80%; -webkit-mask-image: linear-gradient(180deg, #000 72%, transparent 100%); mask-image: linear-gradient(180deg, #000 72%, transparent 100%); }
 }
-/* 8. 大標一律照意思分兩行（每個 .reel-phrase 一行），不讓寬螢幕把兩句併成一行、把「轉折」吃掉。 */
-.reel :is(h1, h2) .reel-phrase { display: block; }
 /* 9. 第一格換新照片（一般岩友下班後試爬，hero-tryclimb.webp）：焦點桌機 52% 50%、手機 42% 46%。
    新照片右半是空的素色牆，不需要原本那麼重的遮罩；改輕一點，免得把她的臉、伸出去的手壓暗。 */
 .hold-intro { --focal: 52% 50%; }
@@ -86,27 +84,12 @@
 /* 15. 內文：兩行短句收緊成一組，88% 白讓大標和內文主次分明。 */
 .reel-desc { line-height: 1.55; color: rgba(255,250,240,.88); }
 .reel-sentence + .reel-sentence { margin-top: .1em; }
-/* 16. 入口連結（第 1–4 格）：圖示 48 → 34px，標籤中等字重加一點字距；四個圖示統一放進和目錄一樣的淺色小方框。 */
-.reel-app { gap: 10px; font-weight: 500; letter-spacing: .04em; }
-.reel-app img { width: 34px; height: 34px; padding: 4px; border-radius: 8px; background: #f7f9f5; box-sizing: border-box; }
 /* 17. 換頁：淡入 0.75s 慢進慢出；文字比照片晚 0.12s 出現；停留時間在 home-reel.js 改成 6.5s。 */
 .reel-frame { transition: opacity 750ms ease-in-out, visibility 0s linear 750ms; }
 .reel-frame[data-active] { transition-delay: 0s; }
 .reel-photo { transition: transform 900ms ease-out; }
 .reel-frame:not(.climbio-intro) .reel-copy, .climbio-intro .reel-copy { opacity: 0; transition: opacity 600ms ease-in-out 120ms, transform 700ms ease-out 120ms; }
 .reel-frame[data-active] .reel-copy { opacity: 1; }
-/* 18. 頁碼：左下角一行小字「1／5」，字級、顏色、位置和第五格頁尾那行一樣；目錄出現時讓位給頁尾。 */
-.reel-folio {
-  position: absolute; z-index: 4; margin: 0; pointer-events: none;
-  left: calc(var(--reel-gutter) + 1.25px + env(safe-area-inset-left));
-  bottom: calc(18px + env(safe-area-inset-bottom));
-  font-size: 13px; line-height: 1; letter-spacing: .08em; color: rgba(255,250,240,.66);
-  font-variant-numeric: tabular-nums; transition: opacity 300ms ease;
-}
-.reel:has(.climbio-intro[data-apps-visible]) .reel-folio { opacity: 0; }
-@media (max-width: 760px) {
-  .reel-folio { left: calc(var(--reel-gutter) + 1px + env(safe-area-inset-left)); bottom: calc(14px + env(safe-area-inset-bottom)); }
-}
 /* 19. 目錄：Lab 區小一級、淡到 80%，先看到四隻貓，再看到給開發者的項目。 */
 .climbio-intro .finale-labs a { opacity: .8; }
 .climbio-intro .finale-labs a:hover { opacity: 1; }
@@ -127,7 +110,7 @@
 /* 22. 大標改 700 字重後，中文字左側留白跟著字級變大約 2–3px；頁尾的 GitHub 圖示和頁碼改用跟大標字級同比例的位移，
    讓可見左緣繼續和大標／內文切齊（1280／1440／1920 實測）。中型桌機仍對齊目錄圖示，手機維持 +1px。 */
 @media (min-width: 1100px) and (min-height: 680px) {
-  .climbio-intro .finale-legal, .reel-folio { left: calc(var(--reel-gutter) + clamp(1px, .18vw, 2.8px) + env(safe-area-inset-left)); }
+  .climbio-intro .finale-legal { left: calc(var(--reel-gutter) + clamp(1px, .18vw, 2.8px) + env(safe-area-inset-left)); }
 }
 /* 23. 第一格換成重新生成的照片（11/24）：桌機用橫式（右側較暗、留給文字），直式手機改用另外生成的直式構圖，
    臉、伸出去的手和下一顆點都在上半部，下半部是暗的地墊，大標放在那裡。直式照片寬於螢幕，焦點偏右一點保住臉和手。 */
@@ -137,4 +120,146 @@
 /* 24. 第一格 1024–1279 寬（4:3 左右）：照片左右被裁比較多，髮髻離大標只剩 30px；焦點往右移，人往左讓出空間。 */
 @media (min-width: 1024px) and (max-width: 1279px) and (min-height: 600px) {
   .hold-intro { --focal: 64% 50%; }
+}
+
+/* Persistent product navigation: independent of the story stage. */
+.reel-nav {
+  position: absolute; z-index: 5; top: calc(14px + env(safe-area-inset-top));
+  right: calc(16px + env(safe-area-inset-right)); left: calc(16px + env(safe-area-inset-left));
+  display: flex; justify-content: flex-end; align-items: center; gap: 3px;
+  pointer-events: none;
+}
+.reel-primary-links, .reel-menu { pointer-events: auto; }
+.reel-primary-links { display: flex; align-items: center; gap: 2px; min-width: 0; }
+/* Let the photograph lead: no individual button backgrounds or icon tiles. */
+.reel-nav::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  top: calc(-14px - env(safe-area-inset-top)); right: calc(-16px - env(safe-area-inset-right));
+  width: min(310px, 100vw); height: 105px;
+  background: radial-gradient(ellipse at top right, rgba(9,18,13,.42), transparent 75%);
+}
+.reel-primary, .reel-menu > summary {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; padding: 0; border: 0; border-radius: 8px;
+  background: transparent; backdrop-filter: none;
+  color: var(--reel-paper); text-decoration: none;
+  opacity: .86; transition: opacity 180ms ease;
+}
+.reel-primary { position: relative; }
+.reel-primary img {
+  width: 29px; height: 29px; border-radius: 0; background: transparent;
+  padding: 0; object-fit: contain; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5));
+}
+.reel-primary span {
+  position: absolute; top: calc(100% + 4px); right: 0; white-space: nowrap;
+  padding: 4px 8px; border-radius: 5px; font-size: 12px; font-weight: 500;
+  background: rgba(16,25,19,.92); color: var(--reel-paper);
+  opacity: 0; pointer-events: none; transition: opacity 180ms ease;
+}
+.reel-menu > summary { position: static; cursor: pointer; list-style: none; }
+.reel-menu > summary svg { width: 19px; height: 19px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+.reel-menu > summary::-webkit-details-marker { display: none; }
+.reel-menu[open] > summary, .reel-primary:focus-visible, .reel-menu > summary:focus-visible { opacity: 1; }
+.reel-primary:focus-visible span { opacity: 1; }
+@media (hover: hover) {
+  .reel-primary:hover, .reel-menu > summary:hover { opacity: 1; background: transparent; }
+  .reel-primary:hover span { opacity: 1; }
+}
+.reel-menu > summary:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
+.reel-menu:not([open]) .directory-content { display: none; }
+.reel-menu[open] .directory-content {
+  position: absolute; top: calc(100% + 10px); right: 0;
+  width: min(100%, 620px); max-height: calc(100dvh - 120px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow-y: auto; overscroll-behavior: contain; padding: 12px; border-radius: 14px;
+  border: 1px solid #fffaf035; background: rgba(16,25,19,.96);
+  box-shadow: 0 12px 40px #0005; backdrop-filter: blur(14px);
+  opacity: 1; visibility: visible; pointer-events: auto; transform: none; transition: none;
+}
+.reel-menu :is(.finale-apps, .finale-labs) { width: 100%; grid-auto-rows: auto; gap: 4px 12px; }
+.reel-menu :is(.finale-apps, .finale-labs) a { min-height: 48px; height: auto; padding: 6px 8px; }
+.reel-menu :is(.finale-apps, .finale-labs) a:hover { background: #fffaf014; }
+.reel-menu :is(.finale-apps, .finale-labs) a > span { min-width: 0; flex: 1; }
+.reel-menu :is(.finale-apps, .finale-labs) :is(strong, small) { white-space: normal; overflow-wrap: anywhere; }
+.reel-menu :is(.finale-apps, .finale-labs) img { width: 34px; height: 34px; }
+.reel-menu .finale-labs { margin-top: 8px; padding-top: 8px; }
+.reel > .finale-legal {
+  position: absolute; z-index: 4; margin: 0; left: calc(16px + env(safe-area-inset-left));
+  bottom: calc(12px + env(safe-area-inset-bottom)); gap: 14px; flex-wrap: nowrap;
+  font-size: 12px; line-height: 1.3; text-shadow: 0 1px 6px #000;
+}
+.reel > .finale-legal .finale-source { display: inline-flex; width: auto; height: auto; margin: 0; }
+.reel > .finale-legal .finale-source svg { width: 16px; height: 16px; }
+.reel-menu .reel-playback {
+  display: block; width: 100%; min-height: 44px; margin-top: 8px;
+  padding: 10px 8px 2px; text-align: start; border: 0;
+  border-top: 1px solid #fffaf03d; background: none;
+  color: var(--reel-paper); font: inherit; font-size: 13px; cursor: pointer;
+}
+.reel-menu .reel-playback:hover { text-decoration: underline; text-underline-offset: .2em; }
+.reel-frame { padding-bottom: max(calc(52px + env(safe-area-inset-bottom)), calc(var(--reel-bottom-space) + env(safe-area-inset-bottom))); }
+/* The fifth scene is now a story like the other four, not a directory. */
+.reel .climbio-intro {
+  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto;
+  align-content: end; align-items: end; justify-items: start;
+  padding: 64px var(--reel-gutter) max(calc(52px + env(safe-area-inset-bottom)), calc(var(--reel-bottom-space) + env(safe-area-inset-bottom)));
+  --shade: linear-gradient(0deg, rgba(12,31,23,.88), rgba(12,31,23,.35) 48%, transparent 82%);
+}
+.reel .climbio-intro .reel-copy { grid-area: auto; align-self: end; width: min(100%, 780px); text-align: start; }
+.reel .climbio-intro h2 { font-size: clamp(34px, 5.6vw, 78px); }
+@media (max-width: 760px) {
+  .reel-nav { top: calc(10px + env(safe-area-inset-top)); right: calc(12px + env(safe-area-inset-right)); left: calc(12px + env(safe-area-inset-left)); gap: 2px; }
+  .reel-primary-links { gap: 0; }
+  .reel-primary img { width: 27px; height: 27px; }
+  .reel-menu[open] .directory-content { width: min(100%, 480px); }
+  .reel-menu :is(.finale-apps, .finale-labs) { grid-template-columns: minmax(0, 1fr); }
+  .reel .climbio-intro h2 { font-size: clamp(30px, 8vw, 60px); }
+}
+@media (max-height: 540px) and (min-width: 761px) {
+  .reel .climbio-intro h2 { font-size: clamp(28px, 4.5vw, 45px); }
+  .reel .climbio-intro { padding-top: 62px; }
+}
+@media (max-width: 350px) {
+  .reel > .finale-legal { gap: 8px; font-size: 11px; left: calc(10px + env(safe-area-inset-left)); }
+}
+
+/* Story typography: product signature, headline and supporting copy form one composition. */
+.reel .reel-copy > .reel-app {
+  display: flex; align-items: center; gap: 7px; width: fit-content;
+  max-width: 100%; min-height: 32px; margin: 0 0 clamp(10px, 1.6vh, 17px);
+  padding: 0; border: 0; border-radius: 0; background: none;
+  color: inherit; font-size: clamp(13px, 1.15vw, 16px);
+  font-weight: 500; line-height: 1.35; letter-spacing: .025em;
+  text-decoration: none; opacity: .9;
+}
+.reel .reel-copy > .reel-app img {
+  flex: 0 0 auto; width: 24px; height: 24px; padding: 0;
+  border-radius: 0; background: none; object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.45));
+}
+@media (hover: hover) {
+  .reel .reel-copy > .reel-app:hover { opacity: 1; text-decoration: underline; text-underline-offset: .22em; }
+}
+.reel .reel-copy > :is(h1,h2) {
+  font-size: clamp(32px, 4.5vw, 72px);
+  line-height: 1.16; letter-spacing: -.025em;
+  text-wrap: balance; overflow-wrap: anywhere;
+}
+.reel .reel-copy > .reel-desc {
+  width: auto; max-width: 44ch;
+  margin: clamp(12px, 2vh, 22px) 0 0;
+  font-size: clamp(15px, 1.25vw, 20px);
+  line-height: 1.6; text-wrap: pretty; overflow-wrap: anywhere;
+}
+:lang(zh) .reel .reel-copy > .reel-desc,
+:lang(ja) .reel .reel-copy > .reel-desc { max-width: 27em; }
+@media (max-width: 760px) {
+  .reel .reel-copy > :is(h1,h2) { font-size: clamp(29px, 7.8vw, 51px); }
+  .reel .reel-copy > .reel-desc { font-size: clamp(14px, 3.8vw, 17px); margin-top: 12px; }
+  .reel .reel-copy > .reel-app { min-height: 32px; margin-bottom: 9px; }
+  .reel .reel-copy > .reel-app img { width: 22px; height: 22px; }
+}
+@media (max-height: 540px) {
+  .reel .reel-copy > :is(h1,h2) { font-size: clamp(26px, 4.2vw, 40px); }
+  .reel .reel-copy > .reel-desc { font-size: 14px; line-height: 1.45; margin-top: 8px; }
+  .reel .reel-copy > .reel-app { min-height: 26px; margin-bottom: 5px; }
 }

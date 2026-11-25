@@ -11,7 +11,7 @@ AppKit.i18n.add('hold', 'ja', {
   takePhoto: '写真を撮る', fromLibrary: 'アルバム', rotate: '90° 回転',
   back: 'ウォール一覧に戻る', wallName: 'ウォール名', more: 'その他',
   addPhoto: '写真を追加', addPhotoLeft: '左に追加', addPhotoRight: '右に追加', addPhotoUp: '上に追加', addPhotoDown: '下に追加',
-  deleteWall: 'ウォールを削除', showHolds: 'すべてのホールドを表示', liveCamera: 'カメラで見る', zoomOut: '縮小', zoomIn: '拡大',
+  deleteWall: 'ウォールを削除', showHolds: 'すべてのホールドを表示', liveCamera: 'ARで見る', arAim: '壁に向けてください', zoomOut: '縮小', zoomIn: '拡大',
   routes: '課題', sortRoutes: '課題の並べ替え', sortAdded: '新しい順', sortGradeAsc: 'グレード：低い順', sortGradeDesc: 'グレード：高い順', sortPos: '位置：左から右', rfSent: '完登', rfUnsent: '未完登', xferPhoto: '隣の写真へ続ける',
   holds: 'ホールド', routeName: '課題名', grade: 'グレード', deleteRoute: '課題を削除',
   start: 'スタート', hand: 'ハンド', foot: 'フット', top: 'ゴール',

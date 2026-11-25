@@ -2,11 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { createRequire } from 'node:module';
-import { TrackingLog2d } from '../lab/wall2d-cam/tracking-log.js';
+import { TrackingLog2d } from '../arkit/tracking-log.js';
 
-const require = createRequire(import.meta.url);
-const G = require('../lab/wall2d-cam/geometry.js');
+await import('../arkit/geometry.js');   // ArKit 的幾何（ES module，掛在全域 ArKitGeometry）
+const G = globalThis.ArKitGeometry;
 const root = new URL('../lab/wall2d-cam/', import.meta.url);
 
 test('2D 相機比對資料不含影像，雜湊、大小與特徵數由 manifest 對照', () => {
@@ -136,7 +135,7 @@ test('2D 追蹤紀錄保留初次定位、掉追蹤、過期隱藏與人工標�
   assert.ok(report.events.some((e) => e.kind === 'user_mark' && e.mark === 'drift'));
 });
 
-test('大型量體標記（>= 8x 中位數）與單應矩陣延遲補償外推', () => {
+test('大型 Volume 標記（>= 8x 中位數）與單應矩陣延遲補償外推', () => {
   const holds = [
     { id: 's1', poly: [[0, 0], [10, 0], [10, 10], [0, 10]] }, // 100
     { id: 's2', poly: [[0, 0], [10, 0], [10, 10], [0, 10]] }, // 100

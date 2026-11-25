@@ -41,6 +41,19 @@ test('伺服器端載入 Web Component、MobileSAM 重描不會壞', () => {
   assert.equal(typeof globalThis.HoldRefiner.configure, 'function');
 });
 
+// arkit：純 ES module，型別檔宣告了每個匯出，package.json 列的檔案都在，伺服器端（沒有 DOM）載入不會壞
+test('arkit：伺服器端載得進來，型別檔宣告了每個匯出，package.json 列的檔案都在', async () => {
+  const esm = await import(new URL('arkit/index.js', root));
+  const dts = read('arkit/index.d.ts');
+  for (const k of Object.keys(esm)) assert.match(dts, new RegExp(`export (declare )?(function|const|class|type|interface) ${k}\\b`), `arkit/index.d.ts 少了 ${k}`);
+  assert.equal(typeof esm.Geometry.applyHomography, 'function');
+  const pkg = JSON.parse(read('arkit/package.json'));
+  assert.equal(pkg.type, 'module');
+  for (const f of pkg.files.filter(f => !f.includes('*'))) assert.ok(fs.existsSync(new URL(`arkit/${f}`, root)), `arkit/${f}`);
+  for (const e of Object.values(pkg.exports).flatMap(v => typeof v === 'string' ? [v] : Object.values(v)).filter(v => !v.includes('*')))
+    assert.ok(fs.existsSync(new URL(`arkit/${e}`, root)), `arkit/${e}`);
+});
+
 // topokit：純 ES module（沒有 require 入口），型別檔宣告了每個匯出，package.json 列的檔案都在，伺服器端（沒有 DOM）載入不會壞
 test('topokit：型別檔宣告了每個匯出', async () => {
   const esm = await import(new URL('topokit/index.js', root));

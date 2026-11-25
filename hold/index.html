@@ -331,7 +331,7 @@ html{background:#0e0e0f}
    </div>
    <div class="top-grp" id="topR">
     <button class="icon-btn" id="edDelRoute" data-i18n-aria="deleteRoute" aria-label="刪除路線" hidden><svg><use href="#i-trash"/></svg></button>
-    <button class="icon-btn" id="camTrackBtn" data-i18n-aria="liveCamera" aria-label="相機看線" hidden><svg><use href="#i-camera"/></svg></button>
+    <button class="icon-btn" id="camTrackBtn" data-i18n-aria="liveCamera" aria-label="AR 看線" hidden><svg><use href="#i-camera"/></svg></button>
     <button class="icon-btn" id="shareBtn" data-i18n-aria="share" aria-label="分享" hidden><svg><use href="#i-share"/></svg></button>
     <button class="icon-btn" id="edMenuBtn" data-i18n-aria="more" aria-label="更多" aria-haspopup="true" hidden><svg><use href="#i-more"/></svg></button>
    </div>
@@ -350,10 +350,14 @@ html{background:#0e0e0f}
   <button class="xfer-btn next" id="xferNext" data-i18n-aria="xferPhoto" aria-label="接到相鄰照片" hidden><svg><use href="#i-back"/></svg></button>
   <div class="swipe-hint" id="swipeHint" aria-hidden="true" hidden></div>
   <canvas class="loupe" id="loupe" aria-hidden="true" hidden></canvas>
-  <!-- 相機看線：岩點貓裡蓋一層全螢幕的相機追蹤（/3d/ 的追蹤頁），開相機即時疊這條線的岩點；左上返回回到路線圖 -->
+  <!-- AR 看線：岩點貓裡蓋一層全螢幕的相機追蹤（2D 牆 /lab/wall2d-cam/、3D 牆 /3d/），開相機即時疊這條線的岩點；
+       下面一張路線卡，左右滑換線（#arSwipe 手勢層蓋在追蹤頁上）；左上返回回到路線圖 -->
   <div class="cam-view" id="camView" hidden>
-    <iframe id="camFrame" title="相機看線" data-i18n-title="liveCamera" allow="camera; accelerometer; gyroscope; magnetometer"></iframe>
+    <iframe id="camFrame" title="AR 看線" data-i18n-title="liveCamera" allow="camera; accelerometer; gyroscope; magnetometer"></iframe>
+    <div class="ar-swipe" id="arSwipe" aria-hidden="true"></div>
     <button class="vw-btn cam-close" id="camClose" data-i18n-aria="back" aria-label="返回"><svg><use href="#i-back"/></svg></button>
+    <div class="ar-aim" aria-live="polite"><span data-i18n="arAim">對準牆面</span></div>
+    <div class="ar-deck" id="arDeck"><div class="ar-track" id="arTrack"></div></div>
   </div>
   <div class="vw" id="vw">
     <button class="vw-btn vw-back" id="vwBack" data-i18n-aria="back" aria-label="返回"><svg><use href="#i-back"/></svg></button>
@@ -361,7 +365,7 @@ html{background:#0e0e0f}
     <button class="vw-btn vw-base base-btn" aria-pressed="false" data-i18n-aria="baseToggle" aria-label="灰階／暗彩"><svg><use href="#i-contrast"/></svg></button>
     <button class="vw-btn vw-more" id="vwMore" data-i18n-aria="more" aria-label="更多" aria-haspopup="true" aria-expanded="false"><svg><use href="#i-more"/></svg></button>
     <div class="menu vw-menu" id="vwMenu" hidden>
-      <button class="vw-item" id="vwCam" hidden><svg><use href="#i-camera"/></svg><span data-i18n="liveCamera">相機看線</span></button>
+      <button class="vw-item" id="vwCam" hidden><svg><use href="#i-camera"/></svg><span data-i18n="liveCamera">AR 看線</span></button>
       <button class="vw-item" id="vwEdit"><svg><use href="#i-edit"/></svg><span data-i18n="editRoute">編輯路線</span></button>
       <button class="vw-item" id="vwRename"><svg><use href="#i-rename"/></svg><span data-i18n="renameWall">重新命名</span></button>
       <button class="vw-item" id="vwShare"><svg viewBox="3.8 2.8 16.4 17.4" aria-hidden="true"><use href="#i-share" width="24" height="24"/></svg><span data-i18n="share">分享</span></button>

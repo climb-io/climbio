@@ -41,46 +41,15 @@
 </head>
 <body class="reel-page">
 <main class="reel" tabindex="-1" aria-label="Climbio Klettergeschichten">
-  <a class="reel-shortcut" href="#apps" aria-label="Apps anzeigen" title="Apps anzeigen"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></a>
-  <div class="reel-stage">
-    <article class="reel-frame hold-intro" id="hold-private" aria-labelledby="hold-private-title" data-title="Hold Cat" data-active>
-      <img class="reel-photo" src="../demo/reel/nangang-wall.webp" alt="" fetchpriority="high" decoding="async">
-      <div class="reel-copy">
-        <h1 id="hold-private-title"><span class="reel-phrase">Nächstes Mal</span><span class="reel-phrase">probier diese zwei</span></h1>
-        <p class="reel-desc"><span class="reel-sentence">Ich möchte meine neuen Boulder behalten</span><span class="reel-sentence"><span class="reel-phrase">Ich fotografiere die Wand und markiere Griffe</span><span class="reel-phrase">Beim nächsten Mal finde ich sie wieder</span></span></p>
-        <a class="reel-app" href="../hold/"><img src="../icons/cats/hold-cat.svg" alt="" width="48" height="48">Hold Cat</a>
-      </div>
-    </article>
-    <article class="reel-frame friend-intro" id="friend-exchange" aria-labelledby="friend-exchange-title" data-title="Mit Freunden teilen" inert aria-hidden="true">
-      <img class="reel-photo" src="../demo/reel/wanhua-friends.webp" alt="" loading="lazy" decoding="async">
-      <div class="reel-copy">
-        <h2 id="friend-exchange-title"><span class="reel-phrase">Meine Routen</span><span class="reel-phrase">auch für dich</span></h2>
-        <p class="reel-desc"><span class="reel-sentence">Meine Freunde sollen die Boulder probieren</span><span class="reel-sentence"><span class="reel-phrase">Ich sende Fotos und Routen direkt</span><span class="reel-phrase">Sie speichern alles auf ihren Geräten</span></span></p>
-        <a class="reel-app" href="guides/friends.html"><img src="../icons/brand/friends-exchange.svg" alt="" width="48" height="48">Mit Freunden teilen</a>
-      </div>
-    </article>
-    <article class="reel-frame collector-intro" id="redpoint-collect" aria-labelledby="redpoint-collect-title" data-title="Redpoint Collector" inert aria-hidden="true">
-      <img class="reel-photo" src="../demo/reel/before-departure.webp" alt="" loading="lazy" decoding="async">
-      <div class="reel-copy">
-        <h2 id="redpoint-collect-title"><span class="reel-phrase">Nächste Kletterreise</span><span class="reel-phrase">Topos schon dabei</span></h2>
-        <p class="reel-desc"><span class="reel-sentence">Vor der Reise suchen wir passende Felsen</span><span class="reel-sentence"><span class="reel-phrase">Wir sammeln spannende Routen</span><span class="reel-phrase">Fotos und Topos speichern wir vorher</span></span></p>
-        <a class="reel-app" href="redpoint-collect/"><img src="../icons/cats/redpoint-cat-collector.svg" width="48" height="48" alt="">Redpoint Cat Sammler</a>
-      </div>
-    </article>
-    <article class="reel-frame crag-intro" id="redpoint-climb" aria-labelledby="redpoint-climb-title" data-title="Redpoint Cat" inert aria-hidden="true">
-      <img class="reel-photo" src="../demo/reel/crag-guidebook.webp" alt="" loading="lazy" decoding="async">
-      <div class="reel-copy">
-        <h2 id="redpoint-climb-title"><span class="reel-phrase">Direkt am Fels</span><span class="reel-phrase">finde deine Route</span></h2>
-        <p class="reel-desc"><span class="reel-sentence">Die gespeicherten Topos sind griffbereit</span><span class="reel-sentence"><span class="reel-phrase">Wir vergleichen sie mit der Felswand</span><span class="reel-phrase">Gemeinsam finden wir den Einstieg</span></span></p>
-        <a class="reel-app" href="../redpoint/"><img src="../icons/cats/redpoint-cat.svg" alt="" width="48" height="48">Redpoint Cat</a>
-      </div>
-    </article>
-    <article class="reel-frame climbio-intro" id="climbio" aria-labelledby="climbio-title" data-title="Climbio" inert aria-hidden="true">
-      <img class="reel-photo" src="../demo/story-after-climbing.webp" alt="" loading="lazy" decoding="async">
-      <div class="reel-copy">
-        <h2 id="climbio-title"><span class="reel-phrase">Die KI erledigt die Arbeit</span><span class="reel-phrase">du genießt das Klettern</span></h2>
-      </div>
-      <div class="directory-content" id="apps" inert aria-hidden="true">
+  <header class="reel-nav">
+    <div class="reel-primary-links">
+      <a class="reel-primary" href="../hold/"><img src="../icons/cats/hold-cat.svg" width="38" height="38" alt=""><span>Hold Cat</span></a>
+      <a class="reel-primary" href="../redpoint/"><img src="../icons/cats/redpoint-cat.svg" width="38" height="38" alt=""><span>Redpoint Cat</span></a>
+      <a class="reel-primary" href="../studio/"><img src="../icons/brand/climbio-mark.svg" width="38" height="38" alt=""><span>Studio</span></a>
+    </div>
+    <details class="reel-menu">
+      <summary class="reel-shortcut" aria-label="Apps anzeigen" title="Apps anzeigen"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></summary>
+      <div class="directory-content" id="apps">
         <nav class="finale-apps" aria-label="Climbio apps">
           <a href="../hold/"><img src="../icons/cats/hold-cat.svg" width="38" height="38" alt=""><span><strong>Hold Cat</strong><small>Eigene Boulder speichern</small></span></a>
           <a href="guides/friends.html"><img src="../icons/brand/friends-exchange.svg" width="38" height="38" alt=""><span><strong>Mit Freunden teilen</strong><small>Fotos und Routen senden</small></span></a>
@@ -95,10 +64,54 @@
           <a href="../lab/wall3d/en/"><img src="../icons/brand/3d-lab.svg" width="38" height="38" alt=""><span><strong>3D Lab</strong><small>Felsen erkennen</small></span></a>
         </nav>
         <a class="finale-source" href="https://github.com/climb-io/climbio" aria-label="GitHub"><svg viewBox="0 0 16 16" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38l-.01-1.49c-2.23.48-2.7-.95-2.7-.95-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.22.82 1.22.82.71 1.22 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.65-.89-3.65-3.96 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.13 0 0 .67-.21 2.2.82a7.7 7.7 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.11.16 1.93.08 2.13.51.56.82 1.28.82 2.15 0 3.08-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.22c0 .21.14.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a>
-        <footer class="finale-legal" aria-label="Site policies"><a href="../terms.html#en">Nutzungsbedingungen</a><a href="../privacy.html#en">Datenschutz</a></footer>
+        
+      </div>
+    </details>
+  </header>
+  <div class="reel-stage">
+    <article class="reel-frame hold-intro" id="hold-private" aria-labelledby="hold-private-title" data-title="Hold Cat" data-active>
+      <img class="reel-photo" src="../demo/reel/nangang-wall.webp" alt="" fetchpriority="high" decoding="async">
+      <div class="reel-copy">
+        <a class="reel-app" href="../hold/"><img src="../icons/cats/hold-cat.svg" alt="" width="48" height="48">Hold Cat</a>
+        <h1 id="hold-private-title">Nächstes Mal probier diese zwei</h1>
+        <p class="reel-desc">Ich möchte meine neuen Boulder behalten. Ich fotografiere die Wand und markiere Griffe. Beim nächsten Mal finde ich sie wieder.</p>
       </div>
     </article>
+    <article class="reel-frame friend-intro" id="friend-exchange" aria-labelledby="friend-exchange-title" data-title="Mit Freunden teilen" inert aria-hidden="true">
+      <img class="reel-photo" src="../demo/reel/wanhua-friends.webp" alt="" loading="lazy" decoding="async">
+      <div class="reel-copy">
+        <a class="reel-app" href="guides/friends.html"><img src="../icons/brand/friends-exchange.svg" alt="" width="48" height="48">Mit Freunden teilen</a>
+        <h2 id="friend-exchange-title">Meine Routen, auch für dich</h2>
+        <p class="reel-desc">Meine Freunde sollen die Boulder probieren. Ich sende Fotos und Routen direkt. Sie speichern alles auf ihren Geräten.</p>
+      </div>
+    </article>
+    <article class="reel-frame collector-intro" id="redpoint-collect" aria-labelledby="redpoint-collect-title" data-title="Redpoint Collector" inert aria-hidden="true">
+      <img class="reel-photo" src="../demo/reel/before-departure.webp" alt="" loading="lazy" decoding="async">
+      <div class="reel-copy">
+        <a class="reel-app" href="redpoint-collect/"><img src="../icons/cats/redpoint-cat-collector.svg" width="48" height="48" alt="">Redpoint Cat Sammler</a>
+        <h2 id="redpoint-collect-title">Nächste Kletterreise, Topos schon dabei</h2>
+        <p class="reel-desc">Vor der Reise suchen wir passende Felsen. Wir sammeln spannende Routen. Fotos und Topos speichern wir vorher.</p>
+      </div>
+    </article>
+    <article class="reel-frame crag-intro" id="redpoint-climb" aria-labelledby="redpoint-climb-title" data-title="Redpoint Cat" inert aria-hidden="true">
+      <img class="reel-photo" src="../demo/reel/crag-guidebook.webp" alt="" loading="lazy" decoding="async">
+      <div class="reel-copy">
+        <a class="reel-app" href="../redpoint/"><img src="../icons/cats/redpoint-cat.svg" alt="" width="48" height="48">Redpoint Cat</a>
+        <h2 id="redpoint-climb-title">Direkt am Fels: Finde deine Route</h2>
+        <p class="reel-desc">Die gespeicherten Topos sind griffbereit. Wir vergleichen sie mit der Felswand. Gemeinsam finden wir den Einstieg.</p>
+      </div>
+    </article>
+    <article class="reel-frame climbio-intro" id="climbio" aria-labelledby="climbio-title" data-title="Studio" inert aria-hidden="true">
+      <img class="reel-photo" src="../demo/story-after-climbing.webp" alt="" loading="lazy" decoding="async">
+      <div class="reel-copy">
+        <a class="reel-app" href="../studio/"><img src="../icons/brand/climbio-mark.svg" alt="" width="48" height="48">Studio</a>
+        <h2 id="climbio-title">Die KI erledigt die Arbeit, du genießt das Klettern</h2>
+        <p class="reel-desc">Fehlt ein Kletterwerkzeug? Lass es die KI bauen. Mehr Zeit fürs Klettern.</p>
+      </div>
+      
+    </article>
   </div>
+  <footer class="finale-legal" aria-label="Site policies"><a class="finale-source" href="https://github.com/climb-io/climbio" aria-label="GitHub"><svg viewBox="0 0 16 16" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38l-.01-1.49c-2.23.48-2.7-.95-2.7-.95-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.22.82 1.22.82.71 1.22 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.65-.89-3.65-3.96 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.13 0 0 .67-.21 2.2.82a7.7 7.7 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.11.16 1.93.08 2.13.51.56.82 1.28.82 2.15 0 3.08-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.22c0 .21.14.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a><a href="../terms.html#en">Nutzungsbedingungen</a><a href="../privacy.html#en">Datenschutz</a></footer>
   <p class="reel-status" role="status"></p>
 </main>
 </body>

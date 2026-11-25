@@ -32,12 +32,17 @@ function keygen(file) {
   console.log(`代發金鑰 kid=${kidOf(pub)}（${file}，請存在版控外、備份）`);
 }
 
+// 牆 id ＝ 照片編號（畫面的 id），不是資料集的包 id：路線登記在照片編號，用包 id 寫會另開一面沒有岩點的空牆。
+// 畫面直接讀資料集的現行版（App 也是讀這裡；/w/<id>/shared.json 已不是 App 讀的檔，線上可能是 404）。
 async function baseOf(pid) {
-  const { data: st } = await get(`${SITE}/w/${pid}/shared.json`);
-  if (!st.published || !st.src) die(`牆 ${pid} 不是公開牆`);
-  const layerUrl = `${SITE}/p/${st.src.project}/${st.src.path}`, { data: layer } = await get(layerUrl);   // 相對網址照 /p/ 的位置解（轉址後的網址路徑不同）
-  const { data: view } = await get(new URL(layer.href, layerUrl).href);
-  return RK.fromFormat(view, []);   // { w, h, holds }
+  const st = await (await fetch(FN, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op: 'routes', pid }), signal: AbortSignal.timeout(60000) })).json();
+  if (!st.published || !st.src) die(`牆 ${pid} 不是公開牆（路線登記在照片編號；包 id 不是牆 id，查畫面檔 <照片編號>.json 的 id）`);
+  const dir = `https://huggingface.co/datasets/climbio/walls/resolve/main/walls/${st.src.project}/current/`, bust = `?x=${Date.now()}`;
+  const { data: layer } = await get(`${dir}${st.src.path}${bust}`);
+  const { data: view } = await get(`${dir}${layer.href.split('/').pop()}${bust}`);
+  if (view.id !== pid) die(`${pid} 不是這面牆的照片編號（畫面的 id 是 ${view.id}）：路線要用 ${view.id} 當牆 id`);
+  const retired = new Set(view.nodes.filter(n => n.type === 'hold' && n.props && n.props.retired).map(n => n.id));
+  return { ...RK.fromFormat(view, []), retired };   // { w, h, holds, retired }；停用的岩點路線不能用（put 會擋）
 }
 
 async function call(op, pid, keyFile, fields) {
@@ -61,6 +66,8 @@ else if (cmd === 'put') {
   const [pid, file] = rest; if (!pid || !file || !keyFile) die('用法：put <牆 id> <路線檔> --key <金鑰檔>');
   const routes = JSON.parse(readFileSync(file, 'utf8')), b = await baseOf(pid), all = [];
   for (const x of routes) {
+    const dead = Object.keys(x.holds || {}).filter(h => b.retired.has(h) || !b.holds.some(k => k.id === h));
+    if (dead.length) die(`路線「${x.name || x.id}」用到不存在或已停用的岩點：${dead.join('、')}（先在牆的新版本改回有效，或換掉這些點）`);
     const l = RK.routesLayer({ id: pid, pid, href: `${pid}.json`, w: b.w, h: b.h, holds: b.holds, routes: [x], t: 0 });
     all.push({ id: x.id, r: JSON.stringify({ nodes: l.nodes, marks: l.marks }) });
   }

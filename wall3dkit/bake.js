@@ -51,8 +51,8 @@ export function clipPolygon(poly, planes, spare = () => 0) {
 }
 
 // 修點的外框照描的線切開網格：修點是從一個鏡頭描的多邊形，每條邊跟鏡頭位置定出一個平面，跨過外框的三角形沿這些平面切開，
-// 切出來的小塊照重心投影在不在多邊形裡分給這顆或外面。這樣光暈和點選的範圍就是描的線（量體的直線邊是直線），
-// 不會變成貼圖像素或三角面的鋸齒（量體的邊在側面，一個像素拉得很長）。
+// 切出來的小塊照重心投影在不在多邊形裡分給這顆或外面。這樣光暈和點選的範圍就是描的線（Volume 的直線邊是直線），
+// 不會變成貼圖像素或三角面的鋸齒（Volume 的邊在側面，一個像素拉得很長）。
 // cuts：[{ idx, faces（要看的面，原本的編號）, eye（鏡頭位置）, rays（多邊形每個頂點從鏡頭出去的方向）, poly（畫面座標）, project(p)→[x,y]|null, guests（裝在上面、留給自己的岩點編號）, keep（只改跟牆的交界：別顆的面都不動） }]，座標都在模型的座標系。
 // 回傳新的 positions/uvs/fade/index/faceLabels，和 parent（每個新三角形是原本第幾個）、inside（每個新三角形落在哪顆修點的外框裡，0 是都不在）
 export function cutOutlines({ positions, uvs, fade, index, faceLabels, cuts, inside: within }) {

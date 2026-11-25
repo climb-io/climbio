@@ -306,6 +306,7 @@ function printQuestions(qs, decisions) {
     console.log(`- ${q.id}  [${q.level}]${waitingFor(q, decisions) === 'human' ? '［等人］' : ''} ${q.title}（${q.options.join('／')}${HUMAN_ONLY.has(q.kind) ? '' : '／retake'}）`);
     if (waitingFor(q, decisions) !== 'agent') continue;
     const d = decisions.filter(x => x.q === q.id).at(-1);
+    if (!d) continue;   // 還沒有人的判斷（AI 先答的題）：沒有修正要轉達
     console.log(`    人要你改${d.note ? `：${d.note}` : ''}${d.patch ? `（修正：${JSON.stringify(d.patch)}）` : ''}`);
   }
 }
@@ -787,7 +788,7 @@ function review3d(P, file) {
   const toStdOf = (shot) => { const [cx, cy, cs] = shot.crop || [0, 0, 1], [sx, ox, sy, oy] = shot.std || [1, 0, 1, 0]; return ([px, py]) => { const u = cx + clamp(px) * cs, v = cy + clamp(py) * cs, x = sx * (u * 2 - 1) + ox, y = sy * (1 - v * 2) + oy; return [+((x + 1) / 2).toFixed(4), +((1 - y) / 2).toFixed(4)]; }; };
   for (const x of list) {
     if (x.v === 'add' && x.n !== undefined) {
-      // 補漏掉的岩點（AI 在光暈圖看到沒偵測到的岩點、量體）：在那張圖的右半張描整顆（像素跟 reshape 一樣），照那張圖的鏡頭變成新的修點
+      // 補漏掉的岩點（AI 在光暈圖看到沒偵測到的岩點、Volume）：在那張圖的右半張描整顆（像素跟 reshape 一樣），照那張圖的鏡頭變成新的修點
       const shot = index.holds[byN.get(x.n)], poly = x.poly;
       if (!shot || !shot.c || shot.empty) { errs.push(`add #${x.n}：這次 look3d 沒有這張圖`); continue; }
       if (!Array.isArray(poly) || poly.length < 3 || !poly.every(p => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite))) { errs.push(`add #${x.n}：poly 要是右半張的像素，至少三點`); continue; }
@@ -816,7 +817,7 @@ function review3d(P, file) {
     if (x.v === 'off') {
       if (!(DELETE_REASONS.includes(x.why) || (shot.empty && x.why === '看不到'))) { errs.push(`${id}：off 要寫 why（${DELETE_REASONS.join('／')}${shot.empty ? '／看不到' : ''}）；說不出是哪一種就是岩點，答 keep`); continue; }
       const h = doc.holds.find(h => h.id === id);
-      if (h) h.off = 1;   // 原本的岩點標 off；修過的外框也拿掉（不然還會從別顆搶走面，例如量體的碎塊重描成整顆，拿掉後量體挖一個洞）
+      if (h) h.off = 1;   // 原本的岩點標 off；修過的外框也拿掉（不然還會從別顆搶走面，例如 Volume 的碎塊重描成整顆，拿掉後 Volume 挖一個洞）
       doc.edits = (doc.edits || []).filter(e => e.id !== id);   // 補畫的直接拿掉
     } else if (x.v === 'reshape') {
       const poly = x.poly;
@@ -873,9 +874,13 @@ async function try3d(P) {
     if (!r.token) fail(`同步服務發不了試用連結：${r.error || r.status}`, 1);
     const u = remote.url === SYNC_URL ? '' : `&u=${encodeURIComponent(remote.url)}`;
     console.log(`試用「${doc.name || doc.id}」（手機、電腦都能開，${new Date(r.exp).toLocaleDateString()} 前有效）：\n${site}/studio/wall3d/?app#sync=${remote.pid}&t=${r.token}${u}&step=try\n回報寫回同步服務：node tools/studio.mjs pull ${P.dir} 拿回來，status 會出題`);
-    // 烘過成品之後，無畫面瀏覽器、連線留下的東西會讓 node 好幾分鐘不結束；事情做完就結束（工具不能讓代理卡著等）
+    // 烘過成品之後，無畫面瀏覽器、連線留下的東西會讓 node 好幾分鐘不結束；事情做完就結束（工具不能讓代理卡著等）。
+    // 不馬上 process.exit：Windows 上連線還在關閉時硬結束，node 會當掉（UV_HANDLE_CLOSING）、回非 0；
+    // 沒東西留著就自然結束，有東西留著 3 秒後才強制結束（unref 的計時器不會自己撐住 node）
     await new Promise(ok => process.stdout.write('', ok));
-    process.exit(0);
+    process.exitCode = 0;
+    setTimeout(() => process.exit(0), 3000).unref();
+    return;
   }
   const { createServer } = await import('node:http');
   const port = Number(portArg || 8790), WRITABLE = new Set(['wall.json', 'feedback3d.json']);

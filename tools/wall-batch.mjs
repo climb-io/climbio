@@ -10,10 +10,10 @@
 //                                                             "<牆>#sam": ["sam"|"keep"|"delete"|"unsure", …]（SAM2 要看的，照 sam-questions.json 的順序）,
 //                                                             "<牆>#recheck": ["sam|keep|delete:<理由> 或 ok|rm1|rm2|merge", …]（放大再看一次，照 recheck.json 的順序，不能再答 unsure）, "<牆>#audit": ["ok"|"bad", …]（抽查，照 audit.json 的順序）,
 //                                                             "<牆>#overview": [6 格，每格 "ok" 或 { "volumes": [[x0,y0,x1,y1]…], "missing": [[x0,y0,x1,y1]…], "issues": "…" }],
-//                                                             "<牆>#shapes": [每個量體一個多邊形 [[x,y]…]（或幾個多邊形的陣列、或 "skip:<理由>"）], "<牆>#shapecheck": ["ok" 或 { "poly": […], "remove": [編號…], "delete": true }]}
-//   node tools/wall-batch.mjs shapes <工作資料夾>             總覽回報的量體出放大圖（含座標格線）給代理畫外框（shape-sheets/）
-//   node tools/wall-batch.mjs shapecheck <工作資料夾>         新加的量體、漏掉的岩點疊上外框再看一次（shapecheck-sheets/；每輪只看還沒看過的）
-//   node tools/wall-batch.mjs onvolume <工作資料夾>           每個大外框（量體、大岩點）一張放大圖，找上面沒有外框的岩點（onvolume-sheets/）
+//                                                             "<牆>#shapes": [每個 Volume 一個多邊形 [[x,y]…]（或幾個多邊形的陣列、或 "skip:<理由>"）], "<牆>#shapecheck": ["ok" 或 { "poly": […], "remove": [編號…], "delete": true }]}
+//   node tools/wall-batch.mjs shapes <工作資料夾>             總覽回報的 Volume 出放大圖（含座標格線）給代理畫外框（shape-sheets/）
+//   node tools/wall-batch.mjs shapecheck <工作資料夾>         新加的 Volume、漏掉的岩點疊上外框再看一次（shapecheck-sheets/；每輪只看還沒看過的）
+//   node tools/wall-batch.mjs onvolume <工作資料夾>           每個大外框（Volume、大岩點）一張放大圖，找上面沒有外框的岩點（onvolume-sheets/）
 //   node tools/wall-batch.mjs verify <工作資料夾>             **完成的閘門**：每面牆每一步都判斷過、數字寫進 <牆>/result.json、研究記錄寫進 <牆>/pack/<牆 id>.edits.json（發佈時上傳）；沒過就列原因、以 1 結束
 //   node tools/wall-batch.mjs reviewed <工作資料夾> <牆> --by human:<名稱> --said "<原話>"   人另外檢查過（可做可不做）：研究記錄多記一筆
 //   node tools/wall-batch.mjs review <工作資料夾>             整理要人判斷的清單：review/index.html（單檔、手機看）和 review.json；印出總結
@@ -48,9 +48,9 @@ const POLICY = {
   dupAutoIou: 0.70,                           // 兩個外框重疊（IoU）到這個值以上就是同一顆：程式自動拿掉比較小的那顆，不問 AI
   auditSam: 12, auditDup: 6,                  // 自動處理的結果，隨機抽幾個給 AI 複查（自動不等於不檢查）；複查有錯的會還原
   audit: { seed: 20261121 },
-  surfaceRatio: 3,                            // 面積到中位數的 3 倍以上（量體、大岩點）各出一張放大圖找上面漏掉的岩點：南港漏掉的岩點全部在這種外框裡面
-  volumeRatio: 8,                           // 面積到中位數的 8 倍以上算量體：總覽用黃色畫，方便看出哪些量體沒有整顆的外框
-  overviewTiles: [3, 2],                      // 全牆總覽切成 3×2 格，每格都要回答（量體、漏掉的岩點、系統性問題）
+  surfaceRatio: 3,                            // 面積到中位數的 3 倍以上（Volume、大岩點）各出一張放大圖找上面漏掉的岩點：南港漏掉的岩點全部在這種外框裡面
+  volumeRatio: 8,                           // 面積到中位數的 8 倍以上算 Volume：總覽用黃色畫，方便看出哪些 Volume 沒有整顆的外框
+  overviewTiles: [3, 2],                      // 全牆總覽切成 3×2 格，每格都要回答（Volume、漏掉的岩點、系統性問題）
   deleteReasons: DELETE_REASONS,              // 刪除一定要說是哪一種；說不出來就是岩點，保留（tools/hold-rubric.mjs，3D 牆共用）
 };
 
@@ -59,10 +59,10 @@ const RUBRIC = [
   '判斷準則（所有代理同一份，照順序套用）：',
   ...HOLD_RULES.map((r, i) => `${i + 1} ${r}`),
   '4 外框二選一：選貼著岩點實際邊緣的那個；SAM2 外框包到牆面或旁邊的岩點 → keep；原外框切掉一角 → sam；兩個都差不多 → sam。',
-  '5 重複：同一顆兩個外框 → 留比較完整的（rm1／rm2）；同一顆被切成兩半 → merge；量體和它上面的岩點、或兩顆相鄰的岩點 → ok；量體的一個面被切成的碎片和岩點（或和量體）→ 拿掉碎片（rm1／rm2）。抽查只看程式自動處理的那一步對不對，不管別題怎麼判。',
-  '6 總覽每格都要逐一找：黃色＝目前的大外框（量體或大岩點）。每個量體都要有一個沿外緣的完整外框；沒有、只蓋一部分、被切成好幾塊（量體上只看到岩點和碎片的綠框）→ 回報 volumes 外接框（一個量體一個框）；完全沒有外框的岩點 → 回報 missing 外接框。座標照圖上的格線（照片像素）；跨格的量體每格報自己看到的那一段，框的邊貼著格線，會自動接起來。',
-  '7 畫量體：照放大圖的格線，沿量體外緣依序給頂點（照片像素，順時針或逆時針都可，6～20 點）；量體邊是直線，轉角放頂點；被上面的岩點擋住的邊照量體的直線延伸，量體超出放大圖就照總覽把頂點給到圖外。',
-  '8 量體上的岩點：每個大外框（量體、大岩點）各一張放大圖，逐一找上面每一顆岩點（小色塊、螺絲旁的小點也算，照第 1 條判斷），自己沒有外框的回報外接框；圖上其他地方看到沒有外框的岩點也一起報（重複報到同一顆會自動合併）；都有就回 []。',
+  '5 重複：同一顆兩個外框 → 留比較完整的（rm1／rm2）；同一顆被切成兩半 → merge；Volume 和它上面的岩點、或兩顆相鄰的岩點 → ok；Volume 的一個面被切成的碎片和岩點（或和 Volume）→ 拿掉碎片（rm1／rm2）。抽查只看程式自動處理的那一步對不對，不管別題怎麼判。',
+  '6 總覽每格都要逐一找：黃色＝目前的大外框（Volume 或大岩點）。每個 Volume 都要有一個沿外緣的完整外框；沒有、只蓋一部分、被切成好幾塊（Volume 上只看到岩點和碎片的綠框）→ 回報 volumes 外接框（一個 Volume 一個框）；完全沒有外框的岩點 → 回報 missing 外接框。座標照圖上的格線（照片像素）；跨格的 Volume 每格報自己看到的那一段，框的邊貼著格線，會自動接起來。',
+  '7 畫 Volume：照放大圖的格線，沿 Volume 外緣依序給頂點（照片像素，順時針或逆時針都可，6～20 點）；Volume 邊是直線，轉角放頂點；被上面的岩點擋住的邊照 Volume 的直線延伸，Volume 超出放大圖就照總覽把頂點給到圖外。',
+  '8 Volume 上的岩點：每個大外框（Volume、大岩點）各一張放大圖，逐一找上面每一顆岩點（小色塊、螺絲旁的小點也算，照第 1 條判斷），自己沒有外框的回報外接框；圖上其他地方看到沒有外框的岩點也一起報（重複報到同一顆會自動合併）；都有就回 []。',
 ];
 const reasonOf = (d) => { const m = /^delete:(.+)$/.exec(d || ''); return m && POLICY.deleteReasons.includes(m[1]) ? m[1] : null; };
 const [cmd, ...rest] = process.argv.slice(2);
@@ -288,12 +288,12 @@ async function check() {
     const autoDupDone = autoDup.filter(d => dropped.has(d.drop));
     if (autoDupDone.length) logLine(work, n, { step: 'auto-dup', rule: `重疊 IoU ≥ ${POLICY.dupAutoIou} 拿掉比較小的`, pairs: autoDupDone.map(d => ({ keep: d.keep, drop: d.drop })) });
     if (autoDupDone.length) tool('studio.mjs', 'note', pack, `自動處理（程式）：重複岩點 IoU ≥ ${POLICY.dupAutoIou} 的 ${autoDupDone.length} 對，拿掉比較小的那顆。`);
-    // 代理畫的量體和它上面的岩點：準則第 5 條，不是重複，程式直接答 ok
+    // 代理畫的 Volume 和它上面的岩點：準則第 5 條，不是重複，程式直接答 ok
     const vols = new Set(readJson(join(dir, 'added.json'), []).filter(a => a.kind === 'volume').map(a => a.id));
     const onVol = (await questionsOf(work, n)).filter(q => q.target.some(id => vols.has(id)));
-    for (const q of onVol) tool('studio.mjs', 'answer', pack, q.id, 'ok', '--note', '代理畫的量體和量體上的岩點，不是重複（判斷準則第 5 條）');
-    if (onVol.length) logLine(work, n, { step: 'auto-volume-ok', rule: '代理畫的量體和上面的岩點不是重複（準則第 5 條）', pairs: onVol.map(q => q.target) });
-    if (onVol.length) out.push(`量體和上面的岩點 ${onVol.length} 對（程式判不是重複）`);
+    for (const q of onVol) tool('studio.mjs', 'answer', pack, q.id, 'ok', '--note', '代理畫的 Volume 和 Volume 上的岩點，不是重複（判斷準則第 5 條）');
+    if (onVol.length) logLine(work, n, { step: 'auto-volume-ok', rule: '代理畫的 Volume 和上面的岩點不是重複（準則第 5 條）', pairs: onVol.map(q => q.target) });
+    if (onVol.length) out.push(`Volume 和上面的岩點 ${onVol.length} 對（程式判不是重複）`);
     qs = await questionsOf(work, n);
     writeJson(join(dir, 'questions.json'), qs.map(q => ({ id: q.id, target: q.target, box: q.evidence[0].box })));
     if (qs.length) await renderCells(chromium, pack, view, qs.map(q => cellOf(pack, view, q)), { sheetDir: join(dir, 'sheets') });
@@ -351,7 +351,7 @@ async function renderZooms(chromium, pack, view, items, outDir, { max = [1100, 8
 
 const areaOf = (p) => { let s = 0; for (let i = 0, j = p.length - 1; i < p.length; j = i++) s += (p[j][0] + p[i][0]) * (p[j][1] - p[i][1]); return Math.abs(s / 2); };
 const boxOf = (p) => { const xs = p.map(q => q[0]), ys = p.map(q => q[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)].map(Math.round); };
-/** 現在還在的岩點外框 [{ id, p, area }]，和「量體」的面積門檻（中位數 × POLICY.volumeRatio） */
+/** 現在還在的岩點外框 [{ id, p, area }]，和「Volume」的面積門檻（中位數 × POLICY.volumeRatio） */
 function livePolys(pack, view) {
   const doc = readJson(join(pack, `${view.id}.json`)), gone = new Set(doc.nodes.filter(n => n.props?.retired).map(n => n.id));
   const list = doc.marks.filter(m => !gone.has(m.node) && doc.nodes.some(n => n.id === m.node && n.type === 'hold')).map(m => { const p = m.geometry.coordinates[0].slice(0, -1); return { id: m.node, p, area: areaOf(p) }; });
@@ -360,10 +360,10 @@ function livePolys(pack, view) {
 }
 const tilesOf = (view) => { const [C, R] = POLICY.overviewTiles, out = []; for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) out.push({ tile: out.length + 1, box: [Math.round(c * view.w / C), Math.round(r * view.h / R), Math.round((c + 1) * view.w / C), Math.round((r + 1) * view.h / R)] }); return out; };
 
-/** 全牆總覽：照片分成 3×2 格，疊上現在的外框（綠＝岩點、黃＝量體），格線是照片像素座標。每格回答：沒有完整外框的量體、完全漏掉的岩點、系統性的錯誤 */
+/** 全牆總覽：照片分成 3×2 格，疊上現在的外框（綠＝岩點、黃＝Volume），格線是照片像素座標。每格回答：沒有完整外框的 Volume、完全漏掉的岩點、系統性的錯誤 */
 async function renderOverview(chromium, pack, view, outDir) {
   const { list, volumeMin } = livePolys(pack, view), tiles = tilesOf(view);
-  await renderZooms(chromium, pack, view, tiles.map(t => ({ box: t.box, tag: `第 ${t.tile} 格`, title: `綠＝岩點、黃＝大外框（面積 ≥ 中位數 ${POLICY.volumeRatio} 倍：量體或大岩點）；回答 volumes／missing／issues`, polys: list.map(x => x.area >= volumeMin ? { p: x.p, color: '#ffd21f', width: 3 } : { p: x.p, color: '#27e06b' }) })), outDir, { max: [1400, 960], pad: 0, step: 100, name: (i) => String(i + 1) });
+  await renderZooms(chromium, pack, view, tiles.map(t => ({ box: t.box, tag: `第 ${t.tile} 格`, title: `綠＝岩點、黃＝大外框（面積 ≥ 中位數 ${POLICY.volumeRatio} 倍：Volume 或大岩點）；回答 volumes／missing／issues`, polys: list.map(x => x.area >= volumeMin ? { p: x.p, color: '#ffd21f', width: 3 } : { p: x.p, color: '#27e06b' }) })), outDir, { max: [1400, 960], pad: 0, step: 100, name: (i) => String(i + 1) });
   writeJson(join(outDir, 'tiles.json'), tiles);
 }
 
@@ -402,7 +402,7 @@ function applyAudit(work, n, list) {
 }
 const okBox = (b, view) => Array.isArray(b) && b.length === 4 && b.every(Number.isFinite) && b[0] >= 0 && b[1] >= 0 && b[2] <= view.w && b[3] <= view.h && b[2] - b[0] >= 4 && b[3] - b[1] >= 4;
 const near = (a, b, gap = 30) => a[0] <= b[2] + gap && b[0] <= a[2] + gap && a[1] <= b[3] + gap && b[1] <= a[3] + gap;
-/** 同一個量體報了兩次（重疊三成以上），或跨格被切成兩半（兩個框各貼著同一條格線）→ 合成一個框；相鄰的不同量體不合併 */
+/** 同一個 Volume 報了兩次（重疊三成以上），或跨格被切成兩半（兩個框各貼著同一條格線）→ 合成一個框；相鄰的不同 Volume 不合併 */
 function mergeBoxes(boxes, view) {
   const [C, R] = POLICY.overviewTiles, xs = Array.from({ length: C - 1 }, (_, i) => (i + 1) * view.w / C), ys = Array.from({ length: R - 1 }, (_, i) => (i + 1) * view.h / R), E = 15;
   const ar = (b) => (b[2] - b[0]) * (b[3] - b[1]), inter = (a, b) => Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])) * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
@@ -417,7 +417,7 @@ const ellipse = ([x0, y0, x1, y1]) => Array.from({ length: 16 }, (_, i) => [Math
 const newId = () => Array.from({ length: 12 }, () => '0123456789abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 36)]).join('');
 const addAdded = (work, n, items) => writeJson(join(work, n, 'added.json'), [...readJson(join(work, n, 'added.json'), []), ...items]);
 
-/** 總覽：每格一個回答。missing（完全沒有外框的岩點）→ 照外接框加一個橢圓外框，之後 shapecheck 再看；volumes（沒有完整外框的量體）→ shapes 放大畫外框 */
+/** 總覽：每格一個回答。missing（完全沒有外框的岩點）→ 照外接框加一個橢圓外框，之後 shapecheck 再看；volumes（沒有完整外框的 Volume）→ shapes 放大畫外框 */
 function applyOverview(work, n, list) {
   const pack = packOf(work, n), view = viewOf(pack), T = POLICY.overviewTiles[0] * POLICY.overviewTiles[1];
   if (existsSync(join(work, n, 'overview-decisions.json'))) fail(`${n}#overview：已經套用過（漏掉的岩點已經加上）；要重做先跑 check 重來`);
@@ -436,40 +436,40 @@ function applyOverview(work, n, list) {
   const shapes = mergeBoxes(vols, view).map(box => ({ kind: 'volume', box }));
   writeJson(join(work, n, 'shapes.json'), shapes); rmSync(join(work, n, 'shape-decisions.json'), { force: true });
   writeJson(join(work, n, 'overview-decisions.json'), list);
-  const line = `量體沒有完整外框 ${shapes.length} 個、漏掉的岩點 ${add.length} 顆（先加橢圓外框）${issues.length ? `；系統性問題：${issues.join('；')}` : ''}`;
+  const line = `Volume 沒有完整外框 ${shapes.length} 個、漏掉的岩點 ${add.length} 顆（先加橢圓外框）${issues.length ? `；系統性問題：${issues.join('；')}` : ''}`;
   tool('studio.mjs', 'note', pack, `全牆總覽（代理，${T} 格逐格看）：${line}。`);
   console.log(`${n}#overview：${line}`);
 }
 
-/** 總覽回報的量體：出放大圖（左照片、右疊現在的外框，都有座標格線），代理照格線畫量體外框 */
+/** 總覽回報的 Volume：出放大圖（左照片、右疊現在的外框，都有座標格線），代理照格線畫 Volume 外框 */
 async function shapesCmd() {
   const work = rest[0]; if (!work) fail('用法：node tools/wall-batch.mjs shapes <工作資料夾>');
   const chromium = chromiumOf();
   for (const n of wallsOf(work)) {
     const items = readJson(join(work, n, 'shapes.json'), []); if (!items.length) continue;
     const pack = packOf(work, n), view = viewOf(pack), { list, volumeMin } = livePolys(pack, view);
-    await renderZooms(chromium, pack, view, items.map(s => ({ box: s.box, twin: true, title: '畫量體外框：照格線給頂點（照片像素）；左＝照片、右＝現在的外框（黃＝量體、綠＝岩點）', polys: list.filter(x => near(boxOf(x.p), s.box, 0)).map(x => ({ p: x.p, color: x.area >= volumeMin ? '#ffd21f' : '#27e06b' })) })), join(work, n, 'shape-sheets'), { max: [1600, 900], pad: Math.max(60, ...items.map(s => 0.3 * Math.max(s.box[2] - s.box[0], s.box[3] - s.box[1]))) });
-    console.log(`${n}：量體 ${items.length} 個，放大圖在 ${join(work, n, 'shape-sheets')}（#號＝shapes.json 的順序）；判斷寫在 "${n}#shapes"：每個一個多邊形 [[x,y]…]，一張圖有好幾個量體就給多邊形的陣列，不是量體答 "skip:<理由>"`);
+    await renderZooms(chromium, pack, view, items.map(s => ({ box: s.box, twin: true, title: '畫 Volume 外框：照格線給頂點（照片像素）；左＝照片、右＝現在的外框（黃＝Volume、綠＝岩點）', polys: list.filter(x => near(boxOf(x.p), s.box, 0)).map(x => ({ p: x.p, color: x.area >= volumeMin ? '#ffd21f' : '#27e06b' })) })), join(work, n, 'shape-sheets'), { max: [1600, 900], pad: Math.max(60, ...items.map(s => 0.3 * Math.max(s.box[2] - s.box[0], s.box[3] - s.box[1]))) });
+    console.log(`${n}：Volume ${items.length} 個，放大圖在 ${join(work, n, 'shape-sheets')}（#號＝shapes.json 的順序）；判斷寫在 "${n}#shapes"：每個一個多邊形 [[x,y]…]，一張圖有好幾個 Volume 就給多邊形的陣列，不是 Volume 答 "skip:<理由>"`);
   }
 }
 const isPoly = (p) => Array.isArray(p) && p.length >= 3 && p.every(q => Array.isArray(q) && q.length === 2 && q.every(Number.isFinite));
 function applyShapes(work, n, list) {
   const items = readJson(join(work, n, 'shapes.json'), []), pack = packOf(work, n), view = viewOf(pack);
-  if (!Array.isArray(list) || list.length !== items.length) fail(`${n}#shapes：量體有 ${items.length} 個，判斷給了 ${list?.length} 個，要一個一個`);
+  if (!Array.isArray(list) || list.length !== items.length) fail(`${n}#shapes：Volume 有 ${items.length} 個，判斷給了 ${list?.length} 個，要一個一個`);
   const add = []; let skip = 0;
   list.forEach((x, i) => {
     if (typeof x === 'string' && /^skip:.+/.test(x)) { skip++; return; }
     const polys = isPoly(x) ? [x] : Array.isArray(x) && x.length && x.every(isPoly) ? x : fail(`${n}#shapes #${i}：要多邊形 [[x,y]…]、多邊形的陣列，或 "skip:<理由>"`);
     for (const p of polys) { if (p.some(([x2, y2]) => x2 < 0 || y2 < 0 || x2 > view.w || y2 > view.h)) fail(`${n}#shapes #${i}：頂點超出照片`); add.push({ id: newId(), kind: 'volume', box: boxOf(p), poly: polyRound(p) }); }
   });
-  const err = applyOps(pack, join(work, n), add.map(a => ({ op: 'add', id: a.id, poly: a.poly }))); if (err) fail(`${n}#shapes：加量體失敗：${err}`);
+  const err = applyOps(pack, join(work, n), add.map(a => ({ op: 'add', id: a.id, poly: a.poly }))); if (err) fail(`${n}#shapes：加 Volume 失敗：${err}`);
   addAdded(work, n, add.map(({ poly, ...a }) => a));
   writeJson(join(work, n, 'shape-decisions.json'), list);
-  tool('studio.mjs', 'note', pack, `量體（代理）：總覽回報 ${items.length} 處，放大照格線畫外框：加 ${add.length} 個、不是量體 ${skip} 處。`);
-  console.log(`${n}#shapes：加量體 ${add.length} 個、略過 ${skip} 處；下一步跑 shapecheck 疊上外框再看一次`);
+  tool('studio.mjs', 'note', pack, `Volume（代理）：總覽回報 ${items.length} 處，放大照格線畫外框：加 ${add.length} 個、不是 Volume ${skip} 處。`);
+  console.log(`${n}#shapes：加 Volume ${add.length} 個、略過 ${skip} 處；下一步跑 shapecheck 疊上外框再看一次`);
 }
 
-/** 量體上的岩點：每個大外框（面積 ≥ 中位數 × POLICY.surfaceRatio）一張放大圖，黃＝這個大外框、綠＝上面已經有的外框；代理回報沒有外框的岩點 */
+/** Volume 上的岩點：每個大外框（面積 ≥ 中位數 × POLICY.surfaceRatio）一張放大圖，黃＝這個大外框、綠＝上面已經有的外框；代理回報沒有外框的岩點 */
 async function onvolumeCmd() {
   const work = rest[0]; if (!work) fail('用法：node tools/wall-batch.mjs onvolume <工作資料夾>');
   const chromium = chromiumOf();
@@ -477,7 +477,7 @@ async function onvolumeCmd() {
     const pack = packOf(work, n), view = viewOf(pack), { list } = livePolys(pack, view), sorted = list.map(x => x.area).sort((a, b) => a - b), med = sorted[sorted.length >> 1] || 1;
     const items = list.filter(x => x.area >= med * POLICY.surfaceRatio).map(x => ({ id: x.id, box: boxOf(x.p) }));
     writeJson(join(work, n, 'onvolume.json'), items); rmSync(join(work, n, 'onvolume-decisions.json'), { force: true });
-    await renderZooms(chromium, pack, view, items.map(it => ({ box: it.box, twin: true, title: '量體上的岩點：黃＝這個大外框、綠＝已經有的外框；沒有自己外框的岩點回報外接框', polys: [...list.filter(x => x.id !== it.id && near(boxOf(x.p), it.box, 0)).map(x => ({ p: x.p, color: '#27e06b' })), { p: list.find(x => x.id === it.id).p, color: '#ffd21f', width: 3 }] })), join(work, n, 'onvolume-sheets'), { max: [1600, 900], pad: 30 });
+    await renderZooms(chromium, pack, view, items.map(it => ({ box: it.box, twin: true, title: 'Volume 上的岩點：黃＝這個大外框、綠＝已經有的外框；沒有自己外框的岩點回報外接框', polys: [...list.filter(x => x.id !== it.id && near(boxOf(x.p), it.box, 0)).map(x => ({ p: x.p, color: '#27e06b' })), { p: list.find(x => x.id === it.id).p, color: '#ffd21f', width: 3 }] })), join(work, n, 'onvolume-sheets'), { max: [1600, 900], pad: 30 });
     console.log(`${n}：大外框 ${items.length} 個，圖在 ${join(work, n, 'onvolume-sheets')}（#號＝onvolume.json 的順序）；判斷寫在 "${n}#onvolume"：每個一個陣列，沒有外框的岩點給外接框 [[x0,y0,x1,y1]…]，都有就 []`);
   }
 }
@@ -490,11 +490,11 @@ function applyOnvolume(work, n, list) {
   const err = applyOps(pack, join(work, n), add.map(a => ({ op: 'add', id: a.id, poly: a.poly }))); if (err) fail(`${n}#onvolume：加岩點失敗：${err}`);
   addAdded(work, n, add.map(({ poly, ...a }) => a));
   writeJson(join(work, n, 'onvolume-decisions.json'), list);
-  tool('studio.mjs', 'note', pack, `量體上的岩點（代理）：大外框 ${items.length} 個逐一放大看，加了 ${add.length} 顆沒有外框的岩點（先加橢圓外框，再疊上去看一次）。`);
+  tool('studio.mjs', 'note', pack, `Volume 上的岩點（代理）：大外框 ${items.length} 個逐一放大看，加了 ${add.length} 顆沒有外框的岩點（先加橢圓外框，再疊上去看一次）。`);
   console.log(`${n}#onvolume：大外框 ${items.length} 個，加 ${add.length} 顆；下一步跑 shapecheck 疊上外框再看一次`);
 }
 
-/** 新加的外框（量體、漏掉的岩點）疊上去再看一次：黃＝新加的、綠＝蓋在裡面的舊外框（有編號，量體的碎片可以拿掉）。只看還沒看過的（added.json 沒有 checked） */
+/** 新加的外框（Volume、漏掉的岩點）疊上去再看一次：黃＝新加的、綠＝蓋在裡面的舊外框（有編號，Volume 的碎片可以拿掉）。只看還沒看過的（added.json 沒有 checked） */
 async function shapecheckCmd() {
   const work = rest[0]; if (!work) fail('用法：node tools/wall-batch.mjs shapecheck <工作資料夾>');
   const chromium = chromiumOf();
@@ -509,8 +509,8 @@ async function shapecheckCmd() {
       items.push({ id: a.id, kind: a.kind, inner });
     }
     writeJson(join(work, n, 'shapecheck.json'), items); rmSync(join(work, n, 'shapecheck-decisions.json'), { force: true });
-    await renderZooms(chromium, pack, view, items.map(it => ({ box: boxOf(byId.get(it.id).p), twin: true, title: `${it.kind === 'volume' ? '新加的量體' : '新加的岩點（橢圓）'}：黃＝新外框、綠＝裡面的舊外框（編號）`, polys: [...it.inner.map((id, j) => ({ p: byId.get(id).p, color: '#27e06b', label: j + 1 })), { p: byId.get(it.id).p, color: '#ffd21f', width: 3 }] })), join(work, n, 'shapecheck-sheets'), { max: [1600, 900], pad: 40 });
-    console.log(`${n}：新加的外框 ${items.length} 個，圖在 ${join(work, n, 'shapecheck-sheets')}；判斷寫在 "${n}#shapecheck"：對了 "ok"；要改 { "poly": [[x,y]…] }；裡面的舊外框是量體碎片或重複 { "remove": [編號…] }；不是岩點 { "delete": true }`);
+    await renderZooms(chromium, pack, view, items.map(it => ({ box: boxOf(byId.get(it.id).p), twin: true, title: `${it.kind === 'volume' ? '新加的 Volume' : '新加的岩點（橢圓）'}：黃＝新外框、綠＝裡面的舊外框（編號）`, polys: [...it.inner.map((id, j) => ({ p: byId.get(id).p, color: '#27e06b', label: j + 1 })), { p: byId.get(it.id).p, color: '#ffd21f', width: 3 }] })), join(work, n, 'shapecheck-sheets'), { max: [1600, 900], pad: 40 });
+    console.log(`${n}：新加的外框 ${items.length} 個，圖在 ${join(work, n, 'shapecheck-sheets')}；判斷寫在 "${n}#shapecheck"：對了 "ok"；要改 { "poly": [[x,y]…] }；裡面的舊外框是 Volume 碎片或重複 { "remove": [編號…] }；不是岩點 { "delete": true }`);
   }
 }
 function applyShapecheck(work, n, list) {
@@ -655,10 +655,10 @@ function nextTodo(work, n) {
   if (!has('overview-decisions.json')) need.push(`全牆總覽 ${POLICY.overviewTiles[0] * POLICY.overviewTiles[1]} 格（overview/，每格一個回答："ok" 或 { volumes, missing, issues }）`);
   if (count('recheck.json') && !has('recheck-decisions.json')) need.push(existsSync(join(dir, 'recheck-sheets')) ? `放大再看 ${count('recheck.json')} 件（recheck-sheets/），判斷寫 "${n}#recheck"，不能再答 unsure，刪除要寫 delete:<理由>` : `看不準和要刪的 ${count('recheck.json')} 件要放大再看：先跑 node tools/wall-batch.mjs recheck ${work}`);
   if (need.length) return need;
-  if (count('shapes.json') && !has('shape-decisions.json')) return [existsSync(join(dir, 'shape-sheets')) ? `畫量體外框 ${count('shapes.json')} 個（shape-sheets/），判斷寫 "${n}#shapes"` : `總覽回報 ${count('shapes.json')} 個量體沒有完整外框：先跑 node tools/wall-batch.mjs shapes ${work}`];
+  if (count('shapes.json') && !has('shape-decisions.json')) return [existsSync(join(dir, 'shape-sheets')) ? `畫 Volume 外框 ${count('shapes.json')} 個（shape-sheets/），判斷寫 "${n}#shapes"` : `總覽回報 ${count('shapes.json')} 個 Volume 沒有完整外框：先跑 node tools/wall-batch.mjs shapes ${work}`];
   const fresh = uncheckedOf(dir), sc = readJson(join(dir, 'shapecheck.json'), []);
-  if (fresh.length) return [existsSync(join(dir, 'shapecheck-sheets')) && sc.length && !has('shapecheck-decisions.json') && sc.every(it => fresh.some(a => a.id === it.id)) ? `新加的外框再看一次 ${sc.length} 個（shapecheck-sheets/），判斷寫 "${n}#shapecheck"` : `新加了 ${fresh.length} 個外框（量體、漏掉的岩點）：先跑 node tools/wall-batch.mjs shapecheck ${work}`];
-  if (!has('onvolume-decisions.json')) return [existsSync(join(dir, 'onvolume-sheets')) && has('onvolume.json') ? `量體上的岩點 ${count('onvolume.json')} 個大外框（onvolume-sheets/），判斷寫 "${n}#onvolume"` : `量體、大岩點上的岩點要逐一放大找：先跑 node tools/wall-batch.mjs onvolume ${work}`];
+  if (fresh.length) return [existsSync(join(dir, 'shapecheck-sheets')) && sc.length && !has('shapecheck-decisions.json') && sc.every(it => fresh.some(a => a.id === it.id)) ? `新加的外框再看一次 ${sc.length} 個（shapecheck-sheets/），判斷寫 "${n}#shapecheck"` : `新加了 ${fresh.length} 個外框（Volume、漏掉的岩點）：先跑 node tools/wall-batch.mjs shapecheck ${work}`];
+  if (!has('onvolume-decisions.json')) return [existsSync(join(dir, 'onvolume-sheets')) && has('onvolume.json') ? `Volume 上的岩點 ${count('onvolume.json')} 個大外框（onvolume-sheets/），判斷寫 "${n}#onvolume"` : `Volume、大岩點上的岩點要逐一放大找：先跑 node tools/wall-batch.mjs onvolume ${work}`];
   const open = questionsOfSync(work, n).length; if (open) need.push(`採用新外框、修岩點之後又出現 ${open} 題重複岩點：重跑 check（只重算重複岩點）`);
   return need;
 }
@@ -716,7 +716,7 @@ function verifyAll(work, { quiet = false } = {}) {
     writeJson(join(dir, 'result.json'), res);
     const recErr = writeRecord(work, n, res, pack, view); if (recErr) { fail2.push(`${n}：研究記錄寫不出來：${recErr}`); continue; }
     pass.push(n);
-    if (!quiet) console.log(`${n}：通過。岩點 ${res.holds}、量體 ${res.volumes}（AI 補畫：岩點 ${res.added.holds}、量體 ${res.added.volumes}）；刪除 ${Object.entries(deleted).map(([k, v]) => `${k} ${v}`).join('、') || '0'}；抽查 ${audit ? `${audit.total} 個錯 ${audit.bad} 個${res.auditWarn ? '（⚠ 超過 25%，交付時要說）' : ''}` : '無'}${res.overview.length ? `；總覽：${res.overview.join('；')}` : ''}`);
+    if (!quiet) console.log(`${n}：通過。岩點 ${res.holds}、Volume ${res.volumes}（AI 補畫：岩點 ${res.added.holds}、Volume ${res.added.volumes}）；刪除 ${Object.entries(deleted).map(([k, v]) => `${k} ${v}`).join('、') || '0'}；抽查 ${audit ? `${audit.total} 個錯 ${audit.bad} 個${res.auditWarn ? '（⚠ 超過 25%，交付時要說）' : ''}` : '無'}${res.overview.length ? `；總覽：${res.overview.join('；')}` : ''}`);
   }
   if (!quiet) { for (const f of fail2) console.log(`沒過：${f}`); console.log(fail2.length ? `完成閘門：${fail2.length} 面牆沒過（先跑 next 照它做）` : `完成閘門：${pass.length} 面牆全部通過`); }
   return { pass, fail: fail2 };

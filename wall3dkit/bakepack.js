@@ -25,7 +25,7 @@ export async function bakePack({ doc, glb, faces, progress = () => {} }) {
   const surfaces = await packSurfaces(doc), labels = await inflate(decode(doc.holdLabels.data), 'deflate');
   const work = { ...doc, holds: doc.holds.map(h => ({ ...h })) };   // 套修點會往 holds 加補的岩點，不改工作檔
   const stage = await openStageFrom({ pack: work, glb, faces, labels, surfaces });
-  stage.cleanVolumes();   // 量體的標籤整理成整塊（光暈不挖洞），見 stage.js
+  stage.cleanVolumes();   // Volume 的標籤整理成整塊（光暈不挖洞），見 stage.js
   progress('crop');
   const g = stage.surface.geometry;
   // 修過外框的岩點：網格照描的線切開（bake.js 的 cutOutlines），光暈、點選的範圍就是描的線
@@ -34,7 +34,7 @@ export async function bakePack({ doc, glb, faces, progress = () => {} }) {
   const baked = bakeMesh({ positions: cut.positions, uvs: cut.uvs, fade: cut.fade, index: cut.index, faceLabels: cut.faceLabels, planes: doc.surfaces.frame.planes, margin: holdMargin(doc) });
   const byOld = new Map(), exact = new Map();   // 原本的面編號 → 烘焙後的面編號；修點的外框裡（切好的）的烘焙後面編號，每顆一份
   baked.origin.forEach((o, f) => { const p = cut.parent[o]; (byOld.get(p) || byOld.set(p, []).get(p)).push(f); const k = cut.inside[o]; if (k) (exact.get(k) || exact.set(k, []).get(k)).push(f); });
-  const fc = stage.holds.map(h => h.faceCount).sort((a, b) => a - b), bigHold = 5 * fc[fc.length >> 1];   // 量體：面數是中位數 5 倍以上（stage.js 同一條）
+  const fc = stage.holds.map(h => h.faceCount).sort((a, b) => a - b), bigHold = 5 * fc[fc.length >> 1];   // Volume：面數是中位數 5 倍以上（stage.js 同一條）
   // 岩點：補的岩點（修點新增）沒有位置，取它的面的頂點平均；不在的（標成不是岩點、被切掉、在地面上）標 off
   const sum = work.holds.map(() => [0, 0, 0, 0]);
   for (let f = 0; f < baked.faceLabels.length; f++) {
@@ -44,8 +44,8 @@ export async function bakePack({ doc, glb, faces, progress = () => {} }) {
   const holds = stage.holds.map((h, i) => {
     const position = h.position || (sum[i][3] ? sum[i].slice(0, 3).map(x => +(x / sum[i][3]).toFixed(6)) : null);
     const ov = stage.overlays[i], edited = !!(ov && ov.userData.edited);
-    // edited：修過外框（光暈照修的範圍）；fill：修過的量體光暈要填的面（修的外框裡面，烘焙後的面編號），量體上裝的小岩點不挖洞
-    // 修過外框的：光暈填切好的外框裡面（量體上裝的 chip 也蓋過去，不挖洞），邊就是描的線
+    // edited：修過外框（光暈照修的範圍）；fill：修過的 Volume 光暈要填的面（修的外框裡面，烘焙後的面編號），Volume 上裝的小岩點不挖洞
+    // 修過外框的：光暈填切好的外框裡面（Volume 上裝的 chip 也蓋過去，不挖洞），邊就是描的線
     const gl = new Set(ov && ov.userData.guestIds || []), guestFill = edited ? (ov.userData.inPoly || []).filter(f => gl.has(stage.faceLabels[f])).flatMap(f => byOld.get(f) || []) : [];   // chip 從修點的角度看不到的那側也蓋過去
     const fill = edited ? (exact.has(i + 1) ? [...new Set([...exact.get(i + 1), ...guestFill])] : h.faceCount >= bigHold || ov.userData.guests ? (ov.userData.inPoly || []).flatMap(f => byOld.get(f) || []) : null) : null;
     return { id: h.id, position, faceCount: h.faceCount, ...(edited ? { edited: 1 } : {}), ...(fill && fill.length ? { fill } : {}), ...(stage.gone.has(i) || h.off || !position ? { off: 1 } : {}) };

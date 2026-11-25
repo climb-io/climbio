@@ -36,7 +36,7 @@
     $('edMenu').hidden = !$('edMenu').hidden;
   };
   document.addEventListener('click', (e) => { if (!$('edMenu').hidden && !$('edMenu').contains(e.target)) $('edMenu').hidden = true; });
-  // 看路線圖右上的「⋯」：相機看線、灰階／暗彩、編輯路線、分享；選了一項或點別的地方就收起來
+  // 看路線圖右上的「⋯」：AR 看線、灰階／暗彩、編輯路線、分享；選了一項或點別的地方就收起來
   const vwMenu = (open) => { $('vwMenu').hidden = !open; $('vwMore').setAttribute('aria-expanded', String(open)); };
   $('vwMore').onclick = (e) => { e.stopPropagation(); vwMenu($('vwMenu').hidden); };
   $('vwMenu').addEventListener('click', () => vwMenu(false));

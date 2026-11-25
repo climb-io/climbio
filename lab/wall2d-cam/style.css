@@ -30,30 +30,6 @@ button:disabled, select:disabled {
   opacity: 0.4;
   cursor: default;
 }
-#stage {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100dvh;
-  overflow: hidden;
-  background: #000;
-}
-#live-video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0;
-  pointer-events: none;
-}
-#live-preview, #overlay-canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
 #tools-toggle {
   position: fixed;
   z-index: 10;
@@ -232,7 +208,7 @@ html[data-auto="1"] body[data-tools="closed"]:not([data-error="true"]) #hud,
 body[data-auto="1"][data-tools="closed"]:not([data-error="true"]) #hud {
   display: none;
 }
-/* 岩點貓的相機看線（data-embed 由 boot.js 設）：使用者看的畫面不放開發工具 */
+/* 岩點貓的 AR 看線（data-embed 由 boot.js 設）：使用者看的畫面不放開發工具 */
 html[data-embed="1"] #tools-toggle,
 html[data-embed="1"] header,
 html[data-embed="1"] footer .actions,

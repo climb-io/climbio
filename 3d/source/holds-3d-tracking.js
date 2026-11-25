@@ -395,7 +395,7 @@ async function main(){
  const preview=document.createElement('canvas');preview.id='live-preview';$('stage').insertBefore(preview,renderer.domElement);const previewCtx=preview.getContext('2d',{alpha:false});
  const video=$('live-video'),capture=document.createElement('canvas'),ctx=capture.getContext('2d',{willReadFrequently:true});
  // 相機影格優先用 VideoFrame 轉移給 Worker（Worker 取 Y 平面當灰階）；不支援或讀不出來才用 canvas 擷取
- let useVideoFrame=typeof VideoFrame==='function';
+ let useVideoFrame=typeof VideoFrame==='function'&&!!navigator.userAgentData;   // 只在 Chromium：iPhone Safari 建了 VideoFrame 後預覽會變黑
  function drawPreview(){
   if(!running||video.readyState<2||!video.videoWidth||!video.videoHeight)return;
   const rect=$('stage').getBoundingClientRect(),ratio=renderer.getPixelRatio(),w=Math.round(rect.width*ratio),h=Math.round(rect.height*ratio),key=frameClock?`frame:${frameClock.serial}`:`time:${video.currentTime}`;

@@ -11,7 +11,7 @@ AppKit.i18n.add('hold', 'fr', {
   takePhoto: 'Prendre une photo', fromLibrary: 'Photos', rotate: 'Pivoter de 90°',
   back: 'Retour aux murs', wallName: 'Nom du mur', more: 'Plus',
   addPhoto: 'Ajouter une photo', addPhotoLeft: 'Ajouter à gauche', addPhotoRight: 'Ajouter à droite', addPhotoUp: 'Ajouter en haut', addPhotoDown: 'Ajouter en bas',
-  deleteWall: 'Supprimer le mur', showHolds: 'Afficher toutes les prises', liveCamera: 'Caméra en direct', zoomOut: 'Dézoomer', zoomIn: 'Zoomer',
+  deleteWall: 'Supprimer le mur', showHolds: 'Afficher toutes les prises', liveCamera: 'Vue AR', arAim: 'Visez le mur', zoomOut: 'Dézoomer', zoomIn: 'Zoomer',
   routes: 'Blocs', sortRoutes: 'Trier les blocs', sortAdded: 'Plus récents d\'abord', sortGradeAsc: 'Cotation : croissante', sortGradeDesc: 'Cotation : décroissante', sortPos: 'Position : de gauche à droite', rfSent: 'Réussis', rfUnsent: 'Non réussis', xferPhoto: 'Continuer sur la photo voisine',
   holds: 'Prises', routeName: 'Nom du bloc', grade: 'Cotation', deleteRoute: 'Supprimer le bloc',
   start: 'Départ', hand: 'Main', foot: 'Pied', top: 'Arrivée',

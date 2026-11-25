@@ -26,7 +26,7 @@ for (const page of ['index.html', '404.html', 'hold/index.html', 'studio/index.h
 const fromHold = (u) => posix.normalize(`hold/${u}`);   // hold/ 裡寫的相對網址 → repo 裡的路徑
 const PAGE_JS = [...readFileSync('hold/index.html', 'utf8').matchAll(/<script (?:defer )?src="([^"]+)"/g)].map(m => fromHold(m[1]));
 const WORKER_JS = ['holdscan/browser/holdscan.js', 'holdscan/browser/worker.js', 'holdscan/core/detect-core.js', 'holdkit/ort.js', 'holdkit/samworker.js'];
-for (const f of [...PAGE_JS, ...WORKER_JS, '3d/boot.js', '3d/app.js', 'lab/crag/worker.js', 'lab/wall2d-cam/boot.js', 'lab/wall2d-cam/geometry.js', 'lab/wall2d-cam/wall2d-worker.js', 'sw.js', 'appkit/sw.js', 'hold/sw.js', 'studio/sw.js', 'studio/shell.js', 'studio/i18n-boot.js', ...['functions/index.js'].filter(existsSync)]) check(f, readFileSync(f, 'utf8'));
+for (const f of [...PAGE_JS, ...WORKER_JS, '3d/boot.js', '3d/app.js', 'lab/crag/worker.js', 'lab/wall2d-cam/boot.js', 'arkit/geometry.js', 'arkit/tracker-worker.js', 'sw.js', 'appkit/sw.js', 'hold/sw.js', 'studio/sw.js', 'studio/shell.js', 'studio/i18n-boot.js', ...['functions/index.js'].filter(existsSync)]) check(f, readFileSync(f, 'utf8'));
 // 跨檔重複宣告：頂層的 let／const／class 同名，後載入的那個檔整個不會執行。照載入順序接成一份只編譯，報出是哪兩個檔
 {
   const parts = PAGE_JS.map(f => ({ f, code: readFileSync(f, 'utf8') + '\n;\n' }));

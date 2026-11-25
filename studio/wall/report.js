@@ -22,9 +22,25 @@
     for (const [v, i, j] of cand) { if (pairs[i] || used.has(j)) continue; pairs[i] = { j, iou: v }; used.add(j); }
     return pairs;
   }
+  // 只有完整且唯一的穩定 ID 才能分開辨識身分與外框品質；舊資料不能用陣列長度猜身分。
+  function validIds(ids, polys) {
+    return Array.isArray(ids) && ids.length === polys.length &&
+      ids.every(id => typeof id === 'string' && id.length > 0 || typeof id === 'number' && Number.isFinite(id)) &&
+      new Set(ids).size === ids.length;
+  }
+  function pairByIdentity(polys, answers, w, h, ids, answerIds) {
+    if (!validIds(ids, polys) || !validIds(answerIds, answers)) return null;
+    const at = new Map(answerIds.map((id, j) => [id, j]));
+    return ids.map((id, i) => {
+      if (!at.has(id)) return undefined;
+      const j = at.get(id);
+      return { j, iou: touch(bbox(polys[i]), bbox(answers[j])) ? G.polyIou(polys[i], answers[j], w, h) : 0 };
+    });
+  }
   // 自動的一步跟答案比：kinds 每顆 ok／cut／over／extra，hit 每顆答案有沒有被找到
-  function grade(polys, answers, w, h) {
-    const pairs = match(polys, answers, w, h), hit = answers.map(() => false), counts = { ok: 0, cut: 0, over: 0, extra: 0, missed: 0 };
+  function grade(polys, answers, w, h, ids, answerIds) {
+    const identityPairs = pairByIdentity(polys, answers, w, h, ids, answerIds);
+    const pairs = identityPairs || match(polys, answers, w, h), hit = answers.map(() => false), counts = { ok: 0, cut: 0, over: 0, extra: 0, missed: 0 };
     const kinds = polys.map((p, i) => {
       const m = pairs[i];
       if (!m) return 'extra';
@@ -35,14 +51,12 @@
     kinds.forEach(k => counts[k]++);
     counts.missed = hit.filter(x => !x).length;
     const n = answers.length || 1, pct = v => Math.round(v / n * 100);
-    return { kinds, hit, counts, per100: { found: pct(answers.length - counts.missed), ok: pct(counts.ok), extra: pct(counts.extra) } };
+    return { kinds, hit, counts, pairs, estimated: !identityPairs, per100: { found: pct(answers.length - counts.missed), ok: pct(counts.ok), extra: pct(counts.extra) } };
   }
   // 最後一步跟前一步比：kinds 每顆 kept／edited／manual，deleted 是前一步有、最後拿掉的外框。
   // 兩步都有岩點 id（精修記錄來的）就照 id 對，補畫在刪掉的位置上也分得出來；沒有 id 才用外框配對
   function changes(polys, prev, w, h, ids, prevIds) {
-    let pairs;
-    if (ids && prevIds) { const at = new Map(prevIds.map((id, j) => [id, j])); pairs = ids.map((id, i) => at.has(id) ? { j: at.get(id), iou: G.polyIou(polys[i], prev[at.get(id)], w, h) } : undefined); }
-    else pairs = match(polys, prev, w, h);
+    const pairs = pairByIdentity(polys, prev, w, h, ids, prevIds) || match(polys, prev, w, h);
     const used = new Set();
     const kinds = polys.map((p, i) => { const m = pairs[i]; if (!m) return 'manual'; used.add(m.j); return m.iou < G.SAME ? 'edited' : 'kept'; });
     const deleted = prev.filter((p, j) => !used.has(j));
@@ -56,8 +70,17 @@
     const last = stages[stages.length - 1];
     return stages.map((s, i) => {
       if (s === last) return { ...s, answer: true, ...(i ? changes(s.polys, stages[i - 1].polys, w, h, s.ids, stages[i - 1].ids) : { kinds: s.polys.map(() => 'kept'), deleted: [], counts: null }) };
-      return { ...s, ...grade(s.polys, last.polys, w, h) };
+      return { ...s, ...grade(s.polys, last.polys, w, h, s.ids, last.ids) };
     });
+  }
+
+  // 卡片只呈現三個指標，差值一律跟前一步的同一個比較基準算。
+  function metrics(stage, previous, total) {
+    if (!stage || stage.answer || !total) return null;
+    const current = { found: total - stage.counts.missed, extra: stage.counts.extra, ok: stage.counts.ok };
+    const prev = previous && !previous.answer ? { found: total - previous.counts.missed, extra: previous.counts.extra, ok: previous.counts.ok } : null;
+    const delta = Object.fromEntries(Object.keys(current).map(k => [k, prev ? current[k] - prev[k] : 0]));
+    return { ...current, total, rate: Math.round(current.found / total * 100), delta };
   }
 
   // 精修記錄 → 階段：自動偵測、（有 SAM2 的選擇時）SAM2、人工檢查。holds 是牆的畫面裡的岩點，記錄有兩種：
@@ -80,13 +103,23 @@
     }
     const sam = record.sam || {}, ids = auto.map(x => x.id), stages = [{ id: 'holdscan', polys: auto.map(x => x.poly), ids }];
     if (Object.keys(sam).length) stages.push({ id: 'sam2', polys: auto.map(x => (sam[x.id] && sam[x.id].poly) || x.poly), ids });
-    stages.push({ id: 'human', polys: final.map(x => x.poly), ids: final.map(x => x.id), reviewed: !!record.reviewed });
+    const reviews = Array.isArray(record.reviews) ? record.reviews : [];
+    const human = reviews.some(x => x.kind === 'human' || String(x.by).startsWith('human:'));
+    const ai = reviews.some(x => x.kind === 'ai-verify');
+    // 沒有精修、增刪、重畫或檢查紀錄，就不能把原始偵測當成另一個階段的答案。
+    if (stages.length === 1 && !record.reviewed && !reviews.length && !added.size && !gone.size && !reshaped.size) return stages;
+    stages.push({ id: ai && !human ? 'ai' : 'human', polys: final.map(x => x.poly), ids: final.map(x => x.id), reviewed: !!record.reviewed, reviewKind: human ? 'human' : ai ? 'ai' : record.reviewed ? 'human' : null });
     return stages;
   }
   // 開放資料集的各步比對資料（version 2）→ 階段：只取外框，最後一步當答案
   function fromStages(d) {
     if (!d || d.version !== 2 || !Array.isArray(d.stages)) return null;
-    return d.stages.filter(s => Array.isArray(s.polys) && s.polys.length).map(s => ({ id: s.id, polys: s.polys }));
+    const stages = d.stages.filter(s => Array.isArray(s.polys)).map(s => ({
+      id: s.id, polys: s.polys,
+      ...(validIds(s.ids, s.polys) ? { ids: s.ids } : {}),
+      ...(typeof s.reviewed === 'boolean' ? { reviewed: s.reviewed } : {})
+    }));
+    return stages.length ? stages : null;
   }
 
   // ---- 讀開放資料集的一面牆（Hugging Face 的 climbio/walls，誰都能免登入讀）：牆的資訊、照片、最後的岩點、精修記錄、各步比對資料 ----
@@ -105,18 +138,25 @@
   }
   // row：walls.jsonl 的一列。回傳 { name, w, h, photo（Blob）, stages }；沒有可比的資料時 stages 是 null
   async function loadPublished(row) {
-    const base = HF + row.dir, set = await getJson(`${base}index.json`), item = set.items[0];
+    const base = HF + row.dir;
     const lab = await getJson(`${HF}research/hold-lab/${row.id}/stages.json`, { cache: 'no-cache' }).catch(() => null);
     let stages = fromStages(lab), photoUrl = stages ? `${HF}research/hold-lab/${row.id}/photo.jpg` : null, w = lab && lab.w, h = lab && lab.h;
+    let name = row.name || row.id;
+    const set = !stages || !row.name ? await getJson(`${base}index.json`) : null;
+    if (set) name = row.name || set.name || row.id;
     if (!stages) {
-      const layer = await getJson(new URL(item.href, base).href), view = await getJson(new URL(layer.href || `${item.id}.json`, base).href);
-      const record = row.edits ? await getJson(`${base}${item.id}.edits.json`).catch(() => null) : null;
+      const item = set.items[0];
+      const [layer, record] = await Promise.all([
+        getJson(new URL(item.href, base).href),
+        row.edits ? getJson(`${base}${item.id}.edits.json`).catch(() => null) : null
+      ]);
+      const view = await getJson(new URL(layer.href || `${item.id}.json`, base).href);
       stages = fromRecord(record, holdsOf(view)); photoUrl = new URL(view.href, base).href; w = view.w; h = view.h;
     }
     const photo = await fetch(photoUrl).then(r => { if (!r.ok) throw new Error(String(r.status)); return r.blob(); });
-    return { name: row.name || set.name || row.id, gym: row.gym || '', w, h, photo, stages };
+    return { name, gym: row.gym || '', w, h, photo, stages };
   }
 
-  const api = { analyze, grade, changes, fromRecord, fromStages, holdsOf, walls, loadPublished, bbox, MATCH, COVER, TIGHT };
+  const api = { analyze, grade, changes, metrics, fromRecord, fromStages, holdsOf, walls, loadPublished, bbox, MATCH, COVER, TIGHT };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.ClimbioReport = api;
 })(globalThis);

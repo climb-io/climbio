@@ -11,7 +11,7 @@ AppKit.i18n.add('hold', 'en', {
   takePhoto: 'Take photo', fromLibrary: 'Photos', rotate: 'Rotate 90°',
   back: 'Back to walls', wallName: 'Wall name', more: 'More',
   addPhoto: 'Add photo', addPhotoLeft: 'Add to the left', addPhotoRight: 'Add to the right', addPhotoUp: 'Add above', addPhotoDown: 'Add below',
-  deleteWall: 'Delete wall', showHolds: 'Show all holds', liveCamera: 'Live camera', zoomOut: 'Zoom out', zoomIn: 'Zoom in',
+  deleteWall: 'Delete wall', showHolds: 'Show all holds', liveCamera: 'AR view', arAim: 'Aim at the wall', zoomOut: 'Zoom out', zoomIn: 'Zoom in',
   routes: 'Routes', sortRoutes: 'Sort routes', sortAdded: 'Newest first', sortGradeAsc: 'Grade: low to high', sortGradeDesc: 'Grade: high to low', sortPos: 'Position: left to right', rfSent: 'Sent', rfUnsent: 'Not sent', xferPhoto: 'Continue on the next photo',
   holds: 'Holds', routeName: 'Route name', grade: 'Grade', deleteRoute: 'Delete route',
   start: 'Start', hand: 'Hand', foot: 'Foot', top: 'Top',
