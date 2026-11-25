@@ -5,7 +5,7 @@ import { outputs } from './build-embed.mjs';
 import { readFileSync, existsSync } from 'node:fs';
 
 const require = createRequire(import.meta.url);
-const { connect, decodePhoto, fullscreen, resolveInit, expandInit, dataUrl } = require('../embed/shared/embed.js');
+const { connect, decodePhoto, fullscreen, resolveInitV2 } = require('../embed/shared/embed.js');
 
 // 內嵌頁共用的訊息外框（embed/shared/embed.js）：只收父視窗、第一個一定是 init、之後只收發 init 的來源
 function setup(handlers) {
@@ -85,51 +85,30 @@ const fakeFetch = (files, calls = []) => async (url, opt) => {
   const body = typeof f === 'string' ? new TextEncoder().encode(f) : f;
   return { ok: true, status: 200, headers: { get: (k) => (k.toLowerCase() === 'content-type' ? (typeof f === 'string' ? 'application/json' : 'image/jpeg') : null) }, arrayBuffer: async () => body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) };
 };
-test('init 的資料：只讀 viewUrl、layerUrls、photoUrl 這幾個官方網址，不帶 cookie、不送來源網址', async () => {
-  const calls = [], files = { [V]: '{"id":"v"}', [L1]: '{"id":"l1"}', [L2]: '{"id":"l2"}', [P]: new Uint8Array([1, 2, 3]) };
-  const out = await resolveInit({ viewUrl: V, layerUrls: [L1, L2], photoUrl: P }, fakeFetch(files, calls));
-  assert.deepEqual([out.view.id, out.layers.map((l) => l.id), out.photo.size, out.photo.type], ['v', ['l1', 'l2'], 3, 'image/jpeg']);
-  assert.deepEqual(calls.map((c) => c.url).sort(), [L1, L2, P, V].sort());
-  for (const c of calls) assert.deepEqual([c.opt.credentials, c.opt.referrerPolicy], ['omit', 'no-referrer']);
-});
-test('init 的資料：layerUrls 可以不給（沒有路線圖層）', async () => {
-  const out = await resolveInit({ viewUrl: V, photoUrl: P }, fakeFetch({ [V]: '{"id":"v"}', [P]: new Uint8Array([1]) }));
-  assert.deepEqual(out.layers, []);
-});
-test('init 的資料：只給 wallId，畫面、照片、路線都是資料集的固定網址（current/、routes.json），不經 climbio.app；牆還沒有路線也能讀；明確給的網址優先', async () => {
-  const W = '0123456789abcdef/wall12345678', DIR = 'https://huggingface.co/datasets/climbio/walls/resolve/main/walls/0123456789abcdef/', calls = [];
+// 官方適配層（embed/routekit/v2/official/official.js）：wallId 簡寫展開成資料集的固定網址，再由通用的 resolveInitV2 讀
+const loadOfficial = () => {
+  const win = {}; new Function('window', 'fetch', 'crypto', readFileSync(new URL('../embed/routekit/v2/official/official.js', import.meta.url), 'utf8'))(win, null, globalThis.crypto);
+  return win.RouteOfficial;
+};
+test('官方適配層：wallId 展開成資料集的固定網址（current/、routes.json），不經 climbio.app；牆還沒有路線也能讀；明確給的網址優先', async () => {
+  const { expand } = loadOfficial(), W = '0123456789abcdef/wall12345678', DIR = 'https://huggingface.co/datasets/climbio/walls/resolve/main/walls/0123456789abcdef/', calls = [];
   const VW = `${DIR}current/wall12345678.json`, PW = `${DIR}current/wall12345678.jpg`, LW = `${DIR}routes.json`;
   const files = { [VW]: '{"id":"v"}', [PW]: new Uint8Array([1]), [LW]: '{"id":"l"}' };
-  const out = await resolveInit({ wallId: W }, fakeFetch(files, calls));
+  const out = await resolveInitV2(expand({ wallId: W }), { f: fakeFetch(files, calls) });
   assert.deepEqual([out.view.id, out.layers.map((l) => l.id)], ['v', ['l']]);
   assert.deepEqual(calls.map((c) => c.url).sort(), [LW, PW, VW].sort());   // 三個請求，都在資料集
-  assert.equal(expandInit({ wallId: W }).viewUrl, VW);   // 圖層的畫面路徑（submit 寫進去）就是這個固定網址
-  assert.deepEqual((await resolveInit({ wallId: W }, fakeFetch({ [VW]: '{"id":"v"}', [PW]: new Uint8Array([1]) }))).layers, []);   // 還沒有路線：routes.json 不存在
-  assert.deepEqual((await resolveInit({ wallId: W, layerUrls: [] }, fakeFetch(files))).layers, []);
-  await assert.rejects(resolveInit({ wallId: W, layerUrls: [L1] }, fakeFetch({ [VW]: '{}', [PW]: new Uint8Array([1]) })), /layerUrls\[0\]/);
-  await assert.rejects(resolveInit({ wallId: '../x' }, fakeFetch({})), /wallId/);
+  assert.equal(expand({ wallId: W }).viewUrl, VW);   // 圖層的畫面路徑（submit 寫進去）就是這個固定網址
+  assert.equal('wallId' in expand({ wallId: W }), false);
+  assert.deepEqual((await resolveInitV2(expand({ wallId: W }), { f: fakeFetch({ [VW]: '{"id":"v"}', [PW]: new Uint8Array([1]) }) })).layers, []);   // 還沒有路線：routes.json 不存在
+  assert.deepEqual((await resolveInitV2(expand({ wallId: W, layerUrls: [] }), { f: fakeFetch(files) })).layers, []);
+  await assert.rejects(resolveInitV2(expand({ wallId: W, layerUrls: [L1] }), { f: fakeFetch({ [VW]: '{}', [PW]: new Uint8Array([1]) }) }), /layerUrls\[0\]/);
+  assert.throws(() => expand({ wallId: '../x' }), /wallId/);
+  assert.deepEqual(expand({ viewUrl: V }), { viewUrl: V });   // 沒給 wallId 就原樣
 });
-test('init 的資料：訊息直接帶的 view、layers、photo 不收，一定要給網址', async () => {
-  await assert.rejects(resolveInit({ view: { id: 'v' }, layers: [], photo: new Blob([]) }, fakeFetch({})), /viewUrl/);
-  await assert.rejects(resolveInit({ viewUrl: V, photo: new Blob([]) }, fakeFetch({ [V]: '{}' })), /photoUrl/);
-});
-test('init 的資料：只收官方網址——別的主機、http、帶帳號或埠號、官方主機上別的路徑、file:、javascript:、blob:、data:、相對網址都擋，而且不讀', async () => {
-  const calls = [], f = fakeFetch({}, calls);
-  for (const bad of ['https://example.com/p.jpg', 'http://climbio.app/p/x/y.json', 'https://evil.climbio.app/p/x/y.json', 'https://climbio.app.evil.example/p/x/y.json',
-    'https://user@climbio.app/p/x/y.json', 'https://climbio.app:8443/p/x/y.json', 'https://climbio.app/studio/', 'https://climbio.app/',
-    'https://huggingface.co/datasets/other/data/resolve/main/a.jpg', 'https://huggingface.co/datasets/climbio/walls-evil/a.jpg',
-    'file:///etc/passwd', 'javascript:alert(1)', 'blob:https://climbio.app/uuid', 'data:image/png;base64,AAAA'])
-    await assert.rejects(resolveInit({ viewUrl: bad, photoUrl: P }, f), /只收Climbio 官方的網址/, bad);
-  await assert.rejects(resolveInit({ viewUrl: '/p/x/y.json', photoUrl: P }, f), /完整的網址/);
-  assert.equal(calls.length, 0);
-  for (const ok of [V, P, L1, L2]) assert.equal(dataUrl(ok, 'x'), ok);
-});
-test('init 的資料：讀不到、太大、不是 JSON、layerUrls 不是陣列都丟明確的錯', async () => {
-  await assert.rejects(resolveInit({ viewUrl: V, photoUrl: P }, fakeFetch({})), /HTTP 404/);
-  await assert.rejects(resolveInit({ viewUrl: V, photoUrl: P }, async () => { throw new TypeError('Failed to fetch'); }), /讀不到/);
-  await assert.rejects(resolveInit({ viewUrl: V, photoUrl: P }, fakeFetch({ [V]: 'not json', [P]: new Uint8Array([1]) })), /不是 JSON/);
-  await assert.rejects(resolveInit({ viewUrl: V, photoUrl: P }, fakeFetch({ [V]: '{}', [P]: new Uint8Array(10 * 1024 * 1024 + 1) })), /太大/);
-  await assert.rejects(resolveInit({ viewUrl: V, photoUrl: P, layerUrls: L1 }, fakeFetch({})), /陣列/);
+test('通用 ZIP 不含官方適配層；內嵌頁只在收到 wallId、submit、remove 時才載入它', () => {
+  const app = readFileSync(new URL('../embed/routekit/v2/app.js', import.meta.url), 'utf8');
+  assert.match(app, /official\/official\.js/);
+  assert.doesNotMatch(readFileSync(new URL('../embed/routekit/v2/index.html', import.meta.url), 'utf8'), /official|submit|firebase/i);   // 頁面本身不載入官方檔、App Check
 });
 
 // 原生 App 的 WebView：沒有父視窗，往原生橋接送；原生端用 window.postMessage（JSON 字串）或 climbioReceive 傳進來

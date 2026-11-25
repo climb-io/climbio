@@ -146,13 +146,15 @@
   // 都不行就挑蓋到最少的。routeHolds：路線用到的岩點（{ id, poly }）
   // 挑好的方向記住（同一條路線、同樣的手順）：縮放、轉角度時只跟著岩點的邊走，不換邊跳來跳去
   const seqSides = new WeakMap();   // 畫面（scene）→ 路線 → { key: 手順, side: 岩點 id → 方向 }；分享圖跟畫面上的各記各的
-  function seqBadges(c, scene, r, unit, labels, routeHolds) {
+  // range：{ from, to } 只標這一段的出手（to 不含）；沒給就是整條。號碼仍是整條路線的第幾手，不從 1 重數。
+  function seqBadges(c, scene, r, unit, labels, routeHolds, range) {
     if (!seqSides.has(scene)) seqSides.set(scene, new WeakMap());
-    const byRoute = seqSides.get(scene), key = (r.seq || []).join(',') + '|' + labels.length;   // 看線有膠帶、定線沒有：各挑各的
+    const seq = r.seq || [], from = range && Number.isInteger(range.from) ? range.from : 0, to = range && Number.isInteger(range.to) ? range.to : seq.length;
+    const byRoute = seqSides.get(scene), key = `${from}-${to}|${seq.join(',')}|${labels.length}`;   // 看線有膠帶、定線沒有：各挑各的
     const memo = byRoute.get(r)?.key === key ? byRoute.get(r) : { key, side: new Map() };
     byRoute.set(r, memo);
     const nums = new Map(), ph = 12 * unit, W = scene.w || Infinity, H = scene.h || Infinity, polys = new Map(routeHolds.map(h => [h.id, h.poly]));
-    (r.seq || []).forEach((id, i) => nums.set(id, [...(nums.get(id) || []), i + 1]));
+    seq.forEach((id, i) => { if (i < from || i >= to) return; nums.set(id, [...(nums.get(id) || []), i + 1]); });
     const taken = labels.flatMap(L => L.foot ? [L.rect] : [L.rect, L.tape]), out = [];
     const rocks = routeHolds.map(h => bbox(h.poly));
     for (const [id, ns] of nums) {
@@ -178,11 +180,11 @@
     }
     return out;
   }
-  function drawSeq(c, scene, r, unit, labels, routeHolds, theme = THEME) {
+  function drawSeq(c, scene, r, unit, labels, routeHolds, theme = THEME, range) {
     if (!r.seq) return;
     const fs = 9.5 * unit, ph = 12 * unit;
     c.save(); c.font = `700 ${fs}px ${theme.font}`; c.textAlign = 'center'; c.textBaseline = 'alphabetic';
-    for (const B of seqBadges(c, scene, r, unit, labels, routeHolds)) {
+    for (const B of seqBadges(c, scene, r, unit, labels, routeHolds, range)) {
       const m = c.measureText(B.txt), w = B.w;
       c.shadowColor = 'rgba(0,0,0,0.25)'; c.shadowBlur = 1.5 * unit;
       c.fillStyle = 'rgba(10,10,10,0.46)'; c.beginPath(); c.roundRect ? c.roundRect(B.x - w / 2, B.y - ph / 2, w, ph, ph / 2) : c.rect(B.x - w / 2, B.y - ph / 2, w, ph); c.fill();

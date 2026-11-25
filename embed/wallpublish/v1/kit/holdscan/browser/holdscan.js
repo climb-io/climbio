@@ -4,7 +4,7 @@
 // 用法：
 //   HoldScan.configure({ cache, model })                    cache：模型快取（Cache API）的名稱：網頁先下載好存在那裡，Worker 直接讀；model：模型的網址（不給就是 holdscan/models/ 底下的檔案）
 //   HoldScan.warm()                                         先在背景下載、載入模型（例如使用者選照片時）
-//   const { boxes } = await HoldScan.detect(canvas, status)  boxes：[[x0, y0, x1, y1, score], ...]（canvas 的座標）；
+//   const { boxes } = await HoldScan.detect(canvas, status, { size })  boxes：[[x0, y0, x1, y1, score], ...]（canvas 的座標）；size：模型輸入大小（1280 預設、2048、2560；大張的岩館照片用 2560 小岩點抓得比較多、比較慢）；
 //                                                           status(key)：進度，'detDownload'（下載模型）、'detFinding'（偵測中）；失敗的 Error 帶 download: true ＝下載模型失敗
 // English: In-browser hold detection: runs the model on the phone in a Worker, no server needed.
 (() => {
@@ -41,9 +41,9 @@
   // cache：模型的 Cache API 名稱；網頁先下載好存在那裡，Worker 直接讀（沒設就自己下載）
   const configure = (o) => { cache = o.cache || ''; model = o.model || ''; if (worker && (cache || model)) worker.postMessage({ type: 'config', cache, model }); };
   const warm = () => call({ type: 'warm' }).then(() => {}, () => {});   // 失敗不用管：真的偵測時會再試、再回報
-  async function detect(canvas, status) {
+  async function detect(canvas, status, { size } = {}) {
     const image = await createImageBitmap(canvas);
-    const { boxes } = await call({ type: 'detect', image }, status, [image]);
+    const { boxes } = await call({ type: 'detect', image, size }, status, [image]);
     return { boxes };
   }
 

@@ -79,11 +79,13 @@
     }
   }
   class RouteKitViewer extends RouteKitElement {
-    static get observedAttributes() { return ['src', 'route-id', 'mode']; }
+    static get observedAttributes() { return ['src', 'route-id', 'mode', 'segment']; }
     attributeChangedCallback(name, old, v) {
-      if (name === 'mode') { this.drop(); this.update(); } else super.attributeChangedCallback(name, old, v);
+      if (name === 'mode') { this.drop(); this.update(); }
+      else if (name === 'segment') { if (this.view && this.view.setSegmented) this.view.setSegmented(this.hasAttribute('segment')); }
+      else super.attributeChangedCallback(name, old, v);
     }
-    create(opts) { return new V.RouteViewer(this.canvas, { ...opts, mode: this.getAttribute('mode') || 'gray' }); }
+    create(opts) { return new V.RouteViewer(this.canvas, { ...opts, mode: this.getAttribute('mode') || 'gray', segment: this.hasAttribute('segment') }); }
   }
   class RouteKitEditor extends RouteKitElement {
     static get observedAttributes() { return ['src', 'route-id', 'type']; }

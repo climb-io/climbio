@@ -26,7 +26,7 @@ Kit 是 AGPL-3.0：把 Kit 打包進自己的前端，那一部分前端要照 A
 
 ### 網址
 
-`https://embed.climbio.app/<kit>/v1/`，例如 `https://embed.climbio.app/routekit/v1/`（自己的網域，以 CNAME 指到靜態主機，之後換主機網址不變；repo 裡的檔案在 `embed/<kit>/v1/`，發佈時以 `embed/` 當站台根目錄）。路徑帶版本：商業岩館上線後不能被我們的改動打壞；不相容的改動新增 `v2/`，`v1/` 保留。查詢字串只放顯示選項（不含資料）：
+`https://embed.climbio.app/<kit>/v1/`，例如 `https://embed.climbio.app/routekit/v2/`（自己的網域，以 CNAME 指到靜態主機，之後換主機網址不變；repo 裡的檔案在 `embed/<kit>/v1/`，發佈時以 `embed/` 當站台根目錄）。路徑帶版本：商業岩館上線後不能被我們的改動打壞；不相容的改動新增 `v2/`，`v1/` 保留。查詢字串只放顯示選項（不含資料）：
 
 | 參數 | 說明 |
 |---|---|
@@ -74,11 +74,11 @@ GitHub 上的文件要讓 AI 讀了就能整合，所以每個 Kit 同一個寫�
   addEventListener('message', (e) => {
     const frame = document.getElementById('rk');
     if (e.source !== frame.contentWindow || e.data?.climbio !== 'routekit') return;
-    if (e.data.type === 'ready') frame.contentWindow.postMessage({ climbio: 'routekit', v: 1, type: 'init', view, layers, photo }, '*');   // view、layers：Climbio 公開格式 v2
+    if (e.data.type === 'ready') frame.contentWindow.postMessage({ climbio: 'routekit', v: 2, type: 'init', view, layers, photo }, '*');   // view、layers：Climbio 公開格式 v2
     if (e.data.type === 'change') save(e.data.layer);
   });
 </script>
-<iframe id="rk" src="https://embed.climbio.app/routekit/v1/?mode=edit" title="定線"></iframe>
+<iframe id="rk" src="https://embed.climbio.app/routekit/v2/?mode=edit" title="定線"></iframe>
 ```
 
 沒有帳號、沒有金鑰、沒有後端。

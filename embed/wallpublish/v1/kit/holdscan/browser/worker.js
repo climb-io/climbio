@@ -1,5 +1,5 @@
 // HoldScan 的 Worker：onnxruntime-web（只有 CPU）跑偵測模型，照片 → 框，不卡住畫面。前後處理跟雲端版共用 core/detect-core.js。
-// 訊息：{ type: 'config', cache }＝模型快取（Cache API）的名稱；{ id, type: 'warm' }＝先下載、載入模型；{ id, type: 'detect', image: ImageBitmap }＝偵測。
+// 訊息：{ type: 'config', cache }＝模型快取（Cache API）的名稱；{ id, type: 'warm' }＝先下載、載入模型；{ id, type: 'detect', image: ImageBitmap, size? }＝偵測（size 是 Core.SIZES 之一，不給是 1280）。
 // 回覆：{ id, type: 'status', key: 'detDownload' | 'detFinding' }、{ id, type: 'done', boxes? }、{ id, type: 'error', message, download（下載失敗） }
 // English: HoldScan Worker: runs the detection model with onnxruntime-web (CPU), photo -> boxes.
 importScripts('../../holdkit/ort.js', '../core/detect-core.js');   // onnxruntime 核對內容後才載入（holdkit/ort.js）
@@ -28,8 +28,8 @@ function load(post) {
 }
 
 // 等比縮放貼到左上、補灰 114（跟雲端版一樣），回傳照片座標的框 [x0, y0, x1, y1, score]
-async function detect(s, bmp) {
-  const S = Core.MODEL_SIZE, r = Core.scaleFor(bmp.width, bmp.height, S);
+async function detect(s, bmp, size) {
+  const S = Core.SIZES.includes(size) ? size : Core.MODEL_SIZE, r = Core.scaleFor(bmp.width, bmp.height, S);
   const c = new OffscreenCanvas(S, S), g = c.getContext('2d', { willReadFrequently: true });
   g.fillStyle = 'rgb(114,114,114)'; g.fillRect(0, 0, S, S);
   g.imageSmoothingQuality = 'high';
@@ -47,6 +47,6 @@ onmessage = async ({ data: m }) => {
     const s = await load(post);
     if (m.type === 'warm') return post({ type: 'done' });
     post({ type: 'status', key: 'detFinding' });
-    post({ type: 'done', boxes: await detect(s, m.image) });
+    post({ type: 'done', boxes: await detect(s, m.image, m.size) });
   } catch (e) { post({ type: 'error', message: String((e && e.message) || e), download: !!(e && e.download) }); }
 };

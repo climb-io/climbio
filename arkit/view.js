@@ -3,7 +3,7 @@
 // 其餘（工具列、狀態、路線選單、紀錄視窗……）有就接上，沒有就略過。用法與訊息見 arkit/README.md。
 // English: ArKit AR view controller — camera → tracker worker → frame-synchronous preview + AR overlay.
 import {
-  mainCamera,
+  openMainCamera,
   cameraViewport,
   cameraConstraints,
   reversedCameraFrame,
@@ -35,6 +35,7 @@ const MIN_PROCESS_INTERVAL_MS = 16; // 追蹤態允許高頻光流（受瀏覽�
 const SYNC_HOLD_MS = 34; // 同幀對齊等待下限：超過即放行預覽並套用延遲補償，避免畫面卡頓
 const SYNC_HOLD_MAX_MS = 70; // 慢的手機照實際處理時間多等一點（上限），疊圖才跟得上同一幀
 const CAM_REVERSED_KEY = 'climbio.wall2dCamReversed'; // 這支手機的相機會不會把直／橫寬高反過來（boot.js 開相機前先讀）
+const CAM_MAIN_KEY = 'climbio.wall2dCamMain'; // 主鏡頭（後置相機）的 deviceId：boot.js 第一次就開它，不用開了再換
 const REANCHOR_FRAME_INTERVAL = 40;
 const CAM_CACHE_DB = 'climbio-wall2d-cam';
 const CAM_CACHE_STORE = 'cameras';
@@ -55,6 +56,13 @@ function saveCamReversed(orientation, reversed) {
     all[orientation] = reversed;
     localStorage.setItem(CAM_REVERSED_KEY, JSON.stringify(all));
   } catch { /* 存不了就下次再判斷 */ }
+}
+
+function readMainCamera() {
+  try { return localStorage.getItem(CAM_MAIN_KEY) || ''; } catch { return ''; }
+}
+function saveMainCamera(deviceId) {
+  try { if (deviceId && localStorage.getItem(CAM_MAIN_KEY) !== deviceId) localStorage.setItem(CAM_MAIN_KEY, deviceId); } catch { /* 存不了就下次再找 */ }
 }
 
 const getJson = (url) =>
@@ -815,16 +823,14 @@ export async function createArView(options = {}) {
     let corrected = profile?.reversed ?? readCamReversed()[orientation] === true;
     let usedConstraints = corrected ? reverseCameraConstraints(constraints) : constraints;
 
-    const request = (deviceId) => {
+    const gum = (extra) => {
       timingMarks.gumCallAt = absNow();
-      return navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: { ...usedConstraints, ...(deviceId ? { deviceId: { exact: deviceId } } : { facingMode: { ideal: 'environment' } }) },
-      }).then((s) => {
+      return navigator.mediaDevices.getUserMedia({ audio: false, video: { ...usedConstraints, ...extra } }).then((s) => {
         timingMarks.gumResolveAt = absNow();
         return s;
       });
     };
+    const request = (deviceId) => gum(deviceId ? { deviceId: { exact: deviceId } } : { facingMode: { ideal: 'environment' } });
 
     let opened = null;
     const early = window.__wall2dEarlyCamera;
@@ -836,27 +842,20 @@ export async function createArView(options = {}) {
         if (res.error) throw res.error;
         timingMarks.gumResolveAt = window.__wall2dGumResolveAt || absNow();
         opened = res.stream;
+        saveMainCamera(res.mainId);
       } else {
         early.promise.then((res) => res.stream?.getTracks().forEach((t) => t.stop())).catch(() => {});
       }
     }
 
     if (!opened) {
-      // 若已授與權限且裝置清單已有標籤，直接選定主鏡頭，避免開錯鏡頭再重開一次
-      if (!chosenId && navigator.mediaDevices?.enumerateDevices) {
-        try {
-          const devs = await Promise.race([
-            navigator.mediaDevices.enumerateDevices(),
-            new Promise((r) => setTimeout(() => r(null), 20)),
-          ]);
-          if (token !== generation) return null;
-          if (devs) {
-            const p = mainCamera(devs.filter((d) => d.kind === 'videoinput'));
-            if (p?.deviceId) chosenId = p.deviceId;
-          }
-        } catch { /* ignore */ }
+      // 指定了鏡頭就開它；沒指定就先問權限、再開主鏡頭（開錯先關掉再開，不在開著相機時換鏡頭，見 camera.js 的 openMainCamera）
+      if (chosenId) opened = await request(chosenId);
+      else {
+        const res = await openMainCamera(gum, { savedId: readMainCamera() });
+        opened = res.stream;
+        saveMainCamera(res.mainId);
       }
-      opened = await request(chosenId);
       if (token !== generation) { opened.getTracks().forEach((t) => t.stop()); return null; }
     }
 
@@ -922,20 +921,8 @@ export async function createArView(options = {}) {
     saveCamReversed(orientation, corrected);
     $('camera-device').value = chosenId || active || '';
 
-    // 背景列舉鏡頭；若目前不是主鏡頭再無縫切換，不阻塞首幀顯示
-    listCameras(token).then(async () => {
-      if (token !== generation || !running || chosenId) return;
-      const primary = mainCamera(cameraDevices);
-      if (primary && primary.deviceId !== active) {
-        const switched = await request(primary.deviceId);
-        if (token !== generation || !running) { switched.getTracks().forEach((t) => t.stop()); return; }
-        opened.getTracks().forEach((t) => t.stop());
-        stream = switched;
-        autoCameraId = primary.deviceId;
-        $('camera-device').value = primary.deviceId;
-        await attachAndPlay(switched);
-      }
-    }).catch((err) => log.error(err));
+    // 背景列出鏡頭給開發工具的選單；不在開著相機時換鏡頭（主鏡頭在開相機前就選好了，openMainCamera）
+    listCameras(token).catch((err) => log.error(err));
 
     const settings = opened.getVideoTracks()[0].getSettings();
     log.event('camera_view', {

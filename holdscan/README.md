@@ -46,7 +46,7 @@ English: [README.en.md](README.en.md)
 |---|---|---|
 | `configure({ cache })` | `void` | `cache`：模型的 Cache API 名稱；網頁先下載好存在那裡，Worker 直接讀；不設就由 Worker 自己下載 |
 | `warm()` | `Promise<void>` | 背景下載並載入 onnxruntime 和模型（約 12 MB，之後由瀏覽器快取）；失敗不丟錯（真的偵測時會再試、再回報） |
-| `detect(canvas, status?)` | `Promise<{ boxes }>` | `boxes`：`[[x0, y0, x1, y1, score], …]`，座標是 `canvas` 的像素；`status(key)` 收到 `'detDownload'`（下載模型）、`'detFinding'`（偵測中）。輸入大小固定 1280 |
+| `detect(canvas, status?, { size }?)` | `Promise<{ boxes }>` | `boxes`：`[[x0, y0, x1, y1, score], …]`，座標是 `canvas` 的像素；`status(key)` 收到 `'detDownload'`（下載模型）、`'detFinding'`（偵測中）。`size`：模型輸入大小，`1280`（預設）、`2048`、`2560`；長邊 3000 px 左右的岩館照片用 2560 小岩點抓得比較多（約慢 6 倍） |
 
 錯誤：`detect` 失敗時 reject 一個 `Error`，`error.download === true` 表示下載模型（或載入 onnxruntime）失敗；Worker 本身載入失敗時所有進行中的呼叫都 reject，下一次呼叫會重開 Worker。副作用：建立 Worker、`createImageBitmap(canvas)`（轉移所有權）、下載模型。
 

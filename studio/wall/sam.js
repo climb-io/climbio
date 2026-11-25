@@ -154,7 +154,7 @@
         let x0 = m.w, y0 = m.h, x1 = -1, y1 = -1;
         for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) if (m.d[y * m.w + x]) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
         touch = touch || x0 + c.ox <= 1 || y0 + c.oy <= 1 || x1 + c.ox >= W - 2 || y1 + c.oy >= H - 2;
-        const poly = G.maskToPoly(m, 1, win[0] + c.ox, win[1] + c.oy); if (poly) out.push({ poly, area: G.count(m) });
+        const poly = G.maskToPoly(m, 1, win[0] + c.ox, win[1] + c.oy, true, true); if (poly) out.push({ poly, area: G.count(m) });
       }
       if (!touch) break;
     }
@@ -189,7 +189,7 @@
     let i = 0, u = 0;   // 跟手畫範圍（在整個視窗座標）算重疊
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const a = m0.d[y * W + x], b = x >= c.ox && y >= c.oy && x < c.ox + m.w && y < c.oy + m.h ? m.d[(y - c.oy) * m.w + x - c.ox] : 0; i += a & b; u += a | b; }
     if (i / Math.max(1, u) < 0.6) return null;
-    return G.maskToPoly(m, 1, ox + c.ox, oy + c.oy);
+    return G.maskToPoly(m, 1, ox + c.ox, oy + c.oy, true, true);
   });
 
   function chamfer(m) {   // 到背景的距離（3-4 倒角，單位 px）
@@ -222,7 +222,8 @@
   const sizeFor = b => { const side = Math.max(b[2] - b[0], b[3] - b[1]); return side * 1.5 <= 1024 ? 1024 : side * 1.25 <= 2048 ? 2048 : 3072; };
   // 整面牆重描要編碼幾個視窗（每個約 2.3 秒 WebGPU、5.5 秒 WASM），事先估時間用
   async function estimate(boxes, w, h) {
-    const wins = new Set(boxes.map(b => windowAt([(b[0] + b[2]) / 2, (b[1] + b[3]) / 2], sizeFor(b), { w, h }).join(','))).size;
+    const ba = boxes.map(b => (b[2] - b[0]) * (b[3] - b[1])), med = [...ba].sort((p, q) => p - q)[ba.length >> 1] || 1;
+    const wins = new Set(boxes.map(b => windowAt([(b[0] + b[2]) / 2, (b[1] + b[3]) / 2], sizeFor(b), { w, h }).join(','))).size + ba.filter(a => a >= BIG * med).length;   // 大岩點各多編碼一個放大的視窗
     let gpu = false; try { gpu = localStorage.getItem(NO_GPU) !== '1' && !!(navigator.gpu && await navigator.gpu.requestAdapter()); } catch (e) { gpu = false; }
     return { windows: wins, seconds: wins * (gpu ? 2.3 : 5.5), gpu };
   }
@@ -235,41 +236,87 @@
     } catch (e) { return false; }
   }
 
-  async function refineBoxes(boxes, progress = () => {}, shouldStop = () => false, { key = 'batch', onItem = () => {} } = {}) {
+  // 大岩點（偵測框面積到中位數 4 倍以上）：另外用「以框為中心、岩點佔視窗約 6 成」的視窗縮放到 1024 再編碼描一次。
+  // 照 256 格線放進 1024／2048 的視窗，大岩點的弧邊在 256×256 的遮罩上只剩幾格，描出來有折角、凹邊被拉直；
+  // 但放大的視窗偶爾只切出岩點上的一塊（南港 95 顆大岩點有 9 顆），所以兩個視窗的外框重疊到 0.9 才用放大的，不然用一般視窗的並標「大點視窗不一致」
+  const BIG = 4, FILL = 0.6, NEG = 8, AGREE = 0.9;
+  const bigWin = (b, ph) => {
+    const side = Math.min(Math.max(ph.w, ph.h), Math.max(256, Math.ceil(Math.max(b[2] - b[0], b[3] - b[1]) / FILL))), w = Math.min(side, ph.w), h = Math.min(side, ph.h);
+    const x0 = Math.round(Math.min(Math.max((b[0] + b[2]) / 2 - w / 2, 0), ph.w - w)), y0 = Math.round(Math.min(Math.max((b[1] + b[3]) / 2 - h / 2, 0), ph.h - h));
+    return [x0, y0, x0 + w, y0 + h];
+  };
+  const inBox = (p, b) => p[0] >= b[0] && p[0] <= b[2] && p[1] >= b[1] && p[1] <= b[3];
+  const ellipse = b => { const cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2; return Array.from({ length: 16 }, (_, k) => [Math.round((cx + (b[2] - b[0]) / 2 * Math.cos(k * Math.PI / 8)) * 10) / 10, Math.round((cy + (b[3] - b[1]) / 2 * Math.sin(k * Math.PI / 8)) * 10) / 10]); };
+  const polyIou = (a, b) => {
+    const xs = [...a, ...b].map(p => p[0]), ys = [...a, ...b].map(p => p[1]), x0 = Math.floor(Math.min(...xs)), y0 = Math.floor(Math.min(...ys)), w = Math.ceil(Math.max(...xs)) - x0 + 1, h = Math.ceil(Math.max(...ys)) - y0 + 1;
+    const A = G.fillPoly(G.mk(w, h), a, x0, y0), B = G.fillPoly(G.mk(w, h), b, x0, y0); let i = 0, u = 0;
+    for (let k = 0; k < A.d.length; k++) { i += A.d[k] & B.d[k]; u += A.d[k] | B.d[k]; }
+    return u ? i / u : 0;
+  };
+  // 照片的一塊 → { w, h, d, ox, oy }（色彩貼邊用）
+  const pixels = (ph, b, pad) => {
+    const x0 = Math.max(0, Math.floor(b[0] - pad)), y0 = Math.max(0, Math.floor(b[1] - pad)), x1 = Math.min(ph.w, Math.ceil(b[2] + pad)), y1 = Math.min(ph.h, Math.ceil(b[3] + pad));
+    return { w: x1 - x0, h: y1 - y0, d: ph.ctx.getImageData(x0, y0, x1 - x0, y1 - y0).data, ox: x0, oy: y0 };
+  };
+
+  // 一個框在一個視窗描一次：框＋框中心的點、只有框，各解碼一次（兩個遮罩的重疊＝score）；neg 是負提示點（照片座標）
+  async function traceBox(win, bx, negPts) {
+    const v = await encode(win), [bx0, by0, bx1, by1] = bx, ox = win[0], oy = win[1], W = win[2] - ox, H = win[3] - oy;
+    const mg = Math.max(16, 0.25 * Math.max(bx1 - bx0, by1 - by0));
+    const reg = [Math.max(0, Math.floor(bx0 - ox - mg)), Math.max(0, Math.floor(by0 - oy - mg)), Math.min(W, Math.ceil(bx1 - ox + mg)), Math.min(H, Math.ceil(by1 - oy + mg))];
+    const box = [bx0 - ox, by0 - oy, bx1 - ox, by1 - oy], ctr = [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2], neg = negPts.map(c => [c[0] - ox, c[1] - oy, 0]);
+    const prompt = extra => [[box[0], box[1], 2], [box[2], box[3], 3], ...extra, ...neg];
+    const a = (await decode(v, decS, prompt([[ctr[0], ctr[1], 1]]), reg))[0], c = (await decode(v, decS, prompt([]), reg))[0];
+    const cc = [ctr[0] - reg[0], ctr[1] - reg[1]], flags = [];
+    const ma = G.cleanMask(a, cc), mc = G.cleanMask(c, cc);
+    const poly = ma && G.maskToPoly(ma, 1, ox + reg[0], oy + reg[1], true, true);
+    if (!poly) return null;
+    let i = 0, u = 0; for (let k = 0; k < ma.d.length; k++) { const q = mc ? mc.d[k] : 0; i += ma.d[k] & q; u += ma.d[k] | q; }
+    const xs = poly.map(p => p[0]), ys = poly.map(p => p[1]), iw = Math.min(Math.max(...xs), bx1) - Math.max(Math.min(...xs), bx0), ih = Math.min(Math.max(...ys), by1) - Math.max(Math.min(...ys), by0);
+    const uni = (Math.max(Math.max(...xs), bx1) - Math.min(Math.min(...xs), bx0)) * (Math.max(Math.max(...ys), by1) - Math.min(Math.min(...ys), by0));
+    if (iw <= 0 || ih <= 0 || iw * ih / uni < 0.5) flags.push('分數低');
+    if (neg.some(p => { const x = Math.round(p[0] - reg[0]), y = Math.round(p[1] - reg[1]); return x >= 0 && y >= 0 && x < ma.w && y < ma.h && ma.d[y * ma.w + x]; })) flags.push('漏到鄰點');
+    return { poly, score: mc ? i / Math.max(1, u) : 0, flags };
+  }
+
+  // 每顆三個候選：SAM2（poly）、色彩貼邊（color）、原外框（polys[i]，呼叫端自己有）。
+  // polys：每個框對應的原外框（HoldKit），色彩貼邊在它附近的帶狀區找邊；沒有就用框的內切橢圓。
+  // 一般岩點：相鄰岩點（框中心在描的範圍裡、在這顆的框外、這顆的中心不在它的框裡）的中心當負提示點（最近的 8 個），遮罩包到鄰點中心就標「漏到鄰點」；
+  // 大岩點不加（南港實測加了平均重疊從 0.930 掉到 0.927：鄰點常常就在大岩點邊上）。
+  // only：只描這幾個框（索引）；中位數、相鄰岩點還是照全部的框算
+  async function refineBoxes(boxes, progress = () => {}, shouldStop = () => false, { key = 'batch', onItem = () => {}, polys = [], only = null } = {}) {
     const ph = photos.get(key); if (!ph) throw new Error(T('hlPhotoNotLoaded'));
-    const items = boxes.map((b, i) => {
-      const size = sizeFor(b);
-      return { b, i, size, win: windowAt([(b[0] + b[2]) / 2, (b[1] + b[3]) / 2], size, ph) };
-    }).sort((p, q) => p.size - q.size || p.win[1] - q.win[1] || p.win[0] - q.win[0]);
-    const out = new Array(boxes.length); let done = 0;
-    for (const it of items) {
-      if (shouldStop()) throw Object.assign(new Error(T('hlStopped')), { stopped: true });
-      out[it.i] = await serial(async () => {
-        use(key);
-        const v = await encode(it.win), [bx0, by0, bx1, by1] = it.b, ox = it.win[0], oy = it.win[1], W = it.win[2] - ox, H = it.win[3] - oy;
-        const bw = bx1 - bx0, bh = by1 - by0, mg = Math.max(16, 0.25 * Math.max(bw, bh));
-        const reg = [Math.max(0, Math.floor(bx0 - ox - mg)), Math.max(0, Math.floor(by0 - oy - mg)), Math.min(W, Math.ceil(bx1 - ox + mg)), Math.min(H, Math.ceil(by1 - oy + mg))];
-        const box = [bx0 - ox, by0 - oy, bx1 - ox, by1 - oy], ctr = [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2];
-        const prompt = extra => [[box[0], box[1], 2], [box[2], box[3], 3], ...extra];
-        const a = (await decode(v, decS, prompt([[ctr[0], ctr[1], 1]]), reg))[0], c = (await decode(v, decS, prompt([]), reg))[0];
-        const cc = [ctr[0] - reg[0], ctr[1] - reg[1]], flags = [];
-        const ma = G.cleanMask(a, cc), mc = G.cleanMask(c, cc);
-        let poly = ma && G.maskToPoly(ma, 1, ox + reg[0], oy + reg[1]), score = 0;
-        if (!poly) {
-          const cx = (bx0 + bx1) / 2, cy = (by0 + by1) / 2; poly = Array.from({ length: 16 }, (_, k) => [Math.round((cx + bw / 2 * Math.cos(k * Math.PI / 8)) * 10) / 10, Math.round((cy + bh / 2 * Math.sin(k * Math.PI / 8)) * 10) / 10]);
-          flags.push('退回橢圓');
-        } else {
-          let i = 0, u = 0; for (let k = 0; k < ma.d.length; k++) { const q = mc ? mc.d[k] : 0; i += ma.d[k] & q; u += ma.d[k] | q; }
-          score = mc ? i / Math.max(1, u) : 0;
-          const xs = poly.map(p => p[0]), ys = poly.map(p => p[1]), iw = Math.min(Math.max(...xs), bx1) - Math.max(Math.min(...xs), bx0), ih = Math.min(Math.max(...ys), by1) - Math.max(Math.min(...ys), by0);
-          const uni = (Math.max(Math.max(...xs), bx1) - Math.min(Math.min(...xs), bx0)) * (Math.max(Math.max(...ys), by1) - Math.min(Math.min(...ys), by0));
-          if (iw <= 0 || ih <= 0 || iw * ih / uni < 0.5) flags.push('分數低');
-        }
-        return { poly, score: Math.round(score * 1000) / 1000, det: it.b[4], flags };
-      });
+    const ba = boxes.map(b => (b[2] - b[0]) * (b[3] - b[1])), med = [...ba].sort((p, q) => p - q)[ba.length >> 1] || 1;
+    const ctrs = boxes.map(b => [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2]);
+    const items = boxes.map((b, i) => { const size = sizeFor(b); return { b, i, size, big: ba[i] >= BIG * med, win: windowAt(ctrs[i], size, ph) }; })
+      .filter(it => !only || only.includes(it.i)).sort((p, q) => p.size - q.size || p.win[1] - q.win[1] || p.win[0] - q.win[0]);
+    // 先描完所有一般視窗（同一個視窗的框排在一起，編碼只做一次），大岩點的放大視窗最後一起描：穿插著描會把一般視窗擠出快取、重複編碼（南港慢 3 倍）
+    const out = new Array(boxes.length), first = new Map(); let done = 0;
+    const finish = async (it, r) => {
+      const [bx0, by0, bx1, by1] = it.b, flags = r ? r.flags : ['退回橢圓'], poly = r ? r.poly : ellipse(it.b);
+      const base = polys[it.i] && polys[it.i].length >= 3 ? polys[it.i] : ellipse(it.b);   // 色彩貼邊：原外框附近的帶狀區
+      let color = null, colorFlags = [];
+      try { const c = G.colorFit(pixels(ph, it.b, 0.3 * Math.max(bx1 - bx0, by1 - by0) + 8), base); color = c.poly; colorFlags = c.flags; } catch (e) { colorFlags = ['色彩失敗']; }
+      out[it.i] = { poly, score: r ? Math.round(r.score * 1000) / 1000 : 0, det: it.b[4], flags, big: it.big, color, colorFlags };
       onItem(it.i, out[it.i]);
       progress(++done, items.length);
       await yieldNow();   // 讓出主執行緒，進度和按鈕才會動
+    };
+    const stop = () => { if (shouldStop()) throw Object.assign(new Error(T('hlStopped')), { stopped: true }); };
+    for (const it of items) {
+      stop();
+      const me = ctrs[it.i], [bx0, by0, bx1, by1] = it.b, mg = Math.max(16, 0.25 * Math.max(bx1 - bx0, by1 - by0)), area = [bx0 - mg, by0 - mg, bx1 + mg, by1 + mg];
+      const neg = it.big ? [] : ctrs.map((c, j) => ({ c, j, d: Math.hypot(c[0] - me[0], c[1] - me[1]) }))
+        .filter(({ c, j }) => j !== it.i && inBox(c, area) && !inBox(c, it.b) && !inBox(me, boxes[j])).sort((p, q) => p.d - q.d).slice(0, NEG).map(({ c }) => c);
+      const r = await serial(async () => { use(key); return traceBox(it.win, it.b, neg); });
+      if (it.big) first.set(it.i, r); else await finish(it, r);
+    }
+    for (const it of items.filter(x => x.big)) {
+      stop();
+      let r = first.get(it.i);
+      const z = await serial(async () => { use(key); return traceBox(bigWin(it.b, ph), it.b, []); });
+      if (z && (!r || polyIou(z.poly, r.poly) >= AGREE)) r = z; else if (z && r) r.flags.push('大點視窗不一致');
+      await finish(it, r);
     }
     return out;
   }

@@ -2,6 +2,8 @@
 // 電腦版另可整面用 SAM2（WebGPU 或 WASM，第一次下載約 300 MB）重描，跟原外框不同的列進待確認，由人選。打開同一個專案資料夾（store.js 的專案），改好的岩點存回去；路線引用的岩點 id 不變。
 // 網址：#<專案 id> 看這個專案的牆、#<專案 id>/<牆 id> 直接打開那面牆。
 'use strict';
+// 偵測的模型輸入：岩館照片大、岩點小，用 2560（南港實測找到 90% → 94.5%、多認反而少；1280 只要 0.8 秒、2560 約 4.7 秒）。見 holdscan/core/detect-core.js
+const DETECT_SIZE = 2560;
 const $ = id => document.getElementById(id);
 const T = AppKit.i18n.t;
 AppKit.i18n.apply();   // index.html 的 data-i18n
@@ -202,7 +204,7 @@ async function addPhotos(files, { name = '', zoneOf = null } = {}) {
       const zn = zoneOf?.get(f), zone = zn ? p.zoneNamed(zn) : first();
       const w = await p.addBlank(f, zone);
       b.step(T('hlDetecting'), i + 1, list.length);
-      const c = await photoCanvas(p, w), { boxes } = await HoldScan.detect(c), d = await p.data(w.id);
+      const c = await photoCanvas(p, w), { boxes } = await HoldScan.detect(c, undefined, { size: DETECT_SIZE }), d = await p.data(w.id);
       // 偵測到的岩點在過場上亮起來（最後一張等它亮完再關）
       const shown = b.show(c, boxes.map(([x0, y0, x1, y1]) => [(x0 + x1) / 2, (y0 + y1) / 2]));
       if (boxes.length) { d.boxes = boxes; addOutlines(w, d, c); counts(w, d); } else empty++;
@@ -424,7 +426,8 @@ async function refineWall(w) {
     const c = await photoCanvas(P, w);
     RefineSam.setPhoto(c, 'batch');
     const todo = d.boxes.map((b, i) => i).filter(i => centerIn(d.boxes[i], w.crop)), raw = {};
-    await RefineSam.refineBoxes(todo.map(i => d.boxes[i]), (k, n) => say(T('hlRetracing', k, n)), () => !P.wall(w.id), { key: 'batch', onItem: (k, r) => { raw[todo[k]] = r; } });
+    const orig = i => (d.holds.find(x => x.b === i) || {}).poly || null;   // 原外框：色彩貼邊在它附近找邊
+    await RefineSam.refineBoxes(todo.map(i => d.boxes[i]), (k, n) => say(T('hlRetracing', k, n)), () => !P.wall(w.id), { key: 'batch', polys: todo.map(orig), onItem: (k, r) => { raw[todo[k]] = r; } });
     const res = RefineSam.flagAll(todo.filter(i => raw[i]).map(i => ({ ...raw[i], flags: [...raw[i].flags], i })));
     for (const r of res) {
       const h = d.holds.find(x => x.b === r.i);
@@ -432,7 +435,7 @@ async function refineWall(w) {
       if (h.source !== 'detect' || (h.sam && h.sam.pick && h.sam.pick !== 'auto')) continue;   // 手畫、改過的、人已經決定過的不動
       if (!(d.base && d.base[h.id])) noteBase(d, h);   // 自動結果記 HoldKit 的外框；SAM2 的掛在岩點的 sam 上，跟人的選擇一起進研究記錄
       const iou = RefineRecord.polyIou(h.poly, r.poly, w.w, w.h), look = iou < RefineRecord.SAME || r.flags.length > 0;
-      h.sam = { poly: r.poly, flags: r.flags, iou: Math.round(iou * 1000) / 1000, pick: look ? '' : 'auto' };   // 兩個外框一致又沒旗標的直接採用 SAM2，其餘等人確認
+      h.sam = { poly: r.poly, flags: r.flags, iou: Math.round(iou * 1000) / 1000, pick: look ? '' : 'auto', color: r.color || null, colorFlags: r.colorFlags || [], big: !!r.big };   // 兩個外框一致又沒旗標的直接採用 SAM2，其餘等人確認；color 是色彩貼邊的候選（代理流程三選一用）
       if (!look) h.poly = r.poly;
     }
     counts(w, d); P.touch(w, { ms: 0 });

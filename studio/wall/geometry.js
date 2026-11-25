@@ -164,9 +164,10 @@
   }
   const round1 = v => Math.round(v * 10) / 10;
   // 遮罩 → 原圖座標的多邊形（先去小突起，再 DP 精簡，偏差約外框周長的 1%）；沒東西回 null
-  function maskToPoly(m, scale, ox, oy, spikes = true) {
+  // tight：容差改成跟外框長邊成比例的小值（長邊的 0.4%，最少 1 px、最多還是周長的 1%）：大岩點、Volume 的弧邊不會被壓成 10 幾個點、出現折角
+  function maskToPoly(m, scale, ox, oy, spikes = true, tight = false) {
     const c = contour(spikes ? despike(m) : m); if (!c || c.length < 3) return null;
-    const a = approxPoly(c, Math.max(1, 0.01 * arcLen(c)));
+    const a = approxPoly(c, tight ? tolOf(c) : Math.max(1, 0.01 * arcLen(c)));
     return a.map(q => [round1(q[0] / scale + ox), round1(q[1] / scale + oy)]);
   }
   // 合併太近的頂點、拿掉幾乎在同一直線上的點（同 simplify_poly）
@@ -283,6 +284,69 @@
     return out.map(p => [+p[0].toFixed(1), +p[1].toFixed(1)]);
   }
 
-  const api = { mk, count, fillPoly, polyMask, components, keepBiggest, fillHoles, cleanMask, erode, dilate, open, close, despike, trimSpikes, contour, approxPoly, maskToPoly, simplifyPoly, polyOp, validPoly, repair, dupPairs, area, trimPolySpikes, lassoOutline };
+  // ---- 照片像素：色彩貼邊（SAM2 以外的另一個外框候選）----
+  // img＝{ w, h, d: RGBA, ox, oy }：照片的一塊（ox、oy 是這塊左上角在照片的座標）；多邊形一律是照片座標
+  const sideOf = p => { const xs = p.map(q => q[0]), ys = p.map(q => q[1]); return Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)); };
+  function tolOf(p) { return Math.max(1, Math.min(0.01 * arcLen(p), 0.004 * sideOf(p))); }
+  const LIN = Array.from({ length: 256 }, (_, i) => { const c = i / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+  // RGBA → Lab（D65），三個 Float32Array
+  function labOf(img) {
+    const n = img.w * img.h, L = new Float32Array(n), A = new Float32Array(n), B = new Float32Array(n), f = t => t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116;
+    for (let i = 0; i < n; i++) {
+      const r = LIN[img.d[4 * i]], g = LIN[img.d[4 * i + 1]], b = LIN[img.d[4 * i + 2]];
+      const fx = f((0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047), fy = f(0.2126 * r + 0.7152 * g + 0.0722 * b), fz = f((0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883);
+      L[i] = 116 * fy - 16; A[i] = 500 * (fx - fy); B[i] = 200 * (fy - fz);
+    }
+    return { L, A, B };
+  }
+  const pct = (arr, q) => { if (!arr.length) return 0; const s = Float32Array.from(arr).sort(); return s[Math.min(s.length - 1, Math.floor(q * s.length))]; };
+
+  // 色彩貼邊：原外框裡面（往內縮一圈）的顏色當種子，在原外框附近的帶狀區裡從種子長出顏色相近的像素（Lab，亮度權重減半：岩點上的陰影、反光），
+  // 再閉合、補洞、留最大的一塊、精簡成多邊形。門檻取「岩點內部 9 成像素的色差」和「外框外一圈的色差 75 百分位」的中間。
+  // 回傳 { poly, flags }：色彩對比低（岩點跟周圍顏色分不開）、色彩漏出（長到帶狀區邊緣或面積大很多）、色彩太小；分不開時 poly 是 null
+  // 大岩點先把照片縮到外框長邊約 200 px 再算（形態學的半徑跟著縮，快很多；邊界誤差在原圖約 1～3 px，之後精簡也會吃掉）
+  function colorFit(img, poly) {
+    const size0 = sideOf(poly), f = size0 > 200 ? 200 / size0 : 1;
+    if (f === 1) return colorFitAt(img, poly);
+    const w = Math.max(1, Math.round(img.w * f)), h = Math.max(1, Math.round(img.h * f)), d = new Uint8ClampedArray(w * h * 4), cnt = new Float32Array(w * h);
+    const acc = new Float32Array(w * h * 3);
+    for (let y = 0; y < img.h; y++) { const Y = Math.min(h - 1, Math.floor(y * f)); for (let x = 0; x < img.w; x++) { const X = Math.min(w - 1, Math.floor(x * f)), i = 4 * (y * img.w + x), j = Y * w + X; acc[3 * j] += img.d[i]; acc[3 * j + 1] += img.d[i + 1]; acc[3 * j + 2] += img.d[i + 2]; cnt[j]++; } }
+    for (let j = 0; j < w * h; j++) { const c = cnt[j] || 1; d[4 * j] = acc[3 * j] / c; d[4 * j + 1] = acc[3 * j + 1] / c; d[4 * j + 2] = acc[3 * j + 2] / c; d[4 * j + 3] = 255; }
+    const r = colorFitAt({ w, h, d, ox: 0, oy: 0 }, poly.map(p => [(p[0] - img.ox) * f, (p[1] - img.oy) * f]));
+    return { flags: r.flags, poly: r.poly && r.poly.map(p => [round1(p[0] / f + img.ox), round1(p[1] / f + img.oy)]) };
+  }
+  function colorFitAt(img, poly) {
+    const W = img.w, H = img.h, size = sideOf(poly), a0 = Math.abs(area(poly)), flags = [];
+    const m0 = fillPoly(mk(W, H), poly, img.ox, img.oy);
+    if (count(m0) < 12) return { poly: null, flags: ['色彩太小'] };
+    const rIn = Math.max(2, Math.round(0.12 * size)), rOut = Math.max(6, Math.round(0.25 * size));
+    let core = erode(m0, rIn); if (count(core) < 12) core = erode(m0, Math.max(1, rIn >> 1)); if (count(core) < 12) core = m0;
+    const outer = dilate(m0, rOut), near = dilate(m0, 2), { L, A, B } = labOf(img);
+    const cl = [], ca = [], cb = []; for (let i = 0; i < core.d.length; i++) if (core.d[i]) { cl.push(L[i]); ca.push(A[i]); cb.push(B[i]); }
+    const s = [pct(cl, 0.5), pct(ca, 0.5), pct(cb, 0.5)], dist = new Float32Array(W * H);
+    for (let i = 0; i < dist.length; i++) dist[i] = Math.hypot(0.5 * (L[i] - s[0]), A[i] - s[1], B[i] - s[2]);
+    const dc = [], db = []; for (let i = 0; i < dist.length; i++) { if (core.d[i]) dc.push(dist[i]); else if (outer.d[i] && !near.d[i]) db.push(dist[i]); }
+    const pc = pct(dc, 0.9), pb = pct(db, 0.75);   // 外框外一圈取 75 百分位：原外框切掉一角時，這圈有一部分是岩點
+    if (pb < pc * 1.3 + 3) return { poly: null, flags: ['色彩對比低'] };
+    const T = Math.min(40, Math.max(6, (pc + pb) / 2)), g = mk(W, H), st = [];
+    for (let i = 0; i < core.d.length; i++) if (core.d[i] && dist[i] < T) { g.d[i] = 1; st.push(i); }
+    while (st.length) {
+      const i = st.pop(), x = i % W;
+      for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) if (j >= 0 && j < g.d.length && !g.d[j] && outer.d[j] && dist[j] < T) { g.d[j] = 1; st.push(j); }
+    }
+    let m = keepBiggest(fillHoles(close(g, Math.max(1, Math.round(0.02 * size)))));
+    if (!count(m)) return { poly: null, flags: ['色彩對比低'] };
+    let edge = 0, rim = 0;   // 長到帶狀區外緣的比例
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x; if (!m.d[i]) continue;
+      if ((x > 0 && !m.d[i - 1]) || (x < W - 1 && !m.d[i + 1]) || (y > 0 && !m.d[i - W]) || (y < H - 1 && !m.d[i + W])) { rim++; if ((x > 0 && !outer.d[i - 1]) || (x < W - 1 && !outer.d[i + 1]) || (y > 0 && !outer.d[i - W]) || (y < H - 1 && !outer.d[i + W])) edge++; }
+    }
+    const a1 = count(m);
+    if (edge > 0.15 * rim || a1 > 1.8 * a0) flags.push('色彩漏出');
+    if (a1 < 0.4 * a0) flags.push('色彩太小');
+    return { poly: maskToPoly(m, 1, img.ox, img.oy, true, true), flags };
+  }
+
+  const api = { mk, count, fillPoly, polyMask, components, keepBiggest, fillHoles, cleanMask, erode, dilate, open, close, despike, trimSpikes, contour, approxPoly, maskToPoly, simplifyPoly, polyOp, validPoly, repair, dupPairs, area, trimPolySpikes, lassoOutline, colorFit, tolOf };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.RefineGeo = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

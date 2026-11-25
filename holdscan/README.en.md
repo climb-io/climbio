@@ -46,7 +46,7 @@ Load with `<script src=".../holdscan.js">`; attaches to `self.HoldScan`.
 |---|---|---|
 | `configure({ cache })` | `void` | `cache`: Cache API name for the model; the page downloads it there first and the Worker reads it directly; if unset the Worker downloads it itself |
 | `warm()` | `Promise<void>` | Downloads and loads onnxruntime and the model in the background (about 12 MB, then cached by the browser); never rejects (a real detection retries and reports) |
-| `detect(canvas, status?)` | `Promise<{ boxes }>` | `boxes`: `[[x0, y0, x1, y1, score], ...]` in `canvas` pixels; `status(key)` receives `'detDownload'` (downloading the model) and `'detFinding'` (detecting). Input size is fixed at 1280 |
+| `detect(canvas, status?, { size }?)` | `Promise<{ boxes }>` | `boxes`: `[[x0, y0, x1, y1, score], ...]` in `canvas` pixels; `status(key)` receives `'detDownload'` (downloading the model) and `'detFinding'` (detecting). `size`: model input size, `1280` (default), `2048` or `2560`; for gym photos around 3000 px on the long side, 2560 finds more small holds (about 6× slower) |
 
 Errors: `detect` rejects with an `Error`; `error.download === true` means downloading the model (or loading onnxruntime) failed. If the Worker itself fails to load, every in-flight call rejects and the next call starts a new Worker. Side effects: creates a Worker, `createImageBitmap(canvas)` (ownership transferred), downloads the model.
 

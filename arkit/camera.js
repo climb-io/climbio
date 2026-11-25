@@ -4,6 +4,23 @@ export function mainCamera(devices){
  const main=/^(back camera|rear camera|後置相機|后置相机|后置摄像头|背面カメラ|후면 카메라|rückkamera|caméra arrière|cámara trasera)$/i;
  return devices.find(d=>d.kind==='videoinput'&&main.test(d.label.trim()));
 }
+// 開主鏡頭：先問權限、再開主鏡頭，不在開著相機時換鏡頭（iPhone 的 Safari 兩顆同時開、或同一個 <video> 換串流都會黑畫面）。
+// 已有權限時列得出鏡頭名稱，直接開主鏡頭；第一次（還沒有權限、名稱是空的）先照「後面的相機」開一次取得權限，
+// 還沒拿去顯示就看名稱，開到的不是主鏡頭就先關掉、再開主鏡頭。open(extra)：用 extra（deviceId 或 facingMode）呼叫 getUserMedia；
+// savedId：上次記下的主鏡頭。回傳 { stream, mainId }
+export async function openMainCamera(open,{savedId='',enumerate=()=>navigator.mediaDevices.enumerateDevices(),timeoutMs=500}={}){
+ const list=async()=>{try{return ((await Promise.race([enumerate(),new Promise(r=>setTimeout(()=>r([]),timeoutMs))]))||[]).filter(d=>d.kind==='videoinput');}catch{return [];}};
+ const back={facingMode:{ideal:'environment'}};
+ const byId=(id)=>open({deviceId:{exact:id}}).catch(()=>open(back));
+ let main=mainCamera(await list());
+ if(main?.deviceId)return {stream:await byId(main.deviceId),mainId:main.deviceId};
+ const first=await open(savedId?{deviceId:{ideal:savedId},...back}:back);
+ main=mainCamera(await list());
+ const active=first.getVideoTracks()[0]?.getSettings?.().deviceId;
+ if(!main?.deviceId||main.deviceId===active)return {stream:first,mainId:main?.deviceId||''};
+ first.getTracks().forEach(t=>t.stop());
+ return {stream:await byId(main.deviceId),mainId:main.deviceId};
+}
 export function cameraViewport(width,height,frameWidth,frameHeight){
  const scale=Math.max(width/frameWidth,height/frameHeight);
  return {x:(width-frameWidth*scale)/2,y:(height-frameHeight*scale)/2,width:frameWidth*scale,height:frameHeight*scale,visibleWidthFraction:Math.min(1,width/(frameWidth*scale)),visibleHeightFraction:Math.min(1,height/(frameHeight*scale))};

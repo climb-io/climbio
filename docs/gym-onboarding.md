@@ -39,10 +39,11 @@ published { walls: [{ id, wallId, name, version, base }] }
 
 照 [embed.md](embed.md)：
 
-1. 路線頁放 `<iframe src="https://embed.climbio.app/routekit/v1/?mode=view">`（原生 App 用 WebView 開同一網址）。先註冊 `message` 監聽，收到 `ready` 回 `init { wallId }`；換路線送 `setRoute`。
+1. 路線頁放 `<iframe src="https://embed.climbio.app/routekit/v2/?mode=view">`（原生 App 用 WebView 開同一網址）。先註冊 `message` 監聽，收到 `ready` 回 `init { wallId }`；換路線送 `setRoute`。
 2. 定線同一個頁面改 `?mode=edit`（起攀上限用第 0 步的答案：`&maxStart=4`）。
 3. 使用者定完，App 送 `submit`（名稱、難度、暱稱由 App 收）；成功回 `submitted { routeId, routeUrl }`，**把 `routeId` 存起來對應他們自己的使用者**。刪除用 `remove`。
 4. **鎖定版本**（選用）：`init` 預設讀牆的現行版；要固定在發佈的那一版，`init` 改給那一版的網址（`…/walls/<包 id>/v<版本>/…`，做法見 [embed.md](embed.md)），別人再發新版本也不影響。
+5. **自備資料、不經過 Climbio**（選用）：要自己存牆面資料、或要長按岩點重描外框時，改放通用版 `routekit/v2/`（可自架，靜態包用 `node tools/release-routekit.mjs` 產生）：`init` 直接帶 `view`／`layers`／照片（或 https 網址），`capabilities` 宣告 `holdEdit`／`refine`／`wallEdit`；重描與牆面修改由你的程式回覆，內嵌頁不保存牆面。細節與訊息見 [embed.md](embed.md)「通用內嵌頁 v2」。
 
 ## 第 3 步：驗收
 
@@ -54,7 +55,7 @@ published { walls: [{ id, wallId, name, version, base }] }
 瀏覽器裡的偵測是岩點貓新增牆面同一套，看線、定線夠用；岩館想要逐顆更準，由岩館的 AI Agent 照 Studio 的流程精修後再發佈，不用館主去 Studio：
 
 1. 取得原始碼：`git clone https://github.com/climb-io/climbio`，先讀 [AGENTS.md](../AGENTS.md)。
-2. 處理牆面（照片 → 岩點檔）：`node tools/studio.mjs start gym <工作資料夾> <照片…>`，照它印的下一步做；之後每一步都只跑 `node tools/wall-batch.mjs next <工作資料夾>`。流程是偵測 → SAM2 精修 → 分級檢查 → **你看圖判斷** → `verify` 通過才算做完。細節與判斷準則在 [studio-wall.md](studio-wall.md)「代理做牆面」。
+2. 處理牆面（照片 → 岩點檔）：`node tools/studio.mjs start gym <工作資料夾> <照片…>`，照它印的下一步做；之後每一步都只跑 `node tools/wall-batch.mjs next <工作資料夾>`。流程是偵測 → SAM2 精修（每顆三個候選：原外框、SAM2、色彩貼邊）→ 分級檢查 → **你看圖判斷**（三選一、重複、總覽、Volume）→ 最後逐格細看（漏掉的岩點、畫不好的外框、不是岩點的）→ `verify` 通過才算做完。細節與判斷準則在 [studio-wall.md](studio-wall.md)「代理做牆面」。
 3. 產生岩館金鑰（一次，存在版控外、備份）：`node tools/wall-routes.mjs keygen <金鑰檔>`。這把金鑰不是註冊過的身分，只是讓每個版本記下是誰發的、可以限額與封鎖。
 4. 發佈：`node tools/wall-batch.mjs publish <工作資料夾> --gym "<岩館名稱>" --key <金鑰檔>`（只有通過 `verify` 的牆才會發佈），印出 `wallId` 與版本。精修的牆是新的一面牆（新 `wallId`），要換進 App；沒有 ZIP、不用工作人員再操作。
 5. 想保留原本那面牆的路線：在 Studio 網頁版（`https://climbio.app/studio/wall/#p=<包 id>`）開啟已發佈的牆精修後發佈，同一面牆出新版本，`wallId` 不變。

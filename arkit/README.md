@@ -67,6 +67,7 @@ view.showRoute(1, 1);
 
 - 預覽和送去追蹤的影像一定是同一個相機影格（只從 `<video>` 拿一次），外框才跟畫面對得上；Worker 慢時預覽先放行，外框用外推的姿態。
 - Chromium（Android Chrome 等）用 `VideoFrame` 把影格直接交給 Worker 取灰階，主執行緒不讀像素；iPhone 的 Safari 用 VideoFrame 之後預覽會變黑，所以 WebKit 用 canvas 擷取。
+- 固定用主鏡頭（後置相機），先問權限再開（`openMainCamera`）：第一次還看不到鏡頭名稱，先開一次取得權限，顯示前就看名稱，開到別顆就先關掉再開主鏡頭；不在開著相機時換鏡頭（iPhone 兩顆同時開、或同一個 `<video>` 換串流都會黑畫面）。主鏡頭記在 `localStorage` 下次先試。
 - 光流在長邊 480 px 上算、認牆在 640 px；低階 Android（OPPO CPH2339）每幀約 30 ms、疊圖約 2 ms。數據見 `docs/2d-tracking.md`。
 
 ## 7. 測試

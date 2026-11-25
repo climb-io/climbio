@@ -159,26 +159,6 @@
       if (state.w3d && state.mode === 'route' && e.pointerType === 'mouse' && (e.button === 2 || (e.button === 0 && (e.shiftKey || e.altKey)))) {   // 3D 牆：滑鼠左鍵拖曳跟手機單指一樣沿著牆走；右鍵、Shift／Alt＋左鍵左右拖是調角度（跟兩指同向左右移一樣；舊資料包是偷看、放手彈回）
         gesture = { mode: 'turn3d', id: e.pointerId, sx: p.x, sy: p.y, lx: p.x, ly: p.y, moved: false };
       } else gesture = { mode: 'pan', sx: p.x, sy: p.y, tx: view.tx, ty: view.ty, moved: false };
-      const canPress = e.pointerType !== 'mouse' || (e.button === 0 && !e.shiftKey && !e.altKey);
-      // 定線長按：觸控或滑鼠左鍵按住就進單點編輯（見 enterHoldEdit）；拖曳後不啟動，修飾鍵與右鍵留給移動照片、旋轉模型。
-      if (state.mode === 'route' && !state.routeView && canPress) {
-        const g0 = gesture, cx = e.clientX, cy = e.clientY;
-        const still = () => gesture === g0 && !g0.moved && pts.size === 1 && state.wall && state.mode === 'route' && !state.routeView;
-        const at = () => { const rect = cv.getBoundingClientRect(); return { x: (cx - rect.left) * (state.w / rect.width), y: (cy - rect.top) * (state.h / rect.height) }; };
-        const inside = ({ x, y }) => !!state.w3d || (x >= 0 && y >= 0 && x <= state.w && y <= state.h);   // 照片外面不算（3D 牆轉角度後畫面會超出正面快照，照射線判斷）
-        setTimeout(() => {
-          if (!still()) return;
-          const { x, y } = at();
-          if (!inside({ x, y })) return;
-          g0.moved = true; suppressClick = true;   // 放開時不算點擊
-          if (holdLocked()) return;   // 背景還在描外框：還不能改岩點
-          const pressed = pressHold(x, y);
-          if (pressed && state.addType === 'n' && route() && route().seq && route().seq.includes(pressed.id)) { seqHoldAsk(pressed); return; }   // 順序模式長按有編號的岩點：選插入位置
-          const g = gesture = { mode: 'hold', id: e.pointerId, sx: cx, sy: cy, cx, cy, x, y, moved: true };
-          enterHoldEdit(pressed, x, y);
-          followHoldLoupe(g);
-        }, 500);
-      }
       // 看路線圖、沒比路線視角放大時可以左右滑；螢幕左右邊緣起滑的留給系統的返回手勢
       if (state.mode === 'route' && state.routeView && !routeZoomed() && e.clientX > SWIPE_EDGE && e.clientX < innerWidth - SWIPE_EDGE) {
         const caught = !!swipeFrame;
@@ -363,6 +343,29 @@
       gesture = { mode: 'pan', sx: p.x, sy: p.y, tx: view.tx, ty: view.ty, moved: true };
     } else if (pts.size === 0) gesture = null;
   };
+  // 定線長按：觸控或滑鼠左鍵按住就進單點編輯（見 enterHoldEdit）；拖曳後不啟動，修飾鍵與右鍵留給移動照片、旋轉模型。
+  // 計時、容差、多指取消、放開／取消／失焦都由 RouteKit 的 LongPress 辨識（跟 RouteEditor 同一份），這裡只決定「現在要不要計時」與長按成立後做什麼
+  new RouteKit.LongPress(stageEl, {
+    delay: 500,
+    accept(e) {
+      const g0 = gesture;
+      if (!g0 || g0.mode !== 'pan' || pts.size !== 1 || state.mode !== 'route' || state.routeView) return null;
+      if (e.pointerType === 'mouse' && (e.shiftKey || e.altKey)) return null;
+      return { g0, cx: e.clientX, cy: e.clientY, pid: e.pointerId };
+    },
+    onFire({ g0, cx, cy, pid }) {
+      if (!(gesture === g0 && !g0.moved && pts.size === 1 && state.wall && state.mode === 'route' && !state.routeView)) return;
+      const rect = cv.getBoundingClientRect(), x = (cx - rect.left) * (state.w / rect.width), y = (cy - rect.top) * (state.h / rect.height);
+      if (!(state.w3d || (x >= 0 && y >= 0 && x <= state.w && y <= state.h))) return;   // 照片外面不算（3D 牆轉角度後畫面會超出正面快照，照射線判斷）
+      g0.moved = true; suppressClick = true;   // 放開時不算點擊
+      if (holdLocked()) return;   // 背景還在描外框：還不能改岩點
+      const pressed = pressHold(x, y);
+      if (pressed && state.addType === 'n' && route() && route().seq && route().seq.includes(pressed.id)) { seqHoldAsk(pressed); return; }   // 順序模式長按有編號的岩點：選插入位置
+      const g = gesture = { mode: 'hold', id: pid, sx: cx, sy: cy, cx, cy, x, y, moved: true };
+      enterHoldEdit(pressed, x, y);
+      followHoldLoupe(g);
+    },
+  });
   stageEl.addEventListener('pointerup', endPointer);
   // 定線、改岩點都用長按：擋掉系統選單（長按成立時已切到岩點頁，只看定線會漏掉）
   stageEl.addEventListener('contextmenu', (e) => { if (!state.routeView || state.w3d) e.preventDefault(); });

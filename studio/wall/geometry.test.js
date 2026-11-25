@@ -26,6 +26,28 @@ test('自己交叉的外框修成單純的多邊形', () => {
   assert.equal(G.validPoly(r.holds[0].poly, 1000, 1000), true);
 });
 
+// 灰牆上一顆紅色的圓（半徑 60，中心 100,100）：照片的一塊 { w, h, d: RGBA, ox, oy }
+const disk = (W = 200, H = 200, wall = [128, 128, 128], hold = [200, 40, 40]) => {
+  const d = new Uint8ClampedArray(W * H * 4);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const c = Math.hypot(x - 100, y - 100) <= 60 ? hold : wall, i = 4 * (y * W + x); d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = 255; }
+  return { w: W, h: H, d, ox: 0, oy: 0 };
+};
+const circle = (r, n = 24) => Array.from({ length: n }, (_, k) => [100 + r * Math.cos(2 * Math.PI * k / n), 100 + r * Math.sin(2 * Math.PI * k / n)]);
+
+test('色彩貼邊：原外框太小（半徑 45），長回整顆圓', () => {
+  const r = G.colorFit(disk(), circle(45));
+  assert.deepEqual(r.flags, []);
+  assert.ok(polyIou(r.poly, circle(60, 64)) > 0.93);
+});
+test('色彩貼邊：岩點跟牆同色時說分不開，不給外框', () => {
+  const r = G.colorFit(disk(200, 200, [128, 128, 128], [130, 128, 127]), circle(50));
+  assert.equal(r.poly, null); assert.deepEqual(r.flags, ['色彩對比低']);
+});
+test('大外框的頂點不會被壓到 10 幾個（容差跟外框長邊成比例）', () => {
+  const big = G.maskToPoly(G.fillPoly(G.mk(1000, 1000), Array.from({ length: 200 }, (_, k) => [500 + 400 * Math.cos(k * Math.PI / 100), 500 + 400 * Math.sin(k * Math.PI / 100)])), 1, 0, 0, true, true);
+  assert.ok(big.length >= 30, `頂點 ${big.length}`);
+});
+
 const fx = process.env.FIXTURE && JSON.parse(fs.readFileSync(process.env.FIXTURE, 'utf8'));
 test('平滑：跟 Python 版的外框重疊 0.97 以上', { skip: !fx }, () => {
   const ious = fx.smooth.map(c => polyIou(G.polyOp([c.poly], { trim: true }), c.out));

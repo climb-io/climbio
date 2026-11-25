@@ -67,6 +67,7 @@ Toolbar, status, route select and log dialog elements (ids in `lab/wall2d-cam/in
 
 - The preview and the image sent to the tracker are always the same camera frame (taken from `<video>` once), so outlines line up; when the worker is slow the preview is released and the overlay uses an extrapolated pose.
 - Chromium (Android Chrome etc.) transfers `VideoFrame`s to the worker and reads luma there, no pixel readback on the main thread; Safari on iPhone turns the preview black after creating a VideoFrame, so WebKit uses canvas capture.
+- Always the main (back wide) camera, permission first (`openMainCamera`): on the very first open lens names are hidden, so it opens once to get permission, checks the names before anything is shown, and if it got another lens stops it and opens the main one. It never switches lenses while the camera is running (on iPhone two open cameras, or a new stream on the same `<video>`, black out the preview). The main camera is remembered in `localStorage` and tried first next time.
 - Optical flow runs at 480 px long side, recognition at 640 px; on a low-end Android (OPPO CPH2339) about 30 ms per frame and about 2 ms per overlay draw. Numbers in `docs/2d-tracking.md`.
 
 ## 7. Tests

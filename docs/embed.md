@@ -46,17 +46,17 @@ Climbio 只放牆面與路線；岩館 App 裡的使用者怎麼對應到路線�
 - **精修（選用）**：想要逐顆更準，岩館的 AI Agent 照 Studio 的流程精修（[gym-onboarding.md](gym-onboarding.md)），用岩館金鑰簽章直接發佈（`node tools/wall-batch.mjs publish <工作資料夾> --gym "<岩館>" --key <金鑰檔>`），不經過這個內嵌頁；也可以 `zip` 打包成 `walls.zip` 丟進這個框（照片或 ZIP 都收）。
 - 不認人：不記擁有者、不綁網站，檢查與額度跟 Studio 發佈相同（內容驗證、每個來源每天最多 30 次）。身分是 Climbio 的網頁（App Check），所以要在 `embed.climbio.app` 上用，自己託管的內嵌頁拿不到權杖。
 
-## 資料來源（內嵌頁只收這幾種網址）
+## 資料來源（init 欄位）
 
 | `init` 欄位 | 內容 | 網址 |
 |---|---|---|
-| `wallId`（最簡單） | `<包 id>/<牆 id>`：只給這個，下面的畫面、照片、整面牆路線圖層的網址由內嵌頁補（畫面和照片直接讀資料集：讀 `walls/<包 id>/current/<牆 id>.json` 與 `.jpg`（發佈時放的現行版），所以換了現行版 App 不用改，也不呼叫 Climbio 的雲端函式；牆還沒有路線就沒有圖層）。下面三列是要自己指定時才用，明確給的優先 | `https://climbio.app/p/<包 id>/<牆 id>.json` 等 |
+| `wallId`（官方簡寫） | `<包 id>/<牆 id>`：只給這個，下面的畫面、照片、整面牆路線圖層的網址由內嵌頁補（畫面和照片直接讀資料集：讀 `walls/<包 id>/current/<牆 id>.json` 與 `.jpg`（發佈時放的現行版），所以換了現行版 App 不用改，也不呼叫 Climbio 的雲端函式；牆還沒有路線就沒有圖層）。下面三列是要自己指定時才用，明確給的優先 | `https://climbio.app/p/<包 id>/<牆 id>.json` 等 |
 | `viewUrl` | 牆的畫面（岩點外框，Climbio 公開格式 v2） | `https://huggingface.co/datasets/climbio/walls/resolve/main/walls/<包 id>/current/<牆 id>.json`（現行版；`climbio.app/p/…` 不再導向公開牆） |
 | `photoUrl` | 畫面指的那張照片，尺寸要等於畫面的 `w × h`，最大 10 MB | `https://huggingface.co/datasets/climbio/walls/resolve/main/walls/<包 id>/v<版本>/<牆 id>.jpg` |
 | `layerUrls`（選給） | 路線圖層（疊在牆上，v2），最大 16 MB | 整面牆 `https://climbio.app/w/<牆 id>/routes.json`；單條 `https://climbio.app/r/<牆 id>/<路線 id>/route.json`（岩點貓的路線連結） |
 
-- 只收 https 的 `climbio.app`（路徑要在 `/p/`、`/w/`、`/r/`）和 `huggingface.co/datasets/climbio/walls/`；別的主機、http、帶帳號或埠號、別的路徑都回 `error`，而且三個網址只要有一個不合格就都不讀。
-- **不收訊息直接帶的資料**（沒有 `view`、`layers`、`photo` 欄位）。
+- 網址只收 https、不可帶帳號密碼；別的協定、帶帳號、讀不到都回 `error`。Climbio 官方資料（上表）和你自己的 https 資料網址同樣能用，也可以直接給物件（`view`、`layers`、`photo`，見下面「通用內嵌頁 v2」）。
+- `wallId`、`submit`、`remove`、`key` 是 **Climbio 官方適配層**：只有 `embed.climbio.app` 提供（內嵌頁收到這些訊息時才載入 `official/official.js`）；自架的通用 ZIP 不含這一層，收到會回 `error`。
 - 內嵌頁不帶 cookie；讀資料的請求不送來源網址（每個請求都設 `referrerPolicy: 'no-referrer'`）；頁面本身的標頭是 `Referrer-Policy: strict-origin`，只在提交時 Google 的 App Check 要驗網站網址，才送出內嵌站自己的來源 `https://embed.climbio.app/`（不是嵌入它的岩館網頁網址）；平常不連任何別的網址（沒有分析、沒有 CDN、沒有字型下載），不記錄。只有你送 `submit` 或 `remove` 時，才會載入 Google 的 App Check 腳本（`gstatic.com`、reCAPTCHA）並連到 Climbio 的雲端函式 `walls`，把路線寫進公開牆；看線、只定線不提交的人不會對外發任何請求。
 - 這些網址都允許跨網域讀取，列出岩館的牆用 `https://climbio.app/w/gym/<岩館>.json`。
 
@@ -71,7 +71,7 @@ Climbio 只放牆面與路線；岩館 App 裡的使用者怎麼對應到路線�
 
 ## 訊息
 
-所有訊息是 `{ climbio: 'routekit', v: 1, type, … }`，只認 `routekit` 與 `v: 1`。內容欄位不要叫 `type`（會跟外框撞名）。型別以 [messages.d.ts](../embed/routekit/v1/messages.d.ts) 為準。
+所有訊息是 `{ climbio: 'routekit', v: 2, type, … }`，只認 `routekit` 與 `v: 2`。內容欄位不要叫 `type`（會跟外框撞名）。型別以 [messages.d.ts](../embed/routekit/v2/messages.d.ts) 為準。
 
 | 方向 | `type` | 說明 |
 |---|---|---|
@@ -129,12 +129,13 @@ Climbio 只放牆面與路線；岩館 App 裡的使用者怎麼對應到路線�
 | `colors` | `color-s=22c55e`（`s`、`h`、`t`、`f`） | 岩點貓的顏色（起攀綠、手點藍、完攀紅、腳點黃） | 四種類型的顏色，`#RRGGBB` |
 | `labels` | `label-s=起`（`s`、`t`） | `S`、`T` | 起攀、完攀膠帶上的字（1～2 個字） |
 | `controls` | `controls=0` | 顯示 | `false`：不畫任何按鈕，全由外層用訊息控制，畫面直接可以互動 |
+| `segment` | `segment=1` | 關 | 看線才有。有出手順序就分段播放：一段幾手、切在哪由程式照路線長度和岩點重複決定，不能指定。開了以後可以暫停／繼續、慢、快、上一段、下一段。滑出畫面會停。紅膠帶 V7 的切段見 [routekit/README.md](../routekit/README.md)「分段播放」 |
 
 要新增選項，先確認它是各家真的不一樣的規定（像起攀上限），不是某一家的偏好；新增時一起做：網址參數、`init`／`setOptions`、驗證、`messages.d.ts`、這張表、測試（`tests/e2e/embed.spec.mjs`）。操作介面元件（`RouteKit.EditorUI`）自己還有但內嵌頁尚未開放的參數：`zoom`、`fullscreen`、`strings`。
 
 ### 版本
 
-網址有版本（`v1/`），訊息有 `v`。之後不相容的改動新增 `v2/`，`v1/` 保留，不會被打壞。
+網址有版本（目前只有 `v2/`），訊息有 `v`。不相容的改動另開新版本資料夾，舊版保留，不會被打壞。
 
 ## 最簡整合（網頁）
 
@@ -146,11 +147,11 @@ Climbio 只放牆面與路線；岩館 App 裡的使用者怎麼對應到路線�
   addEventListener('message', (e) => {
     const frame = document.getElementById('rk');
     if (e.source !== frame.contentWindow || e.data?.climbio !== 'routekit') return;
-    if (e.data.type === 'ready') frame.contentWindow.postMessage({ climbio: 'routekit', v: 1, type: 'init', ...data, routeId }, '*');   // routeId：看線要看哪一條，定線不給就是新路線
+    if (e.data.type === 'ready') frame.contentWindow.postMessage({ climbio: 'routekit', v: 2, type: 'init', ...data, routeId }, '*');   // routeId：看線要看哪一條，定線不給就是新路線
     if (e.data.type === 'change') save(e.data.layer);
     if (e.data.type === 'fullscreen') {   // 進（出）全螢幕：放大（縮回）iframe，再回報
       frame.classList.toggle('full', e.data.on);
-      frame.contentWindow.postMessage({ climbio: 'routekit', v: 1, type: 'setFullscreen', on: e.data.on }, '*');
+      frame.contentWindow.postMessage({ climbio: 'routekit', v: 2, type: 'setFullscreen', on: e.data.on }, '*');
     }
   });
 </script>
@@ -158,7 +159,7 @@ Climbio 只放牆面與路線；岩館 App 裡的使用者怎麼對應到路線�
   .rk { width: 100%; height: 480px; border: 0; }
   .rk.full { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 1000; }   /* 小畫面點一下進全螢幕：iframe 放大成整個畫面 */
 </style>
-<iframe id="rk" class="rk" src="https://embed.climbio.app/routekit/v1/?mode=edit&maxStart=4" allow="fullscreen" title="定線"></iframe>
+<iframe id="rk" class="rk" src="https://embed.climbio.app/routekit/v2/?mode=edit&maxStart=4" allow="fullscreen" title="定線"></iframe>
 ```
 
 ## 整合步驟（給 AI：把現有路線頁的路線圖與定線畫面換成內嵌）
@@ -167,18 +168,29 @@ Climbio 只放牆面與路線；岩館 App 裡的使用者怎麼對應到路線�
 
 1. **牆面**：照上面「固定三步」的第 1 步，用 Studio 精修並發布；沒有岩點外框的牆先用 Studio 偵測。記下包 id、牆 id、照片版本。
 2. **路線**：App 的路線用 `{ 岩點 id: 's'｜'h'｜'t' }`（起攀、手點、完攀）記錄。現有資料若是圈點（`x`、`y` 是照片寬高的百分比），用 `RouteKit.fromCircles`（[routekit/README.md](../routekit/README.md)）對到岩點；反過來存回圈點用 `RouteKit.toCircles`。用固定的代發金鑰把路線寫進這面牆（[gym-agent.md](gym-agent.md)），路線 id 固定。
-3. **看線**：路線頁把路線圖元件換成 `<iframe src="https://embed.climbio.app/routekit/v1/?mode=view" allow="fullscreen">`，先註冊 `message` 監聽，收到 `ready` 送 `init { wallId, routeId }`。每次換路線送 `setRoute { routeId }`。
+3. **看線**：路線頁把路線圖元件換成 `<iframe src="https://embed.climbio.app/routekit/v2/?mode=view" allow="fullscreen">`，先註冊 `message` 監聽，收到 `ready` 送 `init { wallId, routeId }`。每次換路線送 `setRoute { routeId }`。
 4. **定線**：同一個 iframe 改 `?mode=edit`（起攀上限預設 2，有的岩館規定 4：加 `&maxStart=4`）。使用者每點一下收到 `change { layer, routeId }`，取 `layer.nodes` 裡路線節點的 `props.holds` 就是目前的路線；按「發布」時才檢查（要有起攀 S 和完攀 T，名稱、難度由外層的表單處理），再用第 2 步的方式寫進這面牆。類型按鈕、暗彩／黑白、全畫面都在內嵌頁裡，外層不用做。
 5. **驗證**：換成內嵌後，看線頁的路線與原本一致；定線存出來的路線用看線讀得回來；原生 App 用 WebView 時照上面「兩種外層」改用橋接。
 
+## 通用內嵌頁 v2（自備資料、不依賴 Climbio）
+
+`embed/routekit/v2/` 是 RouteKit 內嵌頁：通用頁本身不載入 App Check、不呼叫 Climbio 的任何服務，放到任何靜態主機都能跑，Climbio 停止服務也照常；Climbio 自己的站台另有官方適配層（`official/`，只在用到 `wallId`、`submit`、`remove` 時才載入）。訊息外框 `{ climbio: 'routekit', v: 2, type, … }`，型別在 `embed/routekit/v2/messages.d.ts`（唯一依據）。
+
+- **資料自備**：init 的畫面、照片各給一種，圖層可不給。畫面 `view`（Climbio 公開格式 v2 的物件，最大 16 MB）或 `viewUrl`；圖層 `layers`（最多 50 個）或 `layerUrls`；照片 `photo`（Blob／ArrayBuffer，iframe 用）、`photoBase64`＋`photoType`（image/jpeg｜png｜webp，原生 JSON 橋接用）或 `photoUrl`（最大 10 MB）。網址只收 https、不可帶帳號密碼，相對網址以內嵌頁自己的網址補齊；讀取不帶 cookie、不送來源網址、要開 CORS，重導後的網址也要是 https，大小有上限。私有資料請外層讀好再傳，不要把 token 或私密網址交給內嵌頁。
+- **能力宣告**：`init.capabilities` 宣告 `holdEdit`（長按岩點出現調整列）、`refine`（調整列有「重描」）、`wallEdit`（候選外框可「套用」到牆面）。沒宣告就沒有額外請求。
+- **長按**：定線時長按成立，內嵌頁送 `longPress { x, y, hitHoldId, routeId, holdType, pointerType, action, sessionId }`（照片像素座標，只觀察，不帶照片）。`action`：`order` 順序模式問順序、`draw` 觸控空白處自由畫（路線自己的外框，不改牆面）、`none` 沒有內建動作。
+- **重描與修點**（請求／回覆，帶 `requestId`、`sessionId`，逾時 15 秒作廢）：使用者按「重描」，內嵌頁送 `refineHold { holdId, poly, x, y, w, h, routeId }`，外層用 `refineHoldResult { requestId, sessionId, result: [[x,y],…] }`（或 `error`）回覆；候選外框先經 `RouteKit.candidatePoly` 驗證（有限數值、在照片內、3–200 個點、面積合理），不合格視為失敗，畫面不變。使用者按「套用」，送 `holdEditCommit { holdId, poly, … }`，外層用 `holdEditResult { …, result: { accepted, poly?, reason? } }` 回覆；內嵌頁不自行保存牆面，外層決定接不接受，接受後才換掉牆面岩點外框（保留 id）。換牆、換路線、取消、逾時都會清掉等待中的請求；遲到、重複、種類不符、別的 session 的回覆一律忽略。
+- **來源檢查**：只收第一個 init 的來源（iframe）或原生橋接；`v` 不是 2 的訊息會被忽略。
+- **自架**：`node tools/release-routekit.mjs` 同版本產生 npm 包、靜態 ZIP（相對路徑、型別、LICENSE、NOTICE、`SOURCE.txt`；不含 `official/`）與 `SHA256SUMS`，只產檔、不發布。`tests/e2e/embed-v2.spec.mjs` 把這個 ZIP 解壓放在另一個來源、封鎖所有其他網域，驗證看線、定線、長按、重描都能用。
+
 ## 授權
 
-內嵌頁是 AGPL-3.0 的程式，由 Climbio 提供，畫面上不放授權標示或原始碼連結（原始碼在公開 repo）。你的網站或 App 只含 `<iframe>`／WebView 與訊息呼叫，不含 Kit 程式，所以不受 AGPL 要求開放前端原始碼；Climbio 不提供商業授權、不簽 CLA。牆面與路線資料是 CC BY-SA 4.0，顯示時要署名。想自己託管同一份靜態檔（控制可嵌入的網域、固定版本）：下載 `embed/routekit/v1/` 資料夾放進自己的靜態主機（建議獨立子網域），保留 `kit/LICENSE`、`kit/NOTICE`，改了程式要依 AGPL-3.0 第 13 條提供原始碼；內嵌頁只收官方資料網址這一點不會因為自己託管而改變。
+內嵌頁是 AGPL-3.0 的程式，由 Climbio 提供，畫面上不放授權標示或原始碼連結（原始碼在公開 repo）。你的網站或 App 只含 `<iframe>`／WebView 與訊息呼叫，不含 Kit 程式，所以不受 AGPL 要求開放前端原始碼；Climbio 不提供商業授權、不簽 CLA。牆面與路線資料是 CC BY-SA 4.0，顯示時要署名。想自己託管同一份靜態檔（控制可嵌入的網域、固定版本）：下載 `embed/routekit/v2/` 資料夾放進自己的靜態主機（建議獨立子網域），保留 `kit/LICENSE`、`kit/NOTICE`，改了程式要依 AGPL-3.0 第 13 條提供原始碼；內嵌頁只收官方資料網址這一點不會因為自己託管而改變。
 
 ## 維護
 
-- `embed/routekit/v1/kit/` 是產物：把各 Kit 的檔案與 `embed/shared/embed.js` 複製進去，讓整個資料夾自給自足、全用相對路徑。改了 Kit 或共用程式跑 `node tools/build-embed.mjs`；`node tools/build-embed.mjs --check` 檢查有沒有跟上（`tools/embed.test.mjs` 會擋）。
-- 共用程式（訊息外框、來源檢查、原生橋接、官方網址檢查、全畫面）在 `embed/shared/embed.js`；縮放平移是 Kit 的 `routekit/viewport.js`，內嵌頁只寫自己的資料與按鈕。
-- 測試：`node --test tools/embed.test.mjs`（外框、來源檢查、原生橋接、官方網址檢查、全畫面），搭配內部 e2e 案例 `tests/e2e/embed.spec.mjs` 驗證跨來源嵌入（官方主機用 `context.route` 攔下回測試資料）。
+- `embed/routekit/v2/kit/` 是產物：把各 Kit 的檔案與 `embed/shared/embed.js` 複製進去，讓整個資料夾自給自足、全用相對路徑。改了 Kit 或共用程式跑 `node tools/build-embed.mjs`；`node tools/build-embed.mjs --check` 檢查有沒有跟上（`tools/embed.test.mjs` 會擋）。
+- 共用程式（訊息外框、來源檢查、原生橋接、自備資料網址檢查、全畫面）在 `embed/shared/embed.js`；縮放平移是 Kit 的 `routekit/viewport.js`，內嵌頁只寫自己的資料與按鈕。
+- 測試：`node --test tools/embed.test.mjs`（外框、來源檢查、原生橋接、全畫面、官方適配層的 wallId 展開），搭配內部 e2e 案例 `tests/e2e/embed.spec.mjs` 驗證跨來源嵌入、提交與刪除（資料主機用 `context.route` 攔下回測試資料）。
 - 部署：靜態主機是 Firebase Hosting 的第二個站台 `climbio-embed`（`https://climbio-embed.web.app`，設定 `firebase-embed.json`，只有這個站台放行 `frame-ancestors *`，主站維持 `'self'`）。改了內嵌頁或 `kit/` 後：`npx firebase-tools deploy --only hosting --config firebase-embed.json --project web`，再用 `curl -I` 確認標頭、從另一個來源嵌入確認 `ready`。
 - 網域：`embed.climbio.app` 已啟用（Cloudflare 的 `embed` CNAME 指到 `climbio-embed.web.app`，要保持 DNS only、不開代理，Firebase 才能自己驗證與發憑證）。

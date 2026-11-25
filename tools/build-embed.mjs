@@ -24,9 +24,12 @@ export const KITS = {
   ],
 };
 
+/** 每個 Kit 的內嵌頁資料夾（版本）：同一份 Kit 檔案複製到每個資料夾的 kit/ */
+export const PAGES = { routekit: ['routekit/v2'], wallpublish: ['wallpublish/v1'] };
+
 export function outputs() {
   const out = [];
-  for (const [kit, files] of Object.entries(KITS)) for (const [src, name] of files) out.push({ path: `embed/${kit}/v1/kit/${name}`, bytes: readFileSync(new URL(src, root)) });
+  for (const [kit, files] of Object.entries(KITS)) for (const dir of PAGES[kit]) for (const [src, name] of files) out.push({ path: `embed/${dir}/kit/${name}`, bytes: readFileSync(new URL(src, root)) });
   return out;
 }
 

@@ -100,6 +100,32 @@
   function holdsUnder(holds, x, y) {
     return holds.filter(h => inPoly(x, y, h.poly)).map(h => [area(h.poly), h]).sort((a, b) => a[0] - b[0]).map(e => e[1]);
   }
+  // 點到好幾顆重疊的地方，要給人選哪幾顆（面積小的在前）：只剩一顆就直接選它，兩顆以上才放大讓人選。
+  // 只重疊一部分的相鄰兩顆（外框邊緣常常互相蓋到一點，小的不到 8 成在大的裡面）：不用選，直接是手指點得比較深入（離外框邊比較遠）的那顆；
+  // 小的大半在大的裡面（Volume 上的點、重複的外框）：兩顆都留著讓人選（要選的可能是點，也可能是 Volume 本身）
+  function tapCandidates(holds, x, y) {
+    const c = holdsUnder(holds, x, y);
+    if (c.length < 2) return c;
+    const drop = new Set();
+    for (let i = 0; i < c.length; i++) for (let j = i + 1; j < c.length; j++) {
+      const p = c[i], q = c[j];
+      if (drop.has(p) || drop.has(q)) continue;
+      const f = shareInside(p.poly, q.poly);
+      if (f < 0.8) drop.add(edgeDist(x, y, p.poly) >= edgeDist(x, y, q.poly) ? q : p);
+    }
+    return c.filter(h => !drop.has(h));
+  }
+  // a 有幾成在 b 裡面（在 a 的外接框裡取樣 16×16）
+  function shareInside(a, b) {
+    const { x0, y0, x1, y1 } = bbox(a), dx = (x1 - x0) / 16, dy = (y1 - y0) / 16;
+    let n = 0, hit = 0;
+    for (let i = 0; i < 16; i++) for (let j = 0; j < 16; j++) {
+      const x = x0 + (i + 0.5) * dx, y = y0 + (j + 0.5) * dy;
+      if (!inPoly(x, y, a)) continue;
+      n++; if (inPoly(x, y, b)) hit++;
+    }
+    return n ? hit / n : 0;
+  }
   // 重疊岩點（面積小的在前）各自的圓點：會選到它（不在更小的候選裡）的範圍中，離所有候選邊界最遠的一點；
   // 完全重合或被較小候選覆蓋、沒有獨占區的，改在右側放帶引線的選點。Volume 圓點也避開其他小岩點。
   function overlapSpots(cands, W, H, neighbors = []) {
@@ -170,5 +196,18 @@
     if (out.length < 3 || area(out) < minSize * minSize) return null;
     return out.map(([x, y]) => [+x.toFixed(1), +y.toFixed(1)]);
   }
-  return { bbox, tracePoly, inPoly, area, edgePoint, edgeDist, freehandPoly, holdsUnder, overlapSpots, pickOverlap, stripTip, edgeTangent, strokeOutside, holdAt };
+  // 外部（AI 重描、宿主）回傳的候選外框驗證：頂點數、有限數值、在照片範圍內、面積下限與上限；通過回傳四捨五入後的多邊形，不通過回傳 null（外層保留手動結果）
+  function candidatePoly(poly, W, H, { minN = 3, maxN = 200, minSize = 4, maxFrac = 0.5 } = {}) {
+    if (!Array.isArray(poly) || poly.length < minN || poly.length > maxN) return null;
+    const out = [];
+    for (const q of poly) {
+      if (!Array.isArray(q) || q.length !== 2 || !Number.isFinite(q[0]) || !Number.isFinite(q[1])) return null;
+      if (q[0] < 0 || q[1] < 0 || q[0] > W || q[1] > H) return null;
+      out.push([+q[0].toFixed(1), +q[1].toFixed(1)]);
+    }
+    const a = area(out);
+    if (!(a >= minSize * minSize) || a > W * H * maxFrac) return null;
+    return out;
+  }
+  return { bbox, candidatePoly, tracePoly, inPoly, area, edgePoint, edgeDist, freehandPoly, holdsUnder, tapCandidates, overlapSpots, pickOverlap, stripTip, edgeTangent, strokeOutside, holdAt };
 });

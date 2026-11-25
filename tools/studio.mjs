@@ -32,7 +32,7 @@
 //
 // 3D 牆的工作資料夾（wall.json 是 climbio-3d-wall/1，3D 重建流程的輸出）也是一個專案：status、push、pull 照常，大檔分段傳；
 // 要發佈的每顆岩點都要 AI 看過（studio/wall3d/review.js，紀錄在 review3d.json），跟人在 Studio 逐顆修同一個標準；看完才出發佈題（照片明顯不夠的合併成一題問人要不要補拍）：
-//   node tools/studio.mjs look3d <資料夾> [--all] [--glow|--wide] [--ids 清單.json] [--studio 網址]     無畫面瀏覽器開 Studio 的 3D 牆，還沒看過的岩點一顆一張（左原樣、右加外框），
+//   node tools/studio.mjs look3d <資料夾> [--all] [--glow|--wide] [--yaw -1～1] [--ids 清單.json] [--studio 網址]     無畫面瀏覽器開 Studio 的 3D 牆，還沒看過的岩點一顆一張（左原樣、右加外框），
 //                                                                       每 12 張拼成一張總圖（.studio/work/look/sheet-*.jpg，左上角是編號），印出路徑
 //   node tools/studio.mjs review3d <資料夾> <判斷.json>               記下 AI 的判斷：[{ "n": 總圖上的編號（或 "id": 岩點 id）, "v": "keep|off|reshape|retake",
 //                                                                       "poly": [[x, y]…]（reshape：右半張的像素 0～256；加 "k": true 只改跟牆的交界，不動別顆岩點，照顏色邊界自動貼的用這個）；"v": "add" 配 "fb": 回報 id 在回報畫面描漏掉的岩點, "note": "…"（retake 必填：哪裡的照片不夠） }]
@@ -100,7 +100,7 @@ const now = () => new Date().toISOString();
 
 const json = has('--json'), all = has('--all'), theirs = has('--theirs'), humanOnly = has('--human'), said = flag('--said'), by = flag('--by') || process.env.CLIMBIO_AGENT || 'agent:unnamed';
 const gymArg = flag('--gym'), originArg = flag('--origin'), studioArg = flag('--studio');
-const portArg = flag('--port'), daysArg = flag('--days'), limitArg = flag('--limit'), idsArg = flag('--ids');
+const portArg = flag('--port'), daysArg = flag('--days'), limitArg = flag('--limit'), idsArg = flag('--ids'), yawArg = flag('--yaw');
 const patchFile = flag('--patch'), note = flag('--note'), position = flag('--position'), from = flag('--from'), site = flag('--site') || 'https://climbio.app';
 
 // ---- 專案資料夾 ----
@@ -700,9 +700,9 @@ async function look3d(P) {
   const S = await openStudio3d(P, ['wall.json', doc.model, doc.faces]).catch(e => fail(e.message, 1));
   try {
     for (let k = 0; k < ids.length; k += PER_SHEET) {
-      const res = await S.page.evaluate(async ([batch, size, start, per, glow, wide]) => {
+      const res = await S.page.evaluate(async ([batch, size, start, per, glow, wide, yaw]) => {
         const src = document.querySelector('script[type="module"][src*="app.js"]').src;   // 同一個網址（含版本參數）才是頁面上那一份模組
-        const m = await import(src), list = glow ? await m.glowShots(batch, size, wide) : await m.shots(batch, size);
+        const m = await import(src), list = glow ? await m.glowShots(batch, size, wide, yaw) : await m.shots(batch, size);
         const cols = 3, c = Object.assign(document.createElement('canvas'), { width: cols * size * 2, height: Math.ceil(per / cols) * size }), g = c.getContext('2d');
         g.fillStyle = '#0e0e0f'; g.fillRect(0, 0, c.width, c.height);
         const imgs = await Promise.all(list.map(s => (s.jpg ? new Promise(r => { const im = new Image(); im.onload = () => r(im); im.src = s.jpg; }) : null)));
@@ -713,7 +713,7 @@ async function look3d(P) {
           g.fillStyle = '#000'; g.fillRect(x, y, 70, 26); g.font = 'bold 20px sans-serif'; g.fillStyle = '#fff'; g.fillText(`#${start + j + 1}`, x + 6, y + 20);
         });
         return { list, sheet: c.toDataURL('image/jpeg', 0.85) };
-      }, [ids.slice(k, k + PER_SHEET), shotSize, k, PER_SHEET, glow, wide]);
+      }, [ids.slice(k, k + PER_SHEET), shotSize, k, PER_SHEET, glow, wide, Number(yawArg) || 0]);
       const sheet = `sheet-${String(sheets.length + 1).padStart(3, '0')}.jpg`, b64 = (u) => Buffer.from(u.split(',')[1], 'base64');
       writeFileSync(join(dir, sheet), b64(res.sheet)); sheets.push(join(dir, sheet));
       res.list.forEach((s, j) => {

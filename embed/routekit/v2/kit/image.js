@@ -28,6 +28,117 @@
     const x = Math.max(0, Math.min(PW - w, cx - w / 2)), y = Math.max(0, Math.min(PH - h, cy - h / 2));
     return { x, y, w, h };
   }
+  // 分段播放：把出手順序切成連續的幾段。沒有手順、或 8 手以內（一次讀得完）就是一段。
+  // 更長的路線自己決定段長，不接受外層指定幾手一段：
+  //  1. 目標段長在 5～8 手（一次看得完的長度）。挑讓「段數＝四捨五入(總手數／候選)」的平均段長落在 5～8、而且最接近 6.5 的那個；一樣近就取較短的。
+  //  2. 近距離重複：同一顆岩點兩次出手的索引差 ≤ 4（中間最多 3 手，例如換手再抓）必須留在同一段，編號一起顯示。
+  //  3. 遠距離重複：索引差 > 4（走遠了又回來）不能出現在同一段，否則一顆點上會同時標兩組離很遠的號碼。
+  //  4. 用動態規劃切，每段長度盡量在目標 ±2 以內，讓各段跟目標的差的平方加總最小。近距離重複若被理想切點切開，切點就往前或往後挪到重複的外面。
+  //     這樣切不出來才放寬，每次一格、最多 3 格。還是不行就改用由左到右的保底切法（仍然避開遠距離重複、盡量不切開近距離重複）。
+  // 回傳 [{ from, to }]，是 seq 的索引，to 不含。English: split a move order into segments. Length and cuts are chosen here; callers do not pass a size.
+  const SEGMENT_SHORT = 8, SEGMENT_NEAR = 4, SEGMENT_SLACK = 2, SEGMENT_RELAX = 3;
+  function segmentTarget(n) {
+    let best = 6, score = Infinity, tie = Infinity;
+    for (let t = 5; t <= 8; t++) {
+      const k = Math.max(1, Math.round(n / t)), avg = n / k, outside = avg < 5 || avg > 8 ? 5 : 0, s = Math.abs(avg - 6.5) + outside, d = Math.abs(t - 6.5);
+      if (s < score || (s === score && d < tie)) { score = s; tie = d; best = t; }
+    }
+    return best;
+  }
+  function nearAtoms(seq) {
+    const last = new Map(), spans = [];
+    seq.forEach((id, i) => {
+      const p = last.get(id);
+      if (p !== undefined && i - p <= SEGMENT_NEAR) spans.push([p, i]);
+      last.set(id, i);
+    });
+    spans.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const out = [];
+    for (const [a, b] of spans) {
+      const tail = out[out.length - 1];
+      if (tail && a <= tail[1]) tail[1] = Math.max(tail[1], b);
+      else out.push([a, b]);
+    }
+    return out;
+  }
+  const atomHolds = (atoms, p, i) => atoms.some(([a, b]) => a <= p && b >= i);
+  function segmentOk(seq, from, to, atoms) {
+    for (const [a, b] of atoms) {
+      const inside = from <= a && b < to, outside = to <= a || from > b;
+      if (!inside && !outside) return false;
+    }
+    const first = new Map();
+    for (let i = from; i < to; i++) {
+      const id = seq[i], p = first.get(id);
+      if (p !== undefined && i - p > SEGMENT_NEAR && !atomHolds(atoms, p, i)) return false;
+      if (p === undefined) first.set(id, i);
+    }
+    return true;
+  }
+  function segmentSolve(seq, atoms, target, minL, maxL) {
+    const n = seq.length, inf = 1e15, cost = new Array(n + 1).fill(inf), prev = new Array(n + 1).fill(-1);
+    cost[0] = 0;
+    for (let i = 0; i < n; i++) {
+      if (cost[i] >= inf) continue;
+      for (let j = i + minL; j <= Math.min(n, i + maxL); j++) {
+        if (!segmentOk(seq, i, j, atoms)) continue;
+        const c = cost[i] + (j - i - target) ** 2;
+        if (c < cost[j]) { cost[j] = c; prev[j] = i; }
+      }
+    }
+    if (cost[n] >= inf) return null;
+    const parts = [];
+    for (let j = n; j > 0; j = prev[j]) parts.push({ from: prev[j], to: j });
+    parts.reverse();
+    return parts;
+  }
+  function segmentFallback(seq, atoms, target) {
+    const n = seq.length, parts = [];
+    let i = 0;
+    while (i < n) {
+      let j = Math.min(n, i + target);
+      for (const [a, b] of atoms) if (a >= i && a < j && b >= j) j = Math.min(n, b + 1);
+      const first = new Map();
+      for (let k = i; k < j; k++) {
+        const id = seq[k], p = first.get(id);
+        if (p !== undefined && k - p > SEGMENT_NEAR && !atomHolds(atoms, p, k)) { j = k; break; }
+        if (p === undefined) first.set(id, k);
+      }
+      if (j <= i) j = Math.min(n, i + 1);
+      parts.push({ from: i, to: j });
+      i = j;
+    }
+    return parts;
+  }
+  function segmentSeq(seq) {
+    if (!seq || !seq.length) return [];
+    const n = seq.length;
+    if (n <= SEGMENT_SHORT) return [{ from: 0, to: n }];
+    const target = segmentTarget(n), atoms = nearAtoms(seq);
+    for (let relax = 0; relax <= SEGMENT_RELAX; relax++) {
+      const parts = segmentSolve(seq, atoms, target, Math.max(1, target - SEGMENT_SLACK - relax), target + SEGMENT_SLACK + relax);
+      if (parts) return parts;
+    }
+    return segmentFallback(seq, atoms, target);
+  }
+  // 第 index 段要畫什麼。numbers：這一段每個岩點的出手號碼（從 1 起，只含這一段；同一顆在這一段用了兩次就兩個號碼）。
+  // past：這一段之前用過、這一段沒再用的岩點。futureAnchors：還沒爬到的起攀、完攀（全程留著當開頭和結尾）。
+  function segmentFrame(route, index = 0) {
+    const seq = route && route.seq || [], parts = segmentSeq(seq);
+    if (!parts.length) return null;
+    const i = Math.max(0, Math.min(parts.length - 1, index | 0)), { from, to } = parts[i];
+    const numbers = {}, current = [], seen = new Set();
+    for (let k = from; k < to; k++) {
+      const id = seq[k];
+      (numbers[id] || (numbers[id] = [])).push(k + 1);
+      if (!seen.has(id)) { seen.add(id); current.push(id); }
+    }
+    const past = [];
+    for (const id of seq.slice(0, from)) if (!seen.has(id) && !past.includes(id)) past.push(id);
+    const holds = route.holds || {};
+    const futureAnchors = Object.keys(holds).filter((id) => (holds[id] === 's' || holds[id] === 't') && !seen.has(id) && !past.includes(id));
+    return { index: i, count: parts.length, from, to, parts, numbers, current, past, futureAnchors };
+  }
   // 岩點一顆一顆亮起的順序（短影片、看路線的動畫）：起攀和腳點先、接著手點照出手順序（沒排到的由下往上）、最後完攀。回傳 [[岩點…], …]
   function revealSteps(r, routeHolds) {
     const byId = new Map(routeHolds.map(h => [h.id, h])), seen = new Set(), steps = [];
@@ -93,5 +204,5 @@
     g.drawImage(m, 0, 0);
     return c;
   }
-  return { routeHolds, cropAround, revealSteps, drawRoute, renderRouteImage, thumbCrop, routeThumb };
+  return { routeHolds, cropAround, revealSteps, segmentSeq, segmentFrame, drawRoute, renderRouteImage, thumbCrop, routeThumb };
 });

@@ -58,6 +58,7 @@ All coordinates are photo pixels. `index.d.ts` and `elements.d.ts` are authorita
 | `area` | `(poly) -> number` | Area |
 | `tracePoly` | `(ctx, poly) -> void` | Traces the path and calls `closePath` |
 | `holdAt` | `(holds, x, y) -> Hold \| null` | Smallest hold containing the point |
+| `tapCandidates` | `(holds, x, y) -> Hold[]` | Which overlapping holds to offer at a tap: neighbours that only partly overlap resolve to the one tapped deeper inside (one hold); holds on a volume and duplicate outlines return two or more |
 | `edgePoint` | `(poly, dx, dy, centerEdge?) -> [x, y]` | Edge point along a direction |
 | `stripTip`, `edgeTangent`, `strokeOutside` | see `index.d.ts` | Tape tip, edge tangent, outside stroke |
 
@@ -126,11 +127,30 @@ Same rules as Hold Cat: pinch to zoom, one-finger/mouse drag to pan, double-tap 
 
 ### Components (`viewer.js`)
 
-- `new RouteViewer(canvas, { scene, route, theme?, mode?, glow? })`: frames around the route; `glow: true` draws a role-colored glow around the route holds (dimmed base, route holds in original color, a faint halo plus a thin role-colored outline on each route hold, no hand tape; off by default; with glow on, volumes are not tinted: route holds are told apart by the glow, holds without it are not on the route); a `ResizeObserver` redraws on size change. Members: `setRoute(route)`, `setMode(mode)`, `render()`, `destroy()`, read-only `routeHolds`.
+- `new RouteViewer(canvas, { scene, route, theme?, mode?, glow?, segment?, onSegment? })`: frames around the route; `glow: true` draws a role-colored glow around the route holds (dimmed base, route holds in original color, a faint halo plus a thin role-colored outline on each route hold, no hand tape; off by default; with glow on, volumes are not tinted: route holds are told apart by the glow, holds without it are not on the route); a `ResizeObserver` redraws on size change. `segment: true` turns on segmented playback (see below); off by default. Members: `setRoute(route)`, `setMode(mode)`, `setSegmented(on)`, `render()`, `destroy()`, read-only `routeHolds`.
 - **Hold Cat and the embed share the same rules**: overlapping-hold picking (`holdsUnder`, `prepareOverlapPick`, `overlapSpots`, `pickOverlap`, drawn by `drawOverlapPick`). Only holds overlapping the first tap receive dots. Other holds on the volume get a thin outline and can be tapped directly after zooming. The shared rules also cover the show-all-holds heat map (`holdUse`, `heatLevel`, drawn by `strokeHoldOutline`), switching to hand holds when starts are full (`nextType`), and move-order add / insert / delete / undo (`orderSession`). `RouteEditor` uses all of them; the host only draws buttons and dialogs via `onType`, `onOrder` / `onOrderAsk`, `heatRoutes` / `setShowAll`, `toggleFeetFree`.
 - **Long-press to draw freehand (touch)**: `RouteEditor` option `draw: true` (or `setDrawMode(on)`): on touch / pen, long-press an empty spot and keep the finger down to trace around a hold, with a magnifier; on release the trail is simplified into a polygon (`freehandPoly`: ends joined, Douglas-Peucker, at most 20 vertices, `null` if too small) and added to the route as the route's own outline (`route.shapes`), same rules as tapping a hold. A mouse never triggers it.
+- **One source for long press**: `LongPress(el, { accept, onFire, delay = 520, tolerance = 8 })` (`viewport.js`): single primary pointer, 8 px tolerance, timer must elapse; a second finger, release, `pointercancel`, `lostpointercapture` or window blur cancels it; at most one fire per press; `destroy()` removes every listener; after handling a long press `armClick()` swallows the following click once. `RouteEditor` and Hold Cat (`js/mobile.js`, `delay: 500`) share it instead of keeping their own timers. `RouteEditor` also takes `onLongPress({ x, y, hitHoldId, routeId, type, pointerType, action })`: called synchronously when a long press is recognized (x, y in photo pixels; `action` is `'order'`, `'draw'` or `'none'`), observe-only, exceptions are swallowed.
+- **Long-press hold editing (optional, off by default)**: `new RouteEditor(canvas, { holdEdit: true, lang, onRefineHold(request, signal), onHoldEditCommit(change, signal) })`. Long-pressing a wall hold (order mode and free draw take priority) opens an adjust bar: the current outline as a white dashed line; `onRefineHold` returns a candidate outline (validated with `candidatePoly`, previewed in yellow), then Apply calls `onHoldEditCommit`, and only `{ accepted: true, poly? }` changes the wall hold. Without `onRefineHold` there is no Refine button; without `onHoldEditCommit` it is preview only. Cancel, route change, wall change and `destroy()` abort `signal`; later replies are ignored. The Kit loads no model, AppKit, Firebase or app code; Hold Cat can call HoldKit from the host side. The iframe v2 page uses the same code, enabled through `capabilities` (`holdEdit`, `refine`, `wallEdit`).
 - `new RouteEditor(canvas, { scene, route, theme?, type?, mode?, glow?, maxStart?, onChange?, onLimit?, onType?, onOrder?, onOrderAsk?, heatRoutes?, showAll? })`: whole photo, dimmed base by default (`mode: 'gray'` for grayscale). `type` is `s`/`h`/`f`/`t` or `n` (append move order); default `s`. A canvas `click` runs `holdAt` (including `route.shapes`), then `tapHold`/`appendSeq`; on change it redraws and calls `onChange(route)`. Tapping a just-added hold again within 400 ms does not remove it. Mutates the `route` you pass. `maxStart` (start hold limit, default 2; some gyms require 4): when full, a new hold becomes a hand hold, and a hold already on the route cannot become a start hold (nothing changes and `onLimit()` is called). Members: `setRoute`, `setMode(mode)`, `setType(type)`, `undoSeq()` (takes back the most recent move added in order mode, repeatable; returns whether anything was undone), `canUndoSeq`, `setMaxStart(n)`, `render`, `destroy` (removes the click listener and ResizeObserver).
 - The canvas needs a CSS size (`clientWidth`/`clientHeight`); the pixel size is set by the component from `devicePixelRatio`.
+
+### Segmented playback
+
+A long route with a move order (`seq`) can light one run of consecutive moves at a time, then the next run, and wrap back to the start. **Off by default**, so existing viewers and embeds stay as they are. The only switch is `segment: true`, the `<routekit-viewer segment>` attribute, or `segment=1` on the embed (`options` in `init` and `setOptions` can turn it on or off later). There is no setting for how many moves per segment, no fixed-size mode, and no switch to disable the automatic cuts.
+
+`segmentSeq(seq)` chooses the cuts:
+
+1. Eight moves or fewer stay one segment.
+2. Otherwise the target length is the integer from 5 to 8 whose `round(length / target)` segments have an average closest to 6.5 and still inside 5–8. A tie picks the shorter target.
+3. Two uses of the same hold at most 4 indexes apart (at most 3 moves between them) stay in one segment. Uses farther apart must not share a segment, so one hold is not labeled with two distant move numbers.
+4. Cuts are placed by dynamic programming so each segment stays within 2 moves of the target. A cut that would land inside a close reuse moves to just before or just after that pair.
+
+On screen the current segment keeps original colors and shows only that segment's move numbers (a hold used twice in the segment shows both, for example "42, 45"). Earlier holds stay visible but dimmed, without numbers. Later intermediate holds are not drawn. On an ordered route only the start and finish holds get tape; intermediate hand holds keep their colors. Start and finish stay on screen for the whole route (dimmed when they are outside the current segment) so the ends of the line remain visible. The frame follows the current segment. After a drag or wheel zoom, later segments no longer pull the camera; previous and next do frame that segment. Grayscale (`mode: 'gray'`), dimmed color, glow and zoom keep whatever was already set.
+
+The on-screen controls are pause/resume, slower, faster (five speeds, the middle one is the default, about 1.6 seconds per segment), previous segment and next segment. Previous and next land on the neighboring automatic boundary. `play()` and `pause()` are for a host that starts and stops from an `IntersectionObserver`; after the person pauses, `play()` does not resume. With reduced motion, playback does not start until resume.
+
+Red Tape V7 (Yuan Yan Wanhua 2F, wall `qob3734416nc`, route `rmvroyfsmc7cq3`: 51 moves, 47 holds; `hmvroy39l0jam6` three times, `hmvroy3fdta7i6` and `hmvroy3eth4s2g` twice each) uses target 7 and cuts into moves 1–7, 8–14, 15–21, 22–29, 30–37, 38–45, 46–51. Moves 42 and 45 stay together in segment 6. Demo: `/routekit/demo.html?segment=1&route=https://climbio.app/r/qob3734416nc/rmvroyfsmc7cq3/route.json`. Embed: `https://embed.climbio.app/routekit/v2/?mode=view&segment=1&tap=edit` with `init` `wallId: "6b2e872160caf900/qob3734416nc"` and `routeId: "rmvroyfsmc7cq3"`.
 
 ### Controls UI (`ui.js`, a pure UI component)
 
@@ -219,22 +239,22 @@ In your own project run `npm install @climbio/routekit`, and load it from a proj
 
 | What | Command |
 |---|---|
-| Circles, route-setting rules, layers, outlines (Node logic) | `node --test tools/route-circles.test.mjs tools/route-editor.test.mjs tools/route-layers.test.mjs tools/route-shapes.test.mjs` |
+| Circles, route-setting rules, layers, outlines, segments (Node logic) | `node --test tools/route-circles.test.mjs tools/route-editor.test.mjs tools/route-layers.test.mjs tools/route-shapes.test.mjs tools/route-segment.test.mjs` |
 | Format conversion, wall files, npm entry and types | `node --test tools/share-format.test.mjs tools/wall-files.test.mjs tools/kit-packages.test.mjs` |
 | Browser (components, demo) | `npx playwright test routekit.spec.mjs`; external-install flow internal e2e cases |
 | Whole quick check | `npm run test:quick` |
 
 ## 9. Embed (iframe and native apps)
 
-Sites and apps that do not want to open-source their front end embed the screen hosted at climbio.app with an `<iframe>` (web) or a WebView (iOS, Android, React Native, Flutter) instead of bundling the kit (AGPL-3.0 only requires front ends that bundle the kit to be open). General approach and security rules: [docs/embed.md](../docs/embed.md) (Traditional Chinese); the types in [embed/routekit/v1/messages.d.ts](../embed/routekit/v1/messages.d.ts) are the source of truth.
+Sites and apps that do not want to open-source their front end embed the screen hosted at climbio.app with an `<iframe>` (web) or a WebView (iOS, Android, React Native, Flutter) instead of bundling the kit (AGPL-3.0 only requires front ends that bundle the kit to be open). General approach and security rules: [docs/embed.md](../docs/embed.md) (Traditional Chinese); the types in [embed/routekit/v2/messages.d.ts](../embed/routekit/v2/messages.d.ts) are the source of truth.
 
-- URL: `https://embed.climbio.app/routekit/v1/`. Size the iframe however you like; the picture and buttons adapt to the frame.
-- URL options: `mode=view|edit` (default view), `type=s|h|t|f|n` (hold role when tapping in edit mode: start, hand, top, foot, order; default `s`), `foot=0` / `order=0` (hide foot / order in the edit toolbar, both shown by default), the base is always dimmed color with a glow for viewing and editing, with no grayscale toggle (grayscale stays a Hold Cat feature), `maxStart=` (start hold limit, default 2 as in Hold Cat; some gyms require 4), `heat=0` (hide the show-all-holds button), `lang=zh|en` (text of the embed's buttons and menus), `color-s/h/t/f=22c55e` (the four role colors), `label-s/t=A` (the text on the start / top tape), `controls=0` (hide the buttons; the host drives everything with messages and the picture is directly interactive), `tap=edit` (interact in place, no fullscreen). `options` in `init` and `setOptions` override them at any time.
+- URL: `https://embed.climbio.app/routekit/v2/`. Size the iframe however you like; the picture and buttons adapt to the frame.
+- URL options: `mode=view|edit` (default view), `type=s|h|t|f|n` (hold role when tapping in edit mode: start, hand, top, foot, order; default `s`), `foot=0` / `order=0` (hide foot / order in the edit toolbar, both shown by default), the base is always dimmed color with a glow for viewing and editing, with no grayscale toggle (grayscale stays a Hold Cat feature), `maxStart=` (start hold limit, default 2 as in Hold Cat; some gyms require 4), `heat=0` (hide the show-all-holds button), `lang=zh|en` (text of the embed's buttons and menus), `color-s/h/t/f=22c55e` (the four role colors), `label-s/t=A` (the text on the start / top tape), `controls=0` (hide the buttons; the host drives everything with messages and the picture is directly interactive), `tap=edit` (interact in place, no fullscreen), `segment=1` (view mode only: segmented playback; segment length is chosen by the kit, see "Segmented playback"). `options` in `init` and `setOptions` override them at any time.
 - **The small frame is a preview; one tap enters fullscreen** (view and edit alike): no tools cover the picture, only a small enter-fullscreen icon; tools, zoom/pan and editing live in fullscreen. With `allow="fullscreen"` on the iframe the browser's fullscreen is used; otherwise (iPhone Safari, native apps) the page sends `fullscreen { on }`, the host enlarges the iframe to the whole screen and answers `setFullscreen { on }` (no answer within 0.7 s: it works in place). For a frame that is big enough, add `tap=edit`.
 - Fullscreen tools: dimmed/grayscale, zoom out/in, exit fullscreen; in edit mode the top is like Hold Cat: cancel (cross, the route goes back to how it was when opened, sends `cancel`) at the left, done (check, sends `done { layer, routeId }`) at the right, leaving fullscreen if it is on; no grade or name (the host form handles those); the bottom toolbar matches Hold Cat: start (shows count and limit) / hand / top / foot / order with a color block that slides to the selected one(no tools Hold Cat lacks; tap a selected hold again to remove it); hide foot and order with `foot=0`, `order=0` (both shown by default). Zoom and pan are the same as Hold Cat (see "Zoom and pan" above).
-- Data is always Climbio's officially published public format v2: the host gives `wallId` (or three official URLs: `viewUrl`, `photoUrl`, `layerUrls`) in `init` and the embed page reads them itself; other URLs and data passed directly in messages are not accepted. Envelope: `{ climbio: 'routekit', v: 1, type, … }`. Full rules: [docs/embed.md](../docs/embed.md).
+- Data is Climbio public format v2: the host gives `wallId` (official dataset shorthand, only served by embed.climbio.app), or its own `view`/`layers`/`photo` or https `viewUrl`/`photoUrl`/`layerUrls`, in `init` and the embed page reads them itself. Envelope: `{ climbio: 'routekit', v: 2, type, … }`. Full rules: [docs/embed.md](../docs/embed.md).
 - Embed → host: `ready` (sent once), `done { layer, routeId }` (edit finished), `cancel` (edit cancelled), `change { layer, routeId }` (route changed: a v2 layer holding just that route), `limit { max }` (start holds are full: a hold already on the route cannot become a start hold; nothing changed), `fullscreen { on }`, `error { message }`.
-- Host → embed: `init { wallId (or viewUrl, photoUrl), layerUrls?, routeId?, layerId?, viewHref?, options? }` (must be first; the photo behind `photoUrl` is up to 10 MB with size equal to the view's `w × h`), `setRoute { routeId? }`, `setType { holdType }` (`s`, `h`, `t`, `f`, `n`), `setOptions { base?, maxStart?, controls?, foot?, order? }`, `setFullscreen { on }`.
+- Host → embed: `init { wallId (or viewUrl, photoUrl), layerUrls?, routeId?, layerId?, viewHref?, options? }` (must be first; the photo behind `photoUrl` is up to 10 MB with size equal to the view's `w × h`), `setRoute { routeId? }`, `setType { holdType }` (`s`, `h`, `t`, `f`, `n`), `setOptions { base?, maxStart?, controls?, foot?, order?, segment? }`, `setFullscreen { on }`.
 - iframe: register the `message` listener before adding the `<iframe>`; the embed pins the `event.origin` of the first `init` and only talks to that origin afterwards. Native app: open the URL directly; the page posts to `window.ReactNativeWebView`, `webkit.messageHandlers.climbio`, `ClimbioBridge` (Android `addJavascriptInterface`) or the `climbio` handler of `flutter_inappwebview`, and the app sends messages with `window.climbioReceive(message or JSON string)`.
 - Zoom and pan on the embed page are the kit's `zoom` (same as Hold Cat); it does not output the circle format, convert with `toCircles` yourself.
 
@@ -245,11 +265,11 @@ Minimal example:
   addEventListener('message', (e) => {
     const frame = document.getElementById('rk');
     if (e.source !== frame.contentWindow || e.data?.climbio !== 'routekit') return;
-    if (e.data.type === 'ready') frame.contentWindow.postMessage({ climbio: 'routekit', v: 1, type: 'init', wallId }, '*');   // pack id/wall id, see docs/embed.md
+    if (e.data.type === 'ready') frame.contentWindow.postMessage({ climbio: 'routekit', v: 2, type: 'init', wallId }, '*');   // pack id/wall id, see docs/embed.md
     if (e.data.type === 'change') save(e.data.layer);
     if (e.data.type === 'fullscreen') {   // 進（出）全螢幕：放大（縮回）iframe，再回報
       frame.classList.toggle('full', e.data.on);
-      frame.contentWindow.postMessage({ climbio: 'routekit', v: 1, type: 'setFullscreen', on: e.data.on }, '*');
+      frame.contentWindow.postMessage({ climbio: 'routekit', v: 2, type: 'setFullscreen', on: e.data.on }, '*');
     }
   });
 </script>
@@ -257,7 +277,7 @@ Minimal example:
   .rk { width: 100%; height: 480px; border: 0; }
   .rk.full { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 1000; }   /* 小畫面點一下進全螢幕：iframe 放大成整個畫面 */
 </style>
-<iframe id="rk" class="rk" src="https://embed.climbio.app/routekit/v1/?mode=edit&maxStart=4" allow="fullscreen" title="定線"></iframe>
+<iframe id="rk" class="rk" src="https://embed.climbio.app/routekit/v2/?mode=edit&maxStart=4" allow="fullscreen" title="定線"></iframe>
 ```
 
 Verification: `node --test tools/embed.test.mjs` (plus cross-origin embed browser tests); run `node tools/build-embed.mjs` after changing the kit or shared code.

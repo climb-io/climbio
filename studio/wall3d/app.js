@@ -1139,7 +1139,7 @@ async function trialShots(items, size = 512) {
 // AI 看光暈（tools/studio.mjs look3d --glow）：跟岩點貓點選後看到的一樣——烘好的成品、沿牆鏡頭走到框住這顆的位置（看線同一個 frameTo），
 // 左邊原樣、右邊點選後（底圖灰階、這顆原色加光暈）。鏡頭記下來：AI 在右半張重描的多邊形照這個鏡頭變成修點
 // wide：Volume 看全形——鏡頭退遠一點（1.2 倍）、裁大一點（亮的範圍三倍、至少畫面的四分之一），只亮到一部分的 Volume 也看得到整個外形，照直線邊描完整
-async function glowShots(ids, size = 320, wide = false) {
+async function glowShots(ids, size = 320, wide = false, yaw = 0) {
   const t = await bakeTrial(false), st = t.stage, out = [], R = 960;   // 用 960 渲染，再裁出這顆附近放大（沿牆鏡頭框住一顆時還是退得比較遠）
   const host = document.createElement('div');
   host.style.cssText = `position:fixed;left:0;top:0;width:${R}px;height:${R}px;z-index:-1`;
@@ -1165,6 +1165,7 @@ async function glowShots(ids, size = 320, wide = false) {
       const v = await st.frameTo([id], null, 1);
       if (!v) { out.push({ id, empty: true }); continue; }
       if (wide && st.wc) { st.wc.d *= 1.2; st.wc.clamp(); st.wc.apply(); }
+      if (yaw && st.wc) { st.wc.yaw = yaw * YAW_MAX; st.wc.clamp(); st.wc.apply(); }   // yaw：使用者往左右轉看（-1～1 倍最大轉角），大型岩塊從側面確認外緣
       // 光暈亮起的範圍（有沒有選這顆的差）→ 這顆在畫面上的位置
       const lighted = (draw = shoot) => {
         const base = draw({}, 'dim'), lit = draw({ [id]: 'sel' }, 'dim');

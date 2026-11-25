@@ -7,7 +7,7 @@ const lines = (files) => files.map(([path, blob]) => `100644 ${blob} 0\t${path}`
 
 test('App 殼：程式、樣式、語言包、各 App 的資料夾；不是：文件、各語言網頁、首頁、測試、工具、雲端函式', () => {
   for (const p of ['hold/index.html', 'js/sync.js', 'css/app.css', 'appkit/sw.js', 'i18n/hold/zh.js', 'redpoint/app.js', 'studio/wall/app.js', 'holdkit/samrefine.js', 'site.js', 'sw.js', 'new-kit/x.js']) assert.equal(isShell(p), true, p);
-  for (const p of ['index.html', 'docs/app.md', 'project/index.html', 'en/project/index.html', 'ja/index.html', 'guides/convert/index.html', 'tests/e2e/a.spec.mjs', 'tools/a.mjs', 'functions/walls.js', 'holdkit/functions/index.js', 'holdkit/README.md', 'version.js', 'package.json', 'terms.html', 'gyms/tw.json', 'embed/routekit/v1/app.js', 'js/a.test.mjs']) assert.equal(isShell(p), false, p);
+  for (const p of ['index.html', 'docs/app.md', 'project/index.html', 'en/project/index.html', 'ja/index.html', 'guides/convert/index.html', 'tests/e2e/a.spec.mjs', 'tools/a.mjs', 'functions/walls.js', 'holdkit/functions/index.js', 'holdkit/README.md', 'version.js', 'package.json', 'terms.html', 'gyms/tw.json', 'embed/routekit/v2/app.js', 'js/a.test.mjs']) assert.equal(isShell(p), false, p);
 });
 
 test('改首頁、文件、別的語言的網頁：雜湊不變；改 App 的程式或語言包：雜湊變', () => {

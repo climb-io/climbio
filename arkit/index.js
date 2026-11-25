@@ -4,7 +4,7 @@ import './geometry.js';
 
 export { createArView, showArViewError } from './view.js';
 export { createArOverlay } from './overlay.js';
-export { mainCamera, cameraViewport, cameraConstraints, reversedCameraFrame, reverseCameraConstraints, firstCameraFrame, frameContentSummary } from './camera.js';
+export { mainCamera, openMainCamera, cameraViewport, cameraConstraints, reversedCameraFrame, reverseCameraConstraints, firstCameraFrame, frameContentSummary } from './camera.js';
 export { TrackingLog2d } from './tracking-log.js';
 
 /** 單應矩陣、驗證、外推、牆面與路線解析（同一份也掛在全域 ArKitGeometry，給 Worker 與傳統 script 用） */

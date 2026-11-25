@@ -165,5 +165,55 @@
     resized() { this.set(this.v, true); this.emit(); }
     destroy() { this.enable(false); this.stop(); if (this.raf) cancelAnimationFrame(this.raf); }
   }
-  return { Viewport, clampView, maxScaleOf, fitOf, zoomAround, ZOOM_STEPS: STEPS, MIN_SCALE, MAX_SCALE, DOUBLE_TAP, DOUBLE_MS };
+  // 長按辨識（2D 看線、定線唯一的長按來源，岩點貓與 RouteEditor 共用）：
+  // 只決定「是不是長按」——單一主要指標、移動容差內、計時到、期間沒有第二根手指／放開／取消／失焦；一次按壓最多觸發一次。
+  // accept(e)：這次按下要不要開始計時，回傳 context（任意值，原樣交給 onFire）或 falsy＝不計時；
+  // onFire(ctx, e)：長按成立（同步呼叫，例外只吞掉不影響手勢；回傳值一律忽略，不接管 pointer）；e 是按下當時的 pointer 事件。
+  // 觸發後 eatsClick() 在 clickMs 內回傳 true 一次（放開後緊接的 click 不算點選）；destroy() 解除全部監聽與計時。
+  class LongPress {
+    constructor(el, { accept, onFire, delay = 520, tolerance = 8, clickMs = 80, win } = {}) {
+      Object.assign(this, { el, accept, onFire, delay, tolerance, clickMs });
+      this.timer = 0; this.press = null; this.ptrs = new Set(); this.eat = false; this.eatT = 0; this.fired = 0;
+      this.win = win || (el.ownerDocument && el.ownerDocument.defaultView) || null;
+      this.h = { down: (e) => this.down(e), move: (e) => this.move(e), up: (e) => this.up(e), lost: (e) => this.up(e), blur: () => this.cancel(), ctx: (e) => { if (this.press || this.eat) e.preventDefault(); } };
+      el.addEventListener('pointerdown', this.h.down); el.addEventListener('pointermove', this.h.move);
+      el.addEventListener('pointerup', this.h.up); el.addEventListener('pointercancel', this.h.up); el.addEventListener('lostpointercapture', this.h.lost);
+      el.addEventListener('contextmenu', this.h.ctx);
+      if (this.win) this.win.addEventListener('blur', this.h.blur);
+    }
+    get pending() { return !!this.press; }
+    cancel() { if (this.timer) clearTimeout(this.timer); this.timer = 0; this.press = null; }
+    down(e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) { this.cancel(); return; }
+      if (e.isPrimary) this.ptrs.clear();   // 主要指標按下時其他指標都已離開：上一輪沒收到放開就清掉，不然永遠被當成多指
+      this.ptrs.add(e.pointerId);
+      if (this.ptrs.size > 1) { this.cancel(); return; }   // 第二根手指：縮放、平移，不是長按
+      this.cancel();
+      const ctx = this.accept ? this.accept(e) : true;
+      if (!ctx) return;
+      const press = this.press = { id: e.pointerId, x: e.clientX, y: e.clientY };
+      this.timer = setTimeout(() => {
+        if (this.press !== press) return;
+        this.timer = 0; this.press = null; this.fired++;
+        try { this.onFire(ctx, e); } catch (er) { /* hook 出錯不影響手勢 */ }
+      }, this.delay);
+    }
+    move(e) { const p = this.press; if (p && e.pointerId === p.id && Math.hypot(e.clientX - p.x, e.clientY - p.y) > this.tolerance) this.cancel(); }
+    up(e) {
+      this.ptrs.delete(e.pointerId);
+      if (this.press && e.pointerId === this.press.id) this.cancel();
+    }
+    // 長按剛處理過：接著來的 click 吃掉一次（clickMs 後失效，不擋下一次點選）；外層在處理了長按（不是只觀察）時呼叫 armClick()
+    armClick() { this.eat = true; clearTimeout(this.eatT); this.eatT = setTimeout(() => { this.eat = false; }, this.clickMs); }
+    eatsClick() { if (!this.eat) return false; this.eat = false; clearTimeout(this.eatT); return true; }
+    destroy() {
+      this.cancel(); clearTimeout(this.eatT); this.eat = false; this.ptrs.clear();
+      const el = this.el, h = this.h;
+      el.removeEventListener('pointerdown', h.down); el.removeEventListener('pointermove', h.move);
+      el.removeEventListener('pointerup', h.up); el.removeEventListener('pointercancel', h.up); el.removeEventListener('lostpointercapture', h.lost);
+      el.removeEventListener('contextmenu', h.ctx);
+      if (this.win) this.win.removeEventListener('blur', h.blur);
+    }
+  }
+  return { Viewport, LongPress, clampView, maxScaleOf, fitOf, zoomAround, ZOOM_STEPS: STEPS, MIN_SCALE, MAX_SCALE, DOUBLE_TAP, DOUBLE_MS };
 });

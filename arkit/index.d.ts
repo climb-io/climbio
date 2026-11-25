@@ -85,6 +85,11 @@ export interface ArOverlay {
 export declare function createArOverlay(G: typeof Geometry, options?: { reducedMotion?: boolean }): ArOverlay;
 
 export declare function mainCamera(devices: MediaDeviceInfo[]): MediaDeviceInfo | undefined;
+/** 先問權限、再開主鏡頭（後置相機）；開到別顆就先關掉再開主鏡頭，不會兩顆同時開著 */
+export declare function openMainCamera(
+  open: (extra: MediaTrackConstraints) => Promise<MediaStream>,
+  options?: { savedId?: string; enumerate?: () => Promise<MediaDeviceInfo[]>; timeoutMs?: number },
+): Promise<{ stream: MediaStream; mainId: string }>;
 export declare function cameraViewport(width: number, height: number, frameWidth: number, frameHeight: number): { x: number; y: number; width: number; height: number; visibleWidthFraction: number; visibleHeightFraction: number };
 export declare function cameraConstraints(width: number, height: number): MediaTrackConstraints & { aspectRatio: { ideal: number } };
 export declare function reversedCameraFrame(constraints: MediaTrackConstraints, width: number, height: number): boolean;

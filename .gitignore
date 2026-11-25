@@ -19,3 +19,4 @@ node_modules
 demo/capture-redpoint/
 # 私下用的本機檔（不進版本）
 .private/
+release-out/

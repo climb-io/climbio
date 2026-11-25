@@ -1,4 +1,6 @@
-// 內嵌頁的路線提交與刪除：把一條路線直接寫進 Climbio 的公開牆（雲端函式 walls 的 put），做法跟岩點貓分享路線一樣，但身分是「iframe 所在的網站來源」：
+// Climbio 官方適配層（只有 Climbio 自己的內嵌站台提供，通用 ZIP 不含這個資料夾；v2 頁只在收到 wallId、submit、remove 時才載入）：
+//   1. wallId 簡寫：展開成官方資料集（Hugging Face 的 climbio/walls）的畫面、照片、路線圖層網址；
+//   2. 路線提交與刪除：把一條路線直接寫進 Climbio 的公開牆（雲端函式 walls 的 put），做法跟岩點貓分享路線一樣，但身分是「iframe 所在的網站來源」：
 // 預設沒有金鑰：路線記在 o:<網站來源> 名下，同一個岩館網站上所有人提交的路線都屬於這個網站，這個網站能更新、刪除自己名下的全部（見 docs/embed.md）。
 // 有後台的岩館可以自己產生金鑰（{ kid, pub, priv }，同岩點貓的裝置金鑰），在 init 帶進來：路線改記在 k:<kid> 名下，用這把金鑰簽章（比網站來源難冒充；金鑰會出現在岩館的網頁裡）。
 // 網站來源是瀏覽器給的（外層送 init 時的 event.origin），別的網站冒充不了；要有 App Check 權杖（reCAPTCHA Enterprise，使用者看不到）。
@@ -52,5 +54,15 @@
     throw Object.assign(new Error(j.error || `HTTP ${r.status}`), { status: r.status });
   }
 
-  window.RouteSubmit = { put, FN };
+  // init 可以只給 wallId（"<包 id>/<牆 id>"）：畫面、照片、整面牆的路線圖層（牆還沒有路線就沒有）的網址由這裡補；明確給的 viewUrl、photoUrl、layerUrls 優先。
+  // 都是資料集（Hugging Face）的固定網址：畫面和照片在 walls/<包>/current/（發佈時放的現行版），路線在 walls/<包>/routes.json（路線一有變動就更新）
+  function expand(m) {
+    if (m.wallId === undefined) return m;
+    if (typeof m.wallId !== 'string' || !/^[0-9a-f]{16}\/[0-9a-z]{8,40}$/.test(m.wallId)) throw new Error('wallId 要是 "包 id/牆 id"');
+    const [pack, wall] = m.wallId.split('/'), dir = `https://huggingface.co/datasets/climbio/walls/resolve/main/walls/${pack}/`;
+    const { wallId, ...rest } = m;
+    return { viewUrl: `${dir}current/${wall}.json`, photoUrl: `${dir}current/${wall}.jpg`, ...(m.layerUrls === undefined ? { layerUrls: [`${dir}routes.json`], layerOptional: true } : {}), ...rest };
+  }
+
+  window.RouteOfficial = { put, expand, FN };
 })();

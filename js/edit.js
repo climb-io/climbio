@@ -52,7 +52,7 @@
     const x = (ev.clientX - rect.left) * (state.w / rect.width), y = (ev.clientY - rect.top) * (state.h / rect.height);
     if (state.overlapPick) { pickOverlap(x, y, ev); return; }
     if (!state.w3d && (x < 0 || y < 0 || x > state.w || y > state.h)) return;   // 點在照片外的黑邊（3D 牆走近、轉角度後畫面會超出正面快照的範圍，照射線判斷）
-    const hit = hitHold(x, y, hitTol(rect));
+    let hit = hitHold(x, y, hitTol(rect));
     state.hover = null;
     if (state.mode === 'holds') {
       // 單點編輯只操作這一顆，避免誤選旁邊的岩點；點離它遠一點的地方（螢幕 48 px 以外）＝完成，跟按 ✓ 一樣
@@ -80,7 +80,12 @@
       }, () => { state.overlapBusy = false; });
       return;
     }
-    if (hit && !state.routeView && !state.w3d && openOverlapPick(holdsUnder(x, y), null, hit)) return;
+    // 點到重疊的地方：只重疊一部分的相鄰岩點直接決定（RouteKit.tapCandidates），Volume 上的點、重複的外框才放大讓人選
+    if (hit && !state.routeView && !state.w3d) {
+      const cands = RouteKit.tapCandidates(tapHolds(), x, y);
+      if (cands.length === 1) hit = cands[0];
+      else if (openOverlapPick(cands, null, hit)) return;
+    }
     if (hit && !state.routeView) { cycleRouteHold(hit); const r = route(); tapFx(ev.clientX, ev.clientY, (r && r.holds[hit.id]) || ''); return; }
     if (!hit && !state.routeView) {   // 定線：快速點兩下空白處，放大／復原（跟看路線一樣）
       const now = ev.timeStamp;
@@ -122,7 +127,9 @@
     .then((r) => (r.ok ? r.json() : null))
     .then((m) => { cam3dWalls = new Set([m?.wall].filter(Boolean)); })
     .catch(() => { cam3dPromise = null; }));
-  const trackable = (w) => !!w && (!w.m3d || !!cam3dWalls?.has(w.pid));
+  // 只在手機、平板放入口：電腦（主要的指標是滑鼠、觸控板）的鏡頭在螢幕上方，拿不起來對著牆，不給看線入口，也不預先下載 OpenCV
+  const camDevice = () => matchMedia('(pointer: coarse)').matches && navigator.maxTouchPoints > 0;
+  const trackable = (w) => !!w && camDevice() && (!w.m3d || !!cam3dWalls?.has(w.pid));
   const syncCamEntry = () => {
     const show = $('editor').classList.contains('viewing') && trackable(state.wall);
     $('camTrackBtn').hidden = $('vwCam').hidden = !show;
@@ -175,7 +182,7 @@
       }).catch(() => {});
     };
     $('vwMore')?.addEventListener('click', () => {
-      if (state.wall && !state.wall.m3d) preloadWall2dCam(state.wall, true);
+      if (trackable(state.wall) && !state.wall.m3d) preloadWall2dCam(state.wall, true);
     });
     // AR 看線的換線：下面一張路線卡（難度、名稱、第幾條），左右滑跟看路線圖一樣跟手；
     // 2D 牆把整面牆的路線交給追蹤頁（climbio-ar-routes），拖曳進度、換到第幾條用訊息送，追蹤頁自己做淡出、照出手順序進場
@@ -579,11 +586,14 @@
     if (closed.length < 6 || area(closed) * k * k < 400) { toast(t('lassoSmall')); return; }   // 畫得太小，多半是手滑
     const poly = lassoOutline(closed, 1 / k);
     if (!validAddedOutline(poly, poly[0][0], poly[0][1], [])) { toast(t('lassoFail')); return; }   // 有效、在照片裡、不自己交叉
-    if (h) {
+    // 選到的岩點（長按時貼著旁邊那顆）跟畫的圈幾乎沒重疊：是要補旁邊漏掉的那顆，不是改它的外框——它不動，補一顆新的
+    const elsewhere = h && holdView && !holdView.lassoed && inside(poly, h.poly) < 0.3 && inside(h.poly, poly) < 0.3;
+    if (h && !elsewhere) {
       h.poly = poly;
       if (h.source === 'detect') h.source = 'edited';
       touch(h); touchGeom(); save();
     } else {
+      if (elsewhere) holdView.picked = null;
       const n = touch({ id: uid('h'), poly, source: 'manual' });
       w.holds.push(n); holdView.added = n.id; state.selected = n;
       touchGeom(); save();
@@ -613,7 +623,7 @@
     W3D.edited(added || picked, holdStart);
     state.holdSub = false; holdStart = '';
     setMode('route');
-    if (added && route() && !route().holds[added.id]) cycleRouteHold(added);
+    if (added && !route()?.holds[added.id]) cycleRouteHold(added);   // 補的新岩點照目前選的類型加進路線（還沒有路線就開一條）
     if (holdView) { const v = holdView; holdView = null; flyTo(v.s, v.tx, v.ty); }
   }
   // 定線：點岩點用目前選的類型（下方按鈕）加進路線；已在路線上、類型不同就改成目前的類型，類型一樣就拿掉（規則在 RouteKit.tapHold）。
@@ -851,7 +861,7 @@
     {
       $('camTrackBtn').hidden = !(viewing && trackable(state.wall));
       $('vwCam').hidden = !(viewing && trackable(state.wall));   // 看路線圖右上「⋯」選單裡（#vw）
-      if (viewing && state.wall?.m3d && !cam3dWalls) { const w = state.wall; load3dTracking().then(() => { if (state.wall === w) syncCamEntry(); }); }
+      if (viewing && state.wall?.m3d && !cam3dWalls && camDevice()) { const w = state.wall; load3dTracking().then(() => { if (state.wall === w) syncCamEntry(); }); }
       if (viewing && trackable(state.wall) && !state.wall.m3d) setTimeout(() => preloadWall2dCam(state.wall), 0);
     }
     $('vwMenu').hidden = true; $('vwMore').setAttribute('aria-expanded', 'false');

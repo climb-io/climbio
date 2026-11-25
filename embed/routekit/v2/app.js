@@ -1,14 +1,18 @@
-// RouteKit 內嵌頁（v1）：看線、定線。資料一律是 Climbio 官方發佈的公開格式 v2（畫面、照片、路線圖層），外層只給官方網址，內嵌頁自己讀；定線的結果用訊息送回。
-// 外層可以是 <iframe>（postMessage）或原生 App 的 WebView（橋接），見 docs/embed.md。
-// 工具列、類型列、順序列、選單都是 kit 的 RouteKit.EditorUI（跟岩點貓定線頁同一份），這頁只管訊息、圖層和畫布。
-// 小畫面（iframe 在頁面裡）只是預覽：沒有工具蓋在畫面上，點一下就進全螢幕；全螢幕才有工具、縮放平移（跟岩點貓同一套）和定線。
-// 外層 → 內嵌頁：init { wallId（或 viewUrl、photoUrl）, layerUrls?, routeId?, layerId?, viewHref?, options?, key? }（三個網址都要是官方網址，見 docs/embed.md）、setRoute { routeId }（空的＝新路線，定線才有）、
-//   submit { name?, grade?, author? }（定線：把這條路線寫進 Climbio 公開牆，成功回 submitted，失敗回 error）、remove { routeIds }（刪自己提交的路線，回 removed）、setType { holdType }（s 起攀、h 手點、t 完攀、f 腳點、n 順序）、setOptions { lang?, colors?, labels?, heat?, draw?, maxStart?, controls?, foot?, order?, baseToggle?, grade?, gradeSys? }、setFullscreen { on }（外層放大或縮回 iframe 後同步）。
-// 內嵌頁 → 外層：ready、change { layer, routeId }（定線改了：v2 圖層，只有這條路線）、limit { max }（起攀已滿：已在路線上的點不能改成起攀，內嵌頁沒有改路線）、
-//   submitted { routeId, routeUrl, layer }（submit 成功）、removed { results }（remove 的結果）、done { layer, routeId }（定線完成，右上的勾）、cancel（取消，左上的叉）、fullscreen { on }（進出全螢幕，內嵌頁自己做不到時請外層把 iframe 放大或縮回）、error { message }。
-// 網址參數（顯示選項，init 的 options 和 setOptions 可以覆蓋）：mode=view｜edit、type=s｜h｜t｜f｜n（底固定暗彩＋光暈，看線、定線都一樣，沒有黑白切換；黑白是岩點貓自己的特色）、
-//   baseToggle=0（預設，固定暗彩）｜1（顯示暗彩／黑白切換鈕）、grade=0（預設）｜1（定線上方的難度轉盤，跟岩點貓同一個）、gradeSys=v（預設）｜font｜dan（轉盤用的難度系統）、controls=1（預設）｜0（不顯示按鈕，全由外層用訊息控制；畫面直接可以互動）、foot=1（預設）｜0（定線工具列有沒有腳點）、order=1（預設）｜0（有沒有順序）、maxStart（起攀點數上限，預設 2＝岩點貓；有的岩館規定 4）、
-//   tap=fullscreen（預設，小畫面點一下進全螢幕）｜edit（框夠大，直接在原地看線、定線）。
+// RouteKit 內嵌頁（v2，通用）：看線、定線，不依賴 Climbio——不載入 App Check、不呼叫 Climbio 的服務，放到任何靜態主機都能跑（見 docs/embed.md）。
+// 訊息外框：{ climbio: 'routekit', v: 2, type, … }；v1 頁（../v1/）完全不動。外層可以是 <iframe>（postMessage）或原生 App 的 WebView（橋接）。
+// 外層 → 內嵌頁：init { view｜viewUrl, layers?｜layerUrls?, photo｜photoBase64＋photoType｜photoUrl, routeId?, layerId?, viewHref?, options?, capabilities? }
+//     （畫面是 Climbio 公開格式 v2；內嵌的物件最大 16 MB、照片最大 10 MB；網址只收 https，要開 CORS，不帶 cookie，相對網址以這頁為準）、
+//   setRoute { routeId }、setType { holdType }、setOptions {…}、setFullscreen { on }，
+//   refineHoldResult { requestId, sessionId, result: [[x,y],…] ｜ error }、holdEditResult { requestId, sessionId, result: { accepted, poly?, reason? } ｜ error }。
+// 網址參數 segment=1（看線才有）：有出手順序就分段播放；段長由程式決定，不能指定幾手一段。
+// 內嵌頁 → 外層：ready、change／done／cancel／limit／fullscreen／error、
+//   longPress { x, y, hitHoldId, routeId, holdType, pointerType, action, sessionId }（只觀察，不傳照片）、
+//   refineHold { requestId, sessionId, routeId, holdId, poly, x, y, w, h }（宣告 holdEdit＋refine 才會發）、
+//   holdEditCommit { requestId, sessionId, routeId, holdId, poly }（宣告 holdEdit＋wallEdit 才會發）。
+// Climbio 官方適配層（只有 Climbio 自己的站台有 official/ 資料夾，通用 ZIP 不含；沒有時下列訊息回 error）：init 可以只給 wallId（"包 id/牆 id"）、key（岩館金鑰）；
+//   submit { name?, grade?, author? }（把這條路線寫進 Climbio 公開牆，回 submitted { routeId, routeUrl, layer }）、remove { routeIds }（回 removed { results }）。這頁只在收到這些訊息時才載入 official/official.js。
+// capabilities（init 宣告，沒宣告就沒有額外請求）：holdEdit（長按岩點出現調整列）、refine（調整列有「重描」，向外層要候選外框）、wallEdit（候選可「套用」到牆面，外層決定接不接受）。
+// 候選外框先經 RouteKit.candidatePoly 驗證（有限數值、照片範圍內、頂點與面積限制），不合格視為失敗；逾時、換牆、換線、取消、遲到或重複的回覆都不會改畫面。
 (function () {
   'use strict';
   const params = new URLSearchParams(location.search);
@@ -23,14 +27,15 @@
   const hex = (v) => { const m = /^#?([0-9a-f]{6})$/i.exec(String(v ?? '').trim()); return m ? `#${m[1].toLowerCase()}` : undefined; };
   const label = (v) => { const c = [...String(v ?? '').trim()]; return c.length >= 1 && c.length <= 2 ? c.join('') : undefined; };
   const fromParams = (names, pick) => Object.fromEntries(names.map((k) => [k, pick(params.get(`${pick === hex ? 'color' : 'label'}-${k}`))]).filter(([, v]) => v !== undefined));
-  const opts = { lang, colors: fromParams(['s', 'h', 't', 'f'], hex), labels: fromParams(['s', 't'], label), heat: params.get('heat') !== '0', draw: params.get('draw') !== '0', base: 'dim', baseToggle: params.get('baseToggle') === '1', grade: params.get('grade') === '1', gradeSys: ['v', 'font', 'dan'].includes(params.get('gradeSys')) ? params.get('gradeSys') : 'v', controls: params.get('controls') !== '0', foot: params.get('foot') !== '0', order: params.get('order') !== '0', maxStart: count(params.get('maxStart')) };
+  const opts = { lang, colors: fromParams(['s', 'h', 't', 'f'], hex), labels: fromParams(['s', 't'], label), heat: params.get('heat') !== '0', draw: params.get('draw') !== '0', base: 'dim', baseToggle: params.get('baseToggle') === '1', grade: params.get('grade') === '1', gradeSys: ['v', 'font', 'dan'].includes(params.get('gradeSys')) ? params.get('gradeSys') : 'v', controls: params.get('controls') !== '0', foot: params.get('foot') !== '0', order: params.get('order') !== '0', maxStart: count(params.get('maxStart')), segment: params.get('segment') === '1' };
   const inFrame = window.parent !== window, inPlace = params.get('tap') === 'edit';   // 不在 iframe 裡（原生 App 的 WebView、單獨開）整個畫面就是全螢幕
   let S = null, fs = null;   // S：{ scene, wall: { w, h, holds }, view, layerId, viewHref, routes, ctl, current }
   const randomId = () => `embed${Math.random().toString(36).slice(2, 10).padEnd(8, '0')}`;
   const theme = () => ({ ...RouteKit.THEME, colors: { ...RouteKit.THEME.colors, ...opts.colors }, text: { ...RouteKit.THEME.text, ...opts.labels } });
   // 可以互動（工具、縮放、點岩點）：在全螢幕、不在 iframe 裡、tap=edit，或外層自己控制（controls=0）；不然小畫面只是預覽，點一下進全螢幕
   const interactive = () => !inFrame || inPlace || !opts.controls || !!(fs && fs.on);
-  const uiState = () => ({ mode, lang: opts.lang, base: opts.base, controls: opts.controls, foot: opts.foot, order: opts.order, heat: opts.heat, interactive: interactive(), fullscreenOn: !!(fs && fs.on) });
+  const segmentOn = () => !!(opts.segment && mode === 'view');
+  const uiState = () => ({ mode, lang: opts.lang, base: opts.base, controls: opts.controls, foot: opts.foot, order: opts.order, heat: opts.heat, interactive: interactive(), fullscreenOn: !!(fs && fs.on), segment: segmentOn() });
 
   // ---- 操作介面：kit 的 EditorUI（按鈕、類型列、順序列、選單）；規則在控制器（RouteEditor），這頁只接動作 ----
   const ui = RouteKit.EditorUI.mount(document.body, {
@@ -98,11 +103,12 @@
       const pads = () => ui.pads(cv);
       const topInset = () => (opts.controls ? 64 : 0);   // 上面讓出的高度：跟岩點貓看路線圖的標題列一樣（返回鈕的 top 12 加 52）
       S.ctl = mode === 'edit'
-        ? new RouteKit.RouteEditor(cv, { scene: S.scene, route: S.current, type: startType, mode: opts.base, glow: true, theme: theme(), pads, onView, maxStart: opts.maxStart, draw: opts.draw, onChange: edited, ...ui.hooks, heatRoutes: () => S.routes, groupRoutes: () => S.routes.map((q) => (q.id && q.id === S.current.id ? S.current : q)), topInset })
-        : new RouteKit.RouteViewer(cv, { scene: S.scene, route: S.current, mode: opts.base, glow: true, theme: theme(), pads, onView, groupRoutes: () => S.routes, topInset });   // 看線：固定暗彩，跟岩點貓暗彩一樣只用光暈分辨路線岩點（不染色、不畫膠帶）
+        ? new RouteKit.RouteEditor(cv, { scene: S.scene, route: S.current, type: startType, mode: opts.base, glow: true, theme: theme(), pads, onView, maxStart: opts.maxStart, draw: opts.draw, onChange: edited, onLongPress, ...holdEditOpts(), ...ui.hooks, heatRoutes: () => S.routes, groupRoutes: () => S.routes.map((q) => (q.id && q.id === S.current.id ? S.current : q)), topInset })
+        : new RouteKit.RouteViewer(cv, { scene: S.scene, route: S.current, mode: opts.base, glow: true, theme: theme(), pads, onView, groupRoutes: () => S.routes, topInset, segment: segmentOn(), onSegment: () => ui.update() });   // 看線：固定暗彩，跟岩點貓暗彩一樣只用光暈分辨路線岩點（不染色、不畫膠帶）
       S.ctl.setZoom(interactive());
       ui.attach(S.ctl, () => S.current);
     }
+    watchSegment();
     ui.setOptions(uiState());
     ui.update();
     syncGrade();
@@ -117,26 +123,70 @@
     if ('order' in o) opts.order = !!o.order;
     if ('heat' in o) opts.heat = !!o.heat;
     if ('draw' in o) opts.draw = !!o.draw;
+    if ('segment' in o) opts.segment = o.segment === true || o.segment === 1 || o.segment === '1';   // 只是開關，數字不是段長
     if (o.lang === 'zh' || o.lang === 'en') { lang = opts.lang = o.lang; document.documentElement.lang = lang === 'en' ? 'en' : 'zh-Hant'; }
     if (o.colors && typeof o.colors === 'object') { opts.colors = Object.fromEntries(['s', 'h', 't', 'f'].map((k) => [k, hex(o.colors[k])]).filter(([, v]) => v)); applyTheme(); }
     if (o.labels && typeof o.labels === 'object') { opts.labels = Object.fromEntries(['s', 't'].map((k) => [k, label(o.labels[k])]).filter(([, v]) => v)); applyTheme(); }
     if (S && S.ctl) {
       S.ctl.setMode(opts.base);
-      if (mode === 'edit') { S.ctl.setMaxStart(opts.maxStart); S.ctl.setDrawMode(opts.draw); }
+      if (S.ctl.setSegmented) S.ctl.setSegmented(segmentOn());
+      watchSegment();
+      if (mode === 'edit') { S.ctl.setMaxStart(opts.maxStart); S.ctl.setDrawMode(opts.draw); S.ctl.setHoldEdit({ lang: opts.lang }); }
     }
     ui.setOptions(uiState());
     syncGrade();
     if (repaint) applyInteractive();
   }
 
+  // 分段播放滑出畫面就停、滑回來再播（跟示範頁的 IntersectionObserver 同一種）。使用者按了暫停之後，play 不會把它打開。
+  let segIo = null;
+  function watchSegment() {
+    if (segIo) { segIo.disconnect(); segIo = null; }
+    if (!segmentOn() || !S || !S.ctl || typeof IntersectionObserver !== 'function') return;
+    segIo = new IntersectionObserver((entries) => {
+      const ctl = S && S.ctl;
+      if (!ctl || !ctl.segmentOn) return;
+      if (entries.some((e) => e.isIntersecting)) ctl.play(); else ctl.pause();
+    });
+    segIo.observe(cv);
+  }
+
+  // ---- 長按修點（宣告 holdEdit 才有）：調整列、候選外框預覽與驗證都在 kit 的 RouteEditor（holdEdit 選項），這頁只把請求轉成訊息 ----
+  const reqs = ClimbioEmbed.createRequests({ send: (type, d) => link.send(type, d), timeoutMs: 15000 });
+  const has = (cap) => !!(S && S.caps && S.caps.has(cap));
+  const routeIdOf = () => (S && S.current && S.current.id) || null;
+  const ask = (type) => (req, signal) => {
+    const q = reqs.begin(type, req);
+    if (signal) signal.addEventListener('abort', () => reqs.cancelAll('取消'), { once: true });
+    return q.result;
+  };
+  // RouteEditor 的長按通知：只觀察，轉給外層（修點由 kit 自己處理）
+  function onLongPress(e) {
+    const { type: holdType, ...rest } = e;   // 定線類型改叫 holdType（type 是訊息種類）
+    link.send('longPress', { ...rest, holdType, sessionId: reqs.sessionId });
+  }
+  const holdEditOpts = () => ({ holdEdit: has('holdEdit'), onRefineHold: has('holdEdit') && has('refine') ? ask('refineHold') : null, onHoldEditCommit: has('holdEdit') && has('wallEdit') ? ask('holdEditCommit') : null, lang: opts.lang });
+
+  // 官方適配層：用到才載入（同源的 official/official.js）；通用 ZIP 沒有這個檔，載入失敗就回 error
+  let officialJob = null;
+  const official = () => (officialJob ||= new Promise((res, rej) => {
+    if (window.RouteOfficial) return res(window.RouteOfficial);
+    const el = document.createElement('script');
+    el.src = new URL('official/official.js', location.href).href;
+    el.onload = () => (window.RouteOfficial ? res(window.RouteOfficial) : rej(new Error('官方適配層載入失敗')));
+    el.onerror = () => rej(new Error('這個發佈包沒有 Climbio 官方適配層（wallId、submit、remove 只有 Climbio 自己的站台提供）'));
+    document.head.appendChild(el);
+  })).catch((e) => { officialJob = null; throw e; });
   let initSeq = 0;
   const link = ClimbioEmbed.connect({
-    kit: 'routekit',
+    kit: 'routekit', v: 2,
     handlers: {
       async init(m) {
         const seq = ++initSeq;
-        m = ClimbioEmbed.expandInit(m);
-        const data = await ClimbioEmbed.resolveInit(m);   // 只讀官方網址（viewUrl、layerUrls、photoUrl）
+        if (m.wallId !== undefined) m = (await official()).expand(m);   // 官方資料集的簡寫：展開成網址
+        if (seq !== initSeq) return;
+        const caps = ClimbioEmbed.capsOf(m.capabilities);
+        const data = await ClimbioEmbed.resolveInitV2(m, { base: location.href });   // 自備物件、照片，或 https 網址（viewUrl、layerUrls、photoUrl）
         if (seq !== initSeq) return;
         const layers = data.layers;
         check(data.view, 'view');
@@ -144,29 +194,33 @@
         const photo = await ClimbioEmbed.decodePhoto(data.photo), wall = RouteKit.fromFormat(data.view, layers);
         if (seq !== initSeq) { photo.close?.(); return; }
         if (photo.width !== wall.w || photo.height !== wall.h) { photo.close?.(); throw new Error(`照片尺寸 ${photo.width}×${photo.height} 跟畫面的 ${wall.w}×${wall.h} 不一樣`); }
+        if (S && S.ctl && S.ctl.endHoldEdit) S.ctl.endHoldEdit();
+        reqs.newSession();
         if (S) { ui.detach(); S.ctl?.destroy(); S.scene?.release(); S.photo?.close?.(); }
-        S = { photo, scene: RouteKit.scene(photo, wall.holds), wall, view: data.view, routes: wall.routes, ctl: null, current: null,
+        S = { caps, photo, scene: RouteKit.scene(photo, wall.holds), wall, view: data.view, routes: wall.routes, ctl: null, current: null,
           layerId: typeof m.layerId === 'string' ? m.layerId : (layers[0] && layers[0].id) || randomId(),
-          viewHref: typeof m.viewHref === 'string' ? m.viewHref : m.viewUrl, key: m.key && typeof m.key === 'object' ? m.key : null };   // key：岩館自己的金鑰（選用，提交、刪除時簽章；不給就用外層的網站來源）
+          key: m.key && typeof m.key === 'object' ? m.key : null,   // 岩館自己的金鑰（選用，提交、刪除時簽章；不給就用外層的網站來源）
+          viewHref: typeof m.viewHref === 'string' ? m.viewHref : (typeof m.viewUrl === 'string' ? m.viewUrl : (data.view && data.view.href) || '') };
         if (m.options && typeof m.options === 'object') setOptions(m.options, false);   // 路線還沒選，先不畫按鈕
         S.routeId = m.routeId || null;
         select(m.routeId || (mode === 'view' && wall.routes[0] ? wall.routes[0].id : null));
       },
-      setRoute(m) { if (!S) throw new Error('還沒有 init'); S.routeId = m.routeId || null; select(S.routeId); },
+      setRoute(m) { if (!S) throw new Error('還沒有 init'); if (S.ctl && S.ctl.endHoldEdit) S.ctl.endHoldEdit(); reqs.newSession(); S.routeId = m.routeId || null; select(S.routeId); },
       setType(m) {
         if (!S || mode !== 'edit') return;
         if (!TYPES.includes(m.holdType)) throw new Error('holdType 要是 s、h、t、f、n');
         ui.pickType(m.holdType);
       },
-      // 提交：把定好的這條路線寫進 Climbio 的公開牆，成功回 submitted { routeId, routeUrl, layer }，失敗回 error。名稱、難度、暱稱由外層收，在 submit 帶進來
+      // 提交：把定好的這條路線寫進 Climbio 公開牆，成功回 submitted { routeId, routeUrl, layer }，失敗回 error。名稱、難度、暱稱由外層收，在 submit 帶進來
       async submit(m) {
         if (!S || mode !== 'edit' || !S.current) throw new Error('提交只在定線（mode=edit）可以用');
         const roles = Object.values(S.current.holds || {});
         if (!roles.includes('s') || !roles.includes('t')) throw new Error('路線要有起攀（s）和完攀（t）才能提交');
+        const O = await official();
         const text = (v, n) => (typeof v === 'string' ? [...v.trim()].slice(0, n).join('') : '');
         const route = { ...structuredClone(S.current), name: text(m.name, 20), author: text(m.author, 20), ...(typeof m.grade === 'string' && m.grade ? { grade: m.grade } : S.current.grade ? { grade: S.current.grade } : {}) };
         const layer = build(route);
-        const res = await RouteSubmit.put(link.origin, S.view.id, { routes: [{ id: route.id, r: JSON.stringify({ nodes: layer.nodes, marks: layer.marks }) }] }, S.key);
+        const res = await O.put(link.origin, S.view.id, { routes: [{ id: route.id, r: JSON.stringify({ nodes: layer.nodes, marks: layer.marks }) }] }, S.key);
         if (res[route.id] !== 'ok') throw new Error(`提交失敗：${res[route.id] || 'failed'}`);
         S.current.id = route.id;
         link.send('submitted', { routeId: route.id, routeUrl: `https://climbio.app/r/${S.view.id}/${route.id}/route.json`, layer });
@@ -176,10 +230,13 @@
         if (!S) throw new Error('還沒有 init');
         const ids = Array.isArray(m.routeIds) ? m.routeIds.filter((x) => typeof x === 'string' && x) : [];
         if (!ids.length || ids.length > 100) throw new Error('routeIds 要是 1～100 個路線 id');
-        link.send('removed', { results: await RouteSubmit.put(link.origin, S.view.id, { del: ids }, S.key) });
+        const O = await official();
+        link.send('removed', { results: await O.put(link.origin, S.view.id, { del: ids }, S.key) });
       },
       setOptions(m) { setOptions(m); },
       setFullscreen(m) { if (fs) fs.set(!!m.on); },
+      refineHoldResult(m) { reqs.settle(m, 'refineHold'); },   // 只接受目前 session、還在等、種類對得上的回覆；其他一律忽略
+      holdEditResult(m) { reqs.settle(m, 'holdEditCommit'); },
     },
   });
 

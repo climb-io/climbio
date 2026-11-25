@@ -122,6 +122,25 @@ test('重疊岩點：點在裡面的岩點面積小的在前；圓點各自在�
   assert.equal(RouteKit.pickOverlap([small, big], spots, 20, 20, 5), null);             // 候選以外：取消
 });
 
+test('點到重疊的地方：相鄰部分重疊直接選點得深的那顆；Volume 上的點、重複的外框才要讓人選', () => {
+  const vol = { id: 'vol', poly: box(100, 100, 300, 300) }, rider = { id: 'rider', poly: box(150, 150, 40, 40) };
+  assert.deepEqual(RouteKit.tapCandidates([vol, rider], 160, 160).map(h => h.id), ['rider', 'vol']);   // Volume 上的點：點或 Volume 讓人選
+  assert.deepEqual(RouteKit.tapCandidates([vol, rider], 300, 300).map(h => h.id), ['vol']);        // Volume 空的地方
+  const a = { id: 'a', poly: box(0, 0, 100, 100) }, b = { id: 'b', poly: box(90, 0, 100, 100) };   // 邊緣重疊 10 px 的相鄰兩顆
+  assert.deepEqual(RouteKit.tapCandidates([a, b], 93, 50).map(h => h.id), ['a']);                  // 離 a 的邊 7 px、離 b 的邊 3 px：點得比較深入的是 a
+  assert.deepEqual(RouteKit.tapCandidates([a, b], 97, 50).map(h => h.id), ['b']);
+  const c = { id: 'c', poly: box(0, 0, 100, 100) }, d = { id: 'd', poly: box(2, 2, 98, 98) };       // 重複的外框
+  assert.deepEqual(RouteKit.tapCandidates([c, d], 50, 50).map(h => h.id).sort(), ['c', 'd']);
+  assert.deepEqual(RouteKit.tapCandidates([a], 50, 50).map(h => h.id), ['a']);
+  assert.deepEqual(RouteKit.tapCandidates([a], 500, 50), []);
+});
+
+test('同一條規則只有一份：岩點貓和內嵌頁都用 kit 的 tapCandidates 決定重疊的點', async () => {
+  const { readFileSync } = await import('node:fs');
+  assert.match(readFileSync(new URL('../js/edit.js', import.meta.url), 'utf8'), /RouteKit\.tapCandidates\(/);
+  assert.match(readFileSync(new URL('../routekit/viewer.js', import.meta.url), 'utf8'), /G\.tapCandidates\(/);
+});
+
 test('Volume 的候選保留原本兩顆，上面的其他岩點照樣可以直接點', () => {
   const volume = { id: 'volume', poly: box(0, 0, 180, 120) }, first = { id: 'first', poly: box(20, 30, 20, 20) };
   const other = { id: 'other', poly: box(65, 30, 20, 20) }, outside = { id: 'outside', poly: box(176, 70, 20, 20) };

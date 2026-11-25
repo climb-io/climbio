@@ -19,8 +19,17 @@
 </head>
 <body>
 <p id="err" hidden></p>
-<h2>RouteViewer</h2>
-<canvas id="viewer"></canvas>
+  <h2>RouteViewer</h2>
+  <p id="segNote" hidden>分段播放：暫停／繼續、慢、快、上一段、下一段。一段幾手由路線自己決定。紅膠帶 V7 加上 <code>?segment=1&amp;route=https://climbio.app/r/qob3734416nc/rmvroyfsmc7cq3/route.json</code></p>
+  <div class="types" id="segbar" hidden>
+    <button type="button" id="segPrev">上一段</button>
+    <button type="button" id="segPlay">暫停</button>
+    <button type="button" id="segNext">下一段</button>
+    <button type="button" id="segSlow">慢</button>
+    <button type="button" id="segFast">快</button>
+    <span id="segCount"></span>
+  </div>
+  <canvas id="viewer"></canvas>
 <h2>RouteEditor</h2>
 <div class="types" id="types">
   <button data-type="s" aria-pressed="true">S</button><button data-type="h">H</button><button data-type="f">F</button><button data-type="t">T</button><button data-type="n">1 2 3</button>
@@ -57,6 +66,7 @@
     }
     return { img: c, holds, route: { holds: { h22: 's', h23: 's', h18: 'h', h15: 'h', h10: 'h', h7: 'h', h2: 't', h21: 'f' } } };
   }
+  const segmented = new URLSearchParams(location.search).get('segment') === '1';
   async function load() {
     const url = new URLSearchParams(location.search).get('route');
     if (!url) return sample();
@@ -67,7 +77,25 @@
   (async () => {
     const { holds, route, img } = await load();
     const scene = RouteKit.scene(img, holds);
-    const viewer = new RouteKit.RouteViewer(document.getElementById('viewer'), { scene, route });
+    const segNote = document.getElementById('segNote'), segbar = document.getElementById('segbar');
+    const paintSeg = (info) => {
+      document.getElementById('segCount').textContent = info && info.count ? `${info.index + 1} / ${info.count}` : '';
+      document.getElementById('segPlay').textContent = info && info.playing ? '暫停' : '繼續';
+    };
+    const viewer = new RouteKit.RouteViewer(document.getElementById('viewer'), {
+      scene, route, segment: segmented, onSegment: paintSeg, ...(segmented ? { mode: 'dim', glow: true, zoom: true } : {}),
+    });
+    if (segmented) {
+      segNote.hidden = segbar.hidden = false;
+      document.getElementById('segPrev').onclick = () => viewer.prevSegment();
+      document.getElementById('segNext').onclick = () => viewer.nextSegment();
+      document.getElementById('segPlay').onclick = () => viewer.setPaused(viewer.playing);
+      document.getElementById('segSlow').onclick = () => viewer.slower();
+      document.getElementById('segFast').onclick = () => viewer.faster();
+      // 滑出畫面就停、滑回來再播。使用者按了暫停之後，play 不會把它打開
+      const io = new IntersectionObserver((entries) => { if (entries.some((e) => e.isIntersecting)) viewer.play(); else viewer.pause(); });
+      io.observe(document.getElementById('viewer'));
+    }
     const out = document.getElementById('out'), show = (r) => { out.textContent = JSON.stringify({ holds: r.holds, seq: r.seq }, null, 1); };
     const draft = structuredClone(route);
     const editor = new RouteKit.RouteEditor(document.getElementById('editor'), { scene, route: draft, type: 's', onChange: (r) => { show(r); viewer.setRoute(r); } });

@@ -8,7 +8,7 @@ declare class RouteKitElement extends HTMLElement {
   route: Route | null;
   theme: Theme | undefined;
 }
-/** 屬性：src（路線圖層的網址，Climbio 公開格式 v2）、route-id（圖層裡的哪一條，沒有就第一條）、mode（gray／dim） */
+/** 屬性：src（路線圖層的網址，Climbio 公開格式 v2）、route-id（圖層裡的哪一條，沒有就第一條）、mode（gray／dim）、segment（有這個屬性才分段播放，沒有段長） */
 export class RouteKitViewer extends RouteKitElement {}
 /** 屬性：src、route-id、type（s／h／f／t／n）；change 事件的 detail 是路線 */
 export class RouteKitEditor extends RouteKitElement {}

@@ -58,6 +58,7 @@ English: [README.en.md](README.en.md)
 | `area` | `(poly) → number` | 面積 |
 | `tracePoly` | `(ctx, poly) → void` | 在 ctx 上描出路徑並 `closePath` |
 | `holdAt` | `(holds, x, y) → Hold \| null` | 包住該點最小的那顆岩點 |
+| `tapCandidates` | `(holds, x, y) → Hold[]` | 點到重疊的地方要給人選哪幾顆：只重疊一部分的相鄰岩點直接是點得比較深入的那顆（回傳一顆），Volume 上的點、重複的外框才回傳兩顆以上 |
 | `edgePoint` | `(poly, dx, dy, centerEdge?) → [x, y]` | 沿方向找外框邊緣的點 |
 | `stripTip`、`edgeTangent`、`strokeOutside` | 見 `index.d.ts` | 膠帶尖端、邊緣切線、外框外側描邊 |
 
@@ -126,11 +127,42 @@ English: [README.en.md](README.en.md)
 
 ### 元件（`viewer.js`）
 
-- `new RouteViewer(canvas, { scene, route, theme?, mode?, glow? })`：以路線為中心取景；`glow: true` 在路線岩點外圍畫一圈角色色的光暈（底變暗、路線岩點原色、外圍一小圈淡光暈，岩點外框用角色色細線描清楚，不貼手點膠帶，預設不畫；開了光暈 volume 就不染色，路線上的點靠光暈分辨，沒有光暈的點不是路線）；`ResizeObserver` 在尺寸變動時重畫。成員：`setRoute(route)`、`setMode(mode)`、`render()`、`destroy()`、唯讀 `routeHolds`。
-- **岩點貓、內嵌頁用的是同一份規則**：重疊岩點的選擇（`holdsUnder`、`prepareOverlapPick`、`overlapSpots`、`pickOverlap`，畫法 `drawOverlapPick`）。只替首次觸點下重疊的岩點放提示圓點，Volume 上其他小岩點以細框顯示，放大後可以直接點。兩邊也共用顯示所有岩點的熱圖（`holdUse`、`heatLevel`，畫法 `strokeHoldOutline`）、起攀滿了切手點（`nextType`）、出手順序的追加／插入／刪除／復原（`orderSession`）；`RouteEditor` 全部用到，外層只畫按鈕和對話框：`onType`（規則換了類型）、`onOrder`／`onOrderAsk`（順序變了、長按有編號的岩點要問插入或刪除）、`heatRoutes`／`setShowAll`、`toggleFeetFree`。
+- `new RouteViewer(canvas, { scene, route, theme?, mode?, glow?, segment?, onSegment? })`：以路線為中心取景；`glow: true` 在路線岩點外圍畫一圈角色色的光暈（底變暗、路線岩點原色、外圍一小圈淡光暈，岩點外框用角色色細線描清楚，不貼手點膠帶，預設不畫；開了光暈 volume 就不染色，路線上的點靠光暈分辨，沒有光暈的點不是路線）；`ResizeObserver` 在尺寸變動時重畫。`segment: true` 才分段播放（見下面「分段播放」），預設關。成員：`setRoute(route)`、`setMode(mode)`、`setSegmented(on)`、`render()`、`destroy()`、唯讀 `routeHolds`。
+- **岩點貓、內嵌頁用的是同一份規則**：重疊岩點的選擇（`tapCandidates` 決定要不要選，`holdsUnder`、`prepareOverlapPick`、`overlapSpots`、`pickOverlap`，畫法 `drawOverlapPick`）。只替首次觸點下重疊的岩點放提示圓點，Volume 上其他小岩點以細框顯示，放大後可以直接點。兩邊也共用顯示所有岩點的熱圖（`holdUse`、`heatLevel`，畫法 `strokeHoldOutline`）、起攀滿了切手點（`nextType`）、出手順序的追加／插入／刪除／復原（`orderSession`）；`RouteEditor` 全部用到，外層只畫按鈕和對話框：`onType`（規則換了類型）、`onOrder`／`onOrderAsk`（順序變了、長按有編號的岩點要問插入或刪除）、`heatRoutes`／`setShowAll`、`toggleFeetFree`。
 - **觸控長按自由畫**：`RouteEditor` 的 `draw: true`（或 `setDrawMode(on)`）：觸控、手寫筆長按沒有岩點的地方，手指不放沿岩點外緣畫一圈，有放大鏡；放開把軌跡簡化成多邊形（`freehandPoly`：頭尾接起來、Douglas–Peucker 簡化、最多 20 個頂點、畫得太小回傳 `null`），以路線自己的外框（`route.shapes`）加進路線，規則同點岩點。滑鼠不會觸發。
+- **長按只有一個來源**：`LongPress(el, { accept, onFire, delay = 520, tolerance = 8 })`（`viewport.js`）：單一主要指標、8 px 容差內、計時到才成立；第二根手指、放開、`pointercancel`、`lostpointercapture`、視窗失焦都取消，一次按壓最多觸發一次，`destroy()` 解除全部監聽；處理了長按後 `armClick()` 讓接著來的 click 吃掉一次。`RouteEditor` 與岩點貓（`js/mobile.js` 的定線長按，`delay: 500`）共用同一份，不再各自計時。`RouteEditor` 另有選項 `onLongPress({ x, y, hitHoldId, routeId, type, pointerType, action })`：長按成立時同步通知外層（x、y 是照片像素；`action` 是 `'order'`／`'draw'`／`'none'`），只觀察、不接管手勢，例外只吞掉。
+- **長按修點（選用，預設關）**：`new RouteEditor(canvas, { holdEdit: true, lang, onRefineHold(request, signal), onHoldEditCommit(change, signal) })`。長按牆上的岩點（順序模式、自由畫優先）出現調整列：原外框白色虛線；`onRefineHold` 回傳候選外框（Kit 用 `candidatePoly` 驗證，黃線預覽），再按「套用」呼叫 `onHoldEditCommit`，回 `{ accepted: true, poly? }` 才改牆面岩點外框。沒給 `onRefineHold` 就沒有「重描」，沒給 `onHoldEditCommit` 就只能預覽。取消、換線、換牆、`destroy()` 會中止 `signal`，之後的回覆一律忽略。Kit 不載入模型、AppKit、Firebase 或 App 程式；岩點貓之後可在外層呼叫 HoldKit 接上。iframe v2 頁用同一份，由 `capabilities`（`holdEdit`、`refine`、`wallEdit`）開啟。
 - `new RouteEditor(canvas, { scene, route, theme?, type?, mode?, glow?, maxStart?, onChange?, onLimit?, onType?, onOrder?, onOrderAsk?, heatRoutes?, showAll? })`：整張照片、還沒選點是原本的照片、選了第一個點才換底色，底預設暗彩（`mode: 'gray'` 是灰階）。`type` 為 `s`／`h`／`f`／`t` 或 `n`（追加出手順序）；預設 `s`。canvas 的 `click` 觸發點選：先 `holdAt`（含 `route.shapes`），再 `tapHold`／`appendSeq`，有變動就重畫並呼叫 `onChange(route)`；400 ms 內連點同一顆新加的點不會被拿掉。直接修改傳入的 `route`。`maxStart`（起攀上限，預設 2，有的岩館規定 4）：起攀滿了，新的點改成手點；已在路線上的點不能改成起攀，不動並呼叫 `onLimit()`。成員：`setRoute`、`setMode(mode)`、`setType(type)`、`undoSeq()`（收回順序模式最近加的一手，可一路收回；回傳有沒有收回）、`canUndoSeq`、`setMaxStart(n)`、`render`、`destroy`（解除 click 與 ResizeObserver）。
 - canvas 需有 CSS 尺寸（`clientWidth`／`clientHeight`）；像素尺寸由元件依 `devicePixelRatio` 設定。
+
+### 分段播放
+
+有出手順序（`seq`）的長路線可以一次只亮一段連續的出手，再依序換下一段，最後回到第一段。**預設關**，既有的看線、內嵌不會變。打開的方式只有一個開關：`segment: true`、`<routekit-viewer segment>`、或內嵌頁 `segment=1`（`init` 的 `options` 和 `setOptions` 也能隨時開、關）。沒有「幾手一段」、固定段長、或關掉自動切點的選項。
+
+段長由 `segmentSeq(seq)` 決定：
+
+1. 8 手以內不切，整條就是一段。
+2. 更長時，目標段長在 5～8 手裡挑：讓「段數＝四捨五入(總手數／候選)」的平均段長落在 5～8、而且最接近 6.5；一樣近就取較短的。
+3. 同一顆岩點兩次出手的索引差在 4 以內（中間最多 3 手，例如換手再抓）必須留在同一段。差得更遠的兩次不能出現在同一段，否則一顆點上會同時標兩組離很遠的號碼。
+4. 切點用動態規劃排，每段長度盡量在目標的 ±2 手以內。近距離重複若被理想切點切開，切點就往前或往後挪到那幾手的外面。
+
+畫面上：這一段的岩點原色，並只標這一段裡的出手號碼（同一顆在這一段用了兩次就寫在一起，例如「42, 45」）。已經爬過的岩點留著但變淡、不標號碼。還沒到的中間手點不畫。有順序的路線只有起攀和完攀貼膠帶，中間手點保持原色；起攀、完攀全程都在（不在這一段就淡一點），當整條線的開頭和結尾。取景跟著這一段走。自己拖曳或滾輪縮放之後，自動換段不再把畫面拉走；按上一段、下一段會重新對準那一段。灰階（`mode: 'gray'`）、暗彩、光暈、縮放都照原來的選項。
+
+畫面上的操作只有五個：暫停／繼續、慢、快（五段速度，預設中間一格，每段約 1.6 秒）、上一段、下一段。上一段、下一段跳到自動切好的相鄰那一段，不是另外一組步長。`play()`、`pause()` 留給捲動進畫面才播的呼叫端（`IntersectionObserver`）；使用者按了暫停之後，`play()` 不會把它打開。減少動態時不會自己播，要用繼續才播。
+
+紅膠帶 V7（原岩萬華 2F，牆 `qob3734416nc`、路線 `rmvroyfsmc7cq3`，51 手、47 顆，重複的是 `hmvroy39l0jam6` 三次、`hmvroy3fdta7i6` 與 `hmvroy3eth4s2g` 各兩次）目標段長是 7，切成：
+
+| 段 | 出手 | 手數 |
+|---|---|---|
+| 1 | 1–7 | 7 |
+| 2 | 8–14 | 7 |
+| 3 | 15–21 | 7 |
+| 4 | 22–29 | 8 |
+| 5 | 30–37 | 8 |
+| 6 | 38–45 | 8 |
+| 7 | 46–51 | 6 |
+
+第 4 手和第 16 手的 `hmvroy3fdta7i6` 分在第 1、3 段；第 5 手的 `hmvroy39l0jam6` 在第 1 段，第 42、45 手留在第 6 段（編號「42, 45」）；第 8 手和第 48 手的 `hmvroy3eth4s2g` 分在第 2、7 段。範例頁：`/routekit/demo.html?segment=1&route=https://climbio.app/r/qob3734416nc/rmvroyfsmc7cq3/route.json`。內嵌頁：`https://embed.climbio.app/routekit/v2/?mode=view&segment=1&tap=edit`，`init` 給 `wallId: "6b2e872160caf900/qob3734416nc"`、`routeId: "rmvroyfsmc7cq3"`。
 
 ### 操作介面（`ui.js`，純 UI 元件）
 
@@ -219,22 +251,22 @@ English: [README.en.md](README.en.md)
 
 | 內容 | 指令 |
 |---|---|
-| 圈點、定線規則、圖層、外框（Node 邏輯） | `node --test tools/route-circles.test.mjs tools/route-editor.test.mjs tools/route-layers.test.mjs tools/route-shapes.test.mjs` |
+| 圈點、定線規則、圖層、外框、分段（Node 邏輯） | `node --test tools/route-circles.test.mjs tools/route-editor.test.mjs tools/route-layers.test.mjs tools/route-shapes.test.mjs tools/route-segment.test.mjs` |
 | 格式轉換、牆檔案、npm 入口與型別 | `node --test tools/share-format.test.mjs tools/wall-files.test.mjs tools/kit-packages.test.mjs` |
 | 瀏覽器（元件、demo） | `npx playwright test routekit.spec.mjs`；外部安裝流程 內部 e2e 案例 |
 | 全部快速檢查 | `npm run test:quick` |
 
 ## 9. 內嵌（iframe 與原生 App）
 
-不想公開前端原始碼的網站或 App，用 `<iframe>`（網頁）或 WebView（iOS、Android、React Native、Flutter）嵌入 climbio.app 託管的畫面，不打包 Kit（AGPL-3.0 只要求打包了 Kit 的前端開放原始碼）。通用做法與安全規則見 [docs/embed.md](../docs/embed.md)，型別以 [embed/routekit/v1/messages.d.ts](../embed/routekit/v1/messages.d.ts) 為準。
+不想公開前端原始碼的網站或 App，用 `<iframe>`（網頁）或 WebView（iOS、Android、React Native、Flutter）嵌入 climbio.app 託管的畫面，不打包 Kit（AGPL-3.0 只要求打包了 Kit 的前端開放原始碼）。通用做法與安全規則見 [docs/embed.md](../docs/embed.md)，型別以 [embed/routekit/v2/messages.d.ts](../embed/routekit/v2/messages.d.ts) 為準。
 
-- 網址：`https://embed.climbio.app/routekit/v1/`。iframe 的大小自己設，畫面與按鈕跟著框的大小調整。
-- 網址選項：`mode=view｜edit`（預設 view）、`type=s｜h｜t｜f｜n`（定線時點岩點的類型：起攀、手點、完攀、腳點、順序，預設 `s`）、`foot=0`／`order=0`（定線工具列不顯示腳點／順序，預設都顯示）、底固定暗彩加光暈，看線、定線都一樣，沒有黑白切換（黑白是岩點貓自己的特色）、`maxStart=`（起攀點數上限，預設 2＝岩點貓；有的岩館規定 4）、`heat=0`（不顯示「顯示所有岩點」鈕）、`lang=zh｜en`（內嵌頁按鈕與選單的文字）、`color-s／h／t／f=22c55e`（四種類型的顏色）、`label-s／t=起`（起攀、完攀膠帶上的字）、`controls=0`（不顯示按鈕，全由外層用訊息控制，畫面直接可以互動）、`tap=edit`（直接在原地互動，不進全螢幕）。`init` 的 `options` 和 `setOptions` 可以隨時覆蓋。
+- 網址：`https://embed.climbio.app/routekit/v2/`。iframe 的大小自己設，畫面與按鈕跟著框的大小調整。
+- 網址選項：`mode=view｜edit`（預設 view）、`type=s｜h｜t｜f｜n`（定線時點岩點的類型：起攀、手點、完攀、腳點、順序，預設 `s`）、`foot=0`／`order=0`（定線工具列不顯示腳點／順序，預設都顯示）、底固定暗彩加光暈，看線、定線都一樣，沒有黑白切換（黑白是岩點貓自己的特色）、`maxStart=`（起攀點數上限，預設 2＝岩點貓；有的岩館規定 4）、`heat=0`（不顯示「顯示所有岩點」鈕）、`lang=zh｜en`（內嵌頁按鈕與選單的文字）、`color-s／h／t／f=22c55e`（四種類型的顏色）、`label-s／t=起`（起攀、完攀膠帶上的字）、`controls=0`（不顯示按鈕，全由外層用訊息控制，畫面直接可以互動）、`tap=edit`（直接在原地互動，不進全螢幕）、`segment=1`（看線才有：分段播放，段長由程式決定，見「分段播放」）。`init` 的 `options` 和 `setOptions` 可以隨時覆蓋。
 - **小畫面只是預覽，點一下進全螢幕**（看線、定線都一樣）：預覽沒有工具壓住畫面，只有一顆進全螢幕的小圖示；全螢幕才有工具、縮放平移和定線。iframe 有 `allow="fullscreen"` 就用瀏覽器的全螢幕；不行（iPhone Safari、原生 App）就送 `fullscreen { on }`，外層把 iframe 放大成整個畫面並送 `setFullscreen { on }` 回報（0.7 秒沒回報就原地互動）。框夠大想直接互動：加 `tap=edit`。
 - 全螢幕的工具：暗彩／黑白、縮小／放大、結束全螢幕；定線全螢幕上方左取消（叉，路線回到打開時的樣子，送 `cancel`）、右完成（勾，送 `done { layer, routeId }`），在全螢幕就退出，沒有難度、名稱（外層處理）；下方工具列跟岩點貓一樣：起攀（顯示數量與上限）／手點／完攀／腳點／順序，選中的色塊會滑過去（岩點貓沒有的工具不放，再點一次已選的岩點就拿掉）；腳點和順序可用 `foot=0`、`order=0` 關掉（預設都有）。縮放、平移跟岩點貓同一套（見上面「縮放、平移」）。
-- 資料一律是 Climbio 官方發佈的公開格式 v2：外層在 `init` 給 `wallId`（或三個官方網址 `viewUrl`、`photoUrl`、`layerUrls`），內嵌頁自己讀，別的網址和訊息直接帶的資料都不收；訊息外框 `{ climbio: 'routekit', v: 1, type, … }`。完整規則見 [docs/embed.md](../docs/embed.md)。
+- 資料是 Climbio 公開格式 v2：外層在 `init` 給 `wallId`（官方資料集簡寫，只有 embed.climbio.app 提供），或自備的 `view`／`layers`／`photo`、https 的 `viewUrl`／`photoUrl`／`layerUrls`，內嵌頁自己讀；訊息外框 `{ climbio: 'routekit', v: 2, type, … }`。完整規則見 [docs/embed.md](../docs/embed.md)。
 - 內嵌頁 → 外層：`ready`（只送一次）、`done { layer, routeId }`（定線完成）、`cancel`（定線取消）、`change { layer, routeId }`（路線改了：v2 圖層，只有這條路線）、`limit { max }`（起攀已滿：已在路線上的點不能改成起攀，內嵌頁沒有改路線）、`fullscreen { on }`、`error { message }`。
-- 外層 → 內嵌頁：`init { wallId（或 viewUrl、photoUrl）, layerUrls?, routeId?, layerId?, viewHref?, options? }`（第一個訊息；`photoUrl` 的照片最大 10 MB，尺寸要等於畫面的 `w × h`）、`setRoute { routeId? }`、`setType { holdType }`（`s`、`h`、`t`、`f`、`n`）、`setOptions { base?, maxStart?, controls?, foot?, order? }`、`setFullscreen { on }`。
+- 外層 → 內嵌頁：`init { wallId（或 viewUrl、photoUrl）, layerUrls?, routeId?, layerId?, viewHref?, options? }`（第一個訊息；`photoUrl` 的照片最大 10 MB，尺寸要等於畫面的 `w × h`）、`setRoute { routeId? }`、`setType { holdType }`（`s`、`h`、`t`、`f`、`n`）、`setOptions { base?, maxStart?, controls?, foot?, order?, segment? }`、`setFullscreen { on }`。
 - iframe：外層要先註冊 `message` 監聽再放 `<iframe>`；第一個 `init` 的 `event.origin` 會被記下，之後只收發這個來源。原生 App：直接開這個網址，內嵌頁往 `window.ReactNativeWebView`、`webkit.messageHandlers.climbio`、`ClimbioBridge`（Android `addJavascriptInterface`）或 `flutter_inappwebview` 的 `climbio` handler 送，原生端用 `window.climbioReceive(訊息或 JSON 字串)` 傳入。
 - 內嵌頁的縮放、平移就是 Kit 的 `zoom`（跟岩點貓同一套）；不輸出圈點格式，要圈點用 `toCircles` 自行換算。
 
@@ -245,11 +277,11 @@ English: [README.en.md](README.en.md)
   addEventListener('message', (e) => {
     const frame = document.getElementById('rk');
     if (e.source !== frame.contentWindow || e.data?.climbio !== 'routekit') return;
-    if (e.data.type === 'ready') frame.contentWindow.postMessage({ climbio: 'routekit', v: 1, type: 'init', wallId }, '*');   // 包 id/牆 id，見 docs/embed.md
+    if (e.data.type === 'ready') frame.contentWindow.postMessage({ climbio: 'routekit', v: 2, type: 'init', wallId }, '*');   // 包 id/牆 id，見 docs/embed.md
     if (e.data.type === 'change') save(e.data.layer);
     if (e.data.type === 'fullscreen') {   // 進（出）全螢幕：放大（縮回）iframe，再回報
       frame.classList.toggle('full', e.data.on);
-      frame.contentWindow.postMessage({ climbio: 'routekit', v: 1, type: 'setFullscreen', on: e.data.on }, '*');
+      frame.contentWindow.postMessage({ climbio: 'routekit', v: 2, type: 'setFullscreen', on: e.data.on }, '*');
     }
   });
 </script>
@@ -257,7 +289,7 @@ English: [README.en.md](README.en.md)
   .rk { width: 100%; height: 480px; border: 0; }
   .rk.full { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 1000; }   /* 小畫面點一下進全螢幕：iframe 放大成整個畫面 */
 </style>
-<iframe id="rk" class="rk" src="https://embed.climbio.app/routekit/v1/?mode=edit&maxStart=4" allow="fullscreen" title="定線"></iframe>
+<iframe id="rk" class="rk" src="https://embed.climbio.app/routekit/v2/?mode=edit&maxStart=4" allow="fullscreen" title="定線"></iframe>
 ```
 
 驗證：`node --test tools/embed.test.mjs`（與跨來源嵌入瀏覽器案例）；改了 Kit 或共用程式跑 `node tools/build-embed.mjs`。

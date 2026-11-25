@@ -89,6 +89,7 @@
 - 慢的原因：Android Chrome 把相機畫面畫進可讀回的 canvas 再 `getImageData` 很貴，跟擷取尺寸無關（640、480 長邊都約 65 ms）；`createImageBitmap` 後再讀回也一樣（約 50 ms）。`new VideoFrame(video)` 的格式是 I420，`copyTo` 約 1.6 ms。
 - LK 光流的成本：640 長邊、21×21 視窗、140 點約 26 ms／次（雙向兩次）；480 長邊、15×15、10 次迭代、90 點約 12 ms／次。補角點（`goodFeaturesToTrack`）640 長邊約 29 ms、480 長邊約 17 ms，改成點數夠就不補。
 - 這支手機要求直的寬高時第一幀是橫的，舊版每次開都要關掉重開（約 0.8 秒）；現在判斷過一次就記在 `localStorage`（`climbio.wall2dCamReversed`），`boot.js` 下次直接用對的寬高開。
+- 固定用主鏡頭（後置相機），先問權限再開（`arkit/camera.js` 的 `openMainCamera`，`boot.js` 與 `view.js` 共用）：已有權限時列得出鏡頭名稱，直接開主鏡頭；第一次還沒有權限、名稱是空的，先照「後面的相機」開一次取得權限，還沒顯示就看名稱，開到別顆（例如三鏡頭的虛擬相機）就先關掉、再開主鏡頭。主鏡頭的 deviceId 記在 `localStorage`（`climbio.wall2dCamMain`）下次先試。不在開著相機時換鏡頭：iPhone 的 Safari 兩顆同時開會停掉第一個串流，同一個 `<video>` 換上新串流後常常沒有影格（畫面先出來、接著變黑）。
 - 私人牆第一次打開要在手機上算比對資料（AKAZE，1280 長邊）約 2.5 秒，算好存在 IndexedDB（`climbio-wall2d-cam`），之後不再算。
 - 預覽和送去追蹤的影像只從 `<video>` 拿一次（同一格）：以前分兩次拿，偶爾差一格，移動中外框會跳 5–30 px；改完後對準測試（p95 < 3 px）12 次全過。iPhone 的 Safari 不用 VideoFrame（建了之後預覽會變黑）。
 - 疊圖跟影格同步：Worker 結果回來前先留著這一幀的預覽（等待上限依實際處理時間 34–70 ms）；超過才放行，晚到的結果照移動速度外推到現在再畫，不畫回舊位置。

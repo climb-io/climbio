@@ -26,8 +26,8 @@ export const PRODUCTS = {
   },
   kits: {
     label: '開源元件（format、routekit、topokit、mapkit 的資料格式、Viewer、Editor）',
-    unit: [u('kit-packages|kit-pages|embed|format|format-placement|route-.+|foot-label|sequence-label|topokit-render|wall-files')],
-    e2e: [e('routekit|embed|wall-publish|topokit|mapkit|topokit-demo|mapkit-demo|kit-external|holdscan-external')],
+    unit: [u('kit-packages|kit-pages|embed|embed-v2|longpress|release-routekit|format|format-placement|route-.+|foot-label|sequence-label|topokit-render|wall-files')],
+    e2e: [e('routekit|embed|embed-v2|wall-publish|topokit|mapkit|topokit-demo|mapkit-demo|kit-external|holdscan-external')],
   },
   shared: {
     label: '共用層（appkit、站台設定、登入、品牌）與跨產品的入口、同步',

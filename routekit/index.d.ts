@@ -78,6 +78,15 @@ export function scene(img: Photo, holds: Hold[] | (() => Hold[])): RouteScene;
 export function routeHolds(route: Route, holds: Hold[]): Hold[];
 export function cropAround(routeHolds: Hold[], PW: number, PH: number, aspect: number): { x: number; y: number; w: number; h: number };
 export function revealSteps(route: Route, routeHolds: Hold[]): Hold[][];
+/** 出手順序切成的一段：seq 的索引，to 不含 */
+export interface SegmentPart { from: number; to: number }
+/** 分段播放的一格。numbers 是這一段每個岩點的出手號碼（從 1 起，只含這一段） */
+export interface SegmentFrame { index: number; count: number; from: number; to: number; parts: SegmentPart[]; numbers: Record<string, number[]>; current: string[]; past: string[]; futureAnchors: string[] }
+export interface SegmentInfo { on: boolean; index: number; count: number; playing: boolean; speed: number; speeds: number }
+/** 把出手順序切成連續的段。段長、切點由路線長度和岩點重複決定，不接受段長參數。沒有手順回傳 [] */
+export function segmentSeq(seq?: string[]): SegmentPart[];
+/** 第 index 段要畫的岩點與號碼。沒有手順回傳 null */
+export function segmentFrame(route: { holds?: Record<string, string>; seq?: string[] } | null | undefined, index?: number): SegmentFrame | null;
 export function drawRoute(g: Ctx, scene: RouteScene, route: Route, routeHolds: Hold[], opts?: { unit?: number; mode?: BaseMode; tint?: boolean; hands?: boolean; theme?: Theme; glow?: Glow }): void;
 /** 原尺寸的路線圖 */
 export function renderRouteImage(scene: RouteScene, route: Route, routeHolds: Hold[], opts?: { theme?: Theme }): HTMLCanvasElement;
@@ -127,9 +136,27 @@ export class Viewport {
 // viewer
 export interface ViewOptions { scene: RouteScene; route: Route; theme?: Theme; zoom?: boolean; pads?: () => [number, number]; onView?: (t: ViewTransform | null) => void }
 export class RouteViewer {
-  constructor(canvas: HTMLCanvasElement, opts: ViewOptions & { mode?: BaseMode; glow?: boolean });
+  constructor(canvas: HTMLCanvasElement, opts: ViewOptions & { mode?: BaseMode; glow?: boolean; segment?: boolean; onSegment?: (info: SegmentInfo) => void });
   canvas: HTMLCanvasElement; scene: RouteScene; route: Route; mode: BaseMode;
   readonly routeHolds: Hold[];
+  /** 分段播放（選擇加入）。段長不能指定 */
+  segmentOn: boolean;
+  setSegmented(on: boolean): void;
+  /** 給捲動進畫面才播的呼叫端。使用者暫停之後不會被 play 打開 */
+  play(): void;
+  pause(): void;
+  /** 畫面上的暫停／繼續 */
+  setPaused(on: boolean): void;
+  faster(): void;
+  slower(): void;
+  nextSegment(): void;
+  prevSegment(): void;
+  readonly segmentIndex: number;
+  readonly segmentCount: number;
+  readonly playing: boolean;
+  readonly speed: number;
+  readonly speedSteps: number;
+  readonly segmentInfo: SegmentInfo;
   setRoute(route: Route): void;
   setMode(mode: BaseMode): void;
   setZoom(on: boolean): void;
@@ -143,7 +170,11 @@ export class RouteViewer {
 export function edgeDist(x: number, y: number, poly: Poly): number;
 /** 手畫的軌跡 → 簡化的多邊形外框（限制在 W×H 的照片裡，頭尾自動接起來）；畫得太小回傳 null */
 export function freehandPoly(pts: [number, number][], W: number, H: number, opts?: { minTol?: number; minSize?: number; maxN?: number }): Poly | null;
+/** 驗證外部回傳的候選外框（頂點數、有限數值、照片範圍內、面積上下限）；通過回傳四捨五入的多邊形，否則 null */
+export function candidatePoly(poly: unknown, W: number, H: number, opts?: { minN?: number; maxN?: number; minSize?: number; maxFrac?: number }): Poly | null;
 export function holdsUnder(holds: Hold[], x: number, y: number): Hold[];
+/** 點到好幾顆重疊的地方，要給人選哪幾顆（面積小的在前）：只重疊一部分的相鄰岩點直接決定（點得比較深入的那顆），Volume 上的點、重複的外框才要讓人選 */
+export function tapCandidates<H extends Hold>(holds: H[], x: number, y: number): H[];
 export function prepareOverlapPick(candidates: Hold[], all: Hold[], size: { w: number; h: number; width: number; height: number }): { holds: Hold[]; neighbors: Hold[]; spots: ReturnType<typeof overlapSpots>; k: number; cx: number; cy: number };
 export function overlapSpots(cands: Hold[], W: number, H: number, neighbors?: Hold[]): Map<Hold, { x: number; y: number; d?: number; anchor?: Point }>;
 export function pickOverlap(cands: Hold[], spots: Map<Hold, { x: number; y: number }>, x: number, y: number, radius: number, direct?: Hold | null): Hold | null;
@@ -160,9 +191,31 @@ export interface OrderSession {
 }
 export function orderSession(): OrderSession;
 
+/** 長按成立（觀察用：同步通知，不接管手勢；座標是照片像素）。action：順序模式問順序、自由畫、或不處理 */
+export interface LongPressEvent { x: number; y: number; hitHoldId: string | null; routeId: string | number | null; type: HoldType | 'n'; pointerType: string; action: 'order' | 'draw' | 'none' }
+/** 長按辨識控制器：2D 看線／定線唯一的長按來源（計時、8px 容差、多指／放開／取消／失焦取消、一次觸發） */
+/** 長按修點（選用，預設關）。Kit 不載入模型或 App 程式：重描、存檔由外層提供；沒給 onRefineHold 就沒有「重描」，沒給 onHoldEditCommit 就只能預覽、不能套用 */
+export interface HoldEditRequest { routeId: string | number | null; holdId: string; poly: Point[]; x: number; y: number; w: number; h: number }
+export interface HoldEditChange { routeId: string | number | null; holdId: string; poly: Point[] }
+export interface HoldEditOptions {
+  holdEdit?: boolean; lang?: 'zh' | 'en';
+  /** 回傳候選外框（經 candidatePoly 驗證）；signal 在取消、換線、換牆時中止，之後的回覆一律忽略 */
+  onRefineHold?: (request: HoldEditRequest, signal?: AbortSignal) => Promise<Point[]>;
+  /** 回傳 accepted: true 才改動牆面岩點；poly＝外層實際存下的外框（沒給就用候選外框） */
+  onHoldEditCommit?: (change: HoldEditChange, signal?: AbortSignal) => Promise<{ accepted: boolean; poly?: Point[]; reason?: string }>;
+}
+export class LongPress<C = unknown> {
+  constructor(el: EventTarget & { ownerDocument?: Document }, opts: { accept?: (e: PointerEvent) => C | null | undefined | false; onFire: (ctx: C, e: PointerEvent) => void; delay?: number; tolerance?: number; clickMs?: number; win?: EventTarget });
+  readonly pending: boolean;
+  cancel(): void;
+  /** 長按處理過後呼叫：接著來的 click 吃掉一次（clickMs 後失效） */
+  armClick(): void;
+  eatsClick(): boolean;
+  destroy(): void;
+}
 export class RouteEditor {
   /** route 會被直接修改；type 的 n＝追加出手順序 */
-  constructor(canvas: HTMLCanvasElement, opts: ViewOptions & { type?: HoldType | 'n'; mode?: BaseMode; glow?: boolean; maxStart?: number; onChange?: (route: Route) => void; onLimit?: () => void; onType?: (type: HoldType | 'n') => void; onOrder?: (info?: { added?: number }) => void; onOrderAsk?: (m: { id: string; nums: number[] }) => void; heatRoutes?: Route[] | (() => Route[]); showAll?: boolean; draw?: boolean });
+  constructor(canvas: HTMLCanvasElement, opts: ViewOptions & { type?: HoldType | 'n'; mode?: BaseMode; glow?: boolean; maxStart?: number; onChange?: (route: Route) => void; onLimit?: () => void; onType?: (type: HoldType | 'n') => void; onOrder?: (info?: { added?: number }) => void; onOrderAsk?: (m: { id: string; nums: number[] }) => void; heatRoutes?: Route[] | (() => Route[]); showAll?: boolean; draw?: boolean; onLongPress?: (e: LongPressEvent) => void } & HoldEditOptions);
   canvas: HTMLCanvasElement; scene: RouteScene; route: Route; type: HoldType | 'n';
   readonly routeHolds: Hold[];
   setRoute(route: Route): void;
@@ -171,7 +224,7 @@ export class RouteEditor {
   /** 顯示所有岩點（熱圖）：其他路線（heatRoutes）用過的照次數畫成粉紅到洋紅 */
   setShowAll(on: boolean): void; showAll: boolean;
   /** 觸控長按沒有岩點的地方，手指不放直接畫一圈（有放大鏡），放開簡化成多邊形，以 route.shapes 的外框加進路線 */
-  setDrawMode(on: boolean): void; setHeatRoutes(routes: Route[]): void;
+  setDrawMode(on: boolean): void; setHoldEdit(o: HoldEditOptions): void; endHoldEdit(): void; setHeatRoutes(routes: Route[]): void;
   /** 出手順序（type 'n'）：長按有編號的岩點會呼叫 onOrderAsk，外層問過再呼叫 orderInsertAfter／orderRemove */
   readonly orderInfo: { len: number; insertAt: number | null; canUndo: boolean }; readonly canUndoSeq: boolean;
   undoSeq(): boolean; orderInsertAfter(n: number): void; orderEndInsert(): void; orderRemove(n: number): void; orderClear(): void;
@@ -212,13 +265,13 @@ declare const RouteKit: {
   grayOf: typeof grayOf; plainGrayOf: typeof plainGrayOf; mutedOf: typeof mutedOf; liftTint: typeof liftTint; tintCard: typeof tintCard;
   routeLayers: typeof routeLayers; prepareOverlapPick: typeof prepareOverlapPick; routeMask: typeof routeMask; routeLayer: typeof routeLayer; drawRouteBase: typeof drawRouteBase; glowAround: typeof glowAround;
   RouteScene: typeof RouteScene; scene: typeof scene;
-  routeHolds: typeof routeHolds; cropAround: typeof cropAround; revealSteps: typeof revealSteps; drawRoute: typeof drawRoute;
+  routeHolds: typeof routeHolds; cropAround: typeof cropAround; revealSteps: typeof revealSteps; segmentSeq: typeof segmentSeq; segmentFrame: typeof segmentFrame; drawRoute: typeof drawRoute;
   renderRouteImage: typeof renderRouteImage; thumbCrop: typeof thumbCrop; routeThumb: typeof routeThumb;
   MAX_START: typeof MAX_START; startCount: typeof startCount; tapHold: typeof tapHold; nextType: typeof nextType; holdUse: typeof holdUse; heatLevel: typeof heatLevel; orderSession: typeof orderSession;
   heatColor: typeof heatColor; strokeHoldOutline: typeof strokeHoldOutline; drawOverlapPick: typeof drawOverlapPick;
-  edgeDist: typeof edgeDist; freehandPoly: typeof freehandPoly; holdsUnder: typeof holdsUnder; overlapSpots: typeof overlapSpots; pickOverlap: typeof pickOverlap; appendSeq: typeof appendSeq;
+  edgeDist: typeof edgeDist; candidatePoly: typeof candidatePoly; freehandPoly: typeof freehandPoly; holdsUnder: typeof holdsUnder; tapCandidates: typeof tapCandidates; overlapSpots: typeof overlapSpots; pickOverlap: typeof pickOverlap; appendSeq: typeof appendSeq;
   insertSeq: typeof insertSeq; popSeq: typeof popSeq; dropSeq: typeof dropSeq; clearFeet: typeof clearFeet; toggleFeetFree: typeof toggleFeetFree;
-  Viewport: typeof Viewport; clampView: typeof clampView; maxScaleOf: typeof maxScaleOf; fitOf: typeof fitOf; ZOOM_STEPS: typeof ZOOM_STEPS; RouteViewer: typeof RouteViewer; RouteEditor: typeof RouteEditor;
+  Viewport: typeof Viewport; LongPress: typeof LongPress; clampView: typeof clampView; maxScaleOf: typeof maxScaleOf; fitOf: typeof fitOf; ZOOM_STEPS: typeof ZOOM_STEPS; RouteViewer: typeof RouteViewer; RouteEditor: typeof RouteEditor;
   CIRCLE_DIAMETER: typeof CIRCLE_DIAMETER; fromCircles: typeof fromCircles; toCircles: typeof toCircles; fromFormat: typeof fromFormat; wallView: typeof wallView; routesLayer: typeof routesLayer; wallFiles: typeof wallFiles; thumbPathOf: typeof thumbPathOf;
 };
 export default RouteKit;
@@ -228,10 +281,12 @@ export interface EditorUIController {
   type?: HoldType | 'n'; setType?(t: HoldType | 'n'): void; setMode?(base: BaseMode): void; showAll?: boolean; setShowAll?(on: boolean): void; zoomStep?(dir: 1 | -1): void;
   canUndoSeq?: boolean; undoSeq?(): boolean; orderInfo?: { len: number; insertAt: number | null; canUndo: boolean };
   orderInsertAfter?(n: number): void; orderRemove?(n: number): void; orderClear?(): void; orderEndInsert?(): void; toggleFeetFree?(o?: { clear?: boolean }): 'confirm' | 'on' | 'off';
+  segmentOn?: boolean; segmentInfo?: SegmentInfo; playing?: boolean; speed?: number; speedSteps?: number;
+  setSegmented?(on: boolean): void; play?(): void; pause?(): void; setPaused?(on: boolean): void; faster?(): void; slower?(): void; nextSegment?(): void; prevSegment?(): void;
 }
 export interface EditorUIOptions {
   mode?: 'edit' | 'view'; top?: boolean; nav?: boolean; lang?: 'zh' | 'en'; strings?: Record<string, string | ((...a: number[]) => string)>; base?: BaseMode; controls?: boolean; foot?: boolean; order?: boolean; heat?: boolean; zoom?: boolean;
-  fullscreen?: boolean; interactive?: boolean; fullscreenOn?: boolean; colors?: Partial<Record<'s' | 'h' | 't' | 'f', string>>; type?: HoldType | 'n';
+  fullscreen?: boolean; interactive?: boolean; fullscreenOn?: boolean; segment?: boolean; colors?: Partial<Record<'s' | 'h' | 't' | 'f', string>>; type?: HoldType | 'n';
   onDone?(): void; onCancel?(): void; onBase?(next: BaseMode): void; onFullscreen?(): void; onLimit?(): void; onPrev?(): void; onNext?(): void;
 }
 export interface EditorUI {

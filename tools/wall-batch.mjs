@@ -7,13 +7,14 @@
 //                                                             **預設是私有牆**（岩館、客戶的牆面資料不上公開資料集、不進公開 repo）：不會出「要不要公開發佈」；使用者明說這面牆要公開才加 --public
 //   node tools/wall-batch.mjs check <工作資料夾>              分級檢查：先自動處理（見 POLICY），再出要 AI 看圖的題目和對照圖（sheets/、sam-sheets/、audit/、overview/）
 //   node tools/wall-batch.mjs apply <工作資料夾> <判斷.json>   依代理的判斷修岩點並答題；判斷.json：{ "<牆>": ["ok"|"rm1"|"rm2"|"merge"|"unsure", …]（重複岩點，照 questions.json 的順序）,
-//                                                             "<牆>#sam": ["sam"|"keep"|"delete"|"unsure", …]（SAM2 要看的，照 sam-questions.json 的順序）,
-//                                                             "<牆>#recheck": ["sam|keep|delete:<理由> 或 ok|rm1|rm2|merge", …]（放大再看一次，照 recheck.json 的順序，不能再答 unsure）, "<牆>#audit": ["ok"|"bad", …]（抽查，照 audit.json 的順序）,
+//                                                             "<牆>#sam": ["sam"|"color"|"keep"|"delete"|"unsure", …]（外框三選一，照 sam-questions.json 的順序）,
+//                                                             "<牆>#recheck": ["sam|color|keep|delete:<理由> 或 ok|rm1|rm2|merge", …]（放大再看一次，照 recheck.json 的順序，不能再答 unsure）, "<牆>#audit": ["ok"|"bad", …]（抽查，照 audit.json 的順序）,
 //                                                             "<牆>#overview": [6 格，每格 "ok" 或 { "volumes": [[x0,y0,x1,y1]…], "missing": [[x0,y0,x1,y1]…], "issues": "…" }],
 //                                                             "<牆>#shapes": [每個 Volume 一個多邊形 [[x,y]…]（或幾個多邊形的陣列、或 "skip:<理由>"）], "<牆>#shapecheck": ["ok" 或 { "poly": […], "remove": [編號…], "delete": true }]}
 //   node tools/wall-batch.mjs shapes <工作資料夾>             總覽回報的 Volume 出放大圖（含座標格線）給代理畫外框（shape-sheets/）
 //   node tools/wall-batch.mjs shapecheck <工作資料夾>         新加的 Volume、漏掉的岩點疊上外框再看一次（shapecheck-sheets/；每輪只看還沒看過的）
 //   node tools/wall-batch.mjs onvolume <工作資料夾>           每個大外框（Volume、大岩點）一張放大圖，找上面沒有外框的岩點（onvolume-sheets/）
+//   node tools/wall-batch.mjs closeup <工作資料夾>            最後逐格細看（約 560 px 一格、外框有編號）：漏掉的岩點、畫不好的外框（重畫）、不是岩點的外框（放大確認理由才刪）
 //   node tools/wall-batch.mjs verify <工作資料夾>             **完成的閘門**：每面牆每一步都判斷過、數字寫進 <牆>/result.json、研究記錄寫進 <牆>/pack/<牆 id>.edits.json（發佈時上傳）；沒過就列原因、以 1 結束
 //   node tools/wall-batch.mjs reviewed <工作資料夾> <牆> --by human:<名稱> --said "<原話>"   人另外檢查過（可做可不做）：研究記錄多記一筆
 //   node tools/wall-batch.mjs review <工作資料夾>             整理要人判斷的清單：review/index.html（單檔、手機看）和 review.json；印出總結
@@ -23,12 +24,12 @@
 //   node tools/wall-batch.mjs publish <工作資料夾> --gym "<岩館名稱>" --key <岩館金鑰檔>   用岩館金鑰簽章，直接把通過 verify 的牆發佈到開放資料集（不經 ZIP）；同一面牆再發是新版本
 //   node tools/wall-batch.mjs status <工作資料夾>             每面牆做到哪
 //
-// 檢查分級（POLICY）：程式自己處理的（SAM2 沒旗標、重複岩點 IoU ≥ 0.70）→ 隨機抽查 → AI 看圖的（SAM2 候選對不上／分數低、其餘重複岩點）→ 只剩 AI 看不準的給人。
+// 檢查分級（POLICY）：程式自己處理的（SAM2 沒旗標又跟色彩貼邊一致、重複岩點 IoU ≥ 0.70）→ 隨機抽查 → AI 看圖的（外框三選一、其餘重複岩點）→ 只剩 AI 看不準的給人。
 //   node tools/wall-batch.mjs next <工作資料夾>               **不知道下一步做什麼就跑這個**：印出現在做到哪、下一步要跑的指令、要看的圖在哪、判斷檔怎麼寫
 //   node tools/wall-batch.mjs recheck <工作資料夾>             看不準（unsure）的再看一次：放大、多帶周圍（含整顆 volume）重新出圖，**這一輪不能再答 unsure，要定案**
 // **「看不準」不是交給人的出口**：岩點辨識人眼看得出來的，AI 也要看得出來；看不準先放大再看一次（recheck），定案後才算完成。人只負責「要不要公開發佈」。
 // 判斷代號：重複岩點 ok＝兩顆是不同的岩點、不用改；rm1／rm2＝拿掉第一顆／第二顆外框；merge＝兩顆是同一顆的兩半，合成一顆（取凸包）；unsure＝看不準，交給人。
-// SAM2 要看的：sam＝採用 SAM2 外框、keep＝保留原外框（HoldKit）、delete＝不是岩點／重複／碎片（拿掉）、unsure＝看不準，交給人。**這是本來要人一顆顆檢查的項目，改由代理看圖判斷，不是不檢查。**
+// 外框三選一（每顆三個候選：原外框、SAM2、色彩貼邊）：sam＝採用 SAM2 外框、color＝採用色彩貼邊、keep＝保留原外框（HoldKit）、delete＝不是岩點／重複／碎片（拿掉）、unsure＝看不準，交給人。**這是本來要人一顆顆檢查的項目，改由代理看圖判斷，不是不檢查。**
 // 抽查：ok＝自動處理的對、bad＝錯了（程式還原）。全牆總覽 overview：看有沒有系統性的錯誤（照明燈、貼牆長條外框偏鬆），沒有回 ok。
 import { readFileSync, writeFileSync, appendFileSync, mkdirSync, existsSync, readdirSync, statSync, copyFileSync, rmSync } from 'node:fs';
 import { join, dirname, basename, extname, resolve } from 'node:path';
@@ -44,13 +45,18 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..'), require = crea
 
 /** 哪些程式自己處理、哪些給 AI 看圖、哪些給人：全部寫在這裡，不要讓每個代理自己決定。數字的依據見 docs/studio-wall.md「分級」。 */
 const POLICY = {
-  samReviewFlags: ['候選對不上', '分數低'],   // SAM2 重描後只有這兩種旗標要 AI 看圖（約 5～7% 的岩點）；其餘（沒旗標、偵測信心低、邊緣不確定）直接採用 SAM2 外框
+  samReviewFlags: ['候選對不上', '分數低', '漏到鄰點', '大點視窗不一致'],   // SAM2 有這些旗標就要 AI 看圖三選一（漏到鄰點＝遮罩包到相鄰岩點的中心；大點視窗不一致＝大岩點放大描跟一般視窗描的對不上）
+  samAgreeIou: 0.8,                           // 色彩貼邊沒有旗標、跟 SAM2 重疊不到這個值：兩種獨立的方法不一致，AI 看三欄對照圖三選一。色彩有旗標（對比低、漏出）就不可靠，不拿來判斷。
+                                              // 南港：這組 57 顆（11%），三選一最好的平均重疊 0.881、只用 SAM2 0.854；門檻 0.9 會多出 110 顆、多看的那些 SAM2 已經 0.91，三選一只多 0.01
+  edgeSplit: 4,                               // 大岩點（偵測框面積到中位數 4 倍以上）要看的，另外沿邊界切成 4 段（四個角落）各一張放大圖，看清楚弧邊、凹邊
   dupAutoIou: 0.70,                           // 兩個外框重疊（IoU）到這個值以上就是同一顆：程式自動拿掉比較小的那顆，不問 AI
   auditSam: 12, auditDup: 6,                  // 自動處理的結果，隨機抽幾個給 AI 複查（自動不等於不檢查）；複查有錯的會還原
   audit: { seed: 20261121 },
   surfaceRatio: 3,                            // 面積到中位數的 3 倍以上（Volume、大岩點）各出一張放大圖找上面漏掉的岩點：南港漏掉的岩點全部在這種外框裡面
   volumeRatio: 8,                           // 面積到中位數的 8 倍以上算 Volume：總覽用黃色畫，方便看出哪些 Volume 沒有整顆的外框
   overviewTiles: [3, 2],                      // 全牆總覽切成 3×2 格，每格都要回答（Volume、漏掉的岩點、系統性問題）
+  closeupTile: 560,                           // 細看：照片切成約 560 px 的格子（南港 5×4 格），外框標編號，每格回答漏掉的岩點、畫不好的外框、不是岩點的外框。
+                                              // 南港重跑：人工答案 564 顆，漏掉 28、不是岩點 16、外框太大或切角 50；總覽（一格約 1000 px、外框沒編號）看不清楚，回報了也套用不了
   deleteReasons: DELETE_REASONS,              // 刪除一定要說是哪一種；說不出來就是岩點，保留（tools/hold-rubric.mjs，3D 牆共用）
 };
 
@@ -58,11 +64,12 @@ const POLICY = {
 const RUBRIC = [
   '判斷準則（所有代理同一份，照順序套用）：',
   ...HOLD_RULES.map((r, i) => `${i + 1} ${r}`),
-  '4 外框二選一：選貼著岩點實際邊緣的那個；SAM2 外框包到牆面或旁邊的岩點 → keep；原外框切掉一角 → sam；兩個都差不多 → sam。',
+  '4 外框三選一（紅＝原外框 keep、青＝SAM2 sam、黃＝色彩貼邊 color）：選沿著岩點跟牆面交界走、不包到牆面或旁邊岩點、也不切掉一角的那個。先看 SAM2：大岩點的弧邊有折角、凹邊被拉直包到牆面、或包到旁邊的岩點，就看黃色；黃色在深色陰影、跟牆同色的地方會漏出去，在強反光的地方會切出缺口，有這些就不選黃色。三個都差不多 → sam；都不好 → 選最接近的那個（不要因為都不完美就 delete）。大岩點另有沿邊界的四張分段放大圖（sam-edges/<題號>-1～4.jpg），四段都看過再選。',
   '5 重複：同一顆兩個外框 → 留比較完整的（rm1／rm2）；同一顆被切成兩半 → merge；Volume 和它上面的岩點、或兩顆相鄰的岩點 → ok；Volume 的一個面被切成的碎片和岩點（或和 Volume）→ 拿掉碎片（rm1／rm2）。抽查只看程式自動處理的那一步對不對，不管別題怎麼判。',
   '6 總覽每格都要逐一找：黃色＝目前的大外框（Volume 或大岩點）。每個 Volume 都要有一個沿外緣的完整外框；沒有、只蓋一部分、被切成好幾塊（Volume 上只看到岩點和碎片的綠框）→ 回報 volumes 外接框（一個 Volume 一個框）；完全沒有外框的岩點 → 回報 missing 外接框。座標照圖上的格線（照片像素）；跨格的 Volume 每格報自己看到的那一段，框的邊貼著格線，會自動接起來。',
   '7 畫 Volume：照放大圖的格線，沿 Volume 外緣依序給頂點（照片像素，順時針或逆時針都可，6～20 點）；Volume 邊是直線，轉角放頂點；被上面的岩點擋住的邊照 Volume 的直線延伸，Volume 超出放大圖就照總覽把頂點給到圖外。',
   '8 Volume 上的岩點：每個大外框（Volume、大岩點）各一張放大圖，逐一找上面每一顆岩點（小色塊、螺絲旁的小點也算，照第 1 條判斷），自己沒有外框的回報外接框；圖上其他地方看到沒有外框的岩點也一起報（重複報到同一顆會自動合併）；都有就回 []。',
+  '9 細看（最後一步，一格約 560 px、外框有編號）：每格對照左邊的照片和右邊的外框。missing＝完全沒有外框的岩點：右圖有外框的都塗了顏色，沒塗綠色、還是原本顏色的岩點就是沒有外框（在黃色 Volume 或大岩點上、沒有自己綠色外框的也算），照格線給外接框；bad＝外框明顯畫不好（包到牆面、陰影、旁邊的岩點，或只蓋到岩點的一部分；差幾個 px 不算）給編號，之後放大重畫；extra＝不是岩點的外框，給 [編號, 理由]（理由照第 3 條，說不出來就不要報）。黃色是 Volume 或大岩點，外框沒有沿著整顆走（只蓋一部分、包到別的東西）一樣報 bad；一顆岩點被切成好幾個外框，完整的那個（或要重畫的那個）報 bad、其餘的報 extra 碎片。中心在隔壁格的外框在隔壁格有編號。',
 ];
 const reasonOf = (d) => { const m = /^delete:(.+)$/.exec(d || ''); return m && POLICY.deleteReasons.includes(m[1]) ? m[1] : null; };
 const [cmd, ...rest] = process.argv.slice(2);
@@ -136,8 +143,8 @@ async function runOne(chromium, base, photo, dir, { sam = true, samCapMs }) {
       const fs = await ShareTools.wallPackage({ id: hex(16), layerId: hex(16), pid: hex(16), name: w.name, gym: '', w: w.w, h: w.h, thumb, holds: d.holds, routes: [], photo: await P.photo(w), attribution: 'Climbio Studio Wall', version: 1, t: Date.now() });
       const b64 = (u) => { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(s); };
       // auto：自動結果（研究記錄的 base：HoldKit 偵測加重描的外框與旗標；sam：每顆 SAM2 重描的外框、旗標、跟原外框的 IoU、程式有沒有直接採用）
-      const auto = { tools: { holdkit: HoldKit.VERSION, detector: 'holdscan', sam: 'sam2.1-hiera-base-plus' }, base: d.base || {}, sam: Object.fromEntries(d.holds.filter(h => h.sam).map(h => [h.id, { poly: h.sam.poly, flags: h.sam.flags, iou: h.sam.iou, pick: h.sam.pick }])), sha256: w.sha || '' };
-      return { auto, files: fs.map(f => ({ path: f.path, b64: b64(f.bytes) })), samLeft: d.holds.filter(h => h.sam && !h.sam.pick).length, samAuto: d.holds.filter(h => h.sam && h.sam.pick === 'auto').length, samInfo: d.holds.filter(h => h.sam && !h.sam.pick).map(h => ({ id: h.id, sam: h.sam.poly, iou: h.sam.iou, flags: h.sam.flags })) };
+      const auto = { tools: { holdkit: HoldKit.VERSION, detector: 'holdscan', sam: 'sam2.1-hiera-base-plus' }, base: d.base || {}, sam: Object.fromEntries(d.holds.filter(h => h.sam).map(h => [h.id, { poly: h.sam.poly, flags: h.sam.flags, iou: h.sam.iou, pick: h.sam.pick, color: h.sam.color || null, colorFlags: h.sam.colorFlags || [], big: !!h.sam.big }])), sha256: w.sha || '' };
+      return { auto, files: fs.map(f => ({ path: f.path, b64: b64(f.bytes) })), samLeft: d.holds.filter(h => h.sam && !h.sam.pick).length, samAuto: d.holds.filter(h => h.sam && h.sam.pick === 'auto').length, samInfo: d.holds.filter(h => h.sam && !h.sam.pick).map(h => ({ id: h.id, sam: h.sam.poly, iou: h.sam.iou, flags: h.sam.flags, color: h.sam.color || null, colorFlags: h.sam.colorFlags || [], big: !!h.sam.big })) };
     });
     rmSync(join(dir, 'pack'), { recursive: true, force: true }); mkdirSync(join(dir, 'pack'), { recursive: true });
     for (const f of pack.files) writeFileSync(join(dir, 'pack', f.path), Buffer.from(f.b64, 'base64'));
@@ -201,9 +208,12 @@ async function renderCells(chromium, pack, view, cells, { sheetDir, legend = '�
       const img = new Image(); await new Promise(r => { img.onload = r; img.src = 'data:image/jpeg;base64,' + jpg; });
       return cells.map(c => {
         const [x0, y0, x1, y1] = c.box, sx = Math.max(0, x0 - pad), sy = Math.max(0, y0 - pad), sw = Math.min(w, x1 + pad) - sx, sh = Math.min(h, y1 + pad) - sy, k = Math.min(max[0] / sw, max[1] / sh);
-        const cv = document.createElement('canvas'); cv.width = sw * k * 2 + 6; cv.height = sh * k; const g = cv.getContext('2d');
-        g.drawImage(img, sx, sy, sw, sh, 0, 0, sw * k, sh * k); g.drawImage(img, sx, sy, sw, sh, sw * k + 6, 0, sw * k, sh * k);
-        for (const [p, col] of [[c.a, '#ff3b3b'], [c.b, '#25e6ff']]) { g.beginPath(); p.forEach(([x, y], j) => g[j ? 'lineTo' : 'moveTo']((x - sx) * k + sw * k + 6, (y - sy) * k)); g.closePath(); g.lineWidth = 2; g.strokeStyle = col; g.stroke(); }
+        // 三選一（c 鍵存在）：三欄各畫一個候選（紅＝原外框、青＝SAM2、黃＝色彩貼邊），照片不會被別的線蓋住；兩選一：左原圖、右兩個外框
+        const three = 'c' in c, panes = three ? 3 : 2, cv = document.createElement('canvas'); cv.width = sw * k * panes + 6 * (panes - 1); cv.height = sh * k; const g = cv.getContext('2d');
+        for (let q = 0; q < panes; q++) g.drawImage(img, sx, sy, sw, sh, q * (sw * k + 6), 0, sw * k, sh * k);
+        const draw = (p, col, q) => { g.beginPath(); p.forEach(([x, y], j) => g[j ? 'lineTo' : 'moveTo']((x - sx) * k + q * (sw * k + 6), (y - sy) * k)); g.closePath(); g.lineWidth = 2; g.strokeStyle = col; g.stroke(); };
+        if (!three) for (const [p, col] of [[c.a, '#ff3b3b'], [c.b, '#25e6ff']]) draw(p, col, 1);
+        else [[c.a, '#ff3b3b'], [c.b, '#25e6ff'], [c.c, '#ffd21f']].forEach(([p, col], q) => { if (p) draw(p, col, q); else { g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(q * (sw * k + 6), 0, sw * k, 22); g.fillStyle = '#ffd21f'; g.font = '13px sans-serif'; g.fillText('色彩分不開，沒有候選', q * (sw * k + 6) + 4, 16); } });
         return cv.toDataURL('image/jpeg', 0.85);
       });
     }, { cells, jpg, w: view.w, h: view.h, max, pad });
@@ -228,15 +238,17 @@ async function questionsOf(work, n) {
 const questionsOfSync = (work, n) => { try { const j = JSON.parse(tool('studio.mjs', 'ask', packOf(work, n), '--json').stdout); return (Array.isArray(j) ? j : j.questions || []).filter(q => q.kind === 'hold-dup' && q.waiting !== 'human'); } catch { return []; } };
 const cellOf = (pack, view, q) => ({ box: q.evidence[0].box, a: polyOf(pack, view, q.target[0]), b: polyOf(pack, view, q.target[1]) });
 
-/** SAM2 重描後的分級：要看的（旗標有 POLICY.samReviewFlags）、自動採用的（其餘）。回傳對照格：a＝現在的外框、b＝SAM2 的外框 */
+/** SAM2 重描後的分級：要看的（旗標有 POLICY.samReviewFlags，或 SAM2 跟色彩貼邊對不上）、自動採用的（其餘）。回傳對照格：a＝現在的外框、b＝SAM2、c＝色彩貼邊（分不開是 null） */
 function samSplit(work, n, pack, view) {
   const info = readJson(join(work, n, 'sam.json'), []), live = liveIds(pack, view), review = [], auto = [];
   for (const h of info) {
     if (!live.has(h.id)) continue;
     const a = polyOf(pack, view, h.id); if (!a) continue;
-    const pts = [...a, ...h.sam], xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
-    const cell = { id: h.id, a, b: h.sam, flags: h.flags, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)].map(Math.round) };
-    (h.flags.some(f => POLICY.samReviewFlags.includes(f)) ? review : auto).push(cell);
+    const pts = [...a, ...h.sam, ...(h.color || [])], xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+    const cell = { id: h.id, a, b: h.sam, c: h.color || null, flags: h.flags, big: !!h.big, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)].map(Math.round) };
+    // 舊版 run 沒有色彩貼邊（sam.json 沒有 color 欄位）、色彩貼邊自己有旗標：只看 SAM2 的旗標
+    const agree = !h.color || (h.colorFlags || []).length > 0 || require('../studio/wall/record.js').polyIou(h.sam, h.color, view.w, view.h) >= POLICY.samAgreeIou;
+    (h.flags.some(f => POLICY.samReviewFlags.includes(f)) || !agree ? review : auto).push(cell);
   }
   return { review, auto };
 }
@@ -263,15 +275,17 @@ async function check() {
     const out = [];
     // 1 SAM2（第一次才做）：沒旗標的直接採用 SAM2 外框，候選對不上、分數低的給 AI 看圖。要先做，因為採用新外框會改變哪些岩點互相重疊
     if (first) {
-      for (const f of ['sam-sheets', 'audit-sheets', 'overview', 'shape-sheets', 'shapecheck-sheets', 'recheck-sheets', 'onvolume-sheets']) rmSync(join(dir, f), { recursive: true, force: true });
-      for (const f of ['sam-decisions.json', 'sam-left.json', 'audit-decisions.json', 'overview-decisions.json', 'shapes.json', 'shape-decisions.json', 'added.json', 'shapecheck.json', 'shapecheck-decisions.json', 'recheck.json', 'recheck-decisions.json', 'deleted.json', 'result.json', 'onvolume.json', 'onvolume-decisions.json']) rmSync(join(dir, f), { force: true });
+      for (const f of ['sam-sheets', 'sam-edges', 'audit-sheets', 'overview', 'shape-sheets', 'shapecheck-sheets', 'recheck-sheets', 'onvolume-sheets', 'closeup']) rmSync(join(dir, f), { recursive: true, force: true });
+      for (const f of ['sam-decisions.json', 'sam-left.json', 'audit-decisions.json', 'overview-decisions.json', 'shapes.json', 'shape-decisions.json', 'added.json', 'shapecheck.json', 'shapecheck-decisions.json', 'recheck.json', 'recheck-decisions.json', 'deleted.json', 'result.json', 'onvolume.json', 'onvolume-decisions.json', 'closeup.json', 'closeup-decisions.json']) rmSync(join(dir, f), { force: true });
       const { review: sr, auto: sa } = samSplit(work, n, pack, view);
       const err2 = applyOps(pack, dir, sa.map(c => ({ op: 'set', id: c.id, poly: polyRound(c.b) }))); if (err2) console.log(`${n}：自動採用 SAM2 失敗：${err2}`);
       rmSync(join(dir, 'ai-log.jsonl'), { force: true });
-      logLine(work, n, { step: 'auto-sam', rule: `SAM2 沒有「${POLICY.samReviewFlags.join('」「')}」旗標就採用 SAM2 外框`, ids: sa.map(c => c.id), review: sr.map(c => c.id) });
-      if (sa.length) tool('studio.mjs', 'note', pack, `自動處理（程式）：SAM2 重描後沒有「${POLICY.samReviewFlags.join('」「')}」旗標的 ${sa.length} 顆，直接採用 SAM2 外框（人工通常沿用 SAM2 外框）；${sr.length} 顆有旗標，交給 AI 看圖。`);
-      writeJson(join(dir, 'sam-questions.json'), sr.map(({ id, box }) => ({ id, box })));
-      if (sr.length) await renderCells(chromium, pack, view, sr, { sheetDir: join(dir, 'sam-sheets'), legend: '左：原圖　右：紅＝原外框、青＝SAM2 外框', per: 18, max: [250, 170] });
+      const rule = `SAM2 沒有「${POLICY.samReviewFlags.join('」「')}」旗標、也沒有跟色彩貼邊（沒旗標的）重疊不到 ${POLICY.samAgreeIou}，就採用 SAM2 外框`;
+      logLine(work, n, { step: 'auto-sam', rule, ids: sa.map(c => c.id), review: sr.map(c => c.id) });
+      if (sa.length) tool('studio.mjs', 'note', pack, `自動處理（程式）：${rule}：${sa.length} 顆；${sr.length} 顆交給 AI 看三欄對照圖三選一（原外框、SAM2、色彩貼邊）。`);
+      writeJson(join(dir, 'sam-questions.json'), sr.map(({ id, box, big }) => ({ id, box, ...(big ? { big } : {}) })));
+      if (sr.length) await renderCells(chromium, pack, view, sr, { sheetDir: join(dir, 'sam-sheets'), legend: '三選一：紅＝原外框（keep）、青＝SAM2（sam）、黃＝色彩貼邊（color）', per: 12, max: [230, 170], cols: 2 });
+      await renderEdges(chromium, pack, view, sr, join(dir, 'sam-edges'));
       for (const c of sample(sa, POLICY.auditSam, POLICY.audit.seed + 1)) audit.push({ kind: 'sam', id: c.id, orig: c.a, a: c.a, b: c.b, box: c.box });
       out.push(`SAM2：程式採用 ${sa.length} 顆、AI 看圖 ${sr.length} 顆`);
     }
@@ -336,7 +350,7 @@ async function renderZooms(chromium, pack, view, items, outDir, { max = [1100, 8
           if (it.twin && !p) continue;
           g.save(); g.beginPath(); g.rect(ox, M, pw, sh * k); g.clip();
           for (const s of it.polys || []) {
-            g.beginPath(); s.p.forEach(([x, y], j) => g[j ? 'lineTo' : 'moveTo'](X(x), Y(y))); g.closePath(); g.lineWidth = s.width || 2; g.strokeStyle = s.color; g.stroke();
+            g.beginPath(); s.p.forEach(([x, y], j) => g[j ? 'lineTo' : 'moveTo'](X(x), Y(y))); g.closePath(); if (s.fill) { g.fillStyle = s.fill; g.fill(); } g.lineWidth = s.width || 2; g.strokeStyle = s.color; g.stroke();
             if (s.label != null) { const cx = s.p.reduce((a, q) => a + q[0], 0) / s.p.length, cy = s.p.reduce((a, q) => a + q[1], 0) / s.p.length; g.font = 'bold 15px sans-serif'; const t = String(s.label), tw = g.measureText(t).width; g.fillStyle = 'rgba(0,0,0,.75)'; g.fillRect(X(cx) - tw / 2 - 3, Y(cy) - 10, tw + 6, 19); g.fillStyle = s.color; g.fillText(t, X(cx) - tw / 2, Y(cy) + 5); }
           }
           g.restore();
@@ -359,6 +373,17 @@ function livePolys(pack, view) {
   return { list, volumeMin: med * POLICY.volumeRatio };
 }
 const tilesOf = (view) => { const [C, R] = POLICY.overviewTiles, out = []; for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) out.push({ tile: out.length + 1, box: [Math.round(c * view.w / C), Math.round(r * view.h / R), Math.round((c + 1) * view.w / C), Math.round((r + 1) * view.h / R)] }); return out; };
+
+/** 大岩點要看的：沿邊界切成四個角落各一張放大圖（三個候選都畫上：紅＝原外框、青＝SAM2、黃＝色彩貼邊），弧邊、凹邊看得清楚。檔名 <題號>-<1～4>.jpg */
+async function renderEdges(chromium, pack, view, cells, outDir) {
+  const items = [];
+  cells.forEach((c, i) => {
+    if (!c.big) return;
+    const [x0, y0, x1, y1] = c.box, mx = (x0 + x1) / 2, my = (y0 + y1) / 2, polys = [[c.a, '#ff3b3b'], [c.b, '#25e6ff'], [c.c, '#ffd21f']].filter(([p]) => p).map(([p, color]) => ({ p, color, width: 2 }));
+    [[x0, y0, mx, my], [mx, y0, x1, my], [x0, my, mx, y1], [mx, my, x1, y1]].slice(0, POLICY.edgeSplit).forEach((box, q) => items.push({ box, polys, twin: true, tag: `#${i}-${q + 1}`, title: '左：照片　右：紅＝原外框、青＝SAM2、黃＝色彩貼邊', file: `${String(i).padStart(2, '0')}-${q + 1}` }));
+  });
+  await renderZooms(chromium, pack, view, items, outDir, { max: [1100, 560], pad: 24, name: (k) => items[k].file });
+}
 
 /** 全牆總覽：照片分成 3×2 格，疊上現在的外框（綠＝岩點、黃＝Volume），格線是照片像素座標。每格回答：沒有完整外框的 Volume、完全漏掉的岩點、系統性的錯誤 */
 async function renderOverview(chromium, pack, view, outDir) {
@@ -494,6 +519,49 @@ function applyOnvolume(work, n, list) {
   console.log(`${n}#onvolume：大外框 ${items.length} 個，加 ${add.length} 顆；下一步跑 shapecheck 疊上外框再看一次`);
 }
 
+/** 細看：照片切成約 POLICY.closeupTile 的格子，左照片、右疊外框（中心在這格裡的外框標編號；綠＝岩點、黃＝Volume 或大岩點）。
+ *  每格回答 "ok" 或 { missing: [[x0,y0,x1,y1]…]（完全沒有外框的岩點）, bad: [編號…]（外框明顯畫不好）, extra: [[編號, "理由"]…]（不是岩點） } */
+const inBox = (p, b) => p[0] >= b[0] && p[0] < b[2] && p[1] >= b[1] && p[1] < b[3];
+const closeupTiles = (view) => { const C = Math.max(1, Math.round(view.w / POLICY.closeupTile)), R = Math.max(1, Math.round(view.h / POLICY.closeupTile)), out = []; for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) out.push({ tile: out.length + 1, box: [Math.round(c * view.w / C), Math.round(r * view.h / R), Math.round((c + 1) * view.w / C), Math.round((r + 1) * view.h / R)] }); return out; };
+async function closeupCmd() {
+  const work = rest[0]; if (!work) fail('用法：node tools/wall-batch.mjs closeup <工作資料夾>');
+  const chromium = chromiumOf();
+  for (const n of wallsOf(work)) {
+    const pack = packOf(work, n), view = viewOf(pack), { list, volumeMin } = livePolys(pack, view), tiles = closeupTiles(view);
+    const ctr = (p) => { const b = boxOf(p); return [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2]; };
+    for (const t of tiles) t.ids = list.filter(x => inBox(ctr(x.p), t.box)).map(x => x.id);
+    writeJson(join(work, n, 'closeup.json'), tiles); rmSync(join(work, n, 'closeup-decisions.json'), { force: true });
+    await renderZooms(chromium, pack, view, tiles.map(t => ({ box: t.box, twin: true, tag: `第 ${t.tile} 格`, title: '細看：左＝照片、右＝外框塗色（綠＝岩點、黃＝Volume 或大岩點；中心在這格的有編號）；沒塗綠的岩點＝沒有外框（Volume 上的也是）；回答 missing／bad／extra，都沒有回 "ok"',
+      polys: [...list.filter(x => near(boxOf(x.p), t.box, 0)).sort((a, b) => b.area - a.area).map(x => { const k = t.ids.indexOf(x.id), vol = x.area >= volumeMin; return { p: x.p, color: vol ? '#ffd21f' : '#27e06b', fill: vol ? 'rgba(255,210,31,.22)' : 'rgba(39,224,107,.38)', width: k < 0 ? 1 : 2, ...(k < 0 ? {} : { label: k + 1 }) }; })] })), join(work, n, 'closeup'), { max: [1800, 1000], pad: 40, step: 50, name: (i) => String(i + 1).padStart(2, '0') });
+    console.log(`${n}：細看 ${tiles.length} 格，圖在 ${join(work, n, 'closeup')}（檔名＝格號）；判斷寫在 "${n}#closeup"：每格 "ok" 或 { "missing": [[x0,y0,x1,y1]…], "bad": [編號…], "extra": [[編號, "理由"]…] }`);
+  }
+}
+function applyCloseup(work, n, list) {
+  const tiles = readJson(join(work, n, 'closeup.json'), null); if (!tiles) fail(`${n}#closeup：先跑 node tools/wall-batch.mjs closeup ${work}`);
+  if (existsSync(join(work, n, 'closeup-decisions.json'))) fail(`${n}#closeup：已經套用過；要重做先重跑 closeup`);
+  if (!Array.isArray(list) || list.length !== tiles.length) fail(`${n}#closeup：細看有 ${tiles.length} 格，要每格一個回答（"ok" 或 { missing, bad, extra }）`);
+  const pack = packOf(work, n), view = viewOf(pack), live = liveIds(pack, view), { list: polys } = livePolys(pack, view), miss = [], bad = new Set(), extra = new Map();
+  const idOf = (t, k, i, what) => { const id = t.ids[k - 1]; if (!id) fail(`${n}#closeup 第 ${i + 1} 格 ${what}：沒有編號 ${k}`); return id; };
+  list.forEach((x, i) => {
+    if (x === 'ok') return;
+    if (!x || typeof x !== 'object') fail(`${n}#closeup 第 ${i + 1} 格：要 "ok" 或 { missing, bad, extra }`);
+    const t = tiles[i];
+    for (const b of x.missing || []) { if (!okBox(b, view)) fail(`${n}#closeup 第 ${i + 1} 格 missing：外接框要是照片內的 [x0,y0,x1,y1]：${JSON.stringify(b)}`); const r = b.map(Math.round); if (!miss.some(o => near(o, r, 0) && Math.min(o[2], r[2]) - Math.max(o[0], r[0]) > 0.5 * Math.min(o[2] - o[0], r[2] - r[0]))) miss.push(r); }   // 跨格報到同一顆只加一次
+    for (const k of x.bad || []) bad.add(idOf(t, k, i, 'bad'));
+    for (const e of x.extra || []) { const [k, why] = Array.isArray(e) ? e : [e, '']; if (!POLICY.deleteReasons.includes(why)) fail(`${n}#closeup 第 ${i + 1} 格 extra 編號 ${k}：理由要是 ${POLICY.deleteReasons.join('／')} 其中一個（說不出來就是岩點，不要報）`); extra.set(idOf(t, k, i, 'extra'), why); }
+  });
+  for (const id of extra.keys()) bad.delete(id);
+  const add = miss.map(b => ({ id: newId(), kind: 'hold', box: b, poly: ellipse(b) }));
+  const err = applyOps(pack, join(work, n), add.map(a => ({ op: 'add', id: a.id, poly: a.poly }))); if (err) fail(`${n}#closeup：加漏掉的岩點失敗：${err}`);
+  // 畫不好的：進 shapecheck（疊上格線重畫）；不是岩點的：recheck 放大再確認理由才刪
+  addAdded(work, n, [...add.map(({ poly, ...a }) => a), ...[...bad].filter(id => live.has(id)).map(id => ({ id, kind: 'redraw', box: boxOf(polys.find(x => x.id === id).p) }))]);
+  addRecheck(work, n, [...extra].filter(([id]) => live.has(id)).map(([id, why]) => ({ kind: 'hold', id, why })));
+  writeJson(join(work, n, 'closeup-decisions.json'), list);
+  const line = `漏掉的岩點 ${add.length} 顆（先加橢圓外框）、畫不好的外框 ${bad.size} 個（重畫）、不是岩點 ${extra.size} 個（放大再確認）`;
+  tool('studio.mjs', 'note', pack, `細看（代理，${tiles.length} 格）：${line}。`);
+  console.log(`${n}#closeup：${line}；下一步跑 next`);
+}
+
 /** 新加的外框（Volume、漏掉的岩點）疊上去再看一次：黃＝新加的、綠＝蓋在裡面的舊外框（有編號，Volume 的碎片可以拿掉）。只看還沒看過的（added.json 沒有 checked） */
 async function shapecheckCmd() {
   const work = rest[0]; if (!work) fail('用法：node tools/wall-batch.mjs shapecheck <工作資料夾>');
@@ -505,11 +573,11 @@ async function shapecheckCmd() {
     const pack = packOf(work, n), view = viewOf(pack), { list } = livePolys(pack, view), byId = new Map(list.map(x => [x.id, x])), items = [];
     for (const a of added) {
       const me = byId.get(a.id); if (!me) continue;
-      const inner = list.filter(x => x.id !== a.id && (() => { const b = boxOf(x.p), c = [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2]; return inPoly(c[0], c[1], me.p) || (a.kind === 'hold' && near(b, boxOf(me.p), 0)); })()).map(x => x.id);
+      const inner = list.filter(x => x.id !== a.id && (() => { const b = boxOf(x.p), c = [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2]; return inPoly(c[0], c[1], me.p) || (a.kind !== 'volume' && near(b, boxOf(me.p), 0)); })()).map(x => x.id);
       items.push({ id: a.id, kind: a.kind, inner });
     }
     writeJson(join(work, n, 'shapecheck.json'), items); rmSync(join(work, n, 'shapecheck-decisions.json'), { force: true });
-    await renderZooms(chromium, pack, view, items.map(it => ({ box: boxOf(byId.get(it.id).p), twin: true, title: `${it.kind === 'volume' ? '新加的 Volume' : '新加的岩點（橢圓）'}：黃＝新外框、綠＝裡面的舊外框（編號）`, polys: [...it.inner.map((id, j) => ({ p: byId.get(id).p, color: '#27e06b', label: j + 1 })), { p: byId.get(it.id).p, color: '#ffd21f', width: 3 }] })), join(work, n, 'shapecheck-sheets'), { max: [1600, 900], pad: 40 });
+    await renderZooms(chromium, pack, view, items.map(it => ({ box: boxOf(byId.get(it.id).p), twin: true, title: `${it.kind === 'volume' ? '新加的 Volume' : it.kind === 'redraw' ? '細看回報外框畫不好：照格線給新外框（poly）' : '新加的岩點（橢圓）'}：黃＝這個外框、綠＝裡面的舊外框（編號）`, polys: [...it.inner.map((id, j) => ({ p: byId.get(id).p, color: '#27e06b', label: j + 1 })), { p: byId.get(it.id).p, color: '#ffd21f', width: 3 }] })), join(work, n, 'shapecheck-sheets'), { max: [1600, 900], pad: 40 });
     console.log(`${n}：新加的外框 ${items.length} 個，圖在 ${join(work, n, 'shapecheck-sheets')}；判斷寫在 "${n}#shapecheck"：對了 "ok"；要改 { "poly": [[x,y]…] }；裡面的舊外框是 Volume 碎片或重複 { "remove": [編號…] }；不是岩點 { "delete": true }`);
   }
 }
@@ -532,39 +600,41 @@ function applyShapecheck(work, n, list) {
   console.log(`${n}#shapecheck：${line}`);
 }
 
-/** SAM2 不一致的判斷：sam＝把外框換成 SAM2 的、keep＝不動；unsure 留給人（記進 sam-left.json） */
+/** SAM2 要看的判斷（三選一）：sam＝換成 SAM2 的外框、color＝換成色彩貼邊、keep＝不動；delete、unsure 放大再看一次（recheck） */
 function applySam(work, n, list) {
   const qs = readJson(join(work, n, 'sam-questions.json')); if (!qs) { console.log(`${n}：沒有 sam-questions.json，先跑 check`); return; }
   if (list.length !== qs.length) fail(`${n}#sam：題目有 ${qs.length} 題，判斷給了 ${list.length} 個，要一題一個`);
-  const pack = packOf(work, n), view = viewOf(pack), info = new Map(readJson(join(work, n, 'sam.json'), []).map(h => [h.id, h])), live = liveIds(pack, view), ops = [], count = { sam: 0, keep: 0, delete: 0, unsure: 0, handled: 0 }, left = [];
+  const pack = packOf(work, n), view = viewOf(pack), info = new Map(readJson(join(work, n, 'sam.json'), []).map(h => [h.id, h])), live = liveIds(pack, view), ops = [], count = { sam: 0, color: 0, keep: 0, delete: 0, unsure: 0, handled: 0 }, left = [];
   list.forEach((d, i) => {
-    if (!['sam', 'keep', 'delete', 'unsure'].includes(d)) fail(`${n}#sam #${i}：不認得判斷 ${d}`);
+    if (!['sam', 'color', 'keep', 'delete', 'unsure'].includes(d)) fail(`${n}#sam #${i}：不認得判斷 ${d}（sam｜color｜keep｜delete｜unsure）`);
     const id = qs[i].id;
+    if (d === 'color' && !info.get(id)?.color) fail(`${n}#sam #${i}：這顆的色彩貼邊分不開、沒有黃色外框，不能選 color`);
     if (!live.has(id)) { count.handled++; return; }
     count[d]++;
-    if (d === 'sam') ops.push({ op: 'set', id, poly: info.get(id).sam.map(p => p.map(v => Math.round(v * 10) / 10)) });
+    if (d === 'sam' || d === 'color') ops.push({ op: 'set', id, poly: polyRound(d === 'sam' ? info.get(id).sam : info.get(id).color) });
     if (d === 'delete' || d === 'unsure') left.push(id);   // 要刪的也先不刪：放大再看一次、說出理由才刪（誤刪真岩點是 AI 檢查最大的錯）
   });
   addRecheck(work, n, left.map(id => ({ kind: 'sam', id })));
   if (ops.length) { const pf = join(work, n, `patch-sam-${Date.now()}.json`); writeJson(pf, ops); const ap = tool('wall.mjs', 'apply', pack, pf); rmSync(pf, { force: true }); if (ap.status !== 0) console.log(`${n}#sam：apply 失敗：${(ap.stderr || ap.stdout).slice(0, 200)}`); }
   writeJson(join(work, n, 'sam-left.json'), left); writeJson(join(work, n, 'sam-decisions.json'), list);
-  const line = `採用 SAM2 ${count.sam}、保留原外框 ${count.keep}、要刪（放大再確認）${count.delete}、看不準（放大再看）${count.unsure}、已被拿掉 ${count.handled}`;
-  tool('studio.mjs', 'note', pack, `AI 檢查（代理）：SAM2 有「${POLICY.samReviewFlags.join('」「')}」旗標的 ${qs.length} 顆，看照片逐顆判斷：${line}`);
+  const line = `採用 SAM2 ${count.sam}、採用色彩貼邊 ${count.color}、保留原外框 ${count.keep}、要刪（放大再確認）${count.delete}、看不準（放大再看）${count.unsure}、已被拿掉 ${count.handled}`;
+  tool('studio.mjs', 'note', pack, `AI 檢查（代理）：SAM2 有「${POLICY.samReviewFlags.join('」「')}」旗標或跟色彩貼邊對不上的 ${qs.length} 顆，看三欄對照圖逐顆三選一：${line}`);
   console.log(`${n}#sam：${line}`);
 }
 
 /** 看不準的記進 recheck.json（不是交給人，是放大再看一次） */
 function addRecheck(work, n, items) {
   if (!items.length) return;
-  const f = join(work, n, 'recheck.json'), cur = readJson(f, []), key = (x) => x.kind + ':' + (x.id || x.qid);
+  // 上一輪已經定案（有 recheck-decisions.json）就開新的一輪，只放這次的；舊的放大圖一起清掉，next 才不會叫人看舊圖
+  const f = join(work, n, 'recheck.json'), done = existsSync(join(work, n, 'recheck-decisions.json')), cur = done ? [] : readJson(f, []), key = (x) => x.kind + ':' + (x.id || x.qid);
   for (const it of items) if (!cur.some(c => key(c) === key(it))) cur.push(it);
-  writeJson(f, cur); rmSync(join(work, n, 'recheck-decisions.json'), { force: true });
+  writeJson(f, cur); rmSync(join(work, n, 'recheck-decisions.json'), { force: true }); rmSync(join(work, n, 'recheck-sheets'), { recursive: true, force: true });
 }
 
 function apply() {
   const [work, file] = rest; if (!work || !file) fail('用法：node tools/wall-batch.mjs apply <工作資料夾> <判斷.json>');
   const all = readJson(resolve(file)); if (!all) fail(`讀不到 ${file}`);
-  const FN = { sam: applySam, recheck: applyRecheck, audit: applyAudit, overview: applyOverview, shapes: applyShapes, shapecheck: applyShapecheck, onvolume: applyOnvolume };
+  const FN = { sam: applySam, recheck: applyRecheck, audit: applyAudit, overview: applyOverview, shapes: applyShapes, shapecheck: applyShapecheck, onvolume: applyOnvolume, closeup: applyCloseup };
   for (const key of Object.keys(all)) {
     const [n, step = 'dup'] = key.split('#');
     if (!existsSync(join(work, n, 'run.json'))) fail(`${key}：沒有這面牆（${join(work, n)}）`);
@@ -575,7 +645,7 @@ function apply() {
 
 /** 研究記錄：每一步的題目（照片座標、岩點 id）和代理的判斷、這一步新加的外框，按時間記進 <牆>/ai-log.jsonl；發佈時整份進 edits.json */
 const AGENT = process.env.CLIMBIO_AGENT || 'agent:claude';
-const STEP_ITEMS = { dup: 'questions.json', sam: 'sam-questions.json', recheck: 'recheck.json', audit: 'audit.json', overview: 'overview/tiles.json', shapes: 'shapes.json', shapecheck: 'shapecheck.json', onvolume: 'onvolume.json' };
+const STEP_ITEMS = { dup: 'questions.json', sam: 'sam-questions.json', recheck: 'recheck.json', audit: 'audit.json', overview: 'overview/tiles.json', shapes: 'shapes.json', shapecheck: 'shapecheck.json', onvolume: 'onvolume.json', closeup: 'closeup.json' };
 const logLine = (work, n, o) => appendFileSync(join(work, n, 'ai-log.jsonl'), JSON.stringify({ at: new Date().toISOString(), agent: AGENT, ...o }) + '\n');
 function logged(work, n, step, decisions, fn) {
   const items = readJson(join(work, n, STEP_ITEMS[step]), []), before = readJson(join(work, n, 'added.json'), []).length;
@@ -605,13 +675,14 @@ async function recheck() {
   for (const n of wallsOf(work)) {
     const items = readJson(join(work, n, 'recheck.json'), []), pack = packOf(work, n), view = viewOf(pack), live = liveIds(pack, view), cells = [], keep = [];
     for (const it of items) {
-      if (it.kind === 'sam') { if (!live.has(it.id)) continue; const info = readJson(join(work, n, 'sam.json'), []).find(h => h.id === it.id), a = polyOf(pack, view, it.id); if (!info || !a) continue; const pts = [...a, ...info.sam], xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); cells.push({ a, b: info.sam, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)].map(Math.round) }); keep.push(it); }
+      if (it.kind === 'sam') { if (!live.has(it.id)) continue; const info = readJson(join(work, n, 'sam.json'), []).find(h => h.id === it.id), a = polyOf(pack, view, it.id); if (!info || !a) continue; const pts = [...a, ...info.sam, ...(info.color || [])], xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); cells.push({ a, b: info.sam, c: info.color || null, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)].map(Math.round) }); keep.push(it); }
+      else if (it.kind === 'hold') { if (!live.has(it.id)) continue; const a = polyOf(pack, view, it.id); if (!a) continue; cells.push({ a, b: a, box: boxOf(a) }); keep.push(it); }
       else { const [x, y] = it.target; if (!live.has(x) || !live.has(y)) continue; const a = polyOf(pack, view, x), b = polyOf(pack, view, y), pts = [...a, ...b], xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); cells.push({ a, b, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)].map(Math.round) }); keep.push(it); }
     }
     rmSync(join(work, n, 'recheck-sheets'), { recursive: true, force: true }); rmSync(join(work, n, 'recheck-decisions.json'), { force: true });
     writeJson(join(work, n, 'recheck.json'), keep);
-    if (cells.length) await renderCells(chromium, pack, view, cells, { sheetDir: join(work, n, 'recheck-sheets'), legend: '再看一次（放大、含周圍）：紅＝第一顆／原外框、青＝第二顆／SAM2 外框；沒有「看不準」，要定案', per: 4, max: [640, 460], pad: 70, cols: 2 });
-    console.log(`${n}：要再看一次 ${cells.length} 件${cells.length ? `，大圖在 ${join(work, n, 'recheck-sheets')}（#號對應 recheck.json 的順序）；判斷寫在 "${n}#recheck"，sam 類答 sam|keep|delete:<理由>（${POLICY.deleteReasons.join('／')}），重複岩點類答 ok|rm1|rm2|merge，不能答 unsure` : ''}`);
+    if (cells.length) await renderCells(chromium, pack, view, cells, { sheetDir: join(work, n, 'recheck-sheets'), legend: '再看一次（放大、含周圍）：重複岩點 紅＝第一顆、青＝第二顆；細看回報不是岩點的 紅＝那個外框；外框三欄 紅＝原外框、青＝SAM2、黃＝色彩貼邊；沒有「看不準」，要定案', per: 4, max: [640, 460], pad: 70, cols: 2 });
+    console.log(`${n}：要再看一次 ${cells.length} 件${cells.length ? `，大圖在 ${join(work, n, 'recheck-sheets')}（#號對應 recheck.json 的順序）；判斷寫在 "${n}#recheck"，sam 類答 sam|color|keep|delete:<理由>（${POLICY.deleteReasons.join('／')}），細看回報不是岩點的答 keep|delete:<理由>，重複岩點類答 ok|rm1|rm2|merge，不能答 unsure` : ''}`);
   }
 }
 function applyRecheck(work, n, list) {
@@ -622,17 +693,23 @@ function applyRecheck(work, n, list) {
     if (d === 'unsure') fail(`${n}#recheck #${i}：這一輪不能再答 unsure：放大看過了就要定案；真的分不出來，保留原樣（sam 類答 keep、重複岩點答 ok）`);
     if (it.kind === 'sam') {
       const why = reasonOf(d);
-      if (!['sam', 'keep'].includes(d) && !why) fail(`${n}#recheck #${i}：sam 類要答 sam|keep|delete:<理由>（理由是 ${POLICY.deleteReasons.join('／')} 其中一個；說不出理由就是岩點，答 keep 或 sam）`);
-      if (d === 'sam') ops.push({ op: 'set', id: it.id, poly: polyRound(info.get(it.id).sam) });
+      if (d === 'color' && !info.get(it.id)?.color) fail(`${n}#recheck #${i}：這顆沒有色彩貼邊的外框，不能選 color`);
+      if (!['sam', 'color', 'keep'].includes(d) && !why) fail(`${n}#recheck #${i}：sam 類要答 sam|color|keep|delete:<理由>（理由是 ${POLICY.deleteReasons.join('／')} 其中一個；說不出理由就是岩點，答 keep 或 sam）`);
+      if (d === 'sam' || d === 'color') ops.push({ op: 'set', id: it.id, poly: polyRound(d === 'sam' ? info.get(it.id).sam : info.get(it.id).color) });
       if (why) { ops.push({ op: 'remove', holds: [it.id] }); deleted.push({ id: it.id, reason: why }); }
       const k = why ? 'delete' : d; count['sam:' + k] = (count['sam:' + k] || 0) + 1;
+    } else if (it.kind === 'hold') {
+      const why = reasonOf(d);
+      if (d !== 'keep' && !why) fail(`${n}#recheck #${i}：細看回報不是岩點的，要答 keep 或 delete:<理由>（${POLICY.deleteReasons.join('／')}）`);
+      if (why) { ops.push({ op: 'remove', holds: [it.id] }); deleted.push({ id: it.id, reason: why }); }
+      const k = why ? 'delete' : 'keep'; count['hold:' + k] = (count['hold:' + k] || 0) + 1;
     } else {
       if (!['ok', 'rm1', 'rm2', 'merge'].includes(d)) fail(`${n}#recheck #${i}：重複岩點要答 ok|rm1|rm2|merge`);
       const r = decideOne(pack, view, { id: it.qid, target: it.target }, d); count['dup:' + r] = (count['dup:' + r] || 0) + 1;
     }
   });
   const err = applyOps(pack, join(work, n), ops); if (err) console.log(`${n}#recheck：apply 失敗：${err}`);
-  writeJson(join(work, n, 'recheck-decisions.json'), list); writeJson(join(work, n, 'sam-left.json'), []); writeJson(join(work, n, 'deleted.json'), deleted);
+  writeJson(join(work, n, 'recheck-decisions.json'), list); writeJson(join(work, n, 'sam-left.json'), []); writeJson(join(work, n, 'deleted.json'), [...readJson(join(work, n, 'deleted.json'), []).filter(d => !deleted.some(x => x.id === d.id)), ...deleted]);   // 每一輪的刪除都留著
   const line = Object.entries(count).map(([k, v]) => `${k} ${v}`).join('、');
   tool('studio.mjs', 'note', pack, `放大再看一次（代理）：看不準的 ${items.length} 件，放大、含周圍重新看圖後定案：${line}`);
   console.log(`${n}#recheck：${line}`);
@@ -650,7 +727,7 @@ function nextTodo(work, n) {
   if (!existsSync(join(dir, 'questions.json'))) return ['還沒跑 check'];
   const count = (f) => (readJson(join(dir, f), []) || []).length, has = (f) => !!readJson(join(dir, f), null);
   if (count('questions.json') && !has('decisions.json')) need.push(`重複岩點 ${count('questions.json')} 題（sheets/）`);
-  if (count('sam-questions.json') && !has('sam-decisions.json')) need.push(`SAM2 要看的 ${count('sam-questions.json')} 顆（sam-sheets/）`);
+  if (count('sam-questions.json') && !has('sam-decisions.json')) need.push(`外框三選一 ${count('sam-questions.json')} 顆（sam-sheets/；大岩點另有沿邊界的分段放大圖 sam-edges/<題號>-1～4.jpg）`);
   if (count('audit.json') && !has('audit-decisions.json')) need.push(`抽查 ${count('audit.json')} 個（audit-sheets/）`);
   if (!has('overview-decisions.json')) need.push(`全牆總覽 ${POLICY.overviewTiles[0] * POLICY.overviewTiles[1]} 格（overview/，每格一個回答："ok" 或 { volumes, missing, issues }）`);
   if (count('recheck.json') && !has('recheck-decisions.json')) need.push(existsSync(join(dir, 'recheck-sheets')) ? `放大再看 ${count('recheck.json')} 件（recheck-sheets/），判斷寫 "${n}#recheck"，不能再答 unsure，刪除要寫 delete:<理由>` : `看不準和要刪的 ${count('recheck.json')} 件要放大再看：先跑 node tools/wall-batch.mjs recheck ${work}`);
@@ -659,6 +736,7 @@ function nextTodo(work, n) {
   const fresh = uncheckedOf(dir), sc = readJson(join(dir, 'shapecheck.json'), []);
   if (fresh.length) return [existsSync(join(dir, 'shapecheck-sheets')) && sc.length && !has('shapecheck-decisions.json') && sc.every(it => fresh.some(a => a.id === it.id)) ? `新加的外框再看一次 ${sc.length} 個（shapecheck-sheets/），判斷寫 "${n}#shapecheck"` : `新加了 ${fresh.length} 個外框（Volume、漏掉的岩點）：先跑 node tools/wall-batch.mjs shapecheck ${work}`];
   if (!has('onvolume-decisions.json')) return [existsSync(join(dir, 'onvolume-sheets')) && has('onvolume.json') ? `Volume 上的岩點 ${count('onvolume.json')} 個大外框（onvolume-sheets/），判斷寫 "${n}#onvolume"` : `Volume、大岩點上的岩點要逐一放大找：先跑 node tools/wall-batch.mjs onvolume ${work}`];
+  if (!has('closeup-decisions.json')) return [existsSync(join(dir, 'closeup')) && has('closeup.json') ? `細看 ${count('closeup.json')} 格（closeup/，檔名＝格號），判斷寫 "${n}#closeup"：每格 "ok" 或 { missing, bad, extra }` : `外框都有了，最後逐格細看（漏掉的岩點、畫不好的外框、不是岩點的）：先跑 node tools/wall-batch.mjs closeup ${work}`];
   const open = questionsOfSync(work, n).length; if (open) need.push(`採用新外框、修岩點之後又出現 ${open} 題重複岩點：重跑 check（只重算重複岩點）`);
   return need;
 }
@@ -675,9 +753,10 @@ function next() {
     const run = todo.flatMap(([, t]) => t).find(x => /先跑 node|重跑 check|還沒跑 check/.test(x));
     console.log('下一步：先跑要出圖的指令；圖出好的，逐張看圖判斷，把全部牆的判斷寫進同一個 JSON，一次 apply：');
     for (const [n, t] of todo) console.log(`- ${n}：${t.join('；')}\n    資料夾 ${join(work, n)}`);
-    console.log(`判斷檔格式：{ "<牆>": ["ok|rm1|rm2|merge|unsure"…，照 questions.json], "<牆>#sam": ["sam|keep|delete|unsure"…，照 sam-questions.json], "<牆>#audit": ["ok|bad"…，照 audit.json],
-  "<牆>#overview": [每格 "ok" 或 { "volumes": [[x0,y0,x1,y1]…], "missing": [[x0,y0,x1,y1]…], "issues": "…" }], "<牆>#recheck": ["sam|keep|delete:<理由> 或 ok|rm1|rm2|merge"…],
-  "<牆>#shapes": [多邊形 [[x,y]…] 或多邊形的陣列 或 "skip:<理由>"], "<牆>#shapecheck": ["ok" 或 { "poly": […], "remove": [編號…], "delete": true }], "<牆>#onvolume": [每個大外框一個陣列：沒有外框的岩點 [[x0,y0,x1,y1]…]，都有就 []] }`);
+    console.log(`判斷檔格式：{ "<牆>": ["ok|rm1|rm2|merge|unsure"…，照 questions.json], "<牆>#sam": ["sam|color|keep|delete|unsure"…，照 sam-questions.json], "<牆>#audit": ["ok|bad"…，照 audit.json],
+  "<牆>#overview": [每格 "ok" 或 { "volumes": [[x0,y0,x1,y1]…], "missing": [[x0,y0,x1,y1]…], "issues": "…" }], "<牆>#recheck": ["sam|color|keep|delete:<理由> 或 ok|rm1|rm2|merge"…],
+  "<牆>#shapes": [多邊形 [[x,y]…] 或多邊形的陣列 或 "skip:<理由>"], "<牆>#shapecheck": ["ok" 或 { "poly": […], "remove": [編號…], "delete": true }], "<牆>#onvolume": [每個大外框一個陣列：沒有外框的岩點 [[x0,y0,x1,y1]…]，都有就 []],
+  "<牆>#closeup": [每格 "ok" 或 { "missing": [[x0,y0,x1,y1]…], "bad": [編號…], "extra": [[編號, "理由"]…] }] }`);
     console.log(RUBRIC.join('\n'));
     console.log('圖很多時，可以把不同牆、不同張數分給子代理各看一部分（子代理也要拿到上面的判斷準則），最後合併成一個 JSON。不用問使用者；看不準的寫 unsure，會放大再看。');
     console.log(run ? '（有要先出圖的，先跑那個指令，再跑 next）' : `寫好後：node tools/wall-batch.mjs apply ${work} <判斷.json>`); return;
@@ -709,9 +788,9 @@ function verifyAll(work, { quiet = false } = {}) {
     const res = {
       wall: n, holds: list.filter(x => x.area < volumeMin).length, volumes: list.filter(x => x.area >= volumeMin).length,
       added: { holds: added.filter(a => a.kind === 'hold' && liveSet.has(a.id)).length, volumes: added.filter(a => a.kind === 'volume' && liveSet.has(a.id)).length },
-      deleted, dup: tally('decisions.json'), sam: tally('sam-decisions.json'), recheck: tally('recheck-decisions.json'), shapecheck: tally('shapecheck-decisions.json'),
+      deleted, dup: tally('decisions.json'), sam: tally('sam-decisions.json'), recheck: tally('recheck-decisions.json'), shapecheck: tally('shapecheck-decisions.json'), redrawn: added.filter(a => a.kind === 'redraw').length,
       audit, auditWarn: !!(audit && audit.rate > 0.25), overview: (ov || []).flatMap((x, i) => typeof x === 'string' ? (x === 'ok' ? [] : [`第 ${i + 1} 格：${x}`]) : x.issues && x.issues !== 'ok' ? [`第 ${i + 1} 格：${x.issues}`] : []),
-      policy: { volumeRatio: POLICY.volumeRatio, dupAutoIou: POLICY.dupAutoIou, samReviewFlags: POLICY.samReviewFlags },
+      policy: { volumeRatio: POLICY.volumeRatio, dupAutoIou: POLICY.dupAutoIou, samReviewFlags: POLICY.samReviewFlags, samAgreeIou: POLICY.samAgreeIou },
     };
     writeJson(join(dir, 'result.json'), res);
     const recErr = writeRecord(work, n, res, pack, view); if (recErr) { fail2.push(`${n}：研究記錄寫不出來：${recErr}`); continue; }
@@ -732,7 +811,7 @@ function writeRecord(work, n, res, pack, view) {
   const pick = new Map();
   for (const e of log) {
     if (e.step === 'auto-sam') for (const id of e.ids) pick.set(id, 'auto');
-    if (e.step === 'sam' || e.step === 'recheck') e.items.forEach((it, i) => { const d = e.decisions[i]; if ((e.step === 'sam' || it.kind === 'sam') && (d === 'sam' || d === 'keep')) pick.set(it.id, d); });
+    if (e.step === 'sam' || e.step === 'recheck') e.items.forEach((it, i) => { const d = e.decisions[i]; if ((e.step === 'sam' || it.kind === 'sam') && (d === 'sam' || d === 'keep' || d === 'color')) pick.set(it.id, d); });
   }
   const { list } = livePolys(pack, view), holds = list.map(x => ({ id: x.id, poly: x.p, ...(auto.sam[x.id] ? { sam: { ...auto.sam[x.id], pick: pick.get(x.id) || auto.sam[x.id].pick || '' } } : {}) }));
   const doc = readJson(join(pack, `${view.id}.json`)), prev = readJson(join(pack, `${view.id}.edits.json`), null), at = new Date().toISOString();
@@ -772,9 +851,9 @@ async function review() {
     cells.forEach((q, i) => items.push({ no: 0, wall: n, kind: 'hold-dup', id: q.id, title: `${n}：這兩顆外框是同一顆嗎？`, why: (q.why || 'AI 看不準').toString().slice(0, 200), image: urls[i], choices: [['ok', '兩顆是不同的岩點'], ['rm1', '同一顆，拿掉紅色'], ['rm2', '同一顆，拿掉青色'], ['merge', '同一顆被拆成兩半，合成一顆']] }));
     const samLeft = [], samInfo = new Map(readJson(join(work, n, 'sam.json'), []).map(h => [h.id, h]));
     if (samLeft.length) {
-      const cellsS = samLeft.map(id => { const a = polyOf(pack, view, id), b = samInfo.get(id).sam, pts = [...a, ...b], xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return { a, b, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)].map(Math.round) }; });
+      const cellsS = samLeft.map(id => { const a = polyOf(pack, view, id), b = samInfo.get(id).sam, c = samInfo.get(id).color || null, pts = [...a, ...b, ...(c || [])], xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return { a, b, c, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)].map(Math.round) }; });
       const us = await renderCells(chromium, pack, view, cellsS);
-      samLeft.forEach((id, i) => items.push({ no: 0, wall: n, kind: 'sam', id, title: `${n}：這顆岩點的外框用哪個？`, why: 'AI 看不準：紅色是原外框、青色是 SAM2 的外框', image: us[i], choices: [['keep', '用紅色（原外框）'], ['sam', '用青色（SAM2）'], ['delete', '不是岩點，拿掉']] }));
+      samLeft.forEach((id, i) => items.push({ no: 0, wall: n, kind: 'sam', id, title: `${n}：這顆岩點的外框用哪個？`, why: 'AI 看不準：紅色是原外框、青色是 SAM2、黃色是色彩貼邊', image: us[i], choices: [['keep', '用紅色（原外框）'], ['sam', '用青色（SAM2）'], ...(samInfo.get(id).color ? [['color', '用黃色（色彩貼邊）']] : []), ['delete', '不是岩點，拿掉']] }));
     }
     const pub = r.public ? humanQs.find(q => q.kind === 'publish') : null;   // 私有牆（預設）不出發佈題
     walls.push({ wall: n, state: 'done', holds: r.final.holds, afterAi: hs.replace(/^.*（.*?，\d+×\d+）：/, '').trim(), sam: r.sam, samReviewed: (readJson(join(work, n, 'sam-questions.json'), []) || []).length, samLeft: samLeft.length, samAuto: r.samLeft - ((readJson(join(work, n, 'sam-questions.json'), []) || []).length), audit: readJson(join(work, n, 'audit-result.json'), null), overview: readJson(join(work, n, 'result.json'), {}).overview || [], aiLeft: qs.length + samLeft.length, publish: pub ? { id: pub.id, title: pub.title } : null });
@@ -813,11 +892,11 @@ function resolveOne() {
   const [n, qid] = [ref.slice(0, ref.indexOf(':')), ref.slice(ref.indexOf(':') + 1)], pack = packOf(work, n), view = viewOf(pack);
   if (qid.startsWith('sam:')) {   // SAM2 外框看不準、人決定的：keep 不動、sam 換成 SAM2 的外框
     const id = qid.slice(4), info = readJson(join(work, n, 'sam.json'), []).find(h => h.id === id);
-    if (!info || !['keep', 'sam', 'delete'].includes(choice)) fail(`${n}:${qid}：沒有這顆，或選項不是 keep／sam／delete`);
-    if (choice === 'sam') { const pf = join(work, n, `patch-human-${Date.now()}.json`); writeJson(pf, [{ op: 'set', id, poly: info.sam.map(p => p.map(v => Math.round(v * 10) / 10)) }]); const ap = tool('wall.mjs', 'apply', pack, pf); rmSync(pf, { force: true }); if (ap.status !== 0) fail(`apply 失敗：${(ap.stderr || ap.stdout).slice(0, 200)}`); }
+    if (!info || !['keep', 'sam', 'color', 'delete'].includes(choice) || (choice === 'color' && !info.color)) fail(`${n}:${qid}：沒有這顆，或選項不是 keep／sam／color／delete（color 要有色彩貼邊的外框）`);
+    if (choice === 'sam' || choice === 'color') { const pf = join(work, n, `patch-human-${Date.now()}.json`); writeJson(pf, [{ op: 'set', id, poly: polyRound(choice === 'sam' ? info.sam : info.color) }]); const ap = tool('wall.mjs', 'apply', pack, pf); rmSync(pf, { force: true }); if (ap.status !== 0) fail(`apply 失敗：${(ap.stderr || ap.stdout).slice(0, 200)}`); }
     if (choice === 'delete') { const err = applyOps(pack, join(work, n), [{ op: 'remove', holds: [id] }]); if (err) fail(`apply 失敗：${err}`); }
     writeJson(join(work, n, 'sam-left.json'), readJson(join(work, n, 'sam-left.json'), []).filter(x => x !== id));
-    tool('studio.mjs', 'note', pack, `人的判斷（${by}，原話「${said}」）：岩點 ${id} 的外框${choice === 'delete' ? '不是岩點，拿掉' : choice === 'sam' ? '用 SAM2' : '用原外框'}`); console.log(`${n}：${id} → ${choice}`); return;
+    tool('studio.mjs', 'note', pack, `人的判斷（${by}，原話「${said}」）：岩點 ${id} 的外框${choice === 'delete' ? '不是岩點，拿掉' : choice === 'sam' ? '用 SAM2' : choice === 'color' ? '用色彩貼邊' : '用原外框'}`); console.log(`${n}：${id} → ${choice}`); return;
   }
   if (qid === 'publish') {
     const q = JSON.parse(tool('studio.mjs', 'ask', pack, '--human', '--json').stdout || '[]'), qq = (Array.isArray(q) ? q : q.questions || []).find(x => x.kind === 'publish');
@@ -874,6 +953,6 @@ async function publishCmd() {
   }
 }
 
-const table = { run, check, recheck, shapes: shapesCmd, shapecheck: shapecheckCmd, onvolume: onvolumeCmd, apply, verify, reviewed: reviewedCmd, review, zip: zipCmd, publish: publishCmd, status, next, resolve: resolveOne };
-if (!table[cmd]) fail('用法：node tools/wall-batch.mjs next|run|check|recheck|shapes|shapecheck|apply|verify|review|zip|publish|resolve|status …（不知道做什麼先跑 next；說明在檔案開頭）');
+const table = { run, check, recheck, shapes: shapesCmd, shapecheck: shapecheckCmd, onvolume: onvolumeCmd, closeup: closeupCmd, apply, verify, reviewed: reviewedCmd, review, zip: zipCmd, publish: publishCmd, status, next, resolve: resolveOne };
+if (!table[cmd]) fail('用法：node tools/wall-batch.mjs next|run|check|recheck|shapes|shapecheck|onvolume|closeup|apply|verify|review|zip|publish|resolve|status …（不知道做什麼先跑 next；說明在檔案開頭）');
 await table[cmd]();

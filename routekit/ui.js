@@ -21,10 +21,12 @@
   const STR = {
     zh: { cancel: '取消', base: '黑白／暗彩', heat: '顯示所有岩點', zout: '縮小', zin: '放大', fs: '全畫面', done: '完成', undo: '復原', orderEnd: '結束插入',
       prev: '上一條', next: '下一條', s: '起攀', h: '手點', t: '完攀', f: '腳點', n: '順序', feetFree: '不限腳', orderAt: (n) => `第 ${n} 手之後插入`, orderFirst: '插在最前面', orderCount: (n) => `共 ${n} 手`, orderHint: '依序點出手的岩點',
-      delMove: (n) => `刪掉第 ${n} 手`, feetAsk: '開不限腳會清掉已標的腳點', feetGo: '清掉並不限腳', seqAsk: '清除這條路線的出手順序？', seqClear: '清除順序' },
+      delMove: (n) => `刪掉第 ${n} 手`, feetAsk: '開不限腳會清掉已標的腳點', feetGo: '清掉並不限腳', seqAsk: '清除這條路線的出手順序？', seqClear: '清除順序',
+      segPrev: '上一段', segNext: '下一段', segSlow: '慢', segFast: '快', segPause: '暫停', segResume: '繼續' },
     en: { cancel: 'Cancel', base: 'Grayscale / dimmed color', heat: 'Show all holds', zout: 'Zoom out', zin: 'Zoom in', fs: 'Fullscreen', done: 'Done', undo: 'Undo', orderEnd: 'End insert',
       prev: 'Previous route', next: 'Next route', s: 'Start', h: 'Hand', t: 'Top', f: 'Foot', n: 'Order', feetFree: 'Any feet', orderAt: (n) => `Insert after move ${n}`, orderFirst: 'Insert at the start', orderCount: (n) => `${n} moves`, orderHint: 'Tap the holds in move order',
-      delMove: (n) => `Delete move ${n}`, feetAsk: 'Turning on "any feet" clears the foot holds already marked', feetGo: 'Clear and allow any feet', seqAsk: 'Clear this route\'s move order?', seqClear: 'Clear order' },
+      delMove: (n) => `Delete move ${n}`, feetAsk: 'Turning on "any feet" clears the foot holds already marked', feetGo: 'Clear and allow any feet', seqAsk: 'Clear this route\'s move order?', seqClear: 'Clear order',
+      segPrev: 'Prev', segNext: 'Next', segSlow: 'Slow', segFast: 'Fast', segPause: 'Pause', segResume: 'Resume' },
   };
   const ICON = {
     cancel: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>',
@@ -103,6 +105,9 @@
 .rk-nav { align-self: center; align-items: center; gap: 6px; padding: 4px; }
 .rk-nav button { min-width: 44px; height: 44px; padding: 0; }
 .rk-navcount { min-width: 64px; text-align: center; font-variant-numeric: tabular-nums; }
+.rk-seg { align-self: center; align-items: center; flex-wrap: wrap; justify-content: center; gap: 2px; padding: 4px; max-width: 100%; }
+.rk-seg button { height: 36px; padding: 0 10px; font-size: 13px; }
+.rk-segcount { min-width: 44px; text-align: center; font-variant-numeric: tabular-nums; padding: 0 4px; }
 .rk-view .rk-types, .rk-view [data-rk="undo"] { display: none !important; }   /* 看路線圖：下面只有上一條、下一條 */
 /* 順序列：現在的手數（插入中寫「第 N 手之後插入」）、結束插入；只在順序模式出現 */
 .rk-order { position: absolute; left: 50%; transform: translateX(-50%); bottom: 120px; align-items: center; padding: 4px 4px 4px 14px; gap: 6px; }
@@ -130,6 +135,10 @@
 <div class="rk-ask" data-rk="ask" hidden><div class="rk-askbox" data-rk="askbox" role="dialog"></div></div>
 <div class="rk-bottom" data-rk="bottom" hidden>
   <button data-rk="undo" class="rk-undo rk-only-edit" hidden>${ICON.undo}</button>
+  <div class="rk-seg rk-pill" data-rk="seg" hidden>
+    <button data-rk="segprev" type="button"></button><span class="rk-segcount" data-rk="segcount"></span><button data-rk="segnext" type="button"></button>
+    <button data-rk="segslow" type="button"></button><button data-rk="segplay" type="button"></button><button data-rk="segfast" type="button"></button>
+  </div>
   <div class="rk-nav rk-pill" data-rk="nav" hidden>
     <button data-rk="prev" class="rk-prev">${ICON.prev}</button><span class="rk-navcount" data-rk="navcount"></span><button data-rk="next" class="rk-next">${ICON.next}</button>
   </div>
@@ -160,6 +169,8 @@
     function applyText() {
       el.lang = o.lang === 'en' ? 'en' : 'zh-Hant';
       for (const k of ['cancel', 'base', 'heat', 'zout', 'zin', 'fs', 'done', 'undo', 'prev', 'next']) $(k).setAttribute('aria-label', t(k));
+      $('segprev').textContent = t('segPrev'); $('segnext').textContent = t('segNext'); $('segslow').textContent = t('segSlow'); $('segfast').textContent = t('segFast');
+      for (const [k, key] of [['segprev', 'segPrev'], ['segnext', 'segNext'], ['segslow', 'segSlow'], ['segfast', 'segFast']]) $(k).setAttribute('aria-label', t(key));
       $('orderend').textContent = t('orderEnd');
       for (const k of TYPES) { const b = typeBtn(k); b.setAttribute('aria-label', t(k)); b.querySelector('span').textContent = t(k); }
     }
@@ -201,7 +212,17 @@
       el.classList.toggle('rk-view', !edit());
       $('top').hidden = !o.controls || !o.top;
       $('nav').hidden = !(o.nav && !edit());
-      $('bottom').hidden = !(o.controls && o.interactive && ((edit() && ctl) || (!edit() && o.nav)));
+      const segOn = !!(o.segment && !edit() && ctl && ctl.segmentOn);
+      $('seg').hidden = !(segOn && o.controls && o.interactive);
+      $('bottom').hidden = !(o.controls && o.interactive && ((edit() && ctl) || (!edit() && (o.nav || segOn))));
+      if (segOn && ctl) {
+        const info = ctl.segmentInfo || { index: ctl.segmentIndex || 0, count: ctl.segmentCount || 0, playing: !!ctl.playing, speed: ctl.speed || 0, speeds: ctl.speedSteps || 1 };
+        $('segcount').textContent = info.count ? `${info.index + 1} / ${info.count}` : '';
+        $('segprev').disabled = info.count < 2; $('segnext').disabled = info.count < 2;
+        $('segplay').textContent = info.playing ? t('segPause') : t('segResume');
+        $('segplay').setAttribute('aria-label', info.playing ? t('segPause') : t('segResume'));
+        $('segfast').disabled = info.speed <= 0; $('segslow').disabled = info.speed >= info.speeds - 1;
+      }
       $('base').setAttribute('aria-pressed', String(o.base === 'gray'));
       $('fs').setAttribute('aria-pressed', String(!!o.fullscreenOn));
       $('fs').hidden = !o.fullscreen;
@@ -278,6 +299,11 @@
     $('fs').onclick = () => cfg.onFullscreen && cfg.onFullscreen();
     $('prev').onclick = () => { if (cfg.onPrev) cfg.onPrev(); };
     $('next').onclick = () => { if (cfg.onNext) cfg.onNext(); };
+    $('segprev').onclick = () => ctl && ctl.prevSegment && ctl.prevSegment();
+    $('segnext').onclick = () => ctl && ctl.nextSegment && ctl.nextSegment();
+    $('segplay').onclick = () => { if (ctl && ctl.setPaused) ctl.setPaused(!!ctl.playing); };
+    $('segslow').onclick = () => ctl && ctl.slower && ctl.slower();
+    $('segfast').onclick = () => ctl && ctl.faster && ctl.faster();
     $('undo').onclick = () => { if (ctl && ctl.undoSeq) { ctl.undoSeq(); update(); } };
     $('heat').onclick = () => { if (!ctl || !ctl.setShowAll) return; ctl.setShowAll(!ctl.showAll); update(); };
     $('orderend').onclick = () => { if (ctl) ctl.orderEndInsert(); };
@@ -323,7 +349,7 @@
       pickType,
       get type() { return pickedType; },
       setOptions(n = {}) {
-        for (const k of ['mode', 'base', 'controls', 'top', 'nav', 'foot', 'order', 'heat', 'zoom', 'fullscreen', 'interactive', 'fullscreenOn']) if (k in n) o[k] = n[k];
+        for (const k of ['mode', 'base', 'controls', 'top', 'nav', 'foot', 'order', 'heat', 'zoom', 'fullscreen', 'interactive', 'fullscreenOn', 'segment']) if (k in n) o[k] = n[k];
         if (n.lang === 'zh' || n.lang === 'en') { o.lang = n.lang; applyText(); }
         if (n.strings) { o.strings = n.strings; applyText(); }
         if (n.colors) { o.colors = n.colors; applyColors(); }

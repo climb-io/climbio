@@ -23,18 +23,20 @@ if (wall2dParams.get('auto') === '1') {
     const constraints = reversed
       ? { ...base, width: base.height, height: base.width, aspectRatio: { ideal: 1 / aspect } }
       : base;
+    // 一開始就開主鏡頭（後置相機）：先問權限、看鏡頭名稱，開錯就先關掉再開主鏡頭（arkit/camera.js 的 openMainCamera）。
+    // iPhone 開著相機再換鏡頭會變黑畫面，所以顯示之前就要開對；上次記下的主鏡頭先試
+    let savedId = '';
+    try { savedId = localStorage.getItem('climbio.wall2dCamMain') || ''; } catch { /* 讀不到就照一般的開 */ }
     window.__wall2dGumCallAt = absNow();
-    const p = navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: { ...constraints, facingMode: { ideal: 'environment' } },
-    });
+    const open = (extra) => navigator.mediaDevices.getUserMedia({ audio: false, video: { ...constraints, ...extra } });
+    const p = import('../../arkit/camera.js').then((m) => m.openMainCamera(open, { savedId }));
     window.__wall2dEarlyCamera = {
       constraints,
       reversed,
       promise: p.then(
-        (stream) => {
+        ({ stream, mainId }) => {
           window.__wall2dGumResolveAt = absNow();
-          return { stream };
+          return { stream, mainId };
         },
         (error) => ({ error })
       ),

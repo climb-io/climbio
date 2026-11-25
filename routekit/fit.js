@@ -13,14 +13,14 @@
   const KEEP = 0.7;
   const union = (a, b) => ({ x0: Math.min(a.x0, b.x0), y0: Math.min(a.y0, b.y0), x1: Math.max(a.x1, b.x1), y1: Math.max(a.y1, b.y1) });
   /**
-   * 把照片上的範圍 b（四周留 side、上面讓出 topInset）放進畫面的視角（還沒套邊界），最多放大到照片填滿畫面。
+   * 把照片上的範圍 b（四周留 side、上面讓出 topInset、下面讓出 bottomInset）放進畫面的視角（還沒套邊界），最多放大到照片填滿畫面。
    * g：{ W, H, bw, bh, maxScale }（框的大小、s=1 時照片的大小、最大放大）；photoW：照片寬（像素）。回傳 { s, tx, ty }（s 是相對 s=1 的倍數）。
    */
-  function fitBoxIn(b, g, { photoW, topInset = 0, side = 32 }) {
+  function fitBoxIn(b, g, { photoW, topInset = 0, bottomInset = 0, side = 32 }) {
     const k = g.bw / photoW;
-    const s = Math.min(g.maxScale, Math.max(1, Math.min(Math.max(g.W / g.bw, g.H / g.bh), (g.W - 2 * side) / ((b.x1 - b.x0) * k), (g.H - topInset - side) / ((b.y1 - b.y0) * k))));
+    const s = Math.min(g.maxScale, Math.max(1, Math.min(Math.max(g.W / g.bw, g.H / g.bh), (g.W - 2 * side) / ((b.x1 - b.x0) * k), (g.H - topInset - bottomInset - side) / ((b.y1 - b.y0) * k))));
     const k1 = k * s;
-    return { s, tx: g.W / 2 - (b.x0 + b.x1) / 2 * k1, ty: (topInset + g.H - side) / 2 - (b.y0 + b.y1) / 2 * k1 };
+    return { s, tx: g.W / 2 - (b.x0 + b.x1) / 2 * k1, ty: (topInset + g.H - bottomInset - side) / 2 - (b.y0 + b.y1) / 2 * k1 };
   }
   /**
    * 路線 r 所在那一組的岩點範圍（照片座標）；沒有岩點、不在 routes 裡回傳 null。
