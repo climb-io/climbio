@@ -1,12 +1,11 @@
 // 简体中文语言包。共用原有翻译键，保持各端一致。
 // 文字风格：简洁、书面；按钮用动词；画面上的名称用「」；少用口语（就、一下、可以、了）。
 AppKit.i18n.add('hold', 'zh-CN', {
-  shareDataset: "公开分享会把这面墙的照片（不含拍摄位置）、岩点和你的路线放进 Climbio 的开放数据集（Hugging Face）。任何人都能下载、用来训练模型（CC BY-SA 4.0），公开后不能收回。",
   pcSharedRoute: "朋友分享的路线",
   pcCopyLink: "复制链接",
   shareTimeout: "连接超时，路线已保留，请再按分享",
   sharePublic: "公开",
-  envDev: "测试版", shareQuota: '今天分享太多次了，明天再试', legalPreShare: '分享即表示同意', shareGo: '分享', legalAnd: '及', terms: '服务条款', privacy: '隐私政策',
+  envDev: "测试版", shareQuota: '今天分享太多次了，明天再试', terms: '服务条款', privacy: '隐私政策',
   help: '使用说明', language: '语言',
   app: '岩点猫', emptyTitle: '拍一面墙，开始定线', emptySub: '自动检测岩点', addWall: '添加墙面', add: '添加',
   takePhoto: '拍照', fromLibrary: '相册', rotate: '旋转 90°',
@@ -36,9 +35,7 @@ shareWall: '分享墙面', baseToggle: '灰阶／暗彩', signNone: "未设置",
   recvBadCode: "这不是 Climbio 的分享链接",
   lasso: '圈起来', lassoCancel: '取消', lassoSmall: '圈太小了，把整个岩点圈起来', lassoFail: '圈得不完整，再试一次',
   btnDelete: '删除', btnDiscard: '放弃',
-  signInTitle: '登录 Google',
   shareRoute: '分享路线', 
-  signTitle: "昵称", 
   feetFree: '不限脚', seqInsertAt: (n) => `第 ${n} 手之后插入`, seqDelete: (n) => `删除第 ${n} 手`, feetClearAsk: "这条路线的脚点会清除，改成不限脚？", feetClear: "清除", seqInsertFirst: "插入在最前面", seqEnd: '结束插入',
   seqMove: (n) => `第 ${n} 手`, seq: '顺序', seqClearAsk: '清除这条路线的出手顺序？', seqClear: '清除', totalWalls: "墙面", totalRoutes: "路线", totalSet: "定线", shareCopied: '已复制，可直接粘贴发送', loading: '加载中…',
   publishFailed: '分享失败：',

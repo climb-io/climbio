@@ -16,7 +16,14 @@ const MAX_HAMMING = 140;
 const MAX_COARSE_HAMMING = 135;
 const REANCHOR_INTERVAL = 45;
 const MAX_FLOW_UNANCHORED = 90;
-const MAX_TRACKED_POINTS = 140;
+const MAX_TRACKED_POINTS = 90;
+// 光流在 480 長邊的灰階上做（低階手機每次 LK 約 12 ms，640 長邊 21×21 視窗約 26 ms）；認牆、重錨仍用 640 長邊的擷取尺寸。
+// 對外回報的單應矩陣一律換回擷取尺寸（capW×capH）的座標，主執行緒與重錨 Worker 不用知道光流的尺寸
+const TRACK_LONG_SIDE = 480;
+const LK_WIN = 15;
+const LK_ITERS = 10;
+// 補角點（goodFeaturesToTrack 約 17 ms）不每幀做：點數夠就跳過，不太夠時每 REFILL_EVERY 幀補一次
+const REFILL_EVERY = 4;
 
 let cv = null;
 let walls = [];
@@ -29,6 +36,8 @@ let lastSearch = -Infinity;
 let framesSinceAnchor = 0;
 let currentEpoch = 0;
 let bgReanchorActive = false;
+let framesSinceRefill = 0;
+let yBuf = null;
 
 function decodeBase64(b64, Typed) {
   const bin = atob(b64);
@@ -314,7 +323,7 @@ function matchWall(qFeat, wall, qW, qH) {
   }
 }
 
-function seedTrackedPoints(qGray, Hinv, refW, refH, inlR, inlQ, isAnchorArr = null) {
+function seedTrackedPoints(qGray, Hinv, refW, refH, inlR, inlQ, isAnchorArr = null, force = false) {
   const qW = qGray.cols;
   const qH = qGray.rows;
   const usedCells = new Set();
@@ -322,13 +331,13 @@ function seedTrackedPoints(qGray, Hinv, refW, refH, inlR, inlQ, isAnchorArr = nu
   const outQ = [];
   const anchor = [];
 
-  // 先納入現有內點（依 8×6 網格最多每格留 4 點，避免過密）
+  // 先納入現有內點（依 8×6 網格最多每格留 3 點，避免過密）
   const cellCounts = new Map();
   for (let i = 0; i < inlQ.length / 2; i++) {
     const qx = inlQ[i * 2], qy = inlQ[i * 2 + 1];
     const cell = `${Math.floor((qx / qW) * 8)}:${Math.floor((qy / qH) * 6)}`;
     const c = cellCounts.get(cell) || 0;
-    if (c >= 4) continue;
+    if (c >= 3) continue;
     cellCounts.set(cell, c + 1);
     usedCells.add(cell);
     outR.push(inlR[i * 2], inlR[i * 2 + 1]);
@@ -337,12 +346,17 @@ function seedTrackedPoints(qGray, Hinv, refW, refH, inlR, inlQ, isAnchorArr = nu
     if (anchor.length >= MAX_TRACKED_POINTS) break;
   }
 
-  // 若網格覆蓋不足，補入影像內的 Shi-Tomasi 角點並用 Hinv 映回參考座標
-  if (anchor.length < 75 || usedCells.size < 18) {
+  // 若網格覆蓋不足，補入影像內的 Shi-Tomasi 角點並用 Hinv 映回參考座標：剛定位（force）或點太少時馬上補，
+  // 只是略少時每 REFILL_EVERY 幀補一次
+  framesSinceRefill++;
+  const thin = anchor.length < 30 || usedCells.size < 8;
+  const sparse = anchor.length < 55 || usedCells.size < 16;
+  if (force || thin || (sparse && framesSinceRefill >= REFILL_EVERY)) {
+    framesSinceRefill = 0;
     const corners = new cv.Mat();
     const mask = new cv.Mat();
     try {
-      cv.goodFeaturesToTrack(qGray, corners, 180, 0.01, 14, mask, 3, false, 0.04);
+      cv.goodFeaturesToTrack(qGray, corners, 120, 0.01, 10, mask, 3, false, 0.04);
       for (let i = 0; i < corners.rows && anchor.length < MAX_TRACKED_POINTS; i++) {
         const qx = corners.data32F[i * 2];
         const qy = corners.data32F[i * 2 + 1];
@@ -380,8 +394,8 @@ function trackOpticalFlow(qGray) {
   const back = new cv.Mat();
   const bst = new cv.Mat();
   const berr = new cv.Mat();
-  const sz = new cv.Size(21, 21);
-  const crit = new cv.TermCriteria(cv.TERM_CRITERIA_COUNT + cv.TERM_CRITERIA_EPS, 20, 0.01);
+  const sz = new cv.Size(LK_WIN, LK_WIN);
+  const crit = new cv.TermCriteria(cv.TERM_CRITERIA_COUNT + cv.TERM_CRITERIA_EPS, LK_ITERS, 0.01);
 
   const nextR = [];
   const nextQ = [];
@@ -409,7 +423,7 @@ function trackOpticalFlow(qGray) {
   const S = cv.matFromArray(flowCount, 1, cv.CV_32FC2, nextR);
   const D = cv.matFromArray(flowCount, 1, cv.CV_32FC2, nextQ);
   const mask = new cv.Mat();
-  const H = cv.findHomography(S, D, cv.RANSAC, 3.0, mask);
+  const H = cv.findHomography(S, D, cv.RANSAC, 2.4, mask);
   try {
     if (H.empty() || H.rows !== 3 || H.cols !== 3) {
       return { ok: false, reason: 'flow_homography_empty', flowPoints: flowCount };
@@ -458,6 +472,84 @@ function trackOpticalFlow(qGray) {
     mask.delete();
     H.delete();
   }
+}
+
+// 3×3 列優先單應矩陣換座標：q' = diag(sx, sy, 1)·q
+function scaleQuery(H, sx, sy) {
+  return [H[0] * sx, H[1] * sx, H[2] * sx, H[3] * sy, H[4] * sy, H[5] * sy, H[6], H[7], H[8]];
+}
+// 反矩陣（照片 ← 影格）配合影格座標換尺寸：Hinv' = Hinv·diag(1/sx, 1/sy, 1)
+function scaleQueryInv(Hinv, sx, sy) {
+  return [Hinv[0] / sx, Hinv[1] / sy, Hinv[2], Hinv[3] / sx, Hinv[4] / sy, Hinv[5], Hinv[6] / sx, Hinv[7] / sy, Hinv[8]];
+}
+function scalePoints(pts, sx, sy) {
+  const out = new Array(pts.length);
+  for (let i = 0; i < pts.length; i += 2) {
+    out[i] = pts[i] * sx;
+    out[i + 1] = pts[i + 1] * sy;
+  }
+  return out;
+}
+
+function copyPlane(dst, buf, offset, stride, rowBytes, rows) {
+  if (stride === rowBytes) {
+    dst.set(buf.subarray(offset, offset + rowBytes * rows));
+    return;
+  }
+  for (let y = 0; y < rows; y++) dst.set(buf.subarray(offset + y * stride, offset + y * stride + rowBytes), y * rowBytes);
+}
+
+// 影格 → 擷取尺寸（capW×capH）的灰階 Mat。相機的 VideoFrame 若是 I420／NV12，直接取 Y 平面當灰階：
+// 不經 canvas 讀回（低階 Android 在主執行緒 drawImage＋getImageData 一次約 65 ms，這裡約 2 ms）。
+// 其他來源（模擬、測試照片、不支援 VideoFrame 的瀏覽器）仍收主執行緒擷取的 ImageData
+async function captureGray(data) {
+  if (!data.frame) {
+    const src = cv.matFromImageData(data.image);
+    const gray = new cv.Mat();
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    src.delete();
+    return gray;
+  }
+  const f = data.frame;
+  try {
+    const w = f.visibleRect.width;
+    const h = f.visibleRect.height;
+    const fmt = String(f.format || '');
+    const size = f.allocationSize();
+    if (!yBuf || yBuf.length < size) yBuf = new Uint8Array(size);
+    const layout = await f.copyTo(yBuf);
+    let full;
+    if (/^(I420|I420A|I422|I444|NV12)$/.test(fmt)) {
+      full = new cv.Mat(h, w, cv.CV_8UC1);
+      copyPlane(full.data, yBuf, layout[0].offset, layout[0].stride, w, h);
+    } else if (/^(RGBA|RGBX|BGRA|BGRX)$/.test(fmt)) {
+      const rgba = new cv.Mat(h, w, cv.CV_8UC4);
+      copyPlane(rgba.data, yBuf, layout[0].offset, layout[0].stride, w * 4, h);
+      full = new cv.Mat();
+      cv.cvtColor(rgba, full, fmt.startsWith('B') ? cv.COLOR_BGRA2GRAY : cv.COLOR_RGBA2GRAY);
+      rgba.delete();
+    } else {
+      throw new Error(`unsupported_frame_format:${fmt}`);
+    }
+    const capW = data.capW || w;
+    const capH = data.capH || h;
+    if (capW === w && capH === h) return full;
+    const out = new cv.Mat();
+    cv.resize(full, out, new cv.Size(capW, capH), 0, 0, cv.INTER_AREA);
+    full.delete();
+    return out;
+  } finally {
+    f.close();
+  }
+}
+
+// 光流用的灰階：長邊縮到 TRACK_LONG_SIDE（新的 Mat，呼叫端負責 delete）
+function trackSized(capGray) {
+  const s = Math.min(1, TRACK_LONG_SIDE / Math.max(capGray.cols, capGray.rows));
+  if (s >= 1) return capGray.clone();
+  const out = new cv.Mat();
+  cv.resize(capGray, out, new cv.Size(Math.max(1, Math.round(capGray.cols * s)), Math.max(1, Math.round(capGray.rows * s))), 0, 0, cv.INTER_LINEAR);
+  return out;
 }
 
 function searchWalls(qGray, onlyWall = null) {
@@ -573,13 +665,17 @@ self.onmessage = async ({ data }) => {
     if (data.type === 'reanchor_frame') {
       const w = walls.find((x) => x.wallId === data.wallId);
       if (!w) {
+        data.frame?.close();
         self.postMessage({ type: 'reanchor_result', matched: false, frameId: data.frameId, epoch: data.epoch, wallId: data.wallId });
         return;
       }
-      const src = cv.matFromImageData(data.image);
-      const gray = new cv.Mat();
-      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-      src.delete();
+      let gray;
+      try {
+        gray = await captureGray(data);
+      } catch {
+        self.postMessage({ type: 'reanchor_result', matched: false, frameId: data.frameId, epoch: data.epoch, wallId: data.wallId });
+        return;
+      }
       try {
         const re = searchWalls(gray, w);
         if (re.matched) {
@@ -661,14 +757,25 @@ self.onmessage = async ({ data }) => {
       resetTracking();
       return;
     }
-    if (data.type !== 'frame') return;
+    if (data.type !== 'frame') {
+      data.frame?.close();
+      return;
+    }
     currentEpoch = data.epoch ?? currentEpoch;
 
     const start = performance.now();
-    const src = cv.matFromImageData(data.image);
-    const gray = new cv.Mat();
-    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-    src.delete();
+    let capGray;
+    try {
+      capGray = await captureGray(data);
+    } catch (err) {
+      if (!data.frame) throw err;
+      // 這個瀏覽器的 VideoFrame 讀不出來：請主執行緒改用 canvas 擷取
+      self.postMessage({ type: 'frame_error', frameId: data.frameId, epoch: data.epoch, error: String(err?.message || err) });
+      return;
+    }
+    const capW = capGray.cols;
+    const capH = capGray.rows;
+    let gray = null;
 
     let pose = null;
     let mode = 'searching';
@@ -685,8 +792,16 @@ self.onmessage = async ({ data }) => {
     };
 
     try {
+      gray = trackSized(capGray);
       const qW = gray.cols;
       const qH = gray.rows;
+      const sx = qW / capW;
+      const sy = qH / capH;
+      // 認牆的結果（擷取尺寸座標）換成光流尺寸後重新播種
+      const seedFromSearch = (b) => seedTrackedPoints(
+        gray, scaleQueryInv(b.Hinv, sx, sy), b.wall.photoW, b.wall.photoH,
+        b.inlR, scalePoints(b.inlQ, sx, sy), null, true
+      );
 
       // 1. 優先以雙向 LK 光流延續上一幀定位
       if (tracked && activeWall && previous && previous.cols === qW && previous.rows === qH) {
@@ -698,10 +813,10 @@ self.onmessage = async ({ data }) => {
           const needsAnchor = flowRes.anchorCount < 10 || framesSinceAnchor >= REANCHOR_INTERVAL;
           let anchored = false;
           if (needsAnchor && !bgReanchorActive) {
-            const re = searchWalls(gray, activeWall);
+            const re = searchWalls(capGray, activeWall);
             if (re.matched) {
               const b = re.best;
-              tracked = seedTrackedPoints(gray, b.Hinv, b.wall.photoW, b.wall.photoH, b.inlR, b.inlQ);
+              tracked = seedFromSearch(b);
               framesSinceAnchor = 0;
               anchored = true;
               mode = 'tracking';
@@ -711,8 +826,8 @@ self.onmessage = async ({ data }) => {
                 H: b.H,
                 photoW: b.wall.photoW,
                 photoH: b.wall.photoH,
-                width: qW,
-                height: qH,
+                width: capW,
+                height: capH,
                 inliers: b.inliers,
                 medianError: b.medianError,
                 coverage: b.coverage,
@@ -736,13 +851,13 @@ self.onmessage = async ({ data }) => {
               pose = {
                 wallId: activeWall.wallId,
                 wallName: activeWall.name,
-                H: flowRes.H,
+                H: scaleQuery(flowRes.H, 1 / sx, 1 / sy),
                 photoW: activeWall.photoW,
                 photoH: activeWall.photoH,
-                width: qW,
-                height: qH,
+                width: capW,
+                height: capH,
                 inliers: flowRes.inliers,
-                medianError: flowRes.medianError,
+                medianError: flowRes.medianError / sx,
                 coverage: flowRes.coverage,
                 cond: flowRes.cond,
                 reanchored: false,
@@ -750,7 +865,7 @@ self.onmessage = async ({ data }) => {
               };
               diagnostics.reason = 'pose';
               diagnostics.coverage = flowRes.coverage;
-              diagnostics.medianError = flowRes.medianError;
+              diagnostics.medianError = flowRes.medianError / sx;
             }
           }
         } else {
@@ -760,16 +875,16 @@ self.onmessage = async ({ data }) => {
         }
       }
 
-      // 2. 光流未定位時，於冷卻時間過後執行 AKAZE 特徵比對與單應矩陣搜尋
+      // 2. 光流未定位時，於冷卻時間過後執行 AKAZE 特徵比對與單應矩陣搜尋（擷取尺寸，特徵比光流尺寸多）
       const now = performance.now();
       if (!pose && now - lastSearch >= SEARCH_COOLDOWN_MS) {
         lastSearch = now;
-        const found = searchWalls(gray, null);
+        const found = searchWalls(capGray, null);
         diagnostics = found.diag;
         if (found.matched) {
           const b = found.best;
           activeWall = b.wall;
-          tracked = seedTrackedPoints(gray, b.Hinv, b.wall.photoW, b.wall.photoH, b.inlR, b.inlQ);
+          tracked = seedFromSearch(b);
           framesSinceAnchor = 0;
           mode = 'localized';
           pose = {
@@ -778,8 +893,8 @@ self.onmessage = async ({ data }) => {
             H: b.H,
             photoW: b.wall.photoW,
             photoH: b.wall.photoH,
-            width: qW,
-            height: qH,
+            width: capW,
+            height: capH,
             inliers: b.inliers,
             medianError: b.medianError,
             coverage: b.coverage,
@@ -798,6 +913,7 @@ self.onmessage = async ({ data }) => {
       lastPose = pose;
       previous?.delete();
       previous = gray;
+      gray = null;
 
       self.postMessage({
         type: 'pose',
@@ -808,9 +924,9 @@ self.onmessage = async ({ data }) => {
         epoch: data.epoch,
         processingMs: performance.now() - start,
       });
-    } catch (err) {
-      gray.delete();
-      throw err;
+    } finally {
+      capGray.delete();
+      gray?.delete();
     }
   } catch (err) {
     self.postMessage({

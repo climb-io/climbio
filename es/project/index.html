@@ -4,9 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#F7F9FB">
-<title>Integra Climbio en la app de tu rocódromo | Climbio</title>
-<script src="../../doc-language.js"></script>
-<meta name="description" content="Para responsables de rocódromos: añade la vista y el trazado de vías a tu app sin desarrollarlo. Mira un ejemplo en vivo y copia los prompts para tu agente de IA.">
+<title>Añade Hold Cat a tu app de escalada | Climbio</title>
+<meta name="description" content="Deja que los escaladores consulten vías y las tracen tocando presas en tu app. Convierte las fotos del muro en mapas interactivos y sigue gestionando las cuentas y los encadenamientos en tu app.">
 <link rel="canonical" href="https://climbio.app/es/project/">
 <link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/project/">
 <link rel="alternate" hreflang="en" href="https://climbio.app/en/project/">
@@ -27,30 +26,46 @@
 <nav class="site-nav"><a href="../../es/guides/">Guías de uso</a></nav>
 </header>
 <main class="pg">
-<div class="pg-hero"><span class="pg-eyebrow">Para responsables de rocódromos</span><h1>Da a la app de tu rocódromo vista y trazado de vías, sin desarrollarlo</h1><p class="pg-lead">Entrega tus fotos del muro a Climbio y obtén un muro donde se tocan las presas, y luego intégralo en tu app actual. Tus escaladores ven y trazan vías dentro de tu app; tus cuentas, registros y base de datos no cambian.</p><div class="pg-actions"><a class="pg-btn primary" href="#demo">Ver un ejemplo</a><a class="pg-btn" href="#prompts">Copiar los prompts para el agente de IA</a></div></div>
-<section class="pg-section"><h2>Lo que gana tu rocódromo</h2><div class="pg-grid"><div class="pg-card"><h3>Nada que desarrollar</h3><p>La vista y el trazado de vías ya están hechos: añade una página incrustada (iframe en la web, WebView en una app nativa), indícale el id del muro y listo.</p></div><div class="pg-card"><h3>Actualizar el muro es subir una foto</h3><p>El personal elige una foto del muro en tu administración, las presas se detectan en el propio navegador y, al pulsar publicar, tienes un muro interactivo. Para más precisión, tu agente de IA puede afinarlo con el proceso de Studio.</p></div><div class="pg-card"><h3>Te encuentran en otros sitios</h3><p>Tu muro aparece también en «Buscar muros» de Hold Cat, y las vías se ven en tu app y en Hold Cat, sin mantener dos copias.</p></div><div class="pg-card"><h3>Tus usuarios y registros siguen siendo tuyos</h3><p>Climbio solo guarda muros y vías. Cómo se relacionan los usuarios con las vías, los encadenes y los comentarios lo decide tu app; el envío se identifica con tu sitio web, sin pedir ninguna clave.</p></div></div></section>
-<section class="pg-section" id="demo"><h2>Míralo en acción</h2><p>Esta es la pantalla de trazado de vías dentro de la app de un rocódromo: toca las presas del muro para trazar una vía (solo demostración, no se guarda nada). La vista es la misma página incrustada en otro modo.</p>
-<div class="pg-demo-box" id="demo-box" data-wall="0fe38b21d07b3771/nbh6yueynqa0" data-loading="Cargando…"><button type="button" class="pg-btn primary" id="demo-load">Cargar el ejemplo</button><span class="pg-demo-hint">Se carga al tocar (la foto pesa unos 2 MB)</span></div>
-<div class="pg-grid two pg-reg"><img class="pg-shot" src="../../demo/home/hold-community-view-en.webp" alt="Ver las vías de un muro público en Hold Cat" loading="lazy"><div><h3>Los demás ven el mismo muro</h3><p>Una vez publicado, tu muro aparece también en Hold Cat. Los escaladores pueden ver y trazar vías allí sin instalar tu app, y las vías se muestran en ambos sitios.</p><a class="pg-btn" href="../../hold/">Abrir Hold Cat</a></div></div></section>
-<section class="pg-section"><h2>Cómo se hace</h2><ol class="pg-steps"><li>Tu agente de IA lo conecta: una página incrustada «foto del muro» en tu administración y la página incrustada de vista y trazado en tu página de vías.</li><li>El personal sube una foto del muro: como al actualizar la foto que ya guardas, se detectan las presas, pulsan publicar y tu app guarda el id de muro devuelto. Una foto nueva es un muro nuevo.</li><li>Los usuarios trazan vías: al terminar, envían la vía y queda publicada en el muro; tu app guarda el id de vía devuelto y lo relaciona con tu propio usuario.</li></ol></section>
-<section class="pg-section" id="prompts"><h2>Copiar para el agente de IA</h2><p>Pégalo en el agente de IA que ya usas (Claude, ChatGPT o Codex). Tras leer todo el proceso, te pedirá en una sola lista los datos que necesita y solo tendrás que responder.</p><div class="pg-prompt"><pre id="agent-prompt" lang="es">Lee primero https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md y sigue su proceso para integrar Climbio en nuestro rocódromo. Al empezar, pídeme en una sola lista todos los datos que necesitas, sin preguntar varias veces; si no sé responder algo, dame opciones y una recomendación en vez de inventarlo.</pre><button type="button" class="pg-btn primary" data-copy="#agent-prompt" data-done="Copiado">Copiar</button></div><p>Los detalles técnicos están en GitHub y el agente de IA los lee solo:</p><div class="pg-actions"><a class="pg-btn" href="https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md">Guía de integración</a></div></section>
+<div class="pg-hero"><h1>Añade Hold Cat a tu app de escalada</h1><p class="pg-lead">Deja que los escaladores consulten vías y las tracen tocando presas en tu app. Convierte las fotos del muro en mapas interactivos y sigue gestionando las cuentas y los encadenamientos en tu app.</p><div class="pg-actions"><a class="pg-btn primary" href="#demo">Ver los ejemplos de Nangang</a></div></div>
+<section class="pg-section"><h2>Para tu rocódromo y sus escaladores</h2><div class="pg-grid"><div class="pg-card"><h3>Vías más fáciles de leer</h3><p>Los contornos siguen la forma de las presas. Incluso en un spray wall denso se ve cuáles forman parte de la vía.</p></div><div class="pg-card"><h3>Actualiza la foto al renovar el muro</h3><p>El personal sube una foto y el navegador detecta las presas. Una vez revisada y publicada, los escaladores pueden usar el muro interactivo.</p></div><div class="pg-card"><h3>Conserva tu sistema de socios</h3><p>Tu app gestiona los socios, los encadenamientos y los comentarios. Hold Cat aporta las fotos del muro, las presas y las vistas de las vías.</p></div></div></section>
+<section class="pg-section" id="demo" aria-labelledby="demo-title">
+<h2 id="demo-title">La misma vía, dos formas de marcarla</h2>
+<p id="demo-help">Desliza el control sobre la vía de ejemplo del spray wall de T-UP Nangang para comparar los círculos con el contorno de las presas.</p>
+<figure class="pg-compare">
+  <figcaption><span>Marcas circulares</span><span>Contorno de presas de Climbio</span></figcaption>
+  <div class="pg-compare-stage">
+    <img src="../../demo/reel/nangang-wall.webp" width="976" height="607" alt="Spray wall de T-UP Nangang" loading="lazy">
+    <canvas aria-hidden="true"></canvas>
+    <canvas class="pg-compare-circles" aria-hidden="true"></canvas>
+    <input type="range" min="0" max="100" value="50" aria-labelledby="demo-title" aria-describedby="demo-help" disabled>
+    <div class="pg-compare-divider" aria-hidden="true"><span class="pg-compare-handle">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 7-5 5 5 5m6-10 5 5-5 5"/></svg>
+    </span></div>
+  </div>
+</figure>
+</section>
+<section class="pg-section pg-volume" id="volume" aria-labelledby="volume-title">
+<h2 id="volume-title">Elige una presa pequeña sobre un volumen</h2>
+<p>Este volumen de T-UP Nangang tiene siete presas. Un círculo puede abarcar también las presas vecinas. Hold Cat amplía la zona para que puedas confirmar la presa que tocaste, elegir todo el volumen o tocar otra presa directamente.</p>
+<div class="pg-volume-grid">
+  <figure>
+    <figcaption id="volume-circles">Marca circular</figcaption>
+    <canvas role="img" aria-labelledby="volume-circles"></canvas>
+  </figure>
+  <figure>
+    <figcaption id="volume-pick">Selección ampliada en Hold Cat</figcaption>
+    <canvas aria-labelledby="volume-pick"></canvas>
+    <button class="pg-btn" type="button" disabled>Volver a probar la ampliación</button>
+  </figure>
+</div>
+</section>
+<section class="pg-section" id="prompts"><h2>Encarga la integración a tu agente de IA</h2><p>Si puedes modificar tu app o web de escalada, pega el texto de abajo en tu agente de IA. Te pedirá el código, el panel de administración y el entorno de pruebas antes de integrar la consulta y el trazado de vías.</p><p class="pg-muted">Esta integración usa muros públicos. Al publicar se comparten las fotos del muro y las vías.</p><div class="pg-prompt"><pre id="agent-prompt" lang="es">Lee primero https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md y sigue su proceso para integrar Climbio en nuestro rocódromo. Al empezar, pídeme en una sola lista todos los datos que necesitas, sin preguntar varias veces; si no sé responder algo, dame opciones y una recomendación en vez de inventarlo.</pre><button type="button" class="pg-btn primary" data-copy="#agent-prompt" data-done="Copiado">Copiar</button></div><div class="pg-actions"><a class="pg-btn" href="https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md">Guía de integración</a></div></section>
 <footer class="pg-foot docs-footer"><span>© 2026 Climbio</span><nav><a href="../../es/">Inicio</a> · <a href="../../privacy.html">Privacidad</a> · <a href="../../terms.html">Términos</a></nav></footer>
 </main>
 <script>
 document.addEventListener('click',function(e){var b=e.target.closest('[data-copy]');if(!b)return;var el=document.querySelector(b.dataset.copy),t=el.textContent,done=function(){var o=b.textContent;b.textContent=b.dataset.done;setTimeout(function(){b.textContent=o;},1800);},fb=function(){var r=document.createRange();r.selectNodeContents(el);var g=getSelection();g.removeAllRanges();g.addRange(r);try{document.execCommand('copy');done();}catch(x){}};if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,fb);else fb();});
-(function(){
-var box=document.getElementById('demo-box'),btn=document.getElementById('demo-load');if(!box||!btn)return;
-var frame=null;
-function send(m){if(frame&&frame.contentWindow)frame.contentWindow.postMessage(Object.assign({climbio:'routekit',v:1},m),'*');}
-btn.addEventListener('click',function(){
-  btn.disabled=true;btn.textContent=box.dataset.loading;
-  addEventListener('message',function(e){if(!frame||e.source!==frame.contentWindow||!e.data||e.data.climbio!=='routekit')return;
-    if(e.data.type==='ready')send({type:'init',wallId:box.dataset.wall,layerUrls:[]});
-    if(e.data.type==='fullscreen'){frame.classList.toggle('full',!!e.data.on);send({type:'setFullscreen',on:!!e.data.on});}});
-  frame=document.createElement('iframe');frame.className='pg-demo';frame.allow='fullscreen';frame.title=document.querySelector('#demo h2').textContent;frame.src='https://embed.climbio.app/routekit/v1/?mode=edit&maxStart=2';
-  box.replaceWith(frame);
-});
-})();
 </script>
+<script type="module" src="../../project/compare.js"></script>
+<script type="module" src="../../project/volume.js"></script>
 </body>
 </html>

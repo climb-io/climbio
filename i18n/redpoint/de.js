@@ -111,7 +111,6 @@ AppKit.i18n.add('redpoint', 'de', {
   // Teilen
   linkShared: "Link geteilt",
   linkCopied: "Link kopiert",
-  shareDriveNote: "Geteilte Gebiete werden im offenen Climbio-Datensatz (CC BY-SA 4.0) veröffentlicht: Jeder kann sie herunterladen, sie erscheinen auch unter „Welt“ und bereits heruntergeladene Kopien lassen sich nicht zurückholen. Für Leute in der Nähe nutze den Austausch in der Nähe.",
   uploading: "Lade hoch…",
   uploadingN: (i, n) => `Lade hoch ${i}/${n}`,
   leftLocal: (n) => n === 1 ? `1 Foto, das nur auf diesem Gerät liegt, wurde nicht aufgenommen` : `${n} Fotos, die nur auf diesem Gerät liegen, wurden nicht aufgenommen`,

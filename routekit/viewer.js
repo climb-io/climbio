@@ -3,9 +3,9 @@
 // 轉場由 App 自己做（App 的畫面也可以直接用同一套繪製函式）。
 // English: RouteKit viewer: ready-made RouteViewer and RouteEditor components drawn on a canvas.
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory(require('./geometry.js'), require('./labels.js'), require('./image.js'), require('./editor.js'), require('./viewport.js'), require('./fit.js'));
-  else Object.assign(root.RouteKit || (root.RouteKit = {}), factory(root.RouteKit, root.RouteKit, root.RouteKit, root.RouteKit, root.RouteKit, root.RouteKit));
-})(typeof self !== 'undefined' ? self : this, function (G, L, I, E, VP, F) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./geometry.js'), require('./labels.js'), require('./image.js'), require('./editor.js'), require('./viewport.js'), require('./fit.js'), require('./base.js'));
+  else Object.assign(root.RouteKit || (root.RouteKit = {}), factory(root.RouteKit, root.RouteKit, root.RouteKit, root.RouteKit, root.RouteKit, root.RouteKit, root.RouteKit));
+})(typeof self !== 'undefined' ? self : this, function (G, L, I, E, VP, F, B) {
   'use strict';
   // 畫布的大小跟著顯示大小（裝置像素），回傳照片座標 → 畫布的轉換；box＝要放進畫布的照片範圍
   function fitCanvas(canvas, box) {
@@ -274,7 +274,7 @@
       }
       for (const h of hs) L.strokeRouteHold(g, h.poly, route.holds[h.id], (s) => px(s * 0.65), this.theme);
       L.drawSeq(g, scene, route, this.labelUnit(), [], hs, this.theme);
-      if (this.pick) L.drawOverlapPick(g, { img: scene.img, holds: this.pick.holds, spots: this.pick.spots, vis, L: px, routeHolds: hs, route, theme: this.theme });
+      if (this.pick) L.drawOverlapPick(g, { img: scene.img, holds: this.pick.holds, spots: this.pick.spots, preferred: this.pick.preferred, neighbors: this.pick.neighbors, vis, L: px, routeHolds: hs, route, theme: this.theme });
       if (this.dr) { this.drawTrail(g, px); this.drawLoupe(g, k, dprOf()); }
     }
     // 套用一次點選（點到單一岩點、或從重疊的候選裡選好）：規則在 editor.js
@@ -296,11 +296,12 @@
       this.onChange(this.route);
     }
     // 重疊的地方：放大那一塊讓人選，選好（或點候選以外取消）就飛回原本的縮放和位置
-    openPick(under) {
-      const spots = G.overlapSpots(under, this.scene.w, this.scene.h), vp = this.vp, g = vp.geo, b = G.bbox([...under.flatMap((h) => h.poly), ...[...spots.values()].map((s) => [s.x, s.y])]);
-      const k = Math.min(g.W * 0.7 / Math.max(1, b.x1 - b.x0), g.H * 0.5 / Math.max(1, b.y1 - b.y0)), s = k / g.kFit, kk = g.kFit * Math.min(s, g.maxScale);
-      this.pick = { holds: under, spots, back: { ...vp.v } };
-      vp.flyTo({ s: Math.min(s, g.maxScale), tx: g.W / 2 - (b.x0 + b.x1) / 2 * kk, ty: g.H / 2 - (b.y0 + b.y1) / 2 * kk });
+    openPick(under, preferred) {
+      const vp = this.vp, g = vp.geo, { w, h } = this.scene;
+      const pick = B.prepareOverlapPick(under, this.scene.holds.filter(hold => !hold.retired), { w, h, width: g.W, height: g.H });
+      const s = Math.min(pick.k / g.kFit, g.maxScale), k = g.kFit * s;
+      this.pick = { ...pick, preferred, back: { ...vp.v } };
+      vp.flyTo({ s, tx: g.W / 2 - pick.cx * k, ty: g.H / 2 - pick.cy * k });
       this.render();
     }
     tap(e) {
@@ -308,15 +309,18 @@
       const pt = this.photoPoint(e); if (!pt) return;
       const { x, y, dpr } = pt;
       if (this.pick) {   // 重疊的選擇進行中
-        const p = this.pick, h = G.pickOverlap(p.holds, p.spots, x, y, 16 * dpr / this.t.k);   // 圓點的點選範圍：16 個螢幕像素
+        const p = this.pick, direct = G.holdAt(this.liveHolds(), x, y);
+        const h = G.pickOverlap(p.holds, p.spots, x, y, 16 * dpr / this.t.k, direct);
         this.pick = null; this.vp.flyTo(p.back); this.render();
         if (h) this.apply(h);
         return;
       }
       const all = this.liveHolds(), hit = G.holdAt(all, x, y);
       if (!hit) return;
-      const under = this.type === 'n' ? [] : G.holdsUnder(this.scene.holds.filter((h) => !h.retired), x, y);
-      if (under.length >= 2 && this.vp && this.vp.enabled) { this.openPick(under); return; }
+      if (this.type !== 'n' && this.vp?.enabled) {
+        const candidates = G.holdsUnder(this.scene.holds.filter(h => !h.retired), x, y);
+        if (candidates.length >= 2) { this.openPick(candidates, candidates[0]); return; }
+      }
       this.apply(hit);
     }
   }

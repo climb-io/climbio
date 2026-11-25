@@ -111,7 +111,6 @@ AppKit.i18n.add('redpoint', 'es', {
   // Compartir
   linkShared: "Enlace compartido",
   linkCopied: "Enlace copiado",
-  shareDriveNote: "Las zonas compartidas se publican en el conjunto de datos abierto de Climbio (CC BY-SA 4.0): cualquiera puede descargarlas, también aparecen en «Mundo» y las copias ya descargadas no se pueden recuperar. Para quienes están cerca, usa el intercambio cercano.",
   uploading: "Subiendo…",
   uploadingN: (i, n) => `Subiendo ${i}/${n}`,
   leftLocal: (n) => n === 1 ? `Se dejó fuera 1 foto que solo está en este dispositivo` : `Se dejaron fuera ${n} fotos que solo están en este dispositivo`,

@@ -95,8 +95,6 @@ AppKit.i18n.add('studio-wall', 'en', {
   hlReviewedOn: "Fully reviewed",
   hlReviewedOff: "Mark as reviewed",
   hlPubTitle: "Publish this wall",
-  hlPubClaim: "I have the right to publish this, and no identifiable people appear in the photo",
-  hlPubNeedClaim: "Please tick the statement first",
   hlPubUploading: "Uploading",
   hlPubDone: (v) => `Published version ${v}`,
   hlPubGo: "Publish",

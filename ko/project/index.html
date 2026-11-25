@@ -4,9 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#F7F9FB">
-<title>Climbio를 암장 앱에 넣기 | Climbio</title>
-<script src="../../doc-language.js"></script>
-<meta name="description" content="암장 운영자용: 직접 개발하지 않고도 앱에 루트 보기와 루트 세팅을 넣을 수 있습니다. 실제 예시를 보고, AI Agent에 줄 프롬프트를 복사하세요.">
+<title>클라이밍 앱에 Hold Cat 추가하기 | Climbio</title>
+<meta name="description" content="이용자가 앱 안에서 루트를 보고 홀드를 눌러 루트를 만들 수 있어요. 벽 사진은 대화형 루트 지도가 되고, 회원 계정과 완등 기록은 기존 앱에서 관리합니다.">
 <link rel="canonical" href="https://climbio.app/ko/project/">
 <link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/project/">
 <link rel="alternate" hreflang="en" href="https://climbio.app/en/project/">
@@ -27,30 +26,46 @@
 <nav class="site-nav"><a href="../../ko/guides/">사용 안내</a></nav>
 </header>
 <main class="pg">
-<div class="pg-hero"><span class="pg-eyebrow">암장 운영자용</span><h1>직접 개발하지 않고 암장 앱에 루트 보기와 세팅을</h1><p class="pg-lead">벽 사진을 Climbio에 맡기면 홀드를 탭할 수 있는 벽이 만들어지고, 지금 쓰는 앱에 넣을 수 있습니다. 클라이머는 앱 안에서 루트를 보고 세팅합니다. 계정, 기록, 데이터베이스는 그대로 둡니다.</p><div class="pg-actions"><a class="pg-btn primary" href="#demo">실제 예시 보기</a><a class="pg-btn" href="#prompts">AI Agent용 프롬프트 복사</a></div></div>
-<section class="pg-section"><h2>넣고 나면 암장이 얻는 것</h2><div class="pg-grid"><div class="pg-card"><h3>따로 개발할 필요 없음</h3><p>루트 보기와 세팅 화면은 이미 준비되어 있습니다. 앱에 임베드 페이지(웹은 iframe, 네이티브는 WebView)를 하나 두고 벽 id만 알려 주면 끝납니다.</p></div><div class="pg-card"><h3>벽 업데이트는 사진 한 장 올리기</h3><p>직원이 관리자 화면에서 벽 사진을 고르면 브라우저에서 바로 홀드를 감지하고, 게시를 누르면 인터랙티브한 벽이 생깁니다. 더 정밀하게 하려면 AI Agent가 Studio 절차로 다듬을 수 있습니다.</p></div><div class="pg-card"><h3>다른 곳에서도 찾아옴</h3><p>내 벽이 홀드캣의 「벽 찾기」에도 나타나고, 루트는 내 앱과 홀드캣 양쪽에서 보입니다. 두 벌을 따로 관리할 필요가 없습니다.</p></div><div class="pg-card"><h3>사용자와 기록은 그대로</h3><p>Climbio는 벽과 루트만 보관합니다. 사용자와 루트의 연결, 완등 기록, 댓글은 모두 앱이 정합니다. 제출은 내 웹사이트를 신원으로 쓰므로 따로 키를 신청하지 않아도 됩니다.</p></div></div></section>
-<section class="pg-section" id="demo"><h2>직접 보기</h2><p>암장 앱에 넣은 루트 세팅 화면입니다. 벽의 홀드를 탭하면 루트를 만들 수 있습니다(데모라 저장되지 않습니다). 루트 보기는 같은 임베드 페이지이며 모드만 다릅니다.</p>
-<div class="pg-demo-box" id="demo-box" data-wall="0fe38b21d07b3771/nbh6yueynqa0" data-loading="불러오는 중…"><button type="button" class="pg-btn primary" id="demo-load">예시 불러오기</button><span class="pg-demo-hint">탭하면 불러옵니다(사진 약 2 MB)</span></div>
-<div class="pg-grid two pg-reg"><img class="pg-shot" src="../../demo/home/hold-community-view-en.webp" alt="홀드캣에서 공개 벽의 루트 보기" loading="lazy"><div><h3>일반 사용자에게도 같은 벽이 보입니다</h3><p>게시한 벽은 홀드캣에도 나타납니다. 클라이머는 내 앱을 설치하지 않고도 루트를 보고 세팅할 수 있으며, 루트는 양쪽에서 보입니다.</p><a class="pg-btn" href="../../hold/">홀드캣 열기</a></div></div></section>
-<section class="pg-section"><h2>진행 방법</h2><ol class="pg-steps"><li>AI Agent가 연결해 줍니다: 관리자 화면에 「벽 사진」 임베드 페이지, 루트 페이지에 보기·세팅 임베드 페이지.</li><li>직원이 벽 사진 업로드: 지금 쓰는 사진을 바꾸듯이 홀드를 감지하고 게시를 누르면, 앱은 돌려받은 벽 id를 저장합니다. 사진을 바꾸면 새 벽이 됩니다.</li><li>사용자가 루트 세팅: 세팅을 마치고 제출하면 그 벽에 공개됩니다. 앱은 돌려받은 루트 id를 자기 사용자와 연결해 저장합니다.</li></ol></section>
-<section class="pg-section" id="prompts"><h2>AI Agent에 복사</h2><p>평소 쓰는 AI Agent(Claude, ChatGPT, Codex 모두 가능)에 붙여 넣으세요. 전체 절차를 읽은 뒤 필요한 정보를 한 번에 목록으로 물어보니 답만 하면 됩니다.</p><div class="pg-prompt"><pre id="agent-prompt" lang="ko">먼저 https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md 를 읽고, 그 절차대로 우리 암장에 Climbio를 통합해 주세요. 시작할 때 제가 준비해야 할 정보를 한 번에 목록으로 물어봐 주세요(여러 번 나누어 묻지 마세요). 제가 답하지 못하는 것은 지어내지 말고 선택지와 추천을 알려 주세요.</pre><button type="button" class="pg-btn primary" data-copy="#agent-prompt" data-done="복사됨">복사</button></div><p>기술 세부 사항은 GitHub에 있고 AI Agent가 직접 읽습니다:</p><div class="pg-actions"><a class="pg-btn" href="https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md">통합 가이드</a></div></section>
+<div class="pg-hero"><h1>클라이밍 앱에 Hold Cat 추가하기</h1><p class="pg-lead">이용자가 앱 안에서 루트를 보고 홀드를 눌러 루트를 만들 수 있어요. 벽 사진은 대화형 루트 지도가 되고, 회원 계정과 완등 기록은 기존 앱에서 관리합니다.</p><div class="pg-actions"><a class="pg-btn primary" href="#demo">난강 사례 보기</a></div></div>
+<section class="pg-section"><h2>암장과 클라이머가 얻는 기능</h2><div class="pg-grid"><div class="pg-card"><h3>한눈에 보는 루트</h3><p>홀드 모양을 따라 그린 윤곽으로 홀이 촘촘한 스프레이 월에서도 루트에 쓰인 홀드를 구분할 수 있어요.</p></div><div class="pg-card"><h3>세팅이 바뀌면 사진 업데이트</h3><p>직원이 새 사진을 올리면 브라우저에서 홀드를 인식합니다. 확인하고 공개하면 이용자가 새 벽을 사용할 수 있어요.</p></div><div class="pg-card"><h3>기존 회원 시스템 유지</h3><p>회원, 완등 기록, 댓글은 기존 앱에서 관리합니다. Hold Cat은 벽 사진, 홀드, 루트 화면을 제공합니다.</p></div></div></section>
+<section class="pg-section" id="demo" aria-labelledby="demo-title">
+<h2 id="demo-title">같은 루트, 두 가지 표시 방식</h2>
+<p id="demo-help">T-UP 난강 스프레이 월의 예시 루트입니다. 좌우로 밀어 원 표시와 홀드 윤곽을 비교해 보세요.</p>
+<figure class="pg-compare">
+  <figcaption><span>원 표시</span><span>Climbio 홀드 윤곽</span></figcaption>
+  <div class="pg-compare-stage">
+    <img src="../../demo/reel/nangang-wall.webp" width="976" height="607" alt="T-UP 난강 스프레이 월" loading="lazy">
+    <canvas aria-hidden="true"></canvas>
+    <canvas class="pg-compare-circles" aria-hidden="true"></canvas>
+    <input type="range" min="0" max="100" value="50" aria-labelledby="demo-title" aria-describedby="demo-help" disabled>
+    <div class="pg-compare-divider" aria-hidden="true"><span class="pg-compare-handle">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 7-5 5 5 5m6-10 5 5-5 5"/></svg>
+    </span></div>
+  </div>
+</figure>
+</section>
+<section class="pg-section pg-volume" id="volume" aria-labelledby="volume-title">
+<h2 id="volume-title">볼륨 위의 작은 홀드도 정확하게</h2>
+<p>T-UP 난강의 이 볼륨에는 홀드가 일곱 개 있습니다. 원으로 표시하면 주변 홀드까지 포함되기 쉽습니다. Hold Cat은 겹친 영역을 확대해 누른 홀드나 볼륨 전체를 확인하고, 주변 홀드도 바로 선택할 수 있게 합니다.</p>
+<div class="pg-volume-grid">
+  <figure>
+    <figcaption id="volume-circles">원으로 표시</figcaption>
+    <canvas role="img" aria-labelledby="volume-circles"></canvas>
+  </figure>
+  <figure>
+    <figcaption id="volume-pick">Hold Cat 확대 선택</figcaption>
+    <canvas aria-labelledby="volume-pick"></canvas>
+    <button class="pg-btn" type="button" disabled>확대 선택 다시 해보기</button>
+  </figure>
+</div>
+</section>
+<section class="pg-section" id="prompts"><h2>AI 에이전트에게 연동 맡기기</h2><p>수정할 수 있는 클라이밍 앱이나 웹사이트가 있다면 아래 문구를 AI 에이전트에 붙여 넣으세요. 앱 코드, 관리자 화면, 테스트 환경을 확인한 뒤 루트 보기와 세팅 기능을 연동합니다.</p><p class="pg-muted">이 연동은 공개 벽을 사용합니다. 게시한 벽 사진과 루트는 공개됩니다.</p><div class="pg-prompt"><pre id="agent-prompt" lang="ko">먼저 https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md 를 읽고, 그 절차대로 우리 암장에 Climbio를 통합해 주세요. 시작할 때 제가 준비해야 할 정보를 한 번에 목록으로 물어봐 주세요(여러 번 나누어 묻지 마세요). 제가 답하지 못하는 것은 지어내지 말고 선택지와 추천을 알려 주세요.</pre><button type="button" class="pg-btn primary" data-copy="#agent-prompt" data-done="복사됨">복사</button></div><div class="pg-actions"><a class="pg-btn" href="https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md">통합 가이드</a></div></section>
 <footer class="pg-foot docs-footer"><span>© 2026 Climbio</span><nav><a href="../../ko/">홈</a> · <a href="../../privacy.html">개인정보</a> · <a href="../../terms.html">이용 약관</a></nav></footer>
 </main>
 <script>
 document.addEventListener('click',function(e){var b=e.target.closest('[data-copy]');if(!b)return;var el=document.querySelector(b.dataset.copy),t=el.textContent,done=function(){var o=b.textContent;b.textContent=b.dataset.done;setTimeout(function(){b.textContent=o;},1800);},fb=function(){var r=document.createRange();r.selectNodeContents(el);var g=getSelection();g.removeAllRanges();g.addRange(r);try{document.execCommand('copy');done();}catch(x){}};if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,fb);else fb();});
-(function(){
-var box=document.getElementById('demo-box'),btn=document.getElementById('demo-load');if(!box||!btn)return;
-var frame=null;
-function send(m){if(frame&&frame.contentWindow)frame.contentWindow.postMessage(Object.assign({climbio:'routekit',v:1},m),'*');}
-btn.addEventListener('click',function(){
-  btn.disabled=true;btn.textContent=box.dataset.loading;
-  addEventListener('message',function(e){if(!frame||e.source!==frame.contentWindow||!e.data||e.data.climbio!=='routekit')return;
-    if(e.data.type==='ready')send({type:'init',wallId:box.dataset.wall,layerUrls:[]});
-    if(e.data.type==='fullscreen'){frame.classList.toggle('full',!!e.data.on);send({type:'setFullscreen',on:!!e.data.on});}});
-  frame=document.createElement('iframe');frame.className='pg-demo';frame.allow='fullscreen';frame.title=document.querySelector('#demo h2').textContent;frame.src='https://embed.climbio.app/routekit/v1/?mode=edit&maxStart=2';
-  box.replaceWith(frame);
-});
-})();
 </script>
+<script type="module" src="../../project/compare.js"></script>
+<script type="module" src="../../project/volume.js"></script>
 </body>
 </html>

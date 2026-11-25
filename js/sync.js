@@ -31,15 +31,12 @@
   // 圖片只在本機產圖，不上傳；連結只給 Studio 公開牆，要把自己的線公開傳出去：沒同意過條款、沒有簽名就先出現簽名面板，填好才傳。
   // 左上是 × 離開
   // 舊版內建範例牆僅允許本機圖片分享；3D 牆由 W3D 產生不需伺服器的路線連結。
-  const CONSENT_KEY = 'climbio.shareOk';   // 第一次分享路線連結在設定畫面說明（公開的路線進開放資料集、不能收回）並請使用者同意
   const pendingRoutes = w => !isPublic(w) ? [] : w.routes.filter(r => mineRoute(r) && routeReady(r) && r.pub !== pubSig(r));
   async function pendingShares(id = null) {
     const walls = new Map((await listWalls()).map(w => [w.id, w]));
     if (state.wall) walls.set(state.wall.id, state.wall);
     return [...walls.values()].filter(w => !hiddenWalls.has(w.id) && (!id || w.id === id)).flatMap(w => pendingRoutes(w).map(r => ({ id: w.id, rid: r.id })));
   }
-  // 暱稱必填：公開的路線帶著出線者
-  const updateShareSetup = () => { $('shAgree').disabled = !$('shSignature').value.trim(); };
   // ---------- 附近交換（appkit/nearby.js）：同一個網路的朋友互相看得到，確認後自由挑牆面互傳。一面牆＝照片、岩點、這面牆上的所有路線（公開格式 v2 的分享包），
   // 收下是安靜的（跟收連結同一個 saveSnap，只留在這台，不算公開牆），回首頁看得到 ----------
   const hex16 = (text) => AppKit.files.sha(text, 8);
@@ -109,53 +106,30 @@
   const openNearby = (mode = 'send', pick) => AppKit.nearby.start(mode, pick ? { ...nearbyAdapter, pick } : nearbyAdapter);   // 'send'：傳給別人；'devices'：我的裝置（配對、自動同步）；pick：傳給別人時先選好的牆（id 清單）
   AppKit.nearby.bind($('findNearby'), 'send', nearbyAdapter);
   AppKit.nearby.bind($('hmSync'), 'devices', nearbyAdapter, () => { $('homeMenu').hidden = true; });
-  // 同意過條款（簽名是同意時填的，沒簽名就用 Google 名稱）：連結可以直接傳，不用再問
-  const setupDone = () => !!AppKit.nearby.nickname();   // 條款寫在授權裡（CC BY-SA 4.0），不再另外同意；只要有暱稱（出線者署名）
-  // ctx：{ kind: 'wall', id: 牆 id, route: 路線 id }＝分享路線；{ setup: true, … }＝分享路線前先填簽名
+  // ctx：{ kind: 'wall', id: 牆 id, route: 路線 id }＝分享路線（連結直接給，不問暱稱、不另外同意；署名用目前的暱稱，沒設定就留空）
   async function openShare(ctx) {
     const sharingWall = state.wall && state.wall.id === ctx.id ? state.wall : null;
     const m3d = !!ctx.route && !!sharingWall?.m3d;   // 3D 牆：路線跟 2D 一樣傳到 Climbio、連結很短；傳不上去（沒網路、不能分享）退回把整條線壓在連結裡（js/wall3d.js）
     // 路線連結只給 Studio 發佈的公開牆（牆已經在開放資料集，連結只傳這條線）和 3D 牆；手機自己拍的牆、舊版範例牆只有圖片，要給朋友走附近交換。
     const linkable = !!ctx.route && (m3d || isPublic(sharingWall));
-    const ask = !!ctx.setup;
     shareCtx = ctx; shareLink = '';
     closeRadials(); $('edMenu').hidden = true; $('homeMenu').hidden = true;
-    $('shTitle').textContent = t(ctx.route ? 'shareRoute' : 'signInTitle');
+    $('shTitle').textContent = t('shareRoute');
     const card = $('shareDialog').querySelector('.share-card');
-    card.classList.toggle('is-route', !!ctx.route && !ask);
-    $('shSignedOut').hidden = true;
+    card.classList.toggle('is-route', !!ctx.route);
     shStatus('');
     $('shareDialog').hidden = false; $('shareDialog').querySelector('.share-card').scrollTop = 0; openOverlay('shareDialog', closeShare);
-    const routeUi = !!ctx.route && !ask;
+    const routeUi = !!ctx.route;
     $('shPrev').hidden = $('shTo').hidden = !routeUi;
     if (routeUi) renderPreview();
     $('shSend').hidden = !linkable;   // 兩顆分享目標一直都在；後端不能分享路線連結的站只有圖片
-    if (ask) return sharePanel();
     if (m3d) {   // 3D 牆的路線連結整條線都在網址裡
-      const r = state.wall.routes.find(v => v.id === ctx.route), url = r && (setupDone() ? await share3d(state.wall, r) : await W3D.link(state.wall, r));   // 簽名、條款還沒好：先給長連結，按分享時才問
+      const r = state.wall.routes.find(v => v.id === ctx.route), url = r && await share3d(state.wall, r);   // 簽名、條款還沒好：先給長連結，按分享時才問
       if (url && shareCtx === ctx) shareLink = url;
       return;
     }
-    if (ctx.route) { if (linkable && !m3d && setupDone()) await ensureShared(ctx); return; }   // 設定好了就先在背景傳，按連結時多半已經好了
+    if (ctx.route) { if (linkable && !m3d) await ensureShared(ctx); return; }   // 先在背景傳，按連結時多半已經好了
   }
-  // 分享說明（第一次分享）：標題、簽名、同意條款，按鈕是「分享」
-  function sharePanel() {
-    $('shSignedOut').hidden = false;
-    $('shSignHead').textContent = t('sharePublic');
-    $('shSignature').value = signName(); updateShareSetup();
-    $('shLegalPre').textContent = t('legalPreShare');
-  }
-  $('shSignature').oninput = updateShareSetup;
-  // 簽名填好、同意條款：記下來，接著分享
-  $('shAgree').onclick = async () => {
-    const signature = $('shSignature').value.trim();
-    if (!signature) return;
-    if (!AppKit.nearby.setNickname(signature)) return;
-    lsSet(CONSENT_KEY, true);
-    fileCache.clear();
-    if (shareCtx) openShare({ ...shareCtx, setup: false });
-  };
-
   // 分享一面牆：這面牆裡自己的待分享路線（新建或改了）一次送出（Backend.shareRoutes：只傳這幾條線到 Climbio，只限 Studio 發佈的公開牆）。
   // 不比對路線是否一樣；回傳第一個失敗（沒有就 null）。
   // 牆面卡片右上的地球：公開的牆（自己公開分享過，或收來的公開牆；只在手機的不標）
@@ -185,7 +159,7 @@
     });
     return failed;
   }
-  // 公開牆上定好的線（有起攀、完攀）就公開：存線後等一下自動傳（沒網路、沒暱稱就先留著，下次存線或開牆再傳）；自己的線隨時可以刪，刪了就從公開牆拿掉（dropLine）。
+  // 公開牆上定好的線（有起攀、完攀）就公開：存線後等一下自動傳（沒網路就先留著，下次存線或開牆再傳）；自己的線隨時可以刪，刪了就從公開牆拿掉（dropLine）。
   // 改完停 30 秒才傳（編輯中每動一下不傳）；離開畫面（切到背景）馬上傳。測試用 climbioShareDelay 縮短
   let autoTimer = 0, autoId = '';
   function autoShare(id, now = false) {
@@ -193,7 +167,7 @@
     autoId = id;
     autoTimer = setTimeout(async () => {
       try {
-        if (navigator.onLine === false || !AppKit.nearby.nickname()) return;
+        if (navigator.onLine === false) return;
         const w = await liveWall(id);
         if (!w || !isPublic(w) || shareBusy) return;
         const rids = pendingRoutes(w).map(r => r.id);
@@ -305,7 +279,6 @@
     const ctx = shareCtx, w = ctx && await liveWall(ctx.id), r = w && w.routes.find(v => v.id === ctx.route);
     if (!r) return;
     const direct = !!w.m3d && !can('share');   // 3D 牆不能分享的站：連結直接由模型建立，不上傳
-    if (!direct && !setupDone(w)) return openShare({ ...ctx, setup: true });
     let waited = false;
     if (!shareLink && !direct) {
       waited = true;

@@ -25,7 +25,8 @@ export function firstCameraFrame(video,timeoutMs=5000){
  return new Promise((resolve,reject)=>{
   let callback=null;
   const cleanup=()=>{clearTimeout(timer);video.removeEventListener('loadeddata',loaded);if(callback!==null)video.cancelVideoFrameCallback?.(callback);};
-  const loaded=()=>{if(video.readyState<2||!video.videoWidth||!video.videoHeight)return;cleanup();resolve({width:video.videoWidth,height:video.videoHeight});};
+  // 第一個影格回呼時 video 可能還沒 readyState≥2：再等下一個影格，不然會一直等到逾時
+  const loaded=()=>{if(video.readyState<2||!video.videoWidth||!video.videoHeight){if(video.requestVideoFrameCallback)callback=video.requestVideoFrameCallback(loaded);return;}cleanup();resolve({width:video.videoWidth,height:video.videoHeight});};
   const timer=setTimeout(()=>{cleanup();reject(new Error('相機沒有提供影格'));},timeoutMs);
   if(video.requestVideoFrameCallback)callback=video.requestVideoFrameCallback(loaded);
   else{video.addEventListener('loadeddata',loaded);loaded();}

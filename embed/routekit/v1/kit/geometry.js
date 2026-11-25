@@ -101,12 +101,20 @@
     return holds.filter(h => inPoly(x, y, h.poly)).map(h => [area(h.poly), h]).sort((a, b) => a[0] - b[0]).map(e => e[1]);
   }
   // 重疊岩點（面積小的在前）各自的圓點：會選到它（不在更小的候選裡）的範圍中，離所有候選邊界最遠的一點；
-  // 完全重合或被較小候選覆蓋、沒有獨占區的，改在右側放帶引線的選點。W、H：照片大小。回傳 Map(岩點 → { x, y, d?, anchor? })
-  function overlapSpots(cands, W, H) {
+  // 完全重合或被較小候選覆蓋、沒有獨占區的，改在右側放帶引線的選點。量體圓點也避開其他小岩點。
+  function overlapSpots(cands, W, H, neighbors = []) {
     const b = bbox(cands.flatMap(h => h.poly)), step = Math.max(b.x1 - b.x0, b.y1 - b.y0) / 40, spots = new Map();
+    const targets = new Set(cands);
+    const pool = (neighbors.length ? [...cands, ...neighbors].sort((a, b) => area(a.poly) - area(b.poly)) : cands).map(h => ({ h, box: bbox(h.poly) }));
     for (let y = b.y0 + step / 2; y < b.y1; y += step) for (let x = b.x0 + step / 2; x < b.x1; x += step) {
-      const h = cands.find(c => inPoly(x, y, c.poly)); if (!h) continue;
-      const d = Math.min(...cands.map(c => edgeDist(x, y, c.poly))), s = spots.get(h);
+      const h = pool.find(({ h, box }) => x >= box.x0 && x <= box.x1 && y >= box.y0 && y <= box.y1 && inPoly(x, y, h.poly))?.h;
+      if (!targets.has(h)) continue;
+      let d = edgeDist(x, y, h.poly);
+      for (const { h: other, box } of pool) {
+        if (other === h || x < box.x0 - d || x > box.x1 + d || y < box.y0 - d || y > box.y1 + d) continue;
+        d = Math.min(d, edgeDist(x, y, other.poly));
+      }
+      const s = spots.get(h);
       if (!s || d > s.d) spots.set(h, { x, y, d });
     }
     const hidden = cands.filter(h => !spots.has(h)), pad = Math.min(step * 5, W / 8, H / 8);
@@ -118,10 +126,13 @@
     });
     return spots;
   }
-  // 選候選：點到圓點（radius 內最近的）優先，否則點在哪顆裡面就是哪顆；都不是回傳 null（取消）
-  function pickOverlap(cands, spots, x, y, radius) {
+  // 選候選：先看實際畫出來的圓點，再看點在哪顆外框裡；圓點外的容錯區只在沒有點到岩點時使用。
+  function pickOverlap(cands, spots, x, y, radius, direct = null) {
     const dots = cands.map(h => ({ h, d: Math.hypot(x - spots.get(h).x, y - spots.get(h).y) })).sort((a, b) => a.d - b.d);
-    return dots[0].d <= radius ? dots[0].h : cands.find(c => inPoly(x, y, c.poly)) || null;
+    const dot = dots[0];
+    if (!dot) return null;
+    if (dot.d <= radius * 10 / 16) return dot.h;
+    return direct || cands.find(c => inPoly(x, y, c.poly)) || (dot.d <= radius ? dot.h : null);
   }
   // 手畫的一圈軌跡 → 簡化的多邊形外框（觸控長按「自由畫」用）：限制在 W×H 的照片裡，頭尾自動接起來，
   // Ramer–Douglas–Peucker 簡化（容差＝外接框對角線的 3%，至少 minTol），頂點最多 maxN 個；畫得太小或面積太小回傳 null

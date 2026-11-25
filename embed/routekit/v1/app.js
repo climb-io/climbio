@@ -3,11 +3,11 @@
 // 工具列、類型列、順序列、選單都是 kit 的 RouteKit.EditorUI（跟岩點貓定線頁同一份），這頁只管訊息、圖層和畫布。
 // 小畫面（iframe 在頁面裡）只是預覽：沒有工具蓋在畫面上，點一下就進全螢幕；全螢幕才有工具、縮放平移（跟岩點貓同一套）和定線。
 // 外層 → 內嵌頁：init { wallId（或 viewUrl、photoUrl）, layerUrls?, routeId?, layerId?, viewHref?, options?, key? }（三個網址都要是官方網址，見 docs/embed.md）、setRoute { routeId }（空的＝新路線，定線才有）、
-//   submit { name?, grade?, author? }（定線：把這條路線寫進 Climbio 公開牆，成功回 submitted，失敗回 error）、remove { routeIds }（刪自己提交的路線，回 removed）、setType { holdType }（s 起攀、h 手點、t 完攀、f 腳點、n 順序）、setOptions { lang?, colors?, labels?, heat?, draw?, maxStart?, controls?, foot?, order? }、setFullscreen { on }（外層放大或縮回 iframe 後同步）。
+//   submit { name?, grade?, author? }（定線：把這條路線寫進 Climbio 公開牆，成功回 submitted，失敗回 error）、remove { routeIds }（刪自己提交的路線，回 removed）、setType { holdType }（s 起攀、h 手點、t 完攀、f 腳點、n 順序）、setOptions { lang?, colors?, labels?, heat?, draw?, maxStart?, controls?, foot?, order?, baseToggle?, grade?, gradeSys? }、setFullscreen { on }（外層放大或縮回 iframe 後同步）。
 // 內嵌頁 → 外層：ready、change { layer, routeId }（定線改了：v2 圖層，只有這條路線）、limit { max }（起攀已滿：已在路線上的點不能改成起攀，內嵌頁沒有改路線）、
 //   submitted { routeId, routeUrl, layer }（submit 成功）、removed { results }（remove 的結果）、done { layer, routeId }（定線完成，右上的勾）、cancel（取消，左上的叉）、fullscreen { on }（進出全螢幕，內嵌頁自己做不到時請外層把 iframe 放大或縮回）、error { message }。
 // 網址參數（顯示選項，init 的 options 和 setOptions 可以覆蓋）：mode=view｜edit、type=s｜h｜t｜f｜n（底固定暗彩＋光暈，看線、定線都一樣，沒有黑白切換；黑白是岩點貓自己的特色）、
-//   controls=1（預設）｜0（不顯示按鈕，全由外層用訊息控制；畫面直接可以互動）、foot=1（預設）｜0（定線工具列有沒有腳點）、order=1（預設）｜0（有沒有順序）、maxStart（起攀點數上限，預設 2＝岩點貓；有的岩館規定 4）、
+//   baseToggle=0（預設，固定暗彩）｜1（顯示暗彩／黑白切換鈕）、grade=0（預設）｜1（定線上方的難度轉盤，跟岩點貓同一個）、gradeSys=v（預設）｜font｜dan（轉盤用的難度系統）、controls=1（預設）｜0（不顯示按鈕，全由外層用訊息控制；畫面直接可以互動）、foot=1（預設）｜0（定線工具列有沒有腳點）、order=1（預設）｜0（有沒有順序）、maxStart（起攀點數上限，預設 2＝岩點貓；有的岩館規定 4）、
 //   tap=fullscreen（預設，小畫面點一下進全螢幕）｜edit（框夠大，直接在原地看線、定線）。
 (function () {
   'use strict';
@@ -23,7 +23,7 @@
   const hex = (v) => { const m = /^#?([0-9a-f]{6})$/i.exec(String(v ?? '').trim()); return m ? `#${m[1].toLowerCase()}` : undefined; };
   const label = (v) => { const c = [...String(v ?? '').trim()]; return c.length >= 1 && c.length <= 2 ? c.join('') : undefined; };
   const fromParams = (names, pick) => Object.fromEntries(names.map((k) => [k, pick(params.get(`${pick === hex ? 'color' : 'label'}-${k}`))]).filter(([, v]) => v !== undefined));
-  const opts = { lang, colors: fromParams(['s', 'h', 't', 'f'], hex), labels: fromParams(['s', 't'], label), heat: params.get('heat') !== '0', draw: params.get('draw') !== '0', base: 'dim', controls: params.get('controls') !== '0', foot: params.get('foot') !== '0', order: params.get('order') !== '0', maxStart: count(params.get('maxStart')) };
+  const opts = { lang, colors: fromParams(['s', 'h', 't', 'f'], hex), labels: fromParams(['s', 't'], label), heat: params.get('heat') !== '0', draw: params.get('draw') !== '0', base: 'dim', baseToggle: params.get('baseToggle') === '1', grade: params.get('grade') === '1', gradeSys: ['v', 'font', 'dan'].includes(params.get('gradeSys')) ? params.get('gradeSys') : 'v', controls: params.get('controls') !== '0', foot: params.get('foot') !== '0', order: params.get('order') !== '0', maxStart: count(params.get('maxStart')) };
   const inFrame = window.parent !== window, inPlace = params.get('tap') === 'edit';   // 不在 iframe 裡（原生 App 的 WebView、單獨開）整個畫面就是全螢幕
   let S = null, fs = null;   // S：{ scene, wall: { w, h, holds }, view, layerId, viewHref, routes, ctl, current }
   const randomId = () => `embed${Math.random().toString(36).slice(2, 10).padEnd(8, '0')}`;
@@ -35,10 +35,24 @@
   // ---- 操作介面：kit 的 EditorUI（按鈕、類型列、順序列、選單）；規則在控制器（RouteEditor），這頁只接動作 ----
   const ui = RouteKit.EditorUI.mount(document.body, {
     ...uiState(), type: startType, fullscreen: true, colors: theme().colors,   // 全畫面鈕一直在：iframe 請外層放大，原生 WebView 送 fullscreen 給原生端處理
+    onBase: (b) => { opts.base = b; if (S && S.ctl) S.ctl.setMode(b); ui.setOptions({ base: b }); ui.update(); },
     onDone: () => finish(true), onCancel: () => finish(false), onFullscreen: () => fs && fs.toggle(),
     onLimit: () => link.send('limit', { max: opts.maxStart === undefined ? RouteKit.MAX_START : opts.maxStart }),
   });
-  document.querySelector('[data-rk="base"]').hidden = true;   // 底固定暗彩：不給切換黑白（黑白是岩點貓的特色）
+  const syncBase = () => { document.querySelector('[data-rk="base"]').hidden = !opts.baseToggle; };   // 底預設固定暗彩；外層要才給暗彩／黑白切換鈕
+  syncBase();
+  // 難度轉盤（選用，只在定線）：跟岩點貓同一個 kit 元件（RouteKit.gradeDial），放在取消鈕右邊；選的難度寫進路線，submit 沒帶 grade 就用它
+  const DEFAULT_GRADE = { v: 'V3', font: '6A+', dan: '3級' };
+  const gradeEl = document.createElement('div');
+  gradeEl.className = 'grade-dial rk-only-edit'; gradeEl.setAttribute('role', 'group');
+  ui.slot('start', gradeEl);
+  const dial = RouteKit.gradeDial(gradeEl, { sys: opts.gradeSys, token: () => S && S.current, onPick: (g, cur) => { if (S && S.current && S.current === cur) { S.current.grade = g; emit(); } } });   // 停下來時換了路線就不算
+  const syncGrade = () => {
+    gradeEl.hidden = !(opts.grade && mode === 'edit');
+    gradeEl.setAttribute('aria-label', lang === 'en' ? 'Grade' : '難度');
+    if (!gradeEl.hidden) { dial.setSystem(opts.gradeSys); if (S && S.current) { if (!S.current.grade) S.current.grade = DEFAULT_GRADE[dial.system]; dial.setValue(S.current.grade, false, opts.gradeSys); } }
+  };
+  syncGrade();
   document.documentElement.lang = lang === 'en' ? 'en' : 'zh-Hant';
   function applyTheme() {
     ui.setOptions({ colors: theme().colors });
@@ -91,10 +105,14 @@
     }
     ui.setOptions(uiState());
     ui.update();
+    syncGrade();
   }
   function setOptions(o = {}, repaint = true) {
     if ('controls' in o) opts.controls = !!o.controls;
     if ('maxStart' in o) opts.maxStart = count(o.maxStart);
+    if ('baseToggle' in o) { opts.baseToggle = !!o.baseToggle; syncBase(); }
+    if ('grade' in o) opts.grade = !!o.grade;
+    if (['v', 'font', 'dan'].includes(o.gradeSys)) opts.gradeSys = o.gradeSys;
     if ('foot' in o) opts.foot = !!o.foot;
     if ('order' in o) opts.order = !!o.order;
     if ('heat' in o) opts.heat = !!o.heat;
@@ -107,6 +125,7 @@
       if (mode === 'edit') { S.ctl.setMaxStart(opts.maxStart); S.ctl.setDrawMode(opts.draw); }
     }
     ui.setOptions(uiState());
+    syncGrade();
     if (repaint) applyInteractive();
   }
 
@@ -145,7 +164,7 @@
         const roles = Object.values(S.current.holds || {});
         if (!roles.includes('s') || !roles.includes('t')) throw new Error('路線要有起攀（s）和完攀（t）才能提交');
         const text = (v, n) => (typeof v === 'string' ? [...v.trim()].slice(0, n).join('') : '');
-        const route = { ...structuredClone(S.current), name: text(m.name, 20), author: text(m.author, 20), ...(typeof m.grade === 'string' && m.grade ? { grade: m.grade } : {}) };
+        const route = { ...structuredClone(S.current), name: text(m.name, 20), author: text(m.author, 20), ...(typeof m.grade === 'string' && m.grade ? { grade: m.grade } : S.current.grade ? { grade: S.current.grade } : {}) };
         const layer = build(route);
         const res = await RouteSubmit.put(link.origin, S.view.id, { routes: [{ id: route.id, r: JSON.stringify({ nodes: layer.nodes, marks: layer.marks }) }] }, S.key);
         if (res[route.id] !== 'ok') throw new Error(`提交失敗：${res[route.id] || 'failed'}`);

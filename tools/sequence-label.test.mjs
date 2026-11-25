@@ -1,10 +1,7 @@
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { RouteKit } from './routekit.mjs';
 
-const draw = readFileSync(new URL('../js/draw.js', import.meta.url), 'utf8');
 const bbox = poly => ({ x0: Math.min(...poly.map(p => p[0])), y0: Math.min(...poly.map(p => p[1])), x1: Math.max(...poly.map(p => p[0])), y1: Math.max(...poly.map(p => p[1])) });
 const box = (x, y, size) => [[x, y], [x + size, y], [x + size, y + size], [x, y + size]];
 function badges(polys, seq, unit = 1, labels = []) {
@@ -44,12 +41,9 @@ test('編號避開相鄰岩點、類型膠帶與其他編號', () => {
 
 
 test('多顆完全重合的候選靠近照片邊緣時，帶引線的選點仍各有獨立位置', () => {
-  const ctx = vm.createContext({ RouteKit, state: { w: 300, h: 300 }, bbox });
-  vm.runInContext(draw.slice(draw.indexOf('  // ---------- 幾何 ----------'), draw.indexOf('  // 圈起來：手畫的圈變成外框')), ctx);
-  vm.runInContext(draw.slice(draw.indexOf('  function overlapSpots('), draw.indexOf('  // ---------- 繪製')), ctx);
   for (const poly of [box(0, 0, 100), box(200, 200, 100), box(0, 0, 300)]) {
     const cands = Array.from({ length: 20 }, (_, id) => ({ id, poly }));
-    const spots = [...ctx.overlapSpots(cands).values()];
+    const spots = [...RouteKit.overlapSpots(cands, 300, 300).values()];
     assert.equal(spots.length, 20);
     assert.equal(new Set(spots.map(s => `${s.x},${s.y}`)).size, 20);
     for (const s of spots) assert.ok(s.x > 0 && s.x < 300 && s.y > 0 && s.y < 300);

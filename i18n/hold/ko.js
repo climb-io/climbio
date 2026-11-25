@@ -1,12 +1,11 @@
 // 한국어 언어 팩. 페이지는 현재 언어의 팩만 불러옵니다(index.html 맨 위의 로더 참고).
 // 스타일: 짧고 담백한 해요체, 버튼은 동사형. 클라이밍 용어: 루트, 홀드, 완등, 플래시.
 AppKit.i18n.add('hold', 'ko', {
-  shareDataset: "공개 공유하면 이 벽의 사진(촬영 위치 제외), 홀드, 내 루트가 Climbio의 오픈 데이터셋(Hugging Face)에 올라갑니다. 누구나 내려받아 모델 학습에 쓸 수 있고(CC BY-SA 4.0), 공개 후에는 되돌릴 수 없습니다.",
   pcSharedRoute: "친구가 공유한 루트",
   pcCopyLink: "링크 복사",
   shareTimeout: "연결 시간이 초과되었습니다. 루트는 저장되어 있습니다. 다시 공유해 주세요.",
   sharePublic: "공개",
-  envDev: "베타", shareQuota: '오늘 공유를 많이 했어요. 내일 다시 시도해 주세요.', legalPreShare: '공유하면 ', shareGo: '공유', legalAnd: ' 및 ', terms: '이용약관', privacy: '개인정보 처리방침',
+  envDev: "베타", shareQuota: '오늘 공유를 많이 했어요. 내일 다시 시도해 주세요.', terms: '이용약관', privacy: '개인정보 처리방침',
   help: '도움말', language: '언어',
   app: '홀드 고양이', emptyTitle: '벽을 찍고 루트를 세팅', emptySub: '홀드는 자동으로 감지돼요', addWall: '새 벽', add: '추가',
   takePhoto: '사진 촬영', fromLibrary: '사진 보관함', rotate: '90° 회전',
@@ -36,9 +35,7 @@ shareWall: '벽 공유', baseToggle: '회색 / 어두운 컬러', signNone: "설
   recvBadCode: "Climbio 공유 링크가 아니에요.",
   lasso: '둘러싸기', lassoCancel: '취소', lassoSmall: '너무 작아요. 홀드 전체를 둘러싸 주세요.', lassoFail: '이 윤곽은 사용할 수 없어요. 다시 시도해 주세요.',
   btnDelete: '삭제', btnDiscard: '버리기',
-  signInTitle: 'Google로 로그인',
   shareRoute: '루트 공유', 
-  signTitle: "닉네임", 
   feetFree: '발 자유', seqInsertAt: (n) => `${n}번째 무브 뒤에 삽입`, seqDelete: (n) => `${n}번째 무브 삭제`, feetClearAsk: "이 루트의 발 홀드를 지우고 발 자유로 바꿀까요?", feetClear: "지우기", seqInsertFirst: "맨 앞에 삽입", seqEnd: '삽입 종료',
   seqMove: (n) => `${n}번째 무브`, seq: '순서', seqClearAsk: '이 루트의 무브 순서를 지울까요?', seqClear: '지우기', totalWalls: "벽", totalRoutes: "루트", totalSet: "세팅", shareCopied: '복사했어요. 붙여넣어 보내세요.', loading: '불러오는 중…',
   publishFailed: '공유 실패: ',

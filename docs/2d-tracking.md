@@ -16,15 +16,16 @@
 
 ## 實驗頁與運作流程
 
-實驗頁位於 `/lab/wall2d-cam/`（`lab/wall2d-cam/index.html`、`boot.js`、`app.js`、`wall2d-worker.js`、`geometry.js`、`tracking-log.js`、`style.css`）。岩點貓於測試版（`env-dev` 網域）整合 2D 牆的「相機看線」（`js/edit.js`）。
+實驗頁位於 `/lab/wall2d-cam/`（`lab/wall2d-cam/index.html`、`boot.js`、`app.js`、`wall2d-worker.js`、`geometry.js`、`tracking-log.js`、`style.css`）。岩點貓（正式版、測試版）整合 2D 牆的「相機看線」（`js/edit.js`）。
 
 ```text
-相機影格 (requestVideoFrameCallback 驅動) / 模擬串流 (長邊 ≤ 640 px 灰階)
+相機影格 (requestVideoFrameCallback 驅動；VideoFrame 轉移給 Worker，I420／NV12 直接取 Y 平面當灰階) / 模擬串流 (canvas 擷取)
+  │  擷取尺寸長邊 640 px（認牆、重錨）；光流在 Worker 內縮成長邊 480 px，回報的單應矩陣換回 640 座標
   │
   ├─► [先開相機優先顯示] ?auto=1 於 boot.js 先行請求 getUserMedia，取得串流後立即畫出預覽，
   │                      OpenCV WASM 與比對資料（及岩點貓預載）於背景載入完成後才疊線
   │
-  ├─► [有有效追蹤錨點] 雙向 LK 光流 (21×21, 3 層金字塔, 雙向誤差 ≤ 1.5 px)
+  ├─► [有有效追蹤錨點] 雙向 LK 光流 (480 長邊, 15×15, 3 層金字塔, 10 次迭代, 最多 90 點, 雙向誤差 ≤ 1.5 px)
   │        └─► RANSAC 單應矩陣 ＋ 幾何／分布驗證
   │        └─► 8×6 空網格 Shi-Tomasi 補點 (映射回照片座標)
   │        └─► 背景 Worker 每 40～45 幀非同步 AKAZE 重錨修正漂移，不阻塞光流（失敗且 < 90 幀暫保留光流）
@@ -40,7 +41,7 @@
   └─► 失去定位或超過 500 ms 未更新：立即清空畫布並隱藏光暈 (data-located="false")
 ```
 
-預設收起工具並提供滿版預覽（`?ui=2&auto=1&wall=…&route=…` 行為與 `/3d/` 一致）；`auto=1` 時不顯示載入說明或開始按鈕，直接請求並顯示相機畫面，比對資料與 OpenCV 於背景載入／計算完成後才開始追蹤疊光暈。點右上角「工具」可切換目標牆面（自動認牆／指定牆）、切換路線或顯示全部岩點、開啟「除錯外框」（預設關閉，供對齊檢視外框與 S/T 標記）、啟動內建「模擬測試」（9 秒平移／縮放／遮擋掉追蹤／恢復週期）、選取本機測試照片或影片、標記偏移／掉點，以及複製／下載追蹤紀錄 JSON。
+預設收起工具並提供滿版預覽（`?ui=2&auto=1&wall=…&route=…` 行為與 `/3d/` 一致）；`auto=1` 時不顯示載入說明、開始按鈕，也不顯示右上的「工具」（`boot.js` 設 `data-embed`，出錯時也不出現；岩點貓的使用者看不到開發工具），直接請求並顯示相機畫面，OpenCV Worker 跟開相機同時載入，比對資料與 OpenCV 好了才開始追蹤疊光暈。直接打開實驗頁（沒有 `auto=1`）時點右上角「工具」可切換目標牆面（自動認牆／指定牆）、切換路線或顯示全部岩點、開啟「除錯外框」（預設關閉，供對齊檢視外框與 S/T 標記）、啟動內建「模擬測試」（9 秒平移／縮放／遮擋掉追蹤／恢復週期）、選取本機測試照片或影片、標記偏移／掉點，以及複製／下載追蹤紀錄 JSON。
 
 ---
 
@@ -70,6 +71,25 @@
 - **產生方法**：執行 `node tools/build-wall2d-camera.mjs`（透過無頭瀏覽器載入與執行期完全相同的 `redpoint/vendor/opencv-4.10.0.js` 與 `wall2d-worker.js` 產出並計算 `sha256`）。另外 Worker 亦支援 `build_camera` 指令，可直接於使用者瀏覽器本機對未預建的新牆照片現場算出比對資料。
 
 ---
+
+## 低階 Android 實機效能（2026-11-25）
+
+手機：OPPO CPH2339（MediaTek MT6833、3.7 GB、Chrome 157）。追蹤用假相機串流（canvas `captureStream` 畫萬華牆並平移縮放，走跟真相機相同的 VideoFrame 路徑），開啟時間用真的後鏡頭。
+
+| 項目 | 改動前 | 改動後 |
+|---|---|---|
+| 主執行緒擷取一幀（`drawImage`＋`getImageData`） | 約 65 ms（每幀卡住主執行緒） | 不在主執行緒做；Worker 取 VideoFrame Y 平面約 2 ms |
+| Worker 每幀處理 p50 | 61 ms | 29.5 ms |
+| 疊圖延遲 p50 / p95 | 89.5 / 115 ms | 40 / 57 ms |
+| 20 秒內處理的影格數 | 169 | 313 |
+| 相鄰幀外框角點位移 p95（越小越穩） | 11.6 px | 6.5 px |
+| 開相機到 OpenCV 就緒 | 約 2.8 秒 | 約 1.1 秒 |
+
+- 慢的原因：Android Chrome 把相機畫面畫進可讀回的 canvas 再 `getImageData` 很貴，跟擷取尺寸無關（640、480 長邊都約 65 ms）；`createImageBitmap` 後再讀回也一樣（約 50 ms）。`new VideoFrame(video)` 的格式是 I420，`copyTo` 約 1.6 ms。
+- LK 光流的成本：640 長邊、21×21 視窗、140 點約 26 ms／次（雙向兩次）；480 長邊、15×15、10 次迭代、90 點約 12 ms／次。補角點（`goodFeaturesToTrack`）640 長邊約 29 ms、480 長邊約 17 ms，改成點數夠就不補。
+- 這支手機要求直的寬高時第一幀是橫的，舊版每次開都要關掉重開（約 0.8 秒）；現在判斷過一次就記在 `localStorage`（`climbio.wall2dCamReversed`），`boot.js` 下次直接用對的寬高開。
+- 私人牆第一次打開要在手機上算比對資料（AKAZE，1280 長邊）約 2.5 秒，算好存在 IndexedDB（`climbio-wall2d-cam`），之後不再算。
+- 疊圖跟影格同步：Worker 結果回來前先留著這一幀的預覽（等待上限依實際處理時間 34–70 ms）；超過才放行，晚到的結果照移動速度外推到現在再畫，不畫回舊位置。
 
 ## 實驗量測結果
 
@@ -155,7 +175,7 @@
 
 ## 岩點貓整合與接口
 
-仿照 `docs/3d-tracking.md`「接口」的設計，岩點貓在測試版（`js/boot.js` 的 `env-dev` 網域清單）看 2D 牆路線圖時，右上「⋯」選單（`#vwCam`）開啟全螢幕 `#camView`／`#camFrame` 載入 `/lab/wall2d-cam/?ui=2&auto=1&wall=<牆 id>&route=<岩點 id>:<角色>,…`；正式版（如 `climbio.web.app`）不顯示入口，也不載入相機追蹤程式。
+仿照 `docs/3d-tracking.md`「接口」的設計，岩點貓（正式版、測試版）看 2D 牆路線圖時，右上「⋯」選單（`#vwCam`）開啟全螢幕 `#camView`／`#camFrame` 載入 `/lab/wall2d-cam/?ui=2&auto=1&wall=<牆 id>&route=<岩點 id>:<角色>,…`。看路線圖時只預先抓追蹤頁的小程式，打開「⋯」才預先抓 OpenCV 與比對資料（省流量模式不抓）。
 
 1. **呼叫方式**：
    - `/lab/wall2d-cam/?ui=2&auto=1&wall=<牆 id>&route=<岩點 id>:<角色>,…`（角色為 `s` 起攀、`h` 手點、`f` 腳點、`t` 完攀；`auto=1` 一進入即開相機，不顯示開始按鈕或過渡載入說明，比對資料載好前照常顯示相機畫面）。

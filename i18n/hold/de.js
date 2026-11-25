@@ -1,12 +1,11 @@
 // Deutsches Sprachpaket. Die Seite lädt nur das Paket der aktuellen Sprache (siehe Lader am Anfang von index.html).
 // Stil: kurz, schlicht, neutral; Du-Form; Verben auf Buttons. Kletterbegriffe: Boulder, Griffe, Top, Flash.
 AppKit.i18n.add('hold', 'de', {
-  shareDataset: "Beim öffentlichen Teilen kommen das Foto dieser Wand (ohne Standort), die Griffe und deine Routen in den offenen Datensatz von Climbio (Hugging Face). Jede Person kann ihn herunterladen und zum Trainieren von Modellen nutzen (CC BY-SA 4.0); das lässt sich nicht zurücknehmen.",
   pcSharedRoute: "Eine von Freunden geteilte Route",
   pcCopyLink: "Link kopieren",
   shareTimeout: "Zeitüberschreitung. Deine Routen sind gespeichert. Bitte erneut teilen.",
   sharePublic: "Öffentlich",
-  envDev: "Beta", shareQuota: 'Du hast heute viel geteilt. Versuche es morgen wieder.', legalPreShare: 'Mit dem Teilen stimmst du den ', shareGo: 'Teilen', legalAnd: ' und der ', terms: 'Nutzungsbedingungen', privacy: 'Datenschutzerklärung',
+  envDev: "Beta", shareQuota: 'Du hast heute viel geteilt. Versuche es morgen wieder.', terms: 'Nutzungsbedingungen', privacy: 'Datenschutzerklärung',
   help: 'Hilfe', language: 'Sprache',
   app: 'Griffkatze', emptyTitle: 'Wand fotografieren, Boulder setzen', emptySub: 'Griffe werden automatisch erkannt', addWall: 'Neue Wand', add: 'Hinzufügen',
   takePhoto: 'Foto aufnehmen', fromLibrary: 'Fotos', rotate: 'Um 90° drehen',
@@ -36,9 +35,7 @@ shareWall: 'Wand teilen', baseToggle: 'Grau / gedämpfte Farben', signNone: "Nic
   recvBadCode: "Das ist kein Climbio-Link.",
   lasso: 'Umkreisen', lassoCancel: 'Abbrechen', lassoSmall: 'Zu klein. Umkreise den ganzen Griff.', lassoFail: 'Dieser Umriss lässt sich nicht verwenden. Versuche es erneut.',
   btnDelete: 'Löschen', btnDiscard: 'Verwerfen',
-  signInTitle: 'Mit Google anmelden',
   shareRoute: 'Boulder teilen', 
-  signTitle: "Spitzname", 
   feetFree: 'Tritte frei', seqInsertAt: (n) => `Nach Zug ${n} einfügen`, seqDelete: (n) => `Zug ${n} löschen`, feetClearAsk: "Die Tritte dieses Boulders werden entfernt. Auf Tritte frei umstellen?", feetClear: "Entfernen", seqInsertFirst: "Am Anfang einfügen", seqEnd: 'Einfügen beenden',
   seqMove: (n) => `Zug ${n}`, seq: 'Reihenfolge', seqClearAsk: 'Zugreihenfolge dieses Boulders löschen?', seqClear: 'Löschen', totalWalls: "Wände", totalRoutes: "Boulder", totalSet: "Gesetzt", shareCopied: 'Kopiert. Zum Senden einfügen.', loading: 'Lädt…',
   publishFailed: 'Teilen fehlgeschlagen: ',

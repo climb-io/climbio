@@ -111,7 +111,6 @@ AppKit.i18n.add('redpoint', 'en', {
   // Sharing
   linkShared: "Link shared",
   linkCopied: "Link copied",
-  shareDriveNote: "Shared crags are published to the Climbio open dataset (CC BY-SA 4.0): anyone can download them, they also appear in “World”, and copies already downloaded cannot be recalled. For people nearby, use Friends exchange.",
   uploading: "Uploading…",
   uploadingN: (i, n) => `Uploading ${i}/${n}`,
   leftLocal: (n) => n === 1 ? `1 photo that exists only on this device was left out` : `${n} photos that exist only on this device were left out`,

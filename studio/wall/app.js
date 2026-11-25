@@ -285,19 +285,15 @@ async function packJob(w, d) {
   const files = await ShareTools.wallPackage({ id: k.project, layerId: k.layer, pid: k.pid, name: w.name, gym: k.gym, w: w.w, h: w.h, thumb, holds: [...d.holds, ...retiredOf(d)], routes: [], photo: await P.photo(w), attribution: k.attribution, version: 0, t: Date.now() });
   return { id: k.project, gym: k.gym, files };
 }
-let pubUI = null, pubOk = null, pubClaim = null, pubW = null;   // pubW：正在發佈的牆
+let pubUI = null, pubW = null;   // pubW：正在發佈的牆
 async function publishUi() {
   if (pubUI) return pubUI;
   const [{ createPublishUI }, pub] = await Promise.all([import('../publish-ui.js'), import('../publisher.js')]);
-  pubOk = Object.assign(document.createElement('input'), { type: 'checkbox' });
-  pubClaim = Object.assign(document.createElement('label'), { className: 'check' });
-  pubClaim.append(pubOk, T('hlPubClaim'));
   pubUI = createPublishUI({
-    title: T('hlPubTitle'), visibility: false, after: [pubClaim],
+    title: T('hlPubTitle'), visibility: false,
     onCopy: () => { $('saveState').textContent = T('hlCopiedUrl'); },
     async onGo() {
       const w = pubW;
-      if (!w.pack && !pubOk.checked) throw new Error(T('hlPubNeedClaim'));   // 已公開的牆（精修）早就聲明過，不再問
       await P.flush();        // 公開的是存好的岩點
       const d = await P.data(w.id), job = w.pack ? await packJob(w, d) : await wallJob(w, d);
       pubUI.run.open({ name: w.name, tiles: [], cover: false });
@@ -314,7 +310,6 @@ async function publishUi() {
 async function openPublish(w) {
   pubW = w;
   const ui = await publishUi(), d = await P.data(w.id), on = globalThis.SITE?.backend === 'firebase';
-  pubOk.checked = false; pubClaim.hidden = !!w.pack || !on;
   ui.set({
     message: on ? '' : T('stPubOff'), go: { text: w.pubv || w.pack ? T('hlPubUpdate') : T('hlPubGo'), hidden: false, disabled: !on }, canDown: false,
     summary: w.pack ? { intro: T('hlPubPackIntro'), items: [T('hlPubPackItemWall'), T('hlPubPackItemRoutes')] } : { intro: T('hlPubIntro'), items: [

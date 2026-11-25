@@ -4,9 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#F7F9FB">
-<title>Climbio をジムのアプリに組み込む | Climbio</title>
-<script src="../../doc-language.js"></script>
-<meta name="description" content="ジム運営者向け：自分で開発しなくても、アプリにルート表示とルートセットを追加できます。実例を見て、AI Agent に渡す指示をコピーしてください。">
+<title>クライミングアプリに岩點貓を追加 | Climbio</title>
+<meta name="description" content="アプリ内で課題を見たり、ホールドをタップして課題を作ったりできます。壁の写真を操作できる課題図に変え、会員情報と完登記録は今のアプリで管理できます。">
 <link rel="canonical" href="https://climbio.app/ja/project/">
 <link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/project/">
 <link rel="alternate" hreflang="en" href="https://climbio.app/en/project/">
@@ -27,30 +26,46 @@
 <nav class="site-nav"><a href="../../ja/guides/">使い方</a></nav>
 </header>
 <main class="pg">
-<div class="pg-hero"><span class="pg-eyebrow">ジム運営者の方へ</span><h1>自分で開発せずに、ジムのアプリにルート表示とルートセットを</h1><p class="pg-lead">壁の写真を Climbio に渡すと、ホールドをタップできる壁になります。それを今のアプリに組み込めば、クライマーはアプリの中でルートを見たり作ったりできます。アカウントや記録、データベースはそのままです。</p><div class="pg-actions"><a class="pg-btn primary" href="#demo">実例を見る</a><a class="pg-btn" href="#prompts">AI Agent に渡す指示をコピー</a></div></div>
-<section class="pg-section"><h2>組み込むと、ジムに何が得られるか</h2><div class="pg-grid"><div class="pg-card"><h3>開発は不要</h3><p>ルート表示とルートセットの画面は用意済みです。アプリに埋め込みページ（Web なら iframe、ネイティブなら WebView）を 1 つ置き、壁の id を渡すだけです。</p></div><div class="pg-card"><h3>壁の更新は写真を 1 枚アップロードするだけ</h3><p>スタッフが管理画面で壁の写真を選ぶと、ブラウザの中でホールドが検出され、公開を押すだけでインタラクティブな壁になります。もっと正確にしたいときは、AI Agent が Studio の手順で仕上げられます。</p></div><div class="pg-card"><h3>他の場所でも見つけてもらえる</h3><p>あなたの壁はホールドキャットの「壁を探す」にも載り、ルートはアプリとホールドキャットの両方で見られます。二重に管理する必要はありません。</p></div><div class="pg-card"><h3>ユーザーと記録はそのまま</h3><p>Climbio が預かるのは壁とルートだけです。ユーザーとルートの対応、完登の記録、コメントはすべてアプリ側で決めます。投稿はあなたのサイトが身元になり、鍵の申請も不要です。</p></div></div></section>
-<section class="pg-section" id="demo"><h2>実際に見る</h2><p>ジムのアプリに組み込んだルートセットの画面です。壁のホールドをタップするとルートを作れます（デモなので保存されません）。ルート表示も同じ埋め込みページで、モードが違うだけです。</p>
-<div class="pg-demo-box" id="demo-box" data-wall="0fe38b21d07b3771/nbh6yueynqa0" data-loading="読み込み中…"><button type="button" class="pg-btn primary" id="demo-load">例を読み込む</button><span class="pg-demo-hint">タップすると読み込みます（写真は約 2 MB）</span></div>
-<div class="pg-grid two pg-reg"><img class="pg-shot" src="../../demo/home/hold-community-view-en.webp" alt="ホールドキャットで公開壁のルートを見る" loading="lazy"><div><h3>一般のユーザーにも同じ壁が見える</h3><p>公開した壁はホールドキャットにも載ります。クライマーはあなたのアプリを入れなくてもルートを見たり作ったりでき、ルートは両方に表示されます。</p><a class="pg-btn" href="../../hold/">ホールドキャットを開く</a></div></div></section>
-<section class="pg-section"><h2>進め方</h2><ol class="pg-steps"><li>AI Agent が組み込みます：管理画面に「壁の写真」埋め込みページ、ルートページに表示・ルートセットの埋め込みページ。</li><li>スタッフが壁の写真をアップロード：今ある写真の更新と同じ感覚で、ホールドを検出して公開を押し、アプリは返ってきた壁 id を保存します。写真を替えたら新しい壁になります。</li><li>ユーザーがルートを作る：作り終えたら送信すると、その壁に公開されます。アプリは返ってきたルート id を自分のユーザーと対応づけて保存します。</li></ol></section>
-<section class="pg-section" id="prompts"><h2>AI Agent に渡す</h2><p>普段使っている AI Agent（Claude、ChatGPT、Codex など）に貼り付けてください。手順をすべて読んだあと、必要な情報を 1 つのリストにまとめて質問するので、答えるだけです。</p><div class="pg-prompt"><pre id="agent-prompt" lang="ja">まず https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md を読み、その手順でうちのジムに Climbio を組み込んでください。最初に、私に用意してほしい情報を 1 つのリストにまとめて聞いてください（何度にも分けないでください）。私が答えられないことは、作り話をせず選択肢とおすすめを示してください。</pre><button type="button" class="pg-btn primary" data-copy="#agent-prompt" data-done="コピーしました">コピー</button></div><p>技術的な詳細は GitHub にあり、AI Agent が自分で読みます：</p><div class="pg-actions"><a class="pg-btn" href="https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md">組み込みガイド</a></div></section>
+<div class="pg-hero"><h1>クライミングアプリに岩點貓を追加</h1><p class="pg-lead">アプリ内で課題を見たり、ホールドをタップして課題を作ったりできます。壁の写真を操作できる課題図に変え、会員情報と完登記録は今のアプリで管理できます。</p><div class="pg-actions"><a class="pg-btn primary" href="#demo">南港の例を見る</a></div></div>
+<section class="pg-section"><h2>ジムとクライマーにできること</h2><div class="pg-grid"><div class="pg-card"><h3>課題に使うホールドがひと目で分かる</h3><p>スプレーウォールでも、ホールドに沿った輪郭で課題に使うホールドを見分けられます。</p></div><div class="pg-card"><h3>セット替え後は壁の写真を更新</h3><p>新しい壁の写真をアップロードすると、ブラウザがホールドを検出します。確認して公開すれば、新しい壁を利用できます。</p></div><div class="pg-card"><h3>既存の会員システムを継続</h3><p>会員情報、完登記録、コメントはジムのアプリで管理します。岩點貓は壁の写真、ホールド、課題の画面を提供します。</p></div></div></section>
+<section class="pg-section" id="demo" aria-labelledby="demo-title">
+<h2 id="demo-title">同じ課題を、2つの表示で</h2>
+<p id="demo-help">T-UP 南港のスプレーウォールの課題です。左右にドラッグして、丸印とホールドの輪郭を見比べてください。</p>
+<figure class="pg-compare">
+  <figcaption><span>丸印</span><span>Climbio の輪郭表示</span></figcaption>
+  <div class="pg-compare-stage">
+    <img src="../../demo/reel/nangang-wall.webp" width="976" height="607" alt="T-UP 南港のスプレーウォール" loading="lazy">
+    <canvas aria-hidden="true"></canvas>
+    <canvas class="pg-compare-circles" aria-hidden="true"></canvas>
+    <input type="range" min="0" max="100" value="50" aria-labelledby="demo-title" aria-describedby="demo-help" disabled>
+    <div class="pg-compare-divider" aria-hidden="true"><span class="pg-compare-handle">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 7-5 5 5 5m6-10 5 5-5 5"/></svg>
+    </span></div>
+  </div>
+</figure>
+</section>
+<section class="pg-section pg-volume" id="volume" aria-labelledby="volume-title">
+<h2 id="volume-title">ボリューム上の小さなホールドも選びやすく</h2>
+<p>T-UP 南港のこのボリュームにはホールドが7つあります。丸印では隣のホールドまで囲みがちです。岩點貓なら重なった部分が拡大され、指が触れたホールド、ボリューム全体、近くのホールドをその場で選べます。</p>
+<div class="pg-volume-grid">
+  <figure>
+    <figcaption id="volume-circles">丸印でマーク</figcaption>
+    <canvas role="img" aria-labelledby="volume-circles"></canvas>
+  </figure>
+  <figure>
+    <figcaption id="volume-pick">岩點貓の拡大選択</figcaption>
+    <canvas aria-labelledby="volume-pick"></canvas>
+    <button class="pg-btn" type="button" disabled>拡大選択をもう一度試す</button>
+  </figure>
+</div>
+</section>
+<section class="pg-section" id="prompts"><h2>連携を AI エージェントに任せる</h2><p>アプリやサイトを変更できる場合は、下の指示を普段使う AI エージェントに貼り付けてください。アプリのソース、管理画面、テスト環境を確認し、課題の表示と作成を組み込みます。</p><p class="pg-muted">この連携では公開ウォールを使用します。公開した壁の写真と課題は誰でも閲覧できます。</p><div class="pg-prompt"><pre id="agent-prompt" lang="ja">まず https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md を読み、その手順でうちのジムに Climbio を組み込んでください。最初に、私に用意してほしい情報を 1 つのリストにまとめて聞いてください（何度にも分けないでください）。私が答えられないことは、作り話をせず選択肢とおすすめを示してください。</pre><button type="button" class="pg-btn primary" data-copy="#agent-prompt" data-done="コピーしました">コピー</button></div><div class="pg-actions"><a class="pg-btn" href="https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md">組み込みガイド</a></div></section>
 <footer class="pg-foot docs-footer"><span>© 2026 Climbio</span><nav><a href="../../ja/">ホーム</a> · <a href="../../privacy.html">プライバシー</a> · <a href="../../terms.html">利用規約</a></nav></footer>
 </main>
 <script>
 document.addEventListener('click',function(e){var b=e.target.closest('[data-copy]');if(!b)return;var el=document.querySelector(b.dataset.copy),t=el.textContent,done=function(){var o=b.textContent;b.textContent=b.dataset.done;setTimeout(function(){b.textContent=o;},1800);},fb=function(){var r=document.createRange();r.selectNodeContents(el);var g=getSelection();g.removeAllRanges();g.addRange(r);try{document.execCommand('copy');done();}catch(x){}};if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,fb);else fb();});
-(function(){
-var box=document.getElementById('demo-box'),btn=document.getElementById('demo-load');if(!box||!btn)return;
-var frame=null;
-function send(m){if(frame&&frame.contentWindow)frame.contentWindow.postMessage(Object.assign({climbio:'routekit',v:1},m),'*');}
-btn.addEventListener('click',function(){
-  btn.disabled=true;btn.textContent=box.dataset.loading;
-  addEventListener('message',function(e){if(!frame||e.source!==frame.contentWindow||!e.data||e.data.climbio!=='routekit')return;
-    if(e.data.type==='ready')send({type:'init',wallId:box.dataset.wall,layerUrls:[]});
-    if(e.data.type==='fullscreen'){frame.classList.toggle('full',!!e.data.on);send({type:'setFullscreen',on:!!e.data.on});}});
-  frame=document.createElement('iframe');frame.className='pg-demo';frame.allow='fullscreen';frame.title=document.querySelector('#demo h2').textContent;frame.src='https://embed.climbio.app/routekit/v1/?mode=edit&maxStart=2';
-  box.replaceWith(frame);
-});
-})();
 </script>
+<script type="module" src="../../project/compare.js"></script>
+<script type="module" src="../../project/volume.js"></script>
 </body>
 </html>

@@ -140,7 +140,6 @@
     const h = hitHold(x, y, tol);
     return h ? [h] : [];
   }
-  function overlapSpots(cands) { return RouteKit.overlapSpots(cands, state.w, state.h); }   // 重疊岩點各自的圓點（kit 的同一份）
   function edgeDist(x, y, poly) { return RouteKit.edgeDist(x, y, poly); }
 
   // ---------- 繪製 ----------
@@ -277,14 +276,15 @@
   let ovView = null, ovSettle = 0;
   // 左右滑路線時線條層跟著照片水平移動的距離（mobile.js 的 placeSwipe 設）：滑到一半重畫也保留，標籤才不會跳回原位
   let ovShift = 0;
-  function viewMoved() {
+  function viewMoved(composite = false) {
     // 定線（沒開「顯示所有岩點」）只有路線岩點的外框和標籤，每格照新的比例重畫很輕：外框粗細不會在縮放中被拉粗、停手才變細
-    if (state.mode === 'route' && !state.routeView && !state.showAll && state.img && state.wall) { renderLines(); return; }
+    if (!composite && state.mode === 'route' && !state.routeView && !state.showAll && state.img && state.wall) { renderLines(); return; }
     if (ovView) {
       const k = view.s / ovView.s;
       ovCv.style.transform = `translate(${view.tx - ovView.tx * k}px, ${view.ty - ovView.ty * k}px) scale(${k})`;
     }
-    clearTimeout(ovSettle); ovSettle = setTimeout(render, 100);
+    clearTimeout(ovSettle);
+    if (!composite) ovSettle = setTimeout(render, 100);
   }
   function overlay() {
     const st = $('stage'), dpr = devicePixelRatio || 1, W = Math.round(st.clientWidth * dpr), H = Math.round(st.clientHeight * dpr);
@@ -307,7 +307,7 @@
     if (heatMemo && heatMemo.w === w && heatMemo.rid === rid && heatMemo.n === w.routes.length) return heatMemo;
     return (heatMemo = { w, rid, n: w.routes.length, ...RouteKit.holdUse(w.routes, r) });   // 次數的算法在 kit（editor.js），內嵌頁用同一份
   }
-  function draw(c0, { lines = false } = {}) {   // lines：只重畫線條層（底圖沒變，例如自動放大的動畫）
+  function draw(c0, { lines = false, light = false } = {}) {   // light：重疊選點縮回前只畫路線細框，照片和線條交給合成層縮放
     let c = c0;
     if (state.w3d) W3D.sync();   // 修點變了（改外框、補點、復原、刪掉）先套到模型上
     const W = state.w, H = state.h;
@@ -334,8 +334,8 @@
     c = overlay();   // 之後的線條、標籤都畫在線條層
     c.lineJoin = 'round';
     // 暗彩時路線岩點外圈有角色色光暈（跟 3D 牆一樣；灰階沒有；寬度照螢幕點算；光暈在下、路線岩點原色圖層再蓋上去）；3D 牆的光暈在模型上做
-    if (highlight && baseMode() === 'dim' && !state.w3d && !revealing) RouteKit.glowAround(c, routeHolds, r.holds, TYPE_COLOR, devicePixelRatio || 1, state.scene.routeLayer(routeHolds, { tint: false }));
-    if (state.mode === 'holds' || (state.showAll && !state.routeView)) {
+    if (!light && highlight && baseMode() === 'dim' && !state.w3d && !revealing) RouteKit.glowAround(c, routeHolds, r.holds, TYPE_COLOR, devicePixelRatio || 1, state.scene.routeLayer(routeHolds, { tint: false }));
+    if (!light && (state.mode === 'holds' || (state.showAll && !state.routeView))) {
       // 大螢幕（電腦）上照片放得很大，線跟著加粗一點：手機 1 倍，最多 1.5 倍
       const big = Math.min(1.5, Math.max(1, Math.min(innerWidth, innerHeight) / 560));
       // 沒放大時（一次看整面牆、岩點很多）細細淡淡的，看得到岩點本身；放大到 4 倍才是完整粗細。選到的那顆照樣粗
@@ -370,8 +370,8 @@
   // 重疊岩點的選擇：候選以外調暗，每顆一個顏色畫框，各自會選到的地方放一個同色圓點
   function drawOverlapPick(c) {
     const p = state.overlapPick, v = c.vis, r = route(), sp = screenPx();
-    if (!p || !v) return;
-    RouteKit.drawOverlapPick(c, { img: state.img, holds: p.holds, spots: p.spots, vis: v, L: (s) => s * sp, routeHolds: r ? holdsOf(r) : [], route: r });   // 畫法在 kit（labels.js），內嵌頁用同一份
+    if (!p?.ready || !v) return;
+    RouteKit.drawOverlapPick(c, { img: state.img, holds: p.holds, spots: p.spots, preferred: p.preferred, neighbors: p.neighbors, vis: v, L: (s) => s * sp, routeHolds: r ? holdsOf(r) : [], route: r });   // 畫法在 kit（labels.js），內嵌頁用同一份
   }
   // 同色預覽的候選：白色虛線框（外面一圈深色，淺色岩點上也看得到）
   // 選取的岩點（岩點模式）：頂點畫成白色把手，邊的中點畫成小點（拖它可新增頂點）
@@ -477,9 +477,9 @@
     raf = requestAnimationFrame(() => { if (state.wall) draw(ctx); });
   }
   // 程式帶動的平移縮放（自動放大選到的小岩點）：每格照新的比例重畫線條，不用整層放大（線會變粗變糊，停下來才變細，看起來像閃一下）
-  function renderLines() {
+  function renderLines(light = false) {
     if (!state.img || !state.wall) return;
     clearTimeout(ovSettle);
-    draw(ctx, { lines: true });
+    draw(ctx, { lines: true, light });
   }
 

@@ -144,15 +144,16 @@ export function edgeDist(x: number, y: number, poly: Poly): number;
 /** 手畫的軌跡 → 簡化的多邊形外框（限制在 W×H 的照片裡，頭尾自動接起來）；畫得太小回傳 null */
 export function freehandPoly(pts: [number, number][], W: number, H: number, opts?: { minTol?: number; minSize?: number; maxN?: number }): Poly | null;
 export function holdsUnder(holds: Hold[], x: number, y: number): Hold[];
-export function overlapSpots(cands: Hold[], W: number, H: number): Map<Hold, { x: number; y: number; d?: number; anchor?: Point }>;
-export function pickOverlap(cands: Hold[], spots: Map<Hold, { x: number; y: number }>, x: number, y: number, radius: number): Hold | null;
+export function prepareOverlapPick(candidates: Hold[], all: Hold[], size: { w: number; h: number; width: number; height: number }): { holds: Hold[]; neighbors: Hold[]; spots: ReturnType<typeof overlapSpots>; k: number; cx: number; cy: number };
+export function overlapSpots(cands: Hold[], W: number, H: number, neighbors?: Hold[]): Map<Hold, { x: number; y: number; d?: number; anchor?: Point }>;
+export function pickOverlap(cands: Hold[], spots: Map<Hold, { x: number; y: number }>, x: number, y: number, radius: number, direct?: Hold | null): Hold | null;
 export function nextType(route: Route, type: HoldType | 'n', maxStart?: number): HoldType | 'n';
 export function holdUse(routes: Route[], current?: Route | null): { use: Map<string, number>; max: number };
 export function heatLevel(heat: { use: Map<string, number>; max: number }, id: string): number;
 /** 熱圖外框、重疊候選的畫法（L：螢幕像素 → 照片單位） */
 export function heatColor(k: number, a: number | string): string;
 export function strokeHoldOutline(c: CanvasRenderingContext2D, poly: Poly, o: { k?: number; sel?: boolean; viewScale?: number; big?: number; L: (screenPx: number) => number }): void;
-export function drawOverlapPick(c: CanvasRenderingContext2D, o: { img: CanvasImageSource; holds: Hold[]; spots: Map<Hold, { x: number; y: number; anchor?: Point }>; vis: { x0: number; y0: number; x1: number; y1: number }; L: (screenPx: number) => number; routeHolds?: Hold[]; route?: Route | null; theme?: unknown }): void;
+export function drawOverlapPick(c: CanvasRenderingContext2D, o: { img: CanvasImageSource; holds: Hold[]; spots: Map<Hold, { x: number; y: number; anchor?: Point }>; preferred?: Hold | null; neighbors?: Hold[]; vis: { x0: number; y0: number; x1: number; y1: number }; L: (screenPx: number) => number; routeHolds?: Hold[]; route?: Route | null; theme?: unknown }): void;
 export interface OrderSession {
   reset(): void; insertAt(route: Route): number | null; canUndo(route: Route | null): boolean; tap(route: Route, id: string): number; undo(route: Route): boolean;
   numbers(route: Route | null, id: string): number[]; startInsert(route: Route, n: number): void; endInsert(): void; remove(route: Route, n: number): void; clear(route: Route): void;
@@ -209,7 +210,7 @@ declare const RouteKit: {
   THEME: typeof THEME; typeLabels: typeof typeLabels; drawTypeLabels: typeof drawTypeLabels; seqBadges: typeof seqBadges;
   drawSeq: typeof drawSeq; strokeRouteHold: typeof strokeRouteHold;
   grayOf: typeof grayOf; plainGrayOf: typeof plainGrayOf; mutedOf: typeof mutedOf; liftTint: typeof liftTint; tintCard: typeof tintCard;
-  routeLayers: typeof routeLayers; routeMask: typeof routeMask; routeLayer: typeof routeLayer; drawRouteBase: typeof drawRouteBase; glowAround: typeof glowAround;
+  routeLayers: typeof routeLayers; prepareOverlapPick: typeof prepareOverlapPick; routeMask: typeof routeMask; routeLayer: typeof routeLayer; drawRouteBase: typeof drawRouteBase; glowAround: typeof glowAround;
   RouteScene: typeof RouteScene; scene: typeof scene;
   routeHolds: typeof routeHolds; cropAround: typeof cropAround; revealSteps: typeof revealSteps; drawRoute: typeof drawRoute;
   renderRouteImage: typeof renderRouteImage; thumbCrop: typeof thumbCrop; routeThumb: typeof routeThumb;
@@ -240,6 +241,12 @@ export interface EditorUI {
   setNav(info: { index: number; total: number }): void;
   pickType(t: HoldType | 'n'): void; readonly type: HoldType | 'n'; setOptions(o: Partial<EditorUIOptions>): void; destroy(): void;
 }
+export type GradeSystem = 'v' | 'font' | 'dan';
+export const GRADE_SYS: Record<GradeSystem, string[]>;
+export function gradeSysOf(g: string): GradeSystem | null;
+export interface GradeDial { setSystem(s: GradeSystem): void; setValue(g: string, smooth?: boolean, fallbackSys?: GradeSystem): void; paint(): void; release(): void; readonly system: GradeSystem }
+/** 難度轉盤：d 是宿主給的空元素（class grade-dial）；停下來或點了才 onPick(grade, token)，token 是開始滑的當下 cfg.token() 的值 */
+export function gradeDial(d: HTMLElement, cfg?: { sys?: GradeSystem; token?: () => unknown; onTick?: () => void; onPick?: (grade: string, token: unknown) => void }): GradeDial;
 export const EditorUI: { mount(host: HTMLElement, cfg?: EditorUIOptions): EditorUI; STR: Record<string, Record<string, unknown>>; TYPES: string[] };
 
 // 路線視角（fit.js）：看路線圖的起始取景，岩點貓與內嵌頁同一份算法

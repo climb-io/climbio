@@ -1765,12 +1765,8 @@ async function share(id) {
     }
     const { files, count, left } = await bundleOf(id, doc);
     if (Backend().caps.share) {
-      // 公開沿用共用暱稱，只保留授權確認，不再另問簽名。
-      const how = await ask({ title: nameOf(doc), body: [el('p', { textContent: T('shareDriveNote') })],
-        buttons: [{ label: T('cancel') }, { label: T('public'), value: 'public', primary: true }] });
-      if (!how?.button) return;
-      const signature = await AppKit.nearby.ensureNickname({ suggested: (await getMeta('author')) || '' });   // 署名只在第一次上傳時要：已經公開的直接傳連結
-      if (!signature) return;
+      // 直接公開（授權寫在條款）：署名用目前的暱稱，沒設定就用岩場的作者，再沒有就不署名
+      const signature = AppKit.nearby.nickname() || (await getMeta('author')) || '';
       const signedFiles = await Promise.all(files.map(async file => {
         if (!/\.json$/i.test(file.name)) return file;
         const data = JSON.parse(await file.blob.text());

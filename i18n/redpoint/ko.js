@@ -111,7 +111,6 @@ AppKit.i18n.add('redpoint', 'ko', {
   // 공유
   linkShared: "링크를 공유했어요",
   linkCopied: "링크를 복사했어요",
-  shareDriveNote: "공유한 암장은 Climbio 오픈 데이터셋(CC BY-SA 4.0)에 공개되어 누구나 내려받을 수 있고 “월드”에도 나타나며, 이미 내려받은 사본은 되돌릴 수 없어요. 가까이 있는 친구에게는 주변 교환을 쓰세요.",
   uploading: "업로드 중…",
   uploadingN: (i, n) => `업로드 중 ${i}/${n}`,
   leftLocal: (n) => `이 기기에만 있는 사진 ${n}장은 포함하지 않았어요`,

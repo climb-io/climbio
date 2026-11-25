@@ -204,9 +204,9 @@
     strokeOutside(c, poly, L((sel ? 3 : 2 + 1.5 * k) * big * f));
   }
   // 重疊岩點的選擇：候選以外調暗，候選換回照片原本的顏色，每顆一個顏色畫框，各自會選到的地方放一個同色圓點；
-  // 路線上已經選的岩點，類型的框畫在壓暗的上面。vis＝畫面看得到的照片範圍 { x0, y0, x1, y1 }；L(螢幕像素)→照片單位
+  // 原先點到的候選加外圈，同一個量體的其他岩點畫細框。vis＝畫面看得到的照片範圍 { x0, y0, x1, y1 }；L(螢幕像素)→照片單位
   const PICK_COLORS = ['#fff', '#c6ff3d', '#5ee0ff', '#ff9be6'];
-  function drawOverlapPick(c, { img, holds, spots, vis, L, routeHolds = [], route = null, theme }) {
+  function drawOverlapPick(c, { img, holds, spots, preferred, neighbors = [], vis, L, routeHolds = [], route = null, theme }) {
     c.save();
     for (const h of holds) { c.beginPath(); c.rect(vis.x0, vis.y0, vis.x1 - vis.x0, vis.y1 - vis.y0); G.tracePoly(c, h.poly); c.clip('evenodd'); }
     c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(vis.x0, vis.y0, vis.x1 - vis.x0, vis.y1 - vis.y0);
@@ -214,12 +214,23 @@
     c.save(); c.beginPath(); for (const h of holds) G.tracePoly(c, h.poly); c.clip('nonzero'); c.drawImage(img, 0, 0); c.restore();
     if (route) for (const h of routeHolds) strokeRouteHold(c, h.poly, route.holds[h.id], (s) => L(s), theme);
     c.save(); c.lineJoin = 'round';
+    for (const h of neighbors) {
+      if (route?.holds[h.id]) continue;
+      c.beginPath(); G.tracePoly(c, h.poly);
+      c.lineWidth = L(3); c.strokeStyle = 'rgba(0,0,0,0.55)'; c.stroke();
+      c.lineWidth = L(1.4); c.strokeStyle = 'rgba(255,255,255,0.8)'; c.stroke();
+    }
     holds.forEach((h, i) => {
       const col = PICK_COLORS[i % PICK_COLORS.length], s = spots.get(h);
       c.beginPath(); G.tracePoly(c, h.poly);
       c.lineWidth = L(5); c.strokeStyle = 'rgba(0,0,0,0.5)'; c.stroke();
       c.lineWidth = L(2.6); c.strokeStyle = col; c.stroke();
       if (s.anchor) { c.beginPath(); c.moveTo(...s.anchor); c.lineTo(s.x, s.y); c.lineWidth = L(1.5); c.strokeStyle = col; c.stroke(); }
+      if (h === preferred) {
+        c.beginPath(); c.arc(s.x, s.y, L(14), 0, Math.PI * 2);
+        c.lineWidth = L(4); c.strokeStyle = 'rgba(0,0,0,0.65)'; c.stroke();
+        c.lineWidth = L(2); c.strokeStyle = '#fff'; c.stroke();
+      }
       c.beginPath(); c.arc(s.x, s.y, L(10), 0, Math.PI * 2);
       c.fillStyle = col; c.fill(); c.lineWidth = L(3); c.strokeStyle = 'rgba(0,0,0,0.55)'; c.stroke();
     });

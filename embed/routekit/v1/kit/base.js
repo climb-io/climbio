@@ -108,6 +108,27 @@
     const volumes = big.filter(({ h, a }) => on.includes(h) ? hosts.has(h) && a >= med * 8 : hosts.has(h) || a >= med * 8).map(({ h }) => h).reverse();
     return { base: routeHolds.filter(h => !on.includes(h)), riders, on, volumes };
   }
+
+  // 放大看重疊時，顯示同一個底座上的其他岩點，但只替原本點到的候選畫圓點。
+  function overlapNeighbors(holds, candidates) {
+    const host = candidates.at(-1);
+    if (!host) return [];
+    const b = bbox(host.poly), picked = new Set(candidates.map(h => h.id));
+    const nearby = holds.filter(h => {
+      if (picked.has(h.id)) return false;
+      const q = bbox(h.poly);
+      return q.x0 < b.x1 && q.x1 > b.x0 && q.y0 < b.y1 && q.y1 > b.y0;
+    });
+    return nearby.length ? routeLayers([host], nearby).riders.map(({ h }) => h) : [];
+  }
+
+  // 共用同一份放大範圍和提示位置。k 是每個照片像素佔的螢幕像素，最大倍率由呼叫端限制。
+  function prepareOverlapPick(candidates, all, { w, h, width, height }) {
+    const neighbors = overlapNeighbors(all, candidates), spots = G.overlapSpots(candidates, w, h, neighbors);
+    const b = bbox([...candidates, ...neighbors].flatMap(hold => hold.poly).concat([...spots.values()].map(s => [s.x, s.y])));
+    const k = Math.min(width * (neighbors.length ? 0.88 : 0.7) / Math.max(1, b.x1 - b.x0), height * (neighbors.length ? 0.65 : 0.5) / Math.max(1, b.y1 - b.y0));
+    return { holds: candidates, neighbors, spots, k, cx: (b.x0 + b.x1) / 2, cy: (b.y0 + b.y1) / 2 };
+  }
   // volume 的顏色：外框內、上面那些岩點以外的像素裡最多的顏色（縮到 64 px 量；記在外框上，外框改了重算）。
   // 回傳 { c, odd }：odd＝表面上看起來是別顆點的比例（色相差很多的鮮豔像素、淺 volume 上很深的、深 volume 上很亮的）
   const surfaceColors = new WeakMap();
@@ -305,5 +326,5 @@
     glowLayered(c, routeHolds, { roles, colors, dpr }, layer);
   }
 
-  return { liftTint, tintCard, grayOf, plainGrayOf, mutedOf, routeLayers, routeMask, routeLayer, drawRouteBase, glowAround };
+  return { liftTint, tintCard, grayOf, plainGrayOf, mutedOf, routeLayers, prepareOverlapPick, routeMask, routeLayer, drawRouteBase, glowAround };
 });

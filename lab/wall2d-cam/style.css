@@ -232,3 +232,12 @@ html[data-auto="1"] body[data-tools="closed"]:not([data-error="true"]) #hud,
 body[data-auto="1"][data-tools="closed"]:not([data-error="true"]) #hud {
   display: none;
 }
+/* 岩點貓的相機看線（data-embed 由 boot.js 設）：使用者看的畫面不放開發工具 */
+html[data-embed="1"] #tools-toggle,
+html[data-embed="1"] header,
+html[data-embed="1"] footer .actions,
+html[data-embed="1"] #notice,
+html[data-embed="1"] #sim-toggle,
+html[data-embed="1"] #camera-device {
+  display: none;
+}

@@ -98,8 +98,6 @@ details.pg-more[open] summary { margin-bottom: 8px; }
 @media (max-width: 420px) { .pg-top { padding: 0 10px; gap: 6px; } .pg-nav { font-size: 12.5px; gap: 0; } .pg-nav a { padding: 5px 5.5px; } }
 @media (max-width: 380px) { .pg-nav { font-size: 11.5px; } .pg-nav a { padding: 5px 4px; } }
 /* 元件說明頁（kits/）：嵌入的線上範例 */
-.pg-demo { display: block; width: 100%; height: 480px; border: 1px solid var(--pg-line); border-radius: var(--pg-radius-sm); background: var(--pg-surface); }
-@media (max-width: 640px) { .pg-demo { height: 380px; } }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .pg-btn, a.pg-card { transition: none; } }
 
 /* 網站入口與文件沿用 App 的留白、清單和焦點。 */
@@ -170,10 +168,30 @@ html:lang(en) .docs-en { display: inline; }
 .pg-prompt pre { margin: 0; padding: 16px 16px 64px; border: 1px solid var(--pg-line); border-radius: 12px; background: var(--pg-surface-2); color: var(--pg-text); font: 14px/1.75 system-ui, -apple-system, 'Noto Sans TC', sans-serif; white-space: pre-wrap; overflow-wrap: anywhere; }
 .pg-prompt .pg-btn { position: absolute; right: 12px; bottom: 12px; }
 
-/* 給岩館的頁面（/project/）：點了才載入的內嵌範例、路線切換、岩點貓截圖 */
-.pg-demo-box { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 480px; border: 1px dashed var(--pg-line-strong); border-radius: var(--pg-radius-sm); background: var(--pg-surface); text-align: center; padding: 16px; }
-.pg-demo-hint { color: var(--pg-muted); font-size: 14px; }
-.pg-demo.full { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 1000; border: 0; border-radius: 0; }
-.pg-reg { align-items: center; margin-top: 28px; }
-.pg-reg .pg-shot { margin: 0; border: 1px solid var(--pg-line); }
-@media (max-width: 640px) { .pg-demo-box { height: 380px; } .pg-grid.two.pg-reg { grid-template-columns: 1fr; } }
+/* 南港示範線：兩個畫布對齊同一張照片，只移動中間的分隔線。 */
+.pg-compare { --split: 50%; margin: 18px 0 0; }
+.pg-compare figcaption { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; font-size: 14px; font-weight: 700; }
+.pg-compare figcaption span:first-child { color: var(--pg-muted); }
+.pg-compare figcaption span:last-child { color: var(--pg-accent); text-align: end; }
+.pg-compare-stage { position: relative; overflow: hidden; border-radius: var(--pg-radius-sm); background: var(--pg-surface-2); }
+.pg-compare-stage img { display: block; width: 100%; height: auto; }
+.pg-compare-stage canvas, .pg-compare-stage input { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pg-compare-stage canvas, .pg-compare-divider { visibility: hidden; }
+.pg-compare[data-ready] :is(canvas, .pg-compare-divider) { visibility: visible; }
+.pg-compare-circles { clip-path: inset(0 calc(100% - var(--split)) 0 0); }
+.pg-compare-stage input { z-index: 2; margin: 0; opacity: 0; appearance: none; cursor: ew-resize; touch-action: pan-y; }
+.pg-compare-stage input::-webkit-slider-runnable-track { height: 100%; }
+.pg-compare-stage input::-webkit-slider-thumb { appearance: none; width: 1px; height: 100%; }
+.pg-compare-stage input::-moz-range-thumb { border: 0; width: 1px; }
+.pg-compare-divider { position: absolute; inset: 0; pointer-events: none; }
+.pg-compare-divider::before { content: ''; position: absolute; inset-block: 0; left: var(--split); width: 2px; translate: -50% 0; background: white; box-shadow: 0 0 6px #0009; }
+.pg-compare-handle { position: absolute; top: 50%; left: clamp(22px, var(--split), 100% - 22px); translate: -50% -50%; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--pg-surface); color: var(--pg-text); box-shadow: 0 1px 10px #0007; }
+.pg-compare-stage input:focus-visible + .pg-compare-divider .pg-compare-handle { outline: 3px solid var(--pg-accent); outline-offset: 3px; }
+
+.pg-volume-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 18px; }
+.pg-volume-grid figure { margin: 0; }
+.pg-volume-grid figcaption { color: var(--pg-accent); font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+.pg-volume-grid canvas { display: block; width: 100%; aspect-ratio: 268 / 226; border-radius: var(--pg-radius-sm); background: var(--pg-surface-2); }
+.pg-volume-grid figure:last-child canvas { cursor: crosshair; }
+.pg-volume-grid button { margin-top: 12px; }
+@media (max-width: 640px) { .pg-volume-grid { grid-template-columns: minmax(0, 1fr); } }

@@ -1,12 +1,11 @@
 // Paquete de idioma en español. La página carga solo el paquete del idioma actual (ver el cargador al inicio de index.html).
 // Estilo: corto, sencillo y neutro (español internacional); tuteo; verbos en los botones. Vocabulario de escalada: bloque, presas, encadenar, a vista (flash).
 AppKit.i18n.add('hold', 'es', {
-  shareDataset: "Al compartir públicamente, la foto de esta pared (sin ubicación), las presas y tus rutas pasan al conjunto de datos abierto de Climbio (Hugging Face). Cualquiera puede descargarlo y usarlo para entrenar modelos (CC BY-SA 4.0), y no se puede retirar.",
   pcSharedRoute: "Una ruta compartida por un amigo",
   pcCopyLink: "Copiar enlace",
   shareTimeout: "La conexión agotó el tiempo de espera. Tus rutas están guardadas. Vuelve a compartir.",
   sharePublic: "Público",
-  envDev: "Beta", shareQuota: 'Hoy has compartido mucho. Vuelve a intentarlo mañana.', legalPreShare: 'Al compartir, aceptas los ', shareGo: 'Compartir', legalAnd: ' y la ', terms: 'Términos del servicio', privacy: 'Política de privacidad',
+  envDev: "Beta", shareQuota: 'Hoy has compartido mucho. Vuelve a intentarlo mañana.', terms: 'Términos del servicio', privacy: 'Política de privacidad',
   help: 'Ayuda', language: 'Idioma',
   app: 'Gato de presas', emptyTitle: 'Fotografía un muro, traza un bloque', emptySub: 'Las presas se detectan automáticamente', addWall: 'Nuevo muro', add: 'Añadir',
   takePhoto: 'Hacer foto', fromLibrary: 'Fotos', rotate: 'Girar 90°',
@@ -36,9 +35,7 @@ shareWall: 'Compartir muro', baseToggle: 'Gris / color tenue', signNone: "Sin de
   recvBadCode: "Este no es un enlace de Climbio.",
   lasso: 'Rodear', lassoCancel: 'Cancelar', lassoSmall: 'Demasiado pequeño. Rodea toda la presa.', lassoFail: 'No se pudo usar ese contorno. Inténtalo de nuevo.',
   btnDelete: 'Eliminar', btnDiscard: 'Descartar',
-  signInTitle: 'Iniciar sesión con Google',
   shareRoute: 'Compartir bloque', 
-  signTitle: "Apodo", 
   feetFree: 'Pies libres', seqInsertAt: (n) => `Insertar después del movimiento ${n}`, seqDelete: (n) => `Eliminar movimiento ${n}`, feetClearAsk: "Se quitarán las presas de pie de este bloque. ¿Cambiar a pies libres?", feetClear: "Quitar", seqInsertFirst: "Insertar al principio", seqEnd: 'Terminar inserción',
   seqMove: (n) => `Movimiento ${n}`, seq: 'Orden', seqClearAsk: '¿Borrar el orden de movimientos de este bloque?', seqClear: 'Borrar', totalWalls: "Muros", totalRoutes: "Bloques", totalSet: "Abiertos", shareCopied: 'Copiado. Pégalo para enviarlo.', loading: 'Cargando…',
   publishFailed: 'Error al compartir: ',

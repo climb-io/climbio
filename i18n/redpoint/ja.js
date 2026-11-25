@@ -111,7 +111,6 @@ AppKit.i18n.add('redpoint', 'ja', {
   // 共有
   linkShared: "リンクを共有しました",
   linkCopied: "リンクをコピーしました",
-  shareDriveNote: "共有した岩場は Climbio のオープンデータセット（CC BY-SA 4.0）に公開され、誰でもダウンロードでき、「ワールド」にも表示されます。ダウンロード済みのコピーは取り戻せません。近くの友達には、近くで交換を使います。",
   uploading: "アップロード中…",
   uploadingN: (i, n) => `アップロード中 ${i}/${n}`,
   leftLocal: (n) => `この端末にしかない写真 ${n} 枚は含まれていません`,

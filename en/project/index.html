@@ -4,9 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#F7F9FB">
-<title>Put Climbio inside your gym app | Climbio</title>
-<script src="../../doc-language.js"></script>
-<meta name="description" content="For gym operators: add route viewing and route setting to your app without building it yourself. See a live example, then copy the prompts to your AI agent.">
+<title>Add Hold Cat to your climbing app | Climbio</title>
+<meta name="description" content="Let climbers view routes and set them by tapping holds inside your app. Turn wall photos into interactive route maps and keep managing member accounts and ascent logs in your app.">
 <link rel="canonical" href="https://climbio.app/en/project/">
 <link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/project/">
 <link rel="alternate" hreflang="en" href="https://climbio.app/en/project/">
@@ -27,30 +26,46 @@
 <nav class="site-nav"><a href="../../en/guides/">User guides</a></nav>
 </header>
 <main class="pg">
-<div class="pg-hero"><span class="pg-eyebrow">For gym operators</span><h1>Give your gym app route viewing and setting, without building it</h1><p class="pg-lead">Hand your wall photos to Climbio and get a wall you can tap holds on, then drop it into the app you already have. Climbers view and set routes inside your app; your accounts, records and database stay untouched.</p><div class="pg-actions"><a class="pg-btn primary" href="#demo">See a live example</a><a class="pg-btn" href="#prompts">Copy the prompts for your AI agent</a></div></div>
-<section class="pg-section"><h2>What your gym gets</h2><div class="pg-grid"><div class="pg-card"><h3>Nothing to build</h3><p>The viewer and setter are ready-made: add one embedded page (an iframe on the web, a WebView in a native app), tell it the wall id, and you are done.</p></div><div class="pg-card"><h3>Updating the wall is uploading one photo</h3><p>Staff pick a wall photo in your admin, holds are detected right in the browser, and one tap on publish gives you an interactive wall. For more precision, your AI agent can refine it with the Studio process.</p></div><div class="pg-card"><h3>Climbers find you elsewhere</h3><p>Your wall also shows up in Hold Cat’s “Find walls”, and routes appear in both your app and Hold Cat, so you never keep two copies.</p></div><div class="pg-card"><h3>Your users and records stay yours</h3><p>Climbio stores only walls and routes. How users map to routes, send logs and comments are all up to your app; submissions use your website as identity, with no key to apply for.</p></div></div></section>
-<section class="pg-section" id="demo"><h2>See it in action</h2><p>This is the route-setting screen inside a gym app: tap holds on the wall to set a route (demo only, nothing is saved). Viewing is the same embedded page in another mode.</p>
-<div class="pg-demo-box" id="demo-box" data-wall="0fe38b21d07b3771/nbh6yueynqa0" data-loading="Loading…"><button type="button" class="pg-btn primary" id="demo-load">Load the example</button><span class="pg-demo-hint">Loads on tap (the photo is about 2 MB)</span></div>
-<div class="pg-grid two pg-reg"><img class="pg-shot" src="../../demo/home/hold-community-view-en.webp" alt="Viewing routes on a public wall in Hold Cat" loading="lazy"><div><h3>Everyone else sees the same wall</h3><p>Once published, your wall also appears in Hold Cat. Climbers can view and set routes there without installing your app, and routes show up in both places.</p><a class="pg-btn" href="../../hold/">Open Hold Cat</a></div></div></section>
-<section class="pg-section"><h2>How it works</h2><ol class="pg-steps"><li>Your AI agent wires it up: a “wall photo” embedded page in your admin, and the viewing and setting embedded page on your route page.</li><li>Staff upload a wall photo: just like updating the photo you already keep, holds are detected, they tap publish, and your app stores the returned wall id. A new photo is a new wall.</li><li>Users set routes: after setting a route they tap submit and it is published on the wall; your app keeps the returned route id and maps it to your own user.</li></ol></section>
-<section class="pg-section" id="prompts"><h2>Copy for your AI agent</h2><p>Paste it to the AI agent you already use (Claude, ChatGPT or Codex all work). After reading the whole process it will ask you, in one list, for the details it needs, and you just answer.</p><div class="pg-prompt"><pre id="agent-prompt" lang="en">Please read https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md first and follow its process to integrate Climbio into our gym. At the start, ask me in one list for all the details you need instead of asking several times; if I cannot answer something, give me options and a recommendation instead of making it up.</pre><button type="button" class="pg-btn primary" data-copy="#agent-prompt" data-done="Copied">Copy</button></div><p>The technical details live on GitHub and your AI agent reads them itself:</p><div class="pg-actions"><a class="pg-btn" href="https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md">Integration guide</a></div></section>
+<div class="pg-hero"><h1>Add Hold Cat to your climbing app</h1><p class="pg-lead">Let climbers view routes and set them by tapping holds inside your app. Turn wall photos into interactive route maps and keep managing member accounts and ascent logs in your app.</p><div class="pg-actions"><a class="pg-btn primary" href="#demo">See the Nangang examples</a></div></div>
+<section class="pg-section"><h2>What your gym and climbers get</h2><div class="pg-grid"><div class="pg-card"><h3>Clearer route maps</h3><p>Hold outlines show exactly which holds belong to a route, even on a dense spray wall.</p></div><div class="pg-card"><h3>Update the photo after a reset</h3><p>Staff upload a new wall photo and the browser detects the holds. Once staff review and publish it, climbers can use the new interactive wall.</p></div><div class="pg-card"><h3>Keep your membership system</h3><p>Your app manages members, ascent logs and comments. Hold Cat provides the wall photos, holds and route views.</p></div></div></section>
+<section class="pg-section" id="demo" aria-labelledby="demo-title">
+<h2 id="demo-title">Same route, two ways to mark it</h2>
+<p id="demo-help">Drag across this demo route on the T-UP Nangang Spray Wall to compare circles with hold outlines.</p>
+<figure class="pg-compare">
+  <figcaption><span>Circle markers</span><span>Climbio hold outlines</span></figcaption>
+  <div class="pg-compare-stage">
+    <img src="../../demo/reel/nangang-wall.webp" width="976" height="607" alt="T-UP Nangang Spray Wall" loading="lazy">
+    <canvas aria-hidden="true"></canvas>
+    <canvas class="pg-compare-circles" aria-hidden="true"></canvas>
+    <input type="range" min="0" max="100" value="50" aria-labelledby="demo-title" aria-describedby="demo-help" disabled>
+    <div class="pg-compare-divider" aria-hidden="true"><span class="pg-compare-handle">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 7-5 5 5 5m6-10 5 5-5 5"/></svg>
+    </span></div>
+  </div>
+</figure>
+</section>
+<section class="pg-section pg-volume" id="volume" aria-labelledby="volume-title">
+<h2 id="volume-title">Pick a small hold on a volume</h2>
+<p>This one volume at T-UP Nangang has seven holds. A circle can cover neighboring holds too. Hold Cat zooms in so you can confirm the hold you tapped or the whole volume, or tap another hold directly.</p>
+<div class="pg-volume-grid">
+  <figure>
+    <figcaption id="volume-circles">Circle marker</figcaption>
+    <canvas role="img" aria-labelledby="volume-circles"></canvas>
+  </figure>
+  <figure>
+    <figcaption id="volume-pick">Hold Cat zoomed selection</figcaption>
+    <canvas aria-labelledby="volume-pick"></canvas>
+    <button class="pg-btn" type="button" disabled>Try the zoom again</button>
+  </figure>
+</div>
+</section>
+<section class="pg-section" id="prompts"><h2>Hand the integration to your AI agent</h2><p>If you can modify your climbing app or website, paste the prompt below into the AI agent you already use. It will ask where your app code, admin tools and test environment are before wiring up route viewing and setting.</p><p class="pg-muted">This integration uses public walls. Wall photos and routes are shared publicly when published.</p><div class="pg-prompt"><pre id="agent-prompt" lang="en">Please read https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md first and follow its process to integrate Climbio into our gym. At the start, ask me in one list for all the details you need instead of asking several times; if I cannot answer something, give me options and a recommendation instead of making it up.</pre><button type="button" class="pg-btn primary" data-copy="#agent-prompt" data-done="Copied">Copy</button></div><div class="pg-actions"><a class="pg-btn" href="https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md">Integration guide</a></div></section>
 <footer class="pg-foot docs-footer"><span>© 2026 Climbio</span><nav><a href="../../en/">Home</a> · <a href="../../privacy.html">Privacy</a> · <a href="../../terms.html">Terms</a></nav></footer>
 </main>
 <script>
 document.addEventListener('click',function(e){var b=e.target.closest('[data-copy]');if(!b)return;var el=document.querySelector(b.dataset.copy),t=el.textContent,done=function(){var o=b.textContent;b.textContent=b.dataset.done;setTimeout(function(){b.textContent=o;},1800);},fb=function(){var r=document.createRange();r.selectNodeContents(el);var g=getSelection();g.removeAllRanges();g.addRange(r);try{document.execCommand('copy');done();}catch(x){}};if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,fb);else fb();});
-(function(){
-var box=document.getElementById('demo-box'),btn=document.getElementById('demo-load');if(!box||!btn)return;
-var frame=null;
-function send(m){if(frame&&frame.contentWindow)frame.contentWindow.postMessage(Object.assign({climbio:'routekit',v:1},m),'*');}
-btn.addEventListener('click',function(){
-  btn.disabled=true;btn.textContent=box.dataset.loading;
-  addEventListener('message',function(e){if(!frame||e.source!==frame.contentWindow||!e.data||e.data.climbio!=='routekit')return;
-    if(e.data.type==='ready')send({type:'init',wallId:box.dataset.wall,layerUrls:[]});
-    if(e.data.type==='fullscreen'){frame.classList.toggle('full',!!e.data.on);send({type:'setFullscreen',on:!!e.data.on});}});
-  frame=document.createElement('iframe');frame.className='pg-demo';frame.allow='fullscreen';frame.title=document.querySelector('#demo h2').textContent;frame.src='https://embed.climbio.app/routekit/v1/?mode=edit&maxStart=2';
-  box.replaceWith(frame);
-});
-})();
 </script>
+<script type="module" src="../../project/compare.js"></script>
+<script type="module" src="../../project/volume.js"></script>
 </body>
 </html>

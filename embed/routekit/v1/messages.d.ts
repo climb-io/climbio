@@ -18,6 +18,12 @@ export type HoldType = 's' | 'h' | 't' | 'f' | 'n';
 export interface Options {
   /** false：不顯示任何按鈕，全由外層用訊息控制（預設 true） */
   controls?: boolean;
+  /** 顯示暗彩／黑白切換鈕（預設 false：固定暗彩；網址 baseToggle=1） */
+  baseToggle?: boolean;
+  /** 定線上方的難度轉盤（預設 false；網址 grade=1）。選的難度寫進路線，submit 沒帶 grade 就用它 */
+  grade?: boolean;
+  /** 轉盤用的難度系統：v（VB、V0–V12）｜font（Fontainebleau）｜dan（段級），預設 v；網址 gradeSys= */
+  gradeSys?: 'v' | 'font' | 'dan';
   /** 起攀點數上限（預設 2＝岩點貓；有的岩館規定 4）；滿了，新點改成手點，已在路線上的點不能改成起攀 */
   maxStart?: number;
   /** 定線工具列有沒有「腳點」（預設 true） */

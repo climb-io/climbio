@@ -394,6 +394,8 @@ async function main(){
 
  const preview=document.createElement('canvas');preview.id='live-preview';$('stage').insertBefore(preview,renderer.domElement);const previewCtx=preview.getContext('2d',{alpha:false});
  const video=$('live-video'),capture=document.createElement('canvas'),ctx=capture.getContext('2d',{willReadFrequently:true});
+ // 相機影格優先用 VideoFrame 轉移給 Worker（Worker 取 Y 平面當灰階）；不支援或讀不出來才用 canvas 擷取
+ let useVideoFrame=typeof VideoFrame==='function';
  function drawPreview(){
   if(!running||video.readyState<2||!video.videoWidth||!video.videoHeight)return;
   const rect=$('stage').getBoundingClientRect(),ratio=renderer.getPixelRatio(),w=Math.round(rect.width*ratio),h=Math.round(rect.height*ratio),key=frameClock?`frame:${frameClock.serial}`:`time:${video.currentTime}`;
@@ -888,6 +890,7 @@ async function main(){
     }
     if(data.type==='bank_ready')return;
     busy=false;
+    if(data.type==='frame_error'){useVideoFrame=false;log.event('video_frame_fallback',{error:data.error});return;}
     if(data.type==='error'){log.error(data.error);pose=null;if(!ready||++errors>=3){document.body.dataset.error='true';stop('trkRuntimeError');}return;}
     if(data.type==='pose'){
      if(data.epoch!==trackingEpoch)return;
@@ -922,7 +925,12 @@ async function main(){
    clearOverlays();
   }
   if(sensors.tick(now,{mode:trackingMode,running,frameAt:frameClock?.at}))log.data.motion=sensors.report();
-  if(running){log.tick({dt,rendered,visible:fresh,videoFrames,drawCalls:rendered?renderer.info.render.calls:0,triangles:rendered?renderer.info.render.triangles:0});videoFrames=0;if(ready&&!busy&&video.readyState>=2&&now-lastSent>100){const scale=640/Math.max(video.videoWidth,video.videoHeight),w=Math.round(video.videoWidth*scale),h=Math.round(video.videoHeight*scale);const mediaTime=frameClock?`frame:${frameClock.serial}`:`time:${video.currentTime}`;if(w&&h&&mediaTime!==lastInputFrame){const frameAt=frameClock?.at??now,inputSensor=sensors.at(frameAt),delta=trackingMode==='rotation'&&stream?.getVideoTracks()[0].getSettings().facingMode!=='user'?rotationBetween(lastInputSensor,inputSensor):null;lastInputSensor=inputSensor;lastInputFrame=mediaTime;capture.width=w;capture.height=h;ctx.drawImage(video,0,0,w,h);const image=ctx.getImageData(0,0,w,h);busy=true;lastSent=now;worker.postMessage({type:'frame',image,frameId:++frames,epoch:trackingEpoch,rotationDelta:delta?.matrix??null},[image.data.buffer]);}}}
+  if(running){log.tick({dt,rendered,visible:fresh,videoFrames,drawCalls:rendered?renderer.info.render.calls:0,triangles:rendered?renderer.info.render.triangles:0});videoFrames=0;if(ready&&!busy&&video.readyState>=2&&now-lastSent>50){const scale=640/Math.max(video.videoWidth,video.videoHeight),w=Math.round(video.videoWidth*scale),h=Math.round(video.videoHeight*scale);const mediaTime=frameClock?`frame:${frameClock.serial}`:`time:${video.currentTime}`;if(w&&h&&mediaTime!==lastInputFrame){const frameAt=frameClock?.at??now,inputSensor=sensors.at(frameAt),delta=trackingMode==='rotation'&&stream?.getVideoTracks()[0].getSettings().facingMode!=='user'?rotationBetween(lastInputSensor,inputSensor):null;lastInputSensor=inputSensor;lastInputFrame=mediaTime;const msg={type:'frame',frameId:++frames,epoch:trackingEpoch,rotationDelta:delta?.matrix??null,capW:w,capH:h};let sent=false;
+     if(useVideoFrame){let f=null;try{f=new VideoFrame(video);}catch{useVideoFrame=false;}
+      if(f&&((f.rotation||0)!==0||f.flip||f.displayWidth!==video.videoWidth||f.displayHeight!==video.videoHeight)){f.close();f=null;useVideoFrame=false;}
+      if(f){try{worker.postMessage({...msg,frame:f},[f]);sent=true;}catch{f.close();useVideoFrame=false;}}}
+     if(!sent){if(capture.width!==w||capture.height!==h){capture.width=w;capture.height=h;}ctx.drawImage(video,0,0,w,h);const image=ctx.getImageData(0,0,w,h);worker.postMessage({...msg,image},[image.data.buffer]);}
+     busy=true;lastSent=now;}}}
   if(rendered)fpsFrames++;if(now-fpsAt>=1000){$('fps').textContent=`${Math.round(fpsFrames*1000/(now-fpsAt))} FPS`;$('hz').textContent=mode==='camera'?`${(fpsProcessed*1000/(now-fpsAt)).toFixed(1)} Hz`:'—';fpsAt=now;fpsFrames=0;fpsProcessed=0;}
  }
  $('mode-model').onclick=()=>{stop();mode='model';modeUi();};$('mode-camera').onclick=()=>{if(mode==='camera')return;mode='camera';modeUi();start();};$('camera-toggle').onclick=()=>{mode='camera';modeUi();start();};

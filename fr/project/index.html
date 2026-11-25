@@ -4,9 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#F7F9FB">
-<title>Intégrer Climbio dans l’appli de votre salle | Climbio</title>
-<script src="../../doc-language.js"></script>
-<meta name="description" content="Pour les gérants de salle : ajoutez l’affichage et la création de voies à votre appli sans la développer. Voyez un exemple en direct, puis copiez les prompts pour votre agent IA.">
+<title>Ajoutez Hold Cat à votre appli d’escalade | Climbio</title>
+<meta name="description" content="Consultez les voies et créez-en en touchant les prises directement dans votre appli. Transformez les photos du mur en vues interactives et gardez la gestion de vos membres et de leurs ascensions.">
 <link rel="canonical" href="https://climbio.app/fr/project/">
 <link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/project/">
 <link rel="alternate" hreflang="en" href="https://climbio.app/en/project/">
@@ -27,30 +26,46 @@
 <nav class="site-nav"><a href="../../fr/guides/">Guides d’utilisation</a></nav>
 </header>
 <main class="pg">
-<div class="pg-hero"><span class="pg-eyebrow">Pour les gérants de salle</span><h1>Donnez à l’appli de votre salle l’affichage et la création de voies, sans la développer</h1><p class="pg-lead">Confiez vos photos de mur à Climbio pour obtenir un mur où l’on touche les prises, puis intégrez-le à votre appli actuelle. Vos grimpeurs voient et créent des voies dans votre appli ; vos comptes, vos suivis et votre base de données ne changent pas.</p><div class="pg-actions"><a class="pg-btn primary" href="#demo">Voir un exemple</a><a class="pg-btn" href="#prompts">Copier les prompts pour l’agent IA</a></div></div>
-<section class="pg-section"><h2>Ce que votre salle y gagne</h2><div class="pg-grid"><div class="pg-card"><h3>Rien à développer</h3><p>L’affichage et la création de voies sont prêts : ajoutez une page intégrée (iframe sur le web, WebView dans une appli native), donnez-lui l’identifiant du mur, et c’est fini.</p></div><div class="pg-card"><h3>Mettre à jour le mur, c’est envoyer une photo</h3><p>Le personnel choisit une photo du mur dans votre back-office, les prises sont détectées directement dans le navigateur, et un appui sur publier donne un mur interactif. Pour plus de précision, votre agent IA peut l’affiner avec le processus de Studio.</p></div><div class="pg-card"><h3>Les grimpeurs vous trouvent ailleurs</h3><p>Votre mur apparaît aussi dans « Trouver des murs » de Hold Cat, et les voies se voient dans votre appli comme dans Hold Cat : une seule copie à maintenir.</p></div><div class="pg-card"><h3>Vos utilisateurs et vos suivis restent chez vous</h3><p>Climbio ne stocke que les murs et les voies. Le lien entre utilisateurs et voies, les ascensions et les commentaires dépendent de votre appli ; l’envoi s’identifie par votre site, sans clé à demander.</p></div></div></section>
-<section class="pg-section" id="demo"><h2>Voir en vrai</h2><p>Voici l’écran de création de voies dans l’appli d’une salle : touchez les prises du mur pour tracer une voie (démo, rien n’est enregistré). L’affichage est la même page intégrée, dans un autre mode.</p>
-<div class="pg-demo-box" id="demo-box" data-wall="0fe38b21d07b3771/nbh6yueynqa0" data-loading="Chargement…"><button type="button" class="pg-btn primary" id="demo-load">Charger l’exemple</button><span class="pg-demo-hint">Chargé au toucher (la photo pèse environ 2 Mo)</span></div>
-<div class="pg-grid two pg-reg"><img class="pg-shot" src="../../demo/home/hold-community-view-en.webp" alt="Voir les voies d’un mur public dans Hold Cat" loading="lazy"><div><h3>Tout le monde voit le même mur</h3><p>Une fois publié, votre mur apparaît aussi dans Hold Cat. Les grimpeurs y voient et y créent des voies sans installer votre appli, et les voies s’affichent aux deux endroits.</p><a class="pg-btn" href="../../hold/">Ouvrir Hold Cat</a></div></div></section>
-<section class="pg-section"><h2>Comment faire</h2><ol class="pg-steps"><li>Votre agent IA branche tout : une page intégrée « photo du mur » dans le back-office, et la page intégrée d’affichage et de création sur votre page de voie.</li><li>Le personnel envoie une photo du mur : comme pour mettre à jour la photo que vous gardez déjà, les prises sont détectées, il appuie sur publier, et votre appli enregistre l’identifiant de mur renvoyé. Une nouvelle photo, c’est un nouveau mur.</li><li>Les utilisateurs créent des voies : une fois la voie créée, ils l’envoient et elle est publiée sur le mur ; votre appli garde l’identifiant de voie renvoyé et le relie à votre propre utilisateur.</li></ol></section>
-<section class="pg-section" id="prompts"><h2>À copier pour l’agent IA</h2><p>Collez-le à l’agent IA que vous utilisez déjà (Claude, ChatGPT ou Codex). Après avoir lu tout le processus, il vous demandera en une seule liste les informations dont il a besoin, et vous n’avez qu’à répondre.</p><div class="pg-prompt"><pre id="agent-prompt" lang="fr">Lis d’abord https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md et suis son processus pour intégrer Climbio à notre salle. Au début, demande-moi en une seule liste toutes les informations dont tu as besoin, sans me poser plusieurs fois des questions ; si je ne sais pas répondre, propose-moi des options et une recommandation au lieu d’inventer.</pre><button type="button" class="pg-btn primary" data-copy="#agent-prompt" data-done="Copié">Copier</button></div><p>Les détails techniques sont sur GitHub, l’agent IA les lit lui-même :</p><div class="pg-actions"><a class="pg-btn" href="https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md">Guide d’intégration</a></div></section>
+<div class="pg-hero"><h1>Ajoutez Hold Cat à votre appli d’escalade</h1><p class="pg-lead">Consultez les voies et créez-en en touchant les prises directement dans votre appli. Transformez les photos du mur en vues interactives et gardez la gestion de vos membres et de leurs ascensions.</p><div class="pg-actions"><a class="pg-btn primary" href="#demo">Voir les exemples de Nangang</a></div></div>
+<section class="pg-section"><h2>Pour votre salle et ses grimpeurs</h2><div class="pg-grid"><div class="pg-card"><h3>Des voies plus lisibles</h3><p>Les contours suivent la forme des prises. Même sur un spray wall dense, on voit quelles prises font partie de la voie.</p></div><div class="pg-card"><h3>Une nouvelle photo après le renouvellement</h3><p>Votre équipe charge une photo du mur et le navigateur détecte les prises. Une fois la photo vérifiée et publiée, le nouveau mur est accessible.</p></div><div class="pg-card"><h3>Votre système de membres reste en place</h3><p>Votre appli gère les membres, les ascensions et les commentaires. Hold Cat fournit les photos, les prises et les vues des voies.</p></div></div></section>
+<section class="pg-section" id="demo" aria-labelledby="demo-title">
+<h2 id="demo-title">Une même voie, deux marquages</h2>
+<p id="demo-help">Faites glisser le curseur sur la voie de démonstration du spray wall de T-UP Nangang pour comparer les cercles au contour des prises.</p>
+<figure class="pg-compare">
+  <figcaption><span>Marquage par cercles</span><span>Contour des prises Climbio</span></figcaption>
+  <div class="pg-compare-stage">
+    <img src="../../demo/reel/nangang-wall.webp" width="976" height="607" alt="Spray wall de T-UP Nangang" loading="lazy">
+    <canvas aria-hidden="true"></canvas>
+    <canvas class="pg-compare-circles" aria-hidden="true"></canvas>
+    <input type="range" min="0" max="100" value="50" aria-labelledby="demo-title" aria-describedby="demo-help" disabled>
+    <div class="pg-compare-divider" aria-hidden="true"><span class="pg-compare-handle">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 7-5 5 5 5m6-10 5 5-5 5"/></svg>
+    </span></div>
+  </div>
+</figure>
+</section>
+<section class="pg-section pg-volume" id="volume" aria-labelledby="volume-title">
+<h2 id="volume-title">Choisir une petite prise sur un volume</h2>
+<p>Ce volume de T-UP Nangang porte sept prises. Un cercle risque aussi d’entourer les prises voisines. Hold Cat agrandit la zone pour choisir la prise touchée, le volume entier ou une autre prise à côté.</p>
+<div class="pg-volume-grid">
+  <figure>
+    <figcaption id="volume-circles">Marquage par cercle</figcaption>
+    <canvas role="img" aria-labelledby="volume-circles"></canvas>
+  </figure>
+  <figure>
+    <figcaption id="volume-pick">Sélection agrandie dans Hold Cat</figcaption>
+    <canvas aria-labelledby="volume-pick"></canvas>
+    <button class="pg-btn" type="button" disabled>Réessayer le zoom</button>
+  </figure>
+</div>
+</section>
+<section class="pg-section" id="prompts"><h2>Confiez l’intégration à votre agent IA</h2><p>Si vous pouvez modifier votre appli ou votre site d’escalade, collez le texte ci-dessous dans votre agent IA. Il vous demandera où se trouvent le code, l’administration et l’environnement de test avant d’intégrer la consultation et la création des voies.</p><p class="pg-muted">Cette intégration utilise des murs publics. Les photos et les voies sont publiques après publication.</p><div class="pg-prompt"><pre id="agent-prompt" lang="fr">Lis d’abord https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md et suis son processus pour intégrer Climbio à notre salle. Au début, demande-moi en une seule liste toutes les informations dont tu as besoin, sans me poser plusieurs fois des questions ; si je ne sais pas répondre, propose-moi des options et une recommandation au lieu d’inventer.</pre><button type="button" class="pg-btn primary" data-copy="#agent-prompt" data-done="Copié">Copier</button></div><div class="pg-actions"><a class="pg-btn" href="https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md">Guide d’intégration</a></div></section>
 <footer class="pg-foot docs-footer"><span>© 2026 Climbio</span><nav><a href="../../fr/">Accueil</a> · <a href="../../privacy.html">Confidentialité</a> · <a href="../../terms.html">Conditions</a></nav></footer>
 </main>
 <script>
 document.addEventListener('click',function(e){var b=e.target.closest('[data-copy]');if(!b)return;var el=document.querySelector(b.dataset.copy),t=el.textContent,done=function(){var o=b.textContent;b.textContent=b.dataset.done;setTimeout(function(){b.textContent=o;},1800);},fb=function(){var r=document.createRange();r.selectNodeContents(el);var g=getSelection();g.removeAllRanges();g.addRange(r);try{document.execCommand('copy');done();}catch(x){}};if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,fb);else fb();});
-(function(){
-var box=document.getElementById('demo-box'),btn=document.getElementById('demo-load');if(!box||!btn)return;
-var frame=null;
-function send(m){if(frame&&frame.contentWindow)frame.contentWindow.postMessage(Object.assign({climbio:'routekit',v:1},m),'*');}
-btn.addEventListener('click',function(){
-  btn.disabled=true;btn.textContent=box.dataset.loading;
-  addEventListener('message',function(e){if(!frame||e.source!==frame.contentWindow||!e.data||e.data.climbio!=='routekit')return;
-    if(e.data.type==='ready')send({type:'init',wallId:box.dataset.wall,layerUrls:[]});
-    if(e.data.type==='fullscreen'){frame.classList.toggle('full',!!e.data.on);send({type:'setFullscreen',on:!!e.data.on});}});
-  frame=document.createElement('iframe');frame.className='pg-demo';frame.allow='fullscreen';frame.title=document.querySelector('#demo h2').textContent;frame.src='https://embed.climbio.app/routekit/v1/?mode=edit&maxStart=2';
-  box.replaceWith(frame);
-});
-})();
 </script>
+<script type="module" src="../../project/compare.js"></script>
+<script type="module" src="../../project/volume.js"></script>
 </body>
 </html>

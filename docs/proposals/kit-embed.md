@@ -101,12 +101,12 @@ GitHub 上的文件要讓 AI 讀了就能整合，所以每個 Kit 同一個寫�
 
 1. **預設放 Firebase Hosting 的第二個站台**（例如 `climbio-embed`，網址用 `embed.climbio.app` 以 CNAME 指過去，已決定用自己的網域；DNS 要維護者加一筆）：標頭只放行這個站台，不動 climbio.app 的 `frame-ancestors 'self'`；沿用現有交付工具、不新增廠商與條款；費用依 Firebase 計價（沒查證，這個頁面很小、不含使用者資料）。
 2. GitHub Pages 因為商業用途條款有灰色地帶、流量有軟上限、標頭不確定，不當預設；岩館自己想放也可以。
-3. 想控制可嵌入網域、固定版本、不依賴外部服務的岩館：下載 `embed/<kit>/v1/` 資料夾放進自己的靜態主機（建議獨立子網域）；要照 AGPL 保留 LICENSE、NOTICE 與原始碼連結，改了程式要公開修改。
+3. 想控制可嵌入網域、固定版本、不依賴外部服務的岩館：下載 `embed/<kit>/v1/` 資料夾放進自己的靜態主機（建議獨立子網域）；要照 AGPL 保留 LICENSE、NOTICE，改了程式要依第 13 條提供原始碼。
 4. 實作前先用一次實驗確認 Firebase Hosting 多站台各自的標頭設定確實互不影響（`climbio` 站台維持 `'self'`）。
 
 ### 授權
 
-內嵌頁是 AGPL-3.0 的程式，由 Climbio 提供；頁面角落放一個指向原始碼（公開 repo）的連結（AGPL §13：讓經網路使用的人取得原始碼）。外層網站只含 `<iframe>` 標籤與 `postMessage` 呼叫，不含 Kit 程式。這是 [open-source.md](../open-source.md) 既有說法的實作，不是新承諾；不提供商業授權、不簽 CLA 不變。
+內嵌頁是 AGPL-3.0 的程式，由 Climbio 提供；畫面上不放授權標示或原始碼連結（使用者要求拿掉；原始碼在公開 repo）。外層網站只含 `<iframe>` 標籤與 `postMessage` 呼叫，不含 Kit 程式。這是 [open-source.md](../open-source.md) 既有說法的實作，不是新承諾；不提供商業授權、不簽 CLA 不變。
 
 ## 相容性
 

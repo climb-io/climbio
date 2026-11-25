@@ -1,12 +1,11 @@
 // 日本語の言語パック。ページは現在の言語のパックだけを読み込みます（index.html 冒頭の読み込み処理を参照）。
 // 文体：です・ます調で簡潔に。ボタンは動詞。用語：路線＝課題、岩點＝ホールド、難度＝グレード。
 AppKit.i18n.add('hold', 'ja', {
-  shareDataset: "公開共有すると、この壁の写真（撮影場所は含まれません）、ホールド、あなたのルートが Climbio のオープンデータセット（Hugging Face）に置かれます。誰でもダウンロードしてモデルの学習に使えます（CC BY-SA 4.0）。公開後は取り消せません。",
   pcSharedRoute: "友達から共有された課題",
   pcCopyLink: "リンクをコピー",
   shareTimeout: "接続がタイムアウトしました。課題は保存されています。もう一度共有してください。",
   sharePublic: "公開",
-  envDev: "テスト版", shareQuota: '今日の共有回数の上限に達しました。明日もう一度お試しください。', legalPreShare: '共有すると、', shareGo: '共有する', legalAnd: 'および', terms: '利用規約', privacy: 'プライバシーポリシー',
+  envDev: "テスト版", shareQuota: '今日の共有回数の上限に達しました。明日もう一度お試しください。', terms: '利用規約', privacy: 'プライバシーポリシー',
   help: 'ヘルプ', language: '言語',
   app: 'ホールド猫', emptyTitle: '壁を撮って、課題をつくろう', emptySub: 'ホールドを自動検出します', addWall: '新しいウォール', add: '追加',
   takePhoto: '写真を撮る', fromLibrary: 'アルバム', rotate: '90° 回転',
@@ -36,9 +35,7 @@ shareWall: '壁を共有', baseToggle: 'グレー／暗めのカラー', signNon
   recvBadCode: "Climbio の共有リンクではありません",
   lasso: '囲む', lassoCancel: 'キャンセル', lassoSmall: '小さすぎます。ホールド全体を囲んでください', lassoFail: '輪郭がうまく取れません。もう一度お試しください',
   btnDelete: '削除', btnDiscard: '破棄',
-  signInTitle: 'Google でログイン',
   shareRoute: '課題を共有', 
-  signTitle: "ニックネーム", 
   feetFree: '足自由', seqInsertAt: (n) => `${n}手目の後に挿入`, seqDelete: (n) => `${n}手目を削除`, feetClearAsk: "この課題の足ホールドを消して足自由にしますか？", feetClear: "消去", seqInsertFirst: "先頭に挿入", seqEnd: '挿入を終了',
   seqMove: (n) => `${n}手目`, seq: '順番', seqClearAsk: 'この課題の手順を消去しますか？', seqClear: '消去', totalWalls: "ウォール", totalRoutes: "課題", totalSet: "セット", shareCopied: 'コピーしました。貼り付けて送信できます', loading: '読み込み中…',
   publishFailed: '共有に失敗しました：',

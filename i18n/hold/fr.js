@@ -1,12 +1,11 @@
 // Pack de langue français. La page ne charge que le pack de la langue courante (voir le chargeur au début de index.html).
 // Style : court, simple et neutre ; verbes sur les boutons ; « Touchez » sur téléphone, « cliquez » sur ordinateur. Vocabulaire d'escalade : bloc, prises, croix (réussite), flash.
 AppKit.i18n.add('hold', 'fr', {
-  shareDataset: "Le partage public place la photo de ce mur (sans localisation), les prises et tes voies dans le jeu de données ouvert de Climbio (Hugging Face). Tout le monde peut le télécharger et l’utiliser pour entraîner des modèles (CC BY-SA 4.0), et il ne peut pas être retiré.",
   pcSharedRoute: "Une voie partagée par un ami",
   pcCopyLink: "Copier le lien",
   shareTimeout: "Connexion expirée. Vos voies sont conservées. Réessayez de les partager.",
   sharePublic: "Public",
-  envDev: "Bêta", shareQuota: 'Vous avez beaucoup partagé aujourd\'hui. Réessayez demain.', legalPreShare: 'En partageant, vous acceptez les ', shareGo: 'Partager', legalAnd: ' et la ', terms: 'Conditions d\'utilisation', privacy: 'Politique de confidentialité',
+  envDev: "Bêta", shareQuota: 'Vous avez beaucoup partagé aujourd\'hui. Réessayez demain.', terms: 'Conditions d\'utilisation', privacy: 'Politique de confidentialité',
   help: 'Aide', language: 'Langue',
   app: 'Chat des prises', emptyTitle: 'Photographiez un mur, tracez un bloc', emptySub: 'Les prises sont détectées automatiquement', addWall: 'Nouveau mur', add: 'Ajouter',
   takePhoto: 'Prendre une photo', fromLibrary: 'Photos', rotate: 'Pivoter de 90°',
@@ -36,9 +35,7 @@ shareWall: 'Partager le mur', baseToggle: 'Gris / couleurs sombres', signNone: "
   recvBadCode: "Ce n\’est pas un lien Climbio.",
   lasso: 'Entourer', lassoCancel: 'Annuler', lassoSmall: 'Trop petit. Entourez toute la prise.', lassoFail: 'Contour inutilisable. Réessayez.',
   btnDelete: 'Supprimer', btnDiscard: 'Abandonner',
-  signInTitle: 'Se connecter avec Google',
   shareRoute: 'Partager le bloc', 
-  signTitle: "Pseudo", 
   feetFree: 'Pieds libres', seqInsertAt: (n) => `Insérer après le mouvement ${n}`, seqDelete: (n) => `Supprimer le mouvement ${n}`, feetClearAsk: "Les prises de pied de ce bloc seront retirées. Passer en pieds libres ?", feetClear: "Retirer", seqInsertFirst: "Insérer au début", seqEnd: "Terminer l'insertion",
   seqMove: (n) => `Mouvement ${n}`, seq: 'Ordre', seqClearAsk: 'Effacer l\'ordre des mouvements de ce bloc ?', seqClear: 'Effacer', totalWalls: "Murs", totalRoutes: "Blocs", totalSet: "Ouverts", shareCopied: 'Copié. Collez-le pour l\'envoyer.', loading: 'Chargement…',
   publishFailed: 'Échec du partage : ',

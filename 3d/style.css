@@ -27,3 +27,5 @@ body[data-located=true] .wall-chip::before{background:var(--accent)}
 .route-pill b{font-family:var(--display,inherit);font-weight:700;color:var(--muted)}
 .route-pill[aria-selected=true]{border-color:var(--accent);color:var(--accent);background:rgba(14,14,15,.85)}
 .route-pill[aria-selected=true] b{color:var(--accent)}
+/* 岩點貓的相機看線（auto=1，data-embed 由 boot.js 設、出錯也不拿掉）：使用者看的畫面不放開發工具；工具只在直接打開追蹤頁時用 */
+html[data-embed="1"] #tools-toggle,html[data-embed="1"] header,html[data-embed="1"] footer .actions,html[data-embed="1"] #notice,html[data-embed="1"] #motion-mode,html[data-embed="1"] #camera-device{display:none}

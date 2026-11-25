@@ -13,9 +13,7 @@
   // 偵測框 → 外框、顏色名稱。岩點資料包的格式見 holdkit 的 SPEC.md
   const { bbox, centroid, tracePoly, simplifyPoly } = HoldKit;
   // 難度系統：v＝VB、V0–V12；font＝法國 Fontainebleau（3–8C）；dan＝日本的段級（10級…1級、初段…六段）。每條路線存原本的文字、記住自己用的那套，不換算（換算有誤差）
-  const GRADE_SYS = { v: ['VB', ...Array.from({ length: 13 }, (_, i) => 'V' + i)],
-    font: ['3', '4', '4+', '5', '5+', ...['6', '7'].flatMap(n => ['A', 'A+', 'B', 'B+', 'C', 'C+'].map(l => n + l)), '8A', '8A+', '8B', '8B+', '8C'],
-    dan: [...Array.from({ length: 10 }, (_, i) => `${10 - i}級`), '初段', '二段', '三段', '四段', '五段', '六段'] };
+  const GRADE_SYS = RouteKit.GRADE_SYS;   // 三套難度系統的清單在 kit（routekit/ui.js），內嵌頁共用
   const GRADES = GRADE_SYS.v;
   // 排序、統計、短句判斷難易用的同一把尺（V 級的位置；段級照常見的對照，各岩館不太一樣，排序夠用）
   const GRADE_RANK = { ...Object.fromEntries(GRADE_SYS.v.map((g, i) => [g, i])), '10級': -0.6, '9級': -0.4, '8級': -0.2, '7級': 0, '6級': 1, '5級': 2, '4級': 3,

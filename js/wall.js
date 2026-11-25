@@ -804,11 +804,11 @@
     const f = routeFit(route());
     if (fly) flyTo(f.s, f.tx, f.ty); else setView(f.s, f.tx, f.ty);
   }
-  function setView(s, tx, ty) {
+  function setView(s, tx, ty, composite = false) {
     ({ s, tx, ty } = clampView(s, tx, ty));
     const moved = s !== view.s || tx !== view.tx || ty !== view.ty;
     view.s = s; view.tx = tx; view.ty = ty;
-    if (moved) viewMoved();   // 線條層：縮放、拖曳中整層跟著變形，停下再重畫（見 draw.js）
+    if (moved) viewMoved(composite);   // 線條層：縮放、拖曳中整層跟著變形，停下再重畫（見 draw.js）
     cv.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
     view.min = minScale();
     if (state.w3d) state.w3d.setView(view);
@@ -843,19 +843,24 @@
     flyView(Math.min(maxScale(), 2), x, y);
   }
   // 平滑地把照片座標 (cx, cy) 移到畫面中間、縮放到 s1
-  function flyView(s1, cx, cy) {
+  function flyView(s1, cx, cy, done, composite = false) {
     const st = $('stage'), W = st.clientWidth, H = st.clientHeight, k1 = view.bw * s1 / state.w;
-    flyTo(s1, W / 2 - cx * k1, H / 2 - cy * k1);
+    flyTo(s1, W / 2 - cx * k1, H / 2 - cy * k1, done, undefined, composite);
   }
   // 平滑地縮放、移動到 (s, tx, ty)（進出岩點編輯、選到小岩點）；done：停下時呼叫
-  function flyTo(s, tx, ty, done, ms = 360) {
+  function flyTo(s, tx, ty, done, ms = 360, composite = false) {
     const from = { s: view.s, tx: view.tx, ty: view.ty }, to = { s, tx, ty };
     const dur = AppKit.ui.reducedMotion() ? 0 : ms, t0 = performance.now();
+    let elapsed = 0, last = t0;
     cancelAnimationFrame(focusAnim);
     const step = () => {
-      const p = dur ? Math.min(1, (performance.now() - t0) / dur) : 1, e = 1 - (1 - p) ** 3;
-      setView(from.s + (to.s - from.s) * e, from.tx + (to.tx - from.tx) * e, from.ty + (to.ty - from.ty) * e);
-      renderLines();
+      const now = performance.now();
+      // 落掉一幀時放慢重疊選點的縮放，避免下一幀直接跳到很遠的位置。
+      if (composite) { elapsed += Math.min(now - last, 1000 / 30); last = now; }
+      const p = dur ? Math.min(1, (composite ? elapsed : now - t0) / dur) : 1;
+      const e = composite ? p * p * (3 - 2 * p) : 1 - (1 - p) ** 3;
+      setView(from.s + (to.s - from.s) * e, from.tx + (to.tx - from.tx) * e, from.ty + (to.ty - from.ty) * e, composite);
+      if (!composite) renderLines();
       if (p < 1) focusAnim = requestAnimationFrame(step); else if (done) done();
     };
     step();

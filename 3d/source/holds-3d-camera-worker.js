@@ -194,6 +194,23 @@ export function cameraWorkerMain(){
   trackedWallId=activeWallId;
   self.postMessage({type:'ready'});
  }
+ // 影格 → 灰階。相機的 VideoFrame（I420／NV12）直接取 Y 平面，不經主執行緒 canvas 讀回（低階 Android 一次約 65 ms）；其他來源收 ImageData
+ let frameBuf=null;
+ function copyPlane(dst,buf,offset,stride,rowBytes,rows){if(stride===rowBytes){dst.set(buf.subarray(offset,offset+rowBytes*rows));return;}for(let y=0;y<rows;y++)dst.set(buf.subarray(offset+y*stride,offset+y*stride+rowBytes),y*rowBytes);}
+ async function frameGray(data){
+  if(!data.frame){const src=cv.matFromImageData(data.image),gray=new cv.Mat();cv.cvtColor(src,gray,cv.COLOR_RGBA2GRAY);src.delete();return gray;}
+  const f=data.frame;
+  try{
+   const w=f.visibleRect.width,h=f.visibleRect.height,fmt=String(f.format||''),size=f.allocationSize();
+   if(!frameBuf||frameBuf.length<size)frameBuf=new Uint8Array(size);
+   const layout=await f.copyTo(frameBuf);let full;
+   if(/^(I420|I420A|I422|I444|NV12)$/.test(fmt)){full=new cv.Mat(h,w,cv.CV_8UC1);copyPlane(full.data,frameBuf,layout[0].offset,layout[0].stride,w,h);}
+   else if(/^(RGBA|RGBX|BGRA|BGRX)$/.test(fmt)){const rgba=new cv.Mat(h,w,cv.CV_8UC4);copyPlane(rgba.data,frameBuf,layout[0].offset,layout[0].stride,w*4,h);full=new cv.Mat();cv.cvtColor(rgba,full,fmt.startsWith('B')?cv.COLOR_BGRA2GRAY:cv.COLOR_RGBA2GRAY);rgba.delete();}
+   else throw new Error('unsupported_frame_format:'+fmt);
+   if(full.cols===data.capW&&full.rows===data.capH)return full;
+   const out=new cv.Mat();cv.resize(full,out,new cv.Size(data.capW,data.capH),0,0,cv.INTER_AREA);full.delete();return out;
+  }finally{f.close();}
+ }
  self.onmessage=async({data})=>{
   try{
    if(data.type==='init'){await initialize(data);return;}
@@ -226,9 +243,11 @@ export function cameraWorkerMain(){
     return;
    }
    if(data.type==='reset'){tracked=null;lastPose=null;lastSearch=-Infinity;return;}
-   if(data.type!=='frame')return;
+   if(data.type!=='frame'){data.frame?.close();return;}
    diagnostics={stage:'flow',reason:null,queryFeatures:null,matched3d:null,flowPoints:null,referenceHits:[],inputPoints:0,pnpAttempts:0,pnpRejected:0,maxInliers:0,coverageRejected:0,errorRejected:0,behindRejected:0,coverage:null};
-   const start=performance.now(),src=cv.matFromImageData(data.image),gray=new cv.Mat();cv.cvtColor(src,gray,cv.COLOR_RGBA2GRAY);src.delete();let pose=null,mode='searching',motionAttempted=false,motionSeeded=false;
+   const start=performance.now();let gray;
+   try{gray=await frameGray(data);}catch(err){if(!data.frame)throw err;self.postMessage({type:'frame_error',error:String(err?.message||err)});return;}
+   let pose=null,mode='searching',motionAttempted=false,motionSeeded=false;
    try{
     if(tracked&&previous&&previous.cols===gray.cols&&previous.rows===gray.rows){
      const delta=Array.isArray(data.rotationDelta)&&data.rotationDelta.length===9&&data.rotationDelta.every(Number.isFinite)?data.rotationDelta:null;

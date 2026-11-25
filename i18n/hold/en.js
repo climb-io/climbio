@@ -1,12 +1,11 @@
 // English language pack. The page loads only the pack for the current language (see the loader at the top of index.html).
 // Style: short, plain and neutral; sentence case; verbs on buttons. "Tap" on phones, "click" on computers.
 AppKit.i18n.add('hold', 'en', {
-  shareDataset: "Public sharing puts this wall’s photo (without location), holds and your routes into Climbio’s open dataset (Hugging Face). Anyone can download it and use it to train models (CC BY-SA 4.0), and it can’t be taken back.",
   pcSharedRoute: "A route shared by a friend",
   pcCopyLink: "Copy link",
   shareTimeout: "Connection timed out. Your routes are saved. Tap Share again.",
   sharePublic: "Public",
-  envDev: "Beta", shareQuota: 'You\'ve shared a lot today. Try again tomorrow.', legalPreShare: 'By sharing, you agree to the ', shareGo: 'Share', legalAnd: ' and ', terms: 'Terms of Service', privacy: 'Privacy Policy',
+  envDev: "Beta", shareQuota: 'You\'ve shared a lot today. Try again tomorrow.', terms: 'Terms of Service', privacy: 'Privacy Policy',
   help: 'Help', language: 'Language',
   app: 'Hold Cat', emptyTitle: 'Snap a wall, set a line', emptySub: 'Holds are detected automatically', addWall: 'New wall', add: 'Add',
   takePhoto: 'Take photo', fromLibrary: 'Photos', rotate: 'Rotate 90°',
@@ -36,9 +35,7 @@ shareWall: 'Share wall', baseToggle: 'Gray / dim color', signNone: "Not set", sc
   recvBadCode: "This isn’t a Climbio share link.",
   lasso: 'Circle it', lassoCancel: 'Cancel', lassoSmall: 'Too small. Circle the whole hold.', lassoFail: 'Couldn’t use that outline. Try again.',
   btnDelete: 'Delete', btnDiscard: 'Discard',
-  signInTitle: 'Sign in with Google',
   shareRoute: 'Share route', 
-  signTitle: "Nickname", 
   feetFree: 'Free feet', seqInsertAt: (n) => `Insert after move ${n}`, seqDelete: (n) => `Delete move ${n}`, feetClearAsk: "Foot holds on this route will be removed. Switch to free feet?", feetClear: "Remove", seqInsertFirst: "Insert at start", seqEnd: 'End insert',
   seqMove: (n) => `Move ${n}`, seq: 'Order', seqClearAsk: 'Clear the move order for this route?', seqClear: 'Clear', totalWalls: "Walls", totalRoutes: "Routes", totalSet: "Routes set", shareCopied: 'Copied. Paste it to send.', loading: 'Loading…',
   publishFailed: 'Sharing failed: ',

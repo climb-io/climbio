@@ -52,6 +52,18 @@
 .rk-ui button[aria-pressed="true"] { background: rgba(255, 255, 255, .22); }
 .rk-top { position: absolute; max-width: calc(100% - 12px); top: max(6px, env(safe-area-inset-top)); right: max(6px, env(safe-area-inset-right)); }
 .rk-slot { display: contents; }   /* 宿主塞進來的元素（例如難度）；位置見 slot() */
+/* 難度轉盤（gradeDial）的預設樣式：優先權是 0，宿主（岩點貓）自己的樣式照樣蓋過；字型沒載入就退回系統字 */
+:where(.grade-dial) { flex: none; width: 132px; height: 44px; display: flex; align-items: center; overflow-x: auto; overscroll-behavior: contain; scroll-snap-type: x mandatory; scrollbar-width: none; padding: 0 43px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 28%, #000 72%, transparent); mask-image: linear-gradient(90deg, transparent, #000 28%, #000 72%, transparent); }
+:where(.grade-dial)::-webkit-scrollbar { display: none; }
+:where(.gd-item) { flex: none; width: 46px; height: 44px; scroll-snap-align: center; font: italic 700 30px/44px var(--display, "Barlow Condensed", system-ui, sans-serif); color: #fff; text-align: center; text-shadow: 0 1px 8px rgba(0, 0, 0, .6); transition: color .15s, transform .12s; }
+:where(.gd-item.on) { color: var(--rk-accent, #b8f200); }
+:where(.grade-dial.dan) { padding: 0 40px; }
+:where(.grade-dial.dan .gd-item) { width: 52px; font: 900 19px/44px "Climbio Dan", var(--font, system-ui), sans-serif; }
+/* 轉盤在上方列裡：不吃圓鈕的底色和尺寸（按鈕規則的優先權比較高） */
+.rk-ui .rk-top .grade-dial .gd-item { min-width: 0; width: 46px; height: 44px; padding: 0; border-radius: 0; background: none; color: #fff; font: italic 700 30px/44px var(--display, "Barlow Condensed", system-ui, sans-serif); }
+.rk-ui .rk-top .grade-dial .gd-item.on { color: var(--rk-accent); }
+.rk-ui .rk-top .grade-dial.dan .gd-item { width: 52px; font: 900 19px/44px "Climbio Dan", var(--font, system-ui), sans-serif; }
 /* 小畫面只是預覽：只有一顆進全螢幕的小圖示，其他工具（和縮放、定線）進了全螢幕才有 */
 .rk-only-full, .rk-only-edit { display: none !important; }
 /* 手機（觸控）有雙指縮放，不放縮放鈕；滑鼠才有 */
@@ -321,5 +333,49 @@
     };
   }
 
-  return { EditorUI: { mount, STR, TYPES } };
+  // ---- 難度：三套系統與轉盤（岩點貓、內嵌頁共用）----
+  // v＝VB、V0–V12；font＝法國 Fontainebleau（3–8C）；dan＝日本的段級（10級…1級、初段…六段）。路線存原本的文字，不換算（換算有誤差）
+  const GRADE_SYS = { v: ['VB', ...Array.from({ length: 13 }, (_, i) => 'V' + i)],
+    font: ['3', '4', '4+', '5', '5+', ...['6', '7'].flatMap((n) => ['A', 'A+', 'B', 'B+', 'C', 'C+'].map((l) => n + l)), '8A', '8A+', '8B', '8B+', '8C'],
+    dan: [...Array.from({ length: 10 }, (_, i) => `${10 - i}級`), '初段', '二段', '三段', '四段', '五段', '六段'] };
+  const gradeSysOf = (g) => GRADE_SYS.dan.includes(g) ? 'dan' : GRADE_SYS.font.includes(g) ? 'font' : GRADE_SYS.v.includes(g) ? 'v' : null;
+  // 難度轉盤：左右滑或點旁邊的難度切換，一次只看得到前後幾個；滑過每一格呼叫 onTick（宿主決定要不要震動）。
+  // 程式捲動（換路線）不算使用者選的，不呼叫 onPick。停下來（或點了）才 onPick(grade, token)：token 是開始滑的當下 cfg.token() 的值，宿主用來判斷這段時間路線有沒有換掉。
+  // d 是宿主給的空元素（.grade-dial），樣式可由宿主覆蓋（kit 的預設樣式優先權是 0）。
+  function gradeDial(d, cfg = {}) {
+    let sys = '', list = GRADE_SYS.v, W = 46, user = false, tick = -1, idle = 0;
+    const token = () => (cfg.token ? cfg.token() : undefined);
+    const paint = () => {   // 照離中間的距離縮小、變淡
+      const c = d.scrollLeft / W;
+      [...d.children].forEach((b, i) => { const k = Math.min(2, Math.abs(i - c)); b.style.transform = `scale(${1 - k * 0.2})`; b.style.opacity = 1 - k * 0.35; b.classList.toggle('on', k < 0.5); });
+    };
+    function setSystem(s) {   // 段級的字比較寬，一格也寬一點
+      if (sys === s || !GRADE_SYS[s]) return;
+      sys = s; list = GRADE_SYS[s]; W = s === 'dan' ? 52 : 46;
+      d.classList.toggle('dan', s === 'dan');
+      d.replaceChildren(...list.map((g) => { const b = d.ownerDocument.createElement('button'); b.type = 'button'; b.className = 'gd-item'; b.textContent = g; b.onclick = () => { user = true; setValue(g, true); user = false; if (cfg.onPick) cfg.onPick(g, token()); }; return b; }));
+    }
+    function setValue(g, smooth = false, fallbackSys) {
+      if (d.hidden || (user && !smooth)) return;
+      setSystem(gradeSysOf(g) || fallbackSys || sys || 'v');
+      const i = list.indexOf(g);
+      if (i < 0) return;
+      if (Math.abs(d.scrollLeft - i * W) > 1) d.scrollTo({ left: i * W, behavior: smooth ? 'smooth' : 'instant' });
+      paint();
+    }
+    setSystem(cfg.sys || 'v');
+    const touch = () => { user = true; };
+    for (const ev of ['pointerdown', 'touchstart', 'wheel']) d.addEventListener(ev, touch, { passive: true });
+    d.addEventListener('scroll', () => {
+      const i = Math.max(0, Math.min(list.length - 1, Math.round(d.scrollLeft / W)));
+      paint();
+      if (!user) return;
+      if (i !== tick) { if (tick >= 0 && cfg.onTick) cfg.onTick(); tick = i; }
+      const tk = token();
+      clearTimeout(idle); idle = setTimeout(() => { tick = -1; user = false; if (cfg.onPick) cfg.onPick(list[i], tk); }, 140);
+    }, { passive: true });
+    return { setSystem, setValue, paint, get system() { return sys; }, release() { user = false; } };
+  }
+
+  return { EditorUI: { mount, STR, TYPES }, GRADE_SYS, gradeSysOf, gradeDial };
 });

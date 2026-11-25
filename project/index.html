@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#F7F9FB">
-<title>把 Climbio 放進你的岩館 App | Climbio</title>
+<title>把岩點貓加到你的攀岩 App | Climbio</title>
 <script src="../doc-language.js"></script>
-<meta name="description" content="岩館經營者專用：不必自己開發，就能讓你的 App 有看線與定線。看實際範例，再複製指令交給 AI Agent 完成整合。">
+<meta name="description" content="讓岩友在你的 App 裡看路線、點岩點定線。把牆面照片變成互動路線圖，會員帳號和完攀紀錄繼續由你管理。">
 <link rel="canonical" href="https://climbio.app/project/">
 <link rel="alternate" hreflang="zh-Hant" href="https://climbio.app/project/">
 <link rel="alternate" hreflang="en" href="https://climbio.app/en/project/">
@@ -27,30 +27,46 @@
 <nav class="site-nav"><a href="../guides/">使用說明</a></nav>
 </header>
 <main class="pg">
-<div class="pg-hero"><span class="pg-eyebrow">給岩館經營者</span><h1>讓你的岩館 App 有看線與定線，不必自己開發</h1><p class="pg-lead">把牆面照片交給 Climbio 整理成可以點岩點的牆，再放進你現有的 App。岩友在你的 App 裡就能看線、定線；你的帳號、紀錄與資料庫都不用動。</p><div class="pg-actions"><a class="pg-btn primary" href="#demo">看實際範例</a><a class="pg-btn" href="#prompts">複製給 AI Agent 的指令</a></div></div>
-<section class="pg-section"><h2>放進去之後，你的岩館得到什麼</h2><div class="pg-grid"><div class="pg-card"><h3>不用另外開發</h3><p>看線與定線畫面是現成的：在 App 放一個內嵌頁（網頁用 iframe，原生 App 用 WebView），告訴它牆的 id，就完成。</p></div><div class="pg-card"><h3>更新牆面，就是上傳一張照片</h3><p>工作人員在你的後台選一張牆面照片，瀏覽器裡直接偵測岩點，按發佈就有一面互動牆。想要更精準，可以讓 AI Agent 照 Studio 的流程精修。</p></div><div class="pg-card"><h3>岩友在別處也找得到你</h3><p>你的牆同時出現在岩點貓的「找牆面」，路線在你的 App 與岩點貓都看得到，不必各維護一份。</p></div><div class="pg-card"><h3>你的使用者與紀錄不用動</h3><p>Climbio 只放牆面與路線。使用者怎麼對應路線、完攀紀錄、留言，全由你的 App 決定；提交路線以你的網站為身分，不需要另外申請金鑰。</p></div></div></section>
-<section class="pg-section" id="demo"><h2>實際看看</h2><p>這是放進岩館 App 的定線畫面：點牆上的岩點，就能定出一條路線（示範用，不會儲存）。看線是同一個內嵌頁，只差在模式。</p>
-<div class="pg-demo-box" id="demo-box" data-wall="0fe38b21d07b3771/nbh6yueynqa0" data-loading="載入中…"><button type="button" class="pg-btn primary" id="demo-load">載入範例</button><span class="pg-demo-hint">點一下才會載入（照片約 2 MB）</span></div>
-<div class="pg-grid two pg-reg"><img class="pg-shot" src="../demo/home/hold-community-view-zh.webp" alt="岩點貓看一面公開牆的路線" loading="lazy"><div><h3>一般使用者看到的是同一面牆</h3><p>你的牆發佈後也會出現在岩點貓。岩友可以直接在岩點貓看線、定線，不用安裝你的 App，路線兩邊都看得到。</p><a class="pg-btn" href="../hold/">開啟岩點貓</a></div></div></section>
-<section class="pg-section"><h2>怎麼做</h2><ol class="pg-steps"><li>AI Agent 幫你接好：後台放「牆面照片」內嵌頁，路線頁放看線、定線內嵌頁。</li><li>工作人員上傳牆面照片：像更新原本的照片一樣，偵測岩點、按發佈，App 存回傳的牆 id。換新照片就是新的一面牆。</li><li>使用者定線：定完按提交，路線就公開在這面牆；你的 App 記下回傳的路線 id，對應你自己的使用者。</li></ol></section>
-<section class="pg-section" id="prompts"><h2>複製給 AI Agent</h2><p>貼給你平常用的 AI Agent（Claude、ChatGPT、Codex 都可以）。它讀完整份流程後，會一次把需要你提供的資料列成清單問你，你回答就好。</p><div class="pg-prompt"><pre id="agent-prompt" lang="zh-Hant">請先閱讀 https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md ，照裡面的流程幫我們岩館整合 Climbio。一開始請把需要我提供的資料一次列成清單問我，不要分很多次問；我答不出來的，請給我選項和建議，不要自己編造。</pre><button type="button" class="pg-btn primary" data-copy="#agent-prompt" data-done="已複製">複製</button></div><p>技術細節都在 GitHub，AI Agent 會自己讀：</p><div class="pg-actions"><a class="pg-btn" href="https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md">整合說明</a></div></section>
+<div class="pg-hero"><h1>把岩點貓加到你的攀岩 App</h1><p class="pg-lead">讓岩友在你的 App 裡看路線、點岩點定線。把牆面照片變成互動路線圖，會員帳號和完攀紀錄繼續由你管理。</p><div class="pg-actions"><a class="pg-btn primary" href="#demo">看南港實例</a></div></div>
+<section class="pg-section"><h2>岩館和岩友用得到的功能</h2><div class="pg-grid"><div class="pg-card"><h3>看線更清楚</h3><p>用貼合岩點的外框標示路線，在密集的 Spray Wall 上也能看出哪些點屬於這條線。</p></div><div class="pg-card"><h3>換線後更新牆照</h3><p>工作人員上傳新牆照，系統在瀏覽器裡辨識岩點。確認後發佈，岩友就能用新的互動牆。</p></div><div class="pg-card"><h3>沿用現有會員系統</h3><p>會員、完攀紀錄和留言由你的 App 管理。岩點貓提供牆照、岩點和路線畫面。</p></div></div></section>
+<section class="pg-section" id="demo" aria-labelledby="demo-title">
+<h2 id="demo-title">同一條路線，兩種標示</h2>
+<p id="demo-help">在原岩南港 Spray Wall 的示範線上左右拖曳，比較圓圈和貼合岩點的外框。</p>
+<figure class="pg-compare">
+  <figcaption><span>畫圈定線</span><span>Climbio 岩點外框</span></figcaption>
+  <div class="pg-compare-stage">
+    <img src="../demo/reel/nangang-wall.webp" width="976" height="607" alt="原岩南港 Spray Wall 牆面" loading="lazy">
+    <canvas aria-hidden="true"></canvas>
+    <canvas class="pg-compare-circles" aria-hidden="true"></canvas>
+    <input type="range" min="0" max="100" value="50" aria-labelledby="demo-title" aria-describedby="demo-help" disabled>
+    <div class="pg-compare-divider" aria-hidden="true"><span class="pg-compare-handle">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 7-5 5 5 5m6-10 5 5-5 5"/></svg>
+    </span></div>
+  </div>
+</figure>
+</section>
+<section class="pg-section pg-volume" id="volume" aria-labelledby="volume-title">
+<h2 id="volume-title">量體上的小岩點，也能點準</h2>
+<p>在原岩南港，光是這個量體就有七顆岩點。畫一個圈容易把鄰點也圈進去。岩點貓會放大重疊區，你可以確認手指下的岩點或整個量體，也可以直接點旁邊的小點。</p>
+<div class="pg-volume-grid">
+  <figure>
+    <figcaption id="volume-circles">畫圈標示</figcaption>
+    <canvas role="img" aria-labelledby="volume-circles"></canvas>
+  </figure>
+  <figure>
+    <figcaption id="volume-pick">岩點貓放大選點</figcaption>
+    <canvas aria-labelledby="volume-pick"></canvas>
+    <button class="pg-btn" type="button" disabled>重試放大選點</button>
+  </figure>
+</div>
+</section>
+<section class="pg-section" id="prompts"><h2>交給 AI Agent 串接</h2><p>如果你有可修改的攀岩 App 或網站，把下面這段貼給你平常用的 AI Agent。它會先問你 App 原始碼、管理後台和驗收環境，再把看線與定線接進去。</p><p class="pg-muted">這個整合使用公開牆面。發佈後，牆照與路線會公開分享。</p><div class="pg-prompt"><pre id="agent-prompt" lang="zh-Hant">請先閱讀 https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md ，照裡面的流程幫我們岩館整合 Climbio。一開始請把需要我提供的資料一次列成清單問我，不要分很多次問；我答不出來的，請給我選項和建議，不要自己編造。</pre><button type="button" class="pg-btn primary" data-copy="#agent-prompt" data-done="已複製">複製</button></div><div class="pg-actions"><a class="pg-btn" href="https://github.com/climb-io/climbio/blob/main/docs/gym-onboarding.md">整合說明</a></div></section>
 <footer class="pg-foot docs-footer"><span>© 2026 Climbio</span><nav><a href="../">首頁</a> · <a href="../privacy.html">隱私權</a> · <a href="../terms.html">使用條款</a></nav></footer>
 </main>
 <script>
 document.addEventListener('click',function(e){var b=e.target.closest('[data-copy]');if(!b)return;var el=document.querySelector(b.dataset.copy),t=el.textContent,done=function(){var o=b.textContent;b.textContent=b.dataset.done;setTimeout(function(){b.textContent=o;},1800);},fb=function(){var r=document.createRange();r.selectNodeContents(el);var g=getSelection();g.removeAllRanges();g.addRange(r);try{document.execCommand('copy');done();}catch(x){}};if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,fb);else fb();});
-(function(){
-var box=document.getElementById('demo-box'),btn=document.getElementById('demo-load');if(!box||!btn)return;
-var frame=null;
-function send(m){if(frame&&frame.contentWindow)frame.contentWindow.postMessage(Object.assign({climbio:'routekit',v:1},m),'*');}
-btn.addEventListener('click',function(){
-  btn.disabled=true;btn.textContent=box.dataset.loading;
-  addEventListener('message',function(e){if(!frame||e.source!==frame.contentWindow||!e.data||e.data.climbio!=='routekit')return;
-    if(e.data.type==='ready')send({type:'init',wallId:box.dataset.wall,layerUrls:[]});
-    if(e.data.type==='fullscreen'){frame.classList.toggle('full',!!e.data.on);send({type:'setFullscreen',on:!!e.data.on});}});
-  frame=document.createElement('iframe');frame.className='pg-demo';frame.allow='fullscreen';frame.title=document.querySelector('#demo h2').textContent;frame.src='https://embed.climbio.app/routekit/v1/?mode=edit&maxStart=2';
-  box.replaceWith(frame);
-});
-})();
 </script>
+<script type="module" src="../project/compare.js"></script>
+<script type="module" src="../project/volume.js"></script>
 </body>
 </html>

@@ -17,12 +17,30 @@ const CAPTURE_LONG_SIDE = 640;
 const FEATURE_LONG_SIDE = 1280;
 const STALE_MS = 500;
 const MIN_PROCESS_INTERVAL_MS = 16; // 追蹤態允許高頻光流（受瀏覽器實際新影格節流）
-const SYNC_HOLD_MS = 34; // 同幀對齊等待上限：超過即放行預覽並套用延遲補償，避免畫面卡頓
+const SYNC_HOLD_MS = 34; // 同幀對齊等待下限：超過即放行預覽並套用延遲補償，避免畫面卡頓
+const SYNC_HOLD_MAX_MS = 70; // 慢的手機照實際處理時間多等一點（上限），疊圖才跟得上同一幀
+const CAM_REVERSED_KEY = 'climbio.wall2dCamReversed'; // 這支手機的相機會不會把直／橫寬高反過來（boot.js 開相機前先讀）
 const REANCHOR_FRAME_INTERVAL = 40;
 const CAM_CACHE_DB = 'climbio-wall2d-cam';
 const CAM_CACHE_STORE = 'cameras';
 
 const absNow = () => performance.timeOrigin + performance.now();
+
+function readCamReversed() {
+  try {
+    return JSON.parse(localStorage.getItem(CAM_REVERSED_KEY) || '{}') || {};
+  } catch {
+    return {};
+  }
+}
+function saveCamReversed(orientation, reversed) {
+  try {
+    const all = readCamReversed();
+    if (all[orientation] === reversed) return;
+    all[orientation] = reversed;
+    localStorage.setItem(CAM_REVERSED_KEY, JSON.stringify(all));
+  } catch { /* 存不了就下次再判斷 */ }
+}
 
 let blurSupported = null;
 function supportsCanvasBlur() {
@@ -434,6 +452,9 @@ async function main() {
   const cameraProfiles = new Map();
   const snapPool = [document.createElement('canvas'), document.createElement('canvas')];
   let snapIdx = 0;
+  let useVideoFrame = typeof VideoFrame === 'function';
+  let procEma = 0;
+  let prewarm = null;
   const runtimeUrl = new URL('../../redpoint/vendor/opencv-4.10.0.js', location.href).href;
   const timingMarks = {
     bootAt: window.__wall2dBootAt || null,
@@ -500,8 +521,9 @@ async function main() {
     lastInputFrame = null;
     lastPreviewFrame = null;
     pendingSync = null;
-    pendingReanchorCopy = null;
+    dropReanchorCopy();
     poseHistory = [];
+    procEma = 0;
     lastSyncedFrameId = -1;
     overlayDirty = false;
     running = false;
@@ -616,6 +638,73 @@ async function main() {
     return Hpred ? { ...curr.pose, H: Hpred } : pose;
   }
 
+  // 把一個影格交給 Worker。相機畫面優先用 VideoFrame（轉移給 Worker，Worker 直接取 Y 平面當灰階），
+  // 不用 canvas 的 drawImage＋getImageData：低階 Android 在主執行緒讀回一次約 65 ms，預覽和疊圖都會被拖慢。
+  // 不支援、影格有旋轉或 Worker 讀不出來時改回 canvas 擷取。wantReanchor 時另外留一份給重錨 Worker
+  function captureForWorker(sourceEl, srcW, srcH, wantReanchor) {
+    const scale = Math.min(1, CAPTURE_LONG_SIDE / Math.max(srcW, srcH));
+    const capW = Math.max(1, Math.round(srcW * scale));
+    const capH = Math.max(1, Math.round(srcH * scale));
+    if (useVideoFrame && sourceEl === video) {
+      let frame = null;
+      try {
+        frame = new VideoFrame(video);
+      } catch {
+        useVideoFrame = false;
+      }
+      if (frame) {
+        if ((frame.rotation || 0) !== 0 || frame.flip || frame.displayWidth !== srcW || frame.displayHeight !== srcH) {
+          frame.close();
+          useVideoFrame = false;
+        } else {
+          return {
+            msg: { frame, capW, capH },
+            transfer: [frame],
+            reanchor: wantReanchor ? { frame: frame.clone(), capW, capH } : null,
+          };
+        }
+      }
+    }
+    if (capture.width !== capW || capture.height !== capH) {
+      capture.width = capW;
+      capture.height = capH;
+    }
+    captureCtx.drawImage(sourceEl, 0, 0, capW, capH);
+    const image = captureCtx.getImageData(0, 0, capW, capH);
+    return {
+      msg: { image, capW, capH },
+      transfer: [image.data.buffer],
+      reanchor: wantReanchor ? { image: new ImageData(new Uint8ClampedArray(image.data), capW, capH), capW, capH } : null,
+    };
+  }
+
+  function dropReanchorCopy() {
+    pendingReanchorCopy?.frame?.close();
+    pendingReanchorCopy = null;
+  }
+
+  function sendFrame(sourceEl, srcW, srcH, frameKey, now, wantReanchor) {
+    const frameId = ++frames;
+    let cap = captureForWorker(sourceEl, srcW, srcH, wantReanchor);
+    try {
+      worker.postMessage({ type: 'frame', ...cap.msg, frameId, epoch: trackingEpoch }, cap.transfer);
+    } catch (err) {
+      // 這個瀏覽器不能把 VideoFrame 轉移給 Worker：之後都用 canvas 擷取
+      if (!cap.msg.frame) throw err;
+      cap.msg.frame.close();
+      cap.reanchor?.frame?.close();
+      useVideoFrame = false;
+      cap = captureForWorker(sourceEl, srcW, srcH, wantReanchor);
+      worker.postMessage({ type: 'frame', ...cap.msg, frameId, epoch: trackingEpoch }, cap.transfer);
+    }
+    dropReanchorCopy();
+    if (cap.reanchor) pendingReanchorCopy = { frameId, epoch: trackingEpoch, wallId: pose?.wallId, ...cap.reanchor };
+    lastInputFrame = frameKey;
+    busy = true;
+    lastSent = now;
+    return frameId;
+  }
+
   function processSourceFrame(sourceEl, srcW, srcH, frameKey, now) {
     if (!running || !sourceEl || !srcW || !srcH) return false;
     const hasWorkerWall = Array.from(wallsById.values()).some((w) => w._inWorker);
@@ -623,40 +712,17 @@ async function main() {
     const canDispatch = ready && !busy && !buildingCamera && hasWorkerWall && frameKey !== lastInputFrame && (now - lastSent >= MIN_PROCESS_INTERVAL_MS);
 
     if (isFreshTracking && canDispatch && !pendingSync) {
-      // 同幀對齊：先截下此影格並送給 Worker，待 ~8ms 單應矩陣回來後在同一時脈一起畫預覽與疊圖
+      // 同幀對齊：先截下此影格並送給 Worker，單應矩陣回來後在同一時脈一起畫預覽與疊圖
       const snap = snapPool[snapIdx ^= 1];
       if (snap.width !== srcW || snap.height !== srcH) {
         snap.width = srcW;
         snap.height = srcH;
       }
       snap.getContext('2d', { alpha: false }).drawImage(sourceEl, 0, 0, srcW, srcH);
-
-      const scale = Math.min(1, CAPTURE_LONG_SIDE / Math.max(srcW, srcH));
-      const cw = Math.max(1, Math.round(srcW * scale));
-      const ch = Math.max(1, Math.round(srcH * scale));
-      if (cw && ch) {
-        lastInputFrame = frameKey;
-        capture.width = cw;
-        capture.height = ch;
-        captureCtx.drawImage(sourceEl, 0, 0, cw, ch);
-        const image = captureCtx.getImageData(0, 0, cw, ch);
-        const frameId = ++frames;
-        if (reanchorWorkerReady && !reanchorBusy && (pose.needsAnchor || frameId - lastReanchorFrame >= REANCHOR_FRAME_INTERVAL)) {
-          pendingReanchorCopy = {
-            frameId,
-            epoch: trackingEpoch,
-            wallId: pose.wallId,
-            data: new Uint8ClampedArray(image.data),
-            width: cw,
-            height: ch,
-          };
-        }
-        pendingSync = { frameId, epoch: trackingEpoch, canvas: snap, srcW, srcH, capturedAt: now, frameKey };
-        busy = true;
-        lastSent = now;
-        worker.postMessage({ type: 'frame', image, frameId, epoch: trackingEpoch }, [image.data.buffer]);
-        return true;
-      }
+      const wantReanchor = reanchorWorkerReady && !reanchorBusy && (pose.needsAnchor || frames + 1 - lastReanchorFrame >= REANCHOR_FRAME_INTERVAL);
+      const frameId = sendFrame(sourceEl, srcW, srcH, frameKey, now, wantReanchor);
+      pendingSync = { frameId, epoch: trackingEpoch, canvas: snap, srcW, srcH, capturedAt: now, frameKey };
+      return true;
     }
 
     if (!pendingSync) {
@@ -666,21 +732,7 @@ async function main() {
       }
     }
 
-    if (canDispatch) {
-      const scale = Math.min(1, CAPTURE_LONG_SIDE / Math.max(srcW, srcH));
-      const cw = Math.max(1, Math.round(srcW * scale));
-      const ch = Math.max(1, Math.round(srcH * scale));
-      if (cw && ch) {
-        lastInputFrame = frameKey;
-        capture.width = cw;
-        capture.height = ch;
-        captureCtx.drawImage(sourceEl, 0, 0, cw, ch);
-        const image = captureCtx.getImageData(0, 0, cw, ch);
-        busy = true;
-        lastSent = now;
-        worker.postMessage({ type: 'frame', image, frameId: ++frames, epoch: trackingEpoch }, [image.data.buffer]);
-      }
-    }
+    if (canDispatch) sendFrame(sourceEl, srcW, srcH, frameKey, now, false);
     return false;
   }
 
@@ -720,8 +772,10 @@ async function main() {
     requestedAspect = constraints.aspectRatio.ideal;
     let chosenId = selectedCamera || autoCameraId;
     const profileKey = (id) => `${id}/${requestedAspect < 1 ? 'portrait' : 'landscape'}`;
+    const orientation = requestedAspect < 1 ? 'portrait' : 'landscape';
     const profile = chosenId ? cameraProfiles.get(profileKey(chosenId)) : null;
-    let corrected = profile?.reversed ?? false;
+    // 這支手機上次判斷過會反過來，就直接用反過來的寬高開，不用先開錯再重開（低階機重開一次約 0.8 秒）
+    let corrected = profile?.reversed ?? readCamReversed()[orientation] === true;
     let usedConstraints = corrected ? reverseCameraConstraints(constraints) : constraints;
 
     const request = (deviceId) => {
@@ -739,7 +793,7 @@ async function main() {
     const early = window.__wall2dEarlyCamera;
     if (early) {
       delete window.__wall2dEarlyCamera;
-      if (!chosenId && !corrected) {
+      if (!chosenId && !!early.reversed === corrected) {
         const res = await early.promise;
         if (token !== generation) { res.stream?.getTracks().forEach((t) => t.stop()); return null; }
         if (res.error) throw res.error;
@@ -828,6 +882,7 @@ async function main() {
     const active = opened.getVideoTracks()[0].getSettings().deviceId;
     if (!selectedCamera && active) autoCameraId = active;
     if (active) cameraProfiles.set(profileKey(active), { reversed: corrected });
+    saveCamReversed(orientation, corrected);
     $('camera-device').value = chosenId || active || '';
 
     // 背景列舉鏡頭；若目前不是主鏡頭再無縫切換，不阻塞首幀顯示
@@ -945,10 +1000,27 @@ async function main() {
     });
   }
 
+  // 相機看線一打開就先載入 OpenCV（約 1 秒），跟開相機同時進行；相機好了 startWorker 直接接手
+  function prewarmWorker() {
+    if (prewarm || worker) return;
+    const w = new Worker(new URL('./wall2d-worker.js', import.meta.url));
+    const p = { worker: w, ready: false, failed: false, startAt: absNow() };
+    w.onmessage = ({ data }) => { if (data.type === 'ready') p.ready = true; };
+    w.onerror = () => { p.failed = true; };
+    w.postMessage({ type: 'init', runtimeUrl, targetWall: targetWallId, walls: [], bgReanchor: false });
+    prewarm = p;
+  }
+
   function startWorker(token) {
-    timingMarks.workerStartAt = absNow();
-    worker = new Worker(new URL('./wall2d-worker.js', import.meta.url));
-    worker.onmessage = ({ data }) => {
+    let pre = prewarm;
+    prewarm = null;
+    if (pre?.failed) {
+      pre.worker.terminate();
+      pre = null;
+    }
+    timingMarks.workerStartAt = pre ? pre.startAt : absNow();
+    worker = pre ? pre.worker : new Worker(new URL('./wall2d-worker.js', import.meta.url));
+    const onWorkerMessage = ({ data }) => {
       if (token !== generation) return;
       if (data.type === 'ready') {
         ready = true;
@@ -983,10 +1055,18 @@ async function main() {
         return;
       }
       busy = false;
+      if (data.type === 'frame_error') {
+        // Worker 讀不出 VideoFrame：之後改用 canvas 擷取，這一幀放掉
+        useVideoFrame = false;
+        pendingSync = null;
+        dropReanchorCopy();
+        log.event('video_frame_fallback', { error: data.error });
+        return;
+      }
       if (data.type === 'error') {
         buildingCamera = false;
         pendingSync = null;
-        pendingReanchorCopy = null;
+        dropReanchorCopy();
         log.error(data.error);
         pose = null;
         poseHistory = [];
@@ -999,7 +1079,7 @@ async function main() {
       if (data.type === 'pose') {
         if (data.epoch !== trackingEpoch) {
           if (pendingSync && pendingSync.epoch !== data.epoch) pendingSync = null;
-          pendingReanchorCopy = null;
+          dropReanchorCopy();
           return;
         }
         fpsProcessed++;
@@ -1037,20 +1117,27 @@ async function main() {
           if (pendingReanchorCopy && pendingReanchorCopy.frameId === data.frameId && reanchorWorker && reanchorWorkerReady && !reanchorBusy && (pose.needsAnchor || data.frameId - lastReanchorFrame >= REANCHOR_FRAME_INTERVAL)) {
             reanchorBusy = true;
             lastReanchorFrame = data.frameId;
-            const imgData = new ImageData(pendingReanchorCopy.data, pendingReanchorCopy.width, pendingReanchorCopy.height);
+            const c = pendingReanchorCopy;
+            pendingReanchorCopy = null;
             reanchorWorker.postMessage({
               type: 'reanchor_frame',
-              image: imgData,
+              image: c.image,
+              frame: c.frame,
+              capW: c.capW,
+              capH: c.capH,
               wallId: pose.wallId,
               frameId: data.frameId,
               epoch: data.epoch,
               flowH: pose.H,
-            }, [imgData.data.buffer]);
+            }, c.frame ? [c.frame] : [c.image.data.buffer]);
           }
         } else {
           poseHistory = [];
         }
-        pendingReanchorCopy = null;
+        dropReanchorCopy();
+        if (data.mode === 'tracking' && Number.isFinite(data.processingMs)) {
+          procEma = procEma ? procEma * 0.8 + data.processingMs * 0.2 : data.processingMs;
+        }
 
         if (pendingSync && pendingSync.frameId === data.frameId && pendingSync.epoch === data.epoch) {
           // 同一幀的影像與單應矩陣在同一繪製時脈落地，消除移動延遲
@@ -1059,8 +1146,9 @@ async function main() {
           lastSyncedFrameId = data.frameId;
           renderCurrentOverlay(pose, now);
         } else {
+          // 預覽已經放行、畫面是比這個結果更新的影格：照移動速度外推到現在再畫，不畫回舊位置
           if (pendingSync && pendingSync.epoch !== data.epoch) pendingSync = null;
-          renderCurrentOverlay(pose, now);
+          renderCurrentOverlay(compensatedPose(now), now);
         }
 
         log.frame({
@@ -1086,12 +1174,18 @@ async function main() {
         }
       }
     };
+    worker.onmessage = onWorkerMessage;
     worker.onerror = (e) => {
       buildingCamera = false;
       log.error(e.message);
       document.body.dataset.error = 'true';
       stop('追蹤程式載入失敗');
     };
+    if (pre) {
+      // 預先載入的 Worker 沒有牆面：ready 後由 syncWallsToWorker 補進去
+      if (pre.ready) onWorkerMessage({ data: { type: 'ready' } });
+      return;
+    }
     const initWalls = [];
     for (const w of wallsById.values()) {
       if (w.camera) {
@@ -1270,7 +1364,8 @@ async function main() {
     let frameKey = null;
 
     if (running) {
-      if (pendingSync && now - pendingSync.capturedAt > SYNC_HOLD_MS) {
+      const syncHold = procEma ? Math.min(SYNC_HOLD_MAX_MS, Math.max(SYNC_HOLD_MS, procEma * 1.25 + 6)) : SYNC_HOLD_MS;
+      if (pendingSync && now - pendingSync.capturedAt > syncHold) {
         drawPreviewSurface(pendingSync.canvas, pendingSync.srcW, pendingSync.srcH, pendingSync.frameKey);
         pendingSync = null;
         overlayDirty = true;
@@ -1417,6 +1512,8 @@ async function main() {
         wallCount: wallsById.size,
         urlRouteCount: urlRouteMap.size,
         cameraReady: Array.from(wallsById.values()).some((w) => !!w.camera),
+        videoFrame: useVideoFrame,
+        syncHoldMs: procEma ? Math.min(SYNC_HOLD_MAX_MS, Math.max(SYNC_HOLD_MS, procEma * 1.25 + 6)) : SYNC_HOLD_MS,
         timings: { ...timingMarks },
       };
     },
@@ -1532,6 +1629,7 @@ async function main() {
   syncUi();
 
   if (autoStart) {
+    prewarmWorker();
     startCamera();
     loadWalls().catch((err) => {
       document.body.dataset.error = 'true';

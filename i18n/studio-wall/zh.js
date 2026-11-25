@@ -95,8 +95,6 @@ AppKit.i18n.add('studio-wall', 'zh', {
   hlReviewedOn: "已逐顆檢查",
   hlReviewedOff: "逐顆檢查完了",
   hlPubTitle: "發佈這面牆",
-  hlPubClaim: "我有權發佈這些內容，照片沒有拍到可辨識的人",
-  hlPubNeedClaim: "請先勾選聲明",
   hlPubUploading: "上傳",
   hlPubDone: (v) => `已發佈第 ${v} 版`,
   hlPubGo: "發佈",

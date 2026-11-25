@@ -2,18 +2,27 @@
 const wall2dParams = new URLSearchParams(location.search);
 if (wall2dParams.get('auto') === '1') {
   document.documentElement.dataset.auto = '1';
+  document.documentElement.dataset.embed = '1';   // 岩點貓的相機看線：不顯示開發工具（出錯時 auto 會拿掉，這個不拿）
   const absNow = () => performance.timeOrigin + performance.now();
   window.__wall2dBootAt = absNow();
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   if (vw > 0 && vh > 0 && navigator.mediaDevices?.getUserMedia) {
     const aspect = vw / vh;
-    const constraints = {
+    const base = {
       width: { ideal: Math.round(aspect >= 1 ? 1280 : 1280 * aspect) },
       height: { ideal: Math.round(aspect >= 1 ? 1280 / aspect : 1280) },
       aspectRatio: { ideal: aspect },
       resizeMode: { ideal: 'none' },
     };
+    // 有些手機（例如部分 Android）會把直／橫的寬高反過來給；app.js 判斷過一次就記在 localStorage，這裡直接用對的寬高開
+    let reversed = false;
+    try {
+      reversed = (JSON.parse(localStorage.getItem('climbio.wall2dCamReversed') || '{}') || {})[aspect < 1 ? 'portrait' : 'landscape'] === true;
+    } catch { /* 讀不到就照一般的開 */ }
+    const constraints = reversed
+      ? { ...base, width: base.height, height: base.width, aspectRatio: { ideal: 1 / aspect } }
+      : base;
     window.__wall2dGumCallAt = absNow();
     const p = navigator.mediaDevices.getUserMedia({
       audio: false,
@@ -21,6 +30,7 @@ if (wall2dParams.get('auto') === '1') {
     });
     window.__wall2dEarlyCamera = {
       constraints,
+      reversed,
       promise: p.then(
         (stream) => {
           window.__wall2dGumResolveAt = absNow();

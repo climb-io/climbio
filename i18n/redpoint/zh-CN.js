@@ -111,7 +111,6 @@ AppKit.i18n.add('redpoint', 'zh-CN', {
   // 分享
   linkShared: "已分享链接",
   linkCopied: "已复制链接",
-  shareDriveNote: "分享的岩场会公开放进 Climbio 开放数据集（CC BY-SA 4.0），任何人都能下载，也出现在「世界」；已下载的副本收不回。给身边的朋友用朋友互传。",
   uploading: "上传中…",
   uploadingN: (i, n) => `上传中 ${i}／${n}`,
   leftLocal: (n) => `${n} 张只在本机的照片没有放进去`,

@@ -80,7 +80,7 @@
       }, () => { state.overlapBusy = false; });
       return;
     }
-    if (hit && !state.routeView && openOverlapPick(holdsUnder(x, y))) return;
+    if (hit && !state.routeView && !state.w3d && openOverlapPick(holdsUnder(x, y), null, hit)) return;
     if (hit && !state.routeView) { cycleRouteHold(hit); const r = route(); tapFx(ev.clientX, ev.clientY, (r && r.holds[hit.id]) || ''); return; }
     if (!hit && !state.routeView) {   // 定線：快速點兩下空白處，放大／復原（跟看路線一樣）
       const now = ev.timeStamp;
@@ -89,38 +89,53 @@
     }
   });
   // 定線點到重疊的岩點：放大那一塊、選好（或點候選以外取消）就回到原本的縮放和位置
-  function openOverlapPick(list, back3d = null) {
+  function openOverlapPick(list, back3d = null, preferred = null) {
     if (list.length < 2) return false;
-    const spots = overlapSpots(list), holds = list;
-    state.overlapPick = { holds, spots, back: { s: view.s, tx: view.tx, ty: view.ty }, back3d };
+    const st = $('stage');
+    const pick = RouteKit.prepareOverlapPick(list, back3d ? [] : tapHolds(), { w: state.w, h: state.h, width: st.clientWidth, height: st.clientHeight });
+    const active = state.overlapPick = { ...pick, preferred, back: { s: view.s, tx: view.tx, ty: view.ty }, back3d, ready: !!back3d };
     if (back3d) { buzz(4); render(); return true; }   // 3D：鏡頭已經轉到看得到每一顆的位置（W3D.reveal），不再放大
-    const b = bbox([...holds.flatMap(h => h.poly), ...[...spots.values()].map(s => [s.x, s.y])]), st = $('stage'), k = view.bw / state.w;
-    flyView(Math.min(maxScale(), st.clientWidth * 0.7 / ((b.x1 - b.x0) * k), st.clientHeight * 0.5 / ((b.y1 - b.y0) * k)), (b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2);
-    buzz(4); render();
+    flyView(Math.min(maxScale(), pick.k / (view.bw / state.w)), pick.cx, pick.cy, () => {
+      if (state.overlapPick === active) { active.ready = true; renderLines(); }
+    }, true);
+    buzz(4);
     return true;
   }
   function pickOverlap(x, y, ev) {
-    const p = state.overlapPick, h = RouteKit.pickOverlap(p.holds, p.spots, x, y, 16 * screenPx());   // 規則在 kit（geometry.js），內嵌頁用同一份
+    const p = state.overlapPick, direct = state.w3d ? null : hitHold(x, y);
+    if (!p.ready) return;
+    const h = RouteKit.pickOverlap(p.holds, p.spots, x, y, 16 * screenPx(), direct);
     state.overlapPick = null;
-    if (p.back3d) W3D.flyBack(p.back3d); else flyTo(p.back.s, p.back.tx, p.back.ty);
-    if (!h) { render(); return; }
-    cycleRouteHold(h); const r = route(); tapFx(ev.clientX, ev.clientY, (r && r.holds[h.id]) || '');
+    if (h) {
+      cycleRouteHold(h, p.back3d ? render : null);
+      const r = route(); tapFx(ev.clientX, ev.clientY, (r && r.holds[h.id]) || '');
+    }
+    if (p.back3d) { W3D.flyBack(p.back3d); if (!h) render(); return; }
+    renderLines(true);
+    flyTo(p.back.s, p.back.tx, p.back.ty, render, undefined, true);
   }
-  // 相機看線：只在測試版（env-dev 網域）顯示入口；正式版不顯示也不載入追蹤程式
-  // 3D 牆載入 /3d/?ui=2&auto=1&wall=…&route=…；2D 牆載入 /lab/wall2d-cam/?ui=2&auto=1&wall=…&route=… 並透過同源 postMessage 傳入本機牆面與照片
-  const isDevEnv = document.documentElement.classList.contains('env-dev');
-  const trackable = (w) => isDevEnv && !!w;
+  // 相機看線（正式版、測試版都有）：3D 牆載入 /3d/?ui=2&auto=1&wall=…&route=…；
+  // 2D 牆載入 /lab/wall2d-cam/?ui=2&auto=1&wall=…&route=… 並透過同源 postMessage 傳入本機牆面與照片
+  // 3D 牆要有相機比對資料（/3d/manifest.json 的 wall）才能看線：沒有的不放入口，不給一定打不開的按鈕
+  let cam3dWalls = null, cam3dPromise = null;
+  const load3dTracking = () => cam3dPromise || (cam3dPromise = fetch('/3d/manifest.json', { credentials: 'omit' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((m) => { cam3dWalls = new Set([m?.wall].filter(Boolean)); })
+    .catch(() => { cam3dPromise = null; }));
+  const trackable = (w) => !!w && (!w.m3d || !!cam3dWalls?.has(w.pid));
+  const syncCamEntry = () => {
+    const show = $('editor').classList.contains('viewing') && trackable(state.wall);
+    $('camTrackBtn').hidden = $('vwCam').hidden = !show;
+  };
   let preloadWall2dCam = () => {};
-  if (!isDevEnv) {
-    $('camTrackBtn')?.remove();
-    $('vwCam')?.remove();
-    $('camView')?.remove();
-  } else {
+  {
     // 在岩點貓裡蓋一層全螢幕的追蹤頁，不換頁：返回（左上、返回手勢）就收掉，相機跟著關（iframe 換成空白頁）
     let camSession = 0, camPayload = null;
-    let wall2dStaticPreloaded = false, wall2dManifestPromise = null;
+    let wall2dStaticPreloaded = false, wall2dHeavyPreloaded = false, wall2dManifestPromise = null;
     const preloadedWallIds = new Set();
-    preloadWall2dCam = (w) => {
+    // 先放進 HTTP 快取，按下相機看線時不用等下載：看路線圖時只抓小的頁面程式；
+    // 打開「⋯」（要用的機會大）才抓 OpenCV（約 10 MB）和這面牆的比對資料，省流量模式不先抓
+    preloadWall2dCam = (w, heavy = false) => {
       if (!w || w.m3d) return;
       if (!wall2dStaticPreloaded) {
         wall2dStaticPreloaded = true;
@@ -133,9 +148,13 @@
           '/lab/wall2d-cam/tracking-log.js',
           '/lab/wall2d-cam/wall2d-worker.js',
           '/3d/source/holds-3d-camera-view.js',
-          '/redpoint/vendor/opencv-4.10.0.js',
         ];
         for (const u of urls) fetch(u, { credentials: 'omit' }).catch(() => {});
+      }
+      if (!heavy || navigator.connection?.saveData) return;
+      if (!wall2dHeavyPreloaded) {
+        wall2dHeavyPreloaded = true;
+        fetch('/redpoint/vendor/opencv-4.10.0.js', { credentials: 'omit' }).catch(() => {});
         wall2dManifestPromise = fetch('/lab/wall2d-cam/manifest.json', { credentials: 'omit' })
           .then((r) => (r.ok ? r.json() : null))
           .catch(() => null);
@@ -153,7 +172,7 @@
       }).catch(() => {});
     };
     $('vwMore')?.addEventListener('click', () => {
-      if (state.wall && !state.wall.m3d) preloadWall2dCam(state.wall);
+      if (state.wall && !state.wall.m3d) preloadWall2dCam(state.wall, true);
     });
     const hideCam = () => { camSession++; camPayload = null; $('camView').hidden = true; $('camFrame').src = 'about:blank'; };
     const closeCam = () => { hideCam(); return closeOverlay('camView'); };
@@ -455,22 +474,22 @@
   // 定線：點岩點用目前選的類型（下方按鈕）加進路線；已在路線上、類型不同就改成目前的類型，類型一樣就拿掉（規則在 RouteKit.tapHold）。
   // 剛加進來的同一顆在 0.4 秒內又被點到（不小心快速點兩下）：不算拿掉，不然點了等於沒點（新手關卡會卡住）
   let holdTapAt = { id: null, t: 0 };
-  function cycleRouteHold(hit) {
+  function cycleRouteHold(hit, redraw = render) {
     const r = route() || newRoute();
     state.current = hit;
-    if (state.addType === 'n') return seqTap(r, hit);
+    if (state.addType === 'n') return seqTap(r, hit, redraw);
     const now = performance.now(), res = RouteKit.tapHold(r, hit.id, state.addType || 'h', { justAdded: holdTapAt.id === hit.id && now - holdTapAt.t < 400 });
     if (res === 'ignored') return;
     if (res === 'full') { setAddType('h', true); editorUi.hooks.onLimit(); toast(t('startMax', MAX_START)); return; }   // 起攀滿了：已在路線上的不動
     if (res !== 'removed') holdTapAt = { id: hit.id, t: now };
     if (RouteKit.nextType(r, state.addType, MAX_START) !== state.addType) setAddType('h', true);   // 起攀滿了：之後新的點是手點
-    touch(r); save(); refreshUi(); render();
+    touch(r); save(); refreshUi(); redraw?.();
   }
   // 出手順序：每次點選都追加一手。順序列、類型列、不限腳的長按、上方的取消／完成／暗彩／顯示所有岩點都是 kit 的操作介面 RouteKit.EditorUI
   // （內嵌頁用同一份），這裡只提供「控制器」：把按下的動作接到岩點貓的狀態（state.addType、路線、存檔）。
   // 長按有編號的岩點：接下來點的岩點插在它最後一個編號之後（seqSession 的 startInsert），按「結束插入」才回到接在最後。
   const seqSession = RouteKit.orderSession();   // 規則（追加、插入、刪除、復原）在 kit（editor.js），內嵌頁用同一份
-  function seqTap(r, hit) { seqSession.tap(r, hit.id); touch(r); save(); refreshUi(); render(); }
+  function seqTap(r, hit, redraw = render) { seqSession.tap(r, hit.id); touch(r); save(); refreshUi(); redraw?.(); }
   // 順序模式長按有編號的岩點：選在它最後一個編號之後插入，或刪掉它的某一手；回傳有沒有處理（沒有編號就交給單點編輯）
   function seqHoldAsk(hit) {
     const r = route(), nums = seqSession.numbers(r, hit.id);
@@ -632,45 +651,13 @@
   // 轉盤照這條路線用的難度系統排（段級的字比較寬，一格也寬一點）
   const LAST_GRADE_KEY = 'climbio.lastGrade';
   const lastGrade = () => { const g = lsGet(LAST_GRADE_KEY, null), sys = gradeSys(); return g in GRADE_RANK && sysOf(g) === sys ? g : DEFAULT_GRADE[sys]; };
-  let dialUser = false, dialSys = '', dialList = GRADES, GD_W = 46;
-  function fillDial(sys) {
-    if (dialSys === sys) return;
-    const d = $('rGrade');
-    dialSys = sys; dialList = GRADE_SYS[sys]; GD_W = sys === 'dan' ? 52 : 46;
-    d.classList.toggle('dan', sys === 'dan');
-    d.replaceChildren(...dialList.map(g => { const b = document.createElement('button'); b.className = 'gd-item'; b.textContent = g; b.onclick = () => { dialUser = true; setDial(g, true); pickGrade(g); }; return b; }));
-  }
+  // 轉盤本體在 kit（RouteKit.gradeDial，內嵌頁共用）；這裡只管記住、存進路線
+  let dial = null;
   function buildDial() {
-    const d = $('rGrade');
-    fillDial(gradeSys());
-    let tick = -1, idle = 0;
-    const touchOn = () => { dialUser = true; };
-    for (const ev of ['pointerdown', 'touchstart', 'wheel']) d.addEventListener(ev, touchOn, { passive: true });
-    d.addEventListener('scroll', () => {
-      const i = Math.max(0, Math.min(dialList.length - 1, Math.round(d.scrollLeft / GD_W)));
-      paintDial();
-      if (!dialUser) return;
-      if (i !== tick) { if (tick >= 0) buzz(3); tick = i; }
-      const rid = state.routeId;   // 停下來時換了路線就不算
-      clearTimeout(idle); idle = setTimeout(() => { tick = -1; if (state.routeId === rid) pickGrade(dialList[i]); else dialUser = false; }, 140);
-    }, { passive: true });
+    dial = RouteKit.gradeDial($('rGrade'), { sys: gradeSys(), token: () => state.routeId, onTick: () => buzz(3), onPick: (g, rid) => { if (state.routeId === rid) pickGrade(g); } });   // 停下來時換了路線就不算
   }
-  // 照離中間的距離縮小、變淡
-  function paintDial() {
-    const d = $('rGrade'), c = d.scrollLeft / GD_W;
-    [...d.children].forEach((b, i) => { const k = Math.min(2, Math.abs(i - c)); b.style.transform = `scale(${1 - k * 0.2})`; b.style.opacity = 1 - k * 0.35; b.classList.toggle('on', k < 0.5); });
-  }
-  function setDial(g, smooth = false) {
-    const d = $('rGrade');
-    if (d.hidden || dialUser && !smooth) return;
-    fillDial(g in GRADE_RANK ? sysOf(g) : gradeSys());
-    const i = dialList.indexOf(g);
-    if (i < 0) return;
-    if (Math.abs(d.scrollLeft - i * GD_W) > 1) d.scrollTo({ left: i * GD_W, behavior: smooth ? 'smooth' : 'instant' });
-    paintDial();
-  }
+  const setDial = (g) => { if (dial) dial.setValue(g, false, gradeSys()); };
   function pickGrade(g) {
-    dialUser = false;
     lsSet(LAST_GRADE_KEY, g);
     const r = route();
     if (r && r.grade !== g) { r.grade = g; touch(r); save(); }
@@ -716,9 +703,10 @@
     // 看路線圖：返回｜分享、⋯（編輯、刪除）；編輯路線：取消｜完成（改的東西隨時存，取消＝回到進來編輯前的樣子）
     const editing = !viewing;   // 編輯路線、岩點：左上取消、右上完成
     $('edMenuBtn').hidden = $('shareBtn').hidden = !viewing; $('edMenu').hidden = true;   // 看路線圖：分享直接放在上方
-    if (isDevEnv) {
+    {
       $('camTrackBtn').hidden = !(viewing && trackable(state.wall));
       $('vwCam').hidden = !(viewing && trackable(state.wall));   // 看路線圖右上「⋯」選單裡（#vw）
+      if (viewing && state.wall?.m3d && !cam3dWalls) { const w = state.wall; load3dTracking().then(() => { if (state.wall === w) syncCamEntry(); }); }
       if (viewing && trackable(state.wall) && !state.wall.m3d) setTimeout(() => preloadWall2dCam(state.wall), 0);
     }
     $('vwMenu').hidden = true; $('vwMore').setAttribute('aria-expanded', 'false');

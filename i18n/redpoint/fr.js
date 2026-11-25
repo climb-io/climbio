@@ -111,7 +111,6 @@ AppKit.i18n.add('redpoint', 'fr', {
   // Partage
   linkShared: "Lien partagé",
   linkCopied: "Lien copié",
-  shareDriveNote: "Les sites partagés sont publiés dans le jeu de données ouvert Climbio (CC BY-SA 4.0) : tout le monde peut les télécharger, ils apparaissent aussi dans « Monde » et les copies déjà téléchargées ne peuvent pas être rappelées. Pour vos proches, utilisez l'échange à proximité.",
   uploading: "Envoi…",
   uploadingN: (i, n) => `Envoi ${i}/${n}`,
   leftLocal: (n) => n === 1 ? `1 photo présente uniquement sur cet appareil n'a pas été incluse` : `${n} photos présentes uniquement sur cet appareil n'ont pas été incluses`,
